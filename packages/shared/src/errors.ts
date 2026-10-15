@@ -8,6 +8,8 @@ export const ErrorCode = {
   RateLimited: 'RATE_LIMITED',
   ProtocolUnsupported: 'PROTOCOL_UNSUPPORTED',
   HostUnreachable: 'HOST_UNREACHABLE',
+  ConnectionLost: 'CONNECTION_LOST',
+  ChannelFailed: 'CHANNEL_FAILED',
   HostKeyMismatch: 'HOST_KEY_MISMATCH',
   HostKeyRejected: 'HOST_KEY_REJECTED',
   AuthRejected: 'AUTH_REJECTED',

@@ -1,0 +1,433 @@
+{
+  "image": "tmux-3.2a",
+  "tmuxVersion": "tmux 3.2a",
+  "recordedAt": "2026-10-15",
+  "description": "launch (flags=0 blocks) → UTF-8/wide/control output → ok/error/parse-error commands → refresh-client -C → batches (ok and failing) → pause-after, manual pause/continue → has-session → kill-server → %exit",
+  "launch": "exec sh -c 'export LC_CTYPE=C.utf8; exec /usr/bin/tmux -u -L td-fixture-xcymx6hs -f /dev/null -C start-server '\\\\'; set-option -g history-limit 2000 '\\\\'; set-option -g default-terminal tmux-256color '\\\\'; set-option -g aggressive-resize off '\\\\'; set-option -g detach-on-destroy on '\\\\'; set-option -g window-size latest '\\\\'; set-option -g status off '\\\\'; new-session -A -s main -x 80 -y 24 -e TD_FIXTURE=yes '\\''exec env -u TMUX -u TMUX_PANE \"$SHELL\" -l'\\'",
+  "cols": 80,
+  "rows": 24,
+  "notes": [
+    {
+      "atMs": 424,
+      "atByte": 529,
+      "note": "input: printf with UTF-8, CJK (wide), emoji, SGR, BEL, TAB, backslash"
+    },
+    {
+      "atMs": 868,
+      "atByte": 893,
+      "note": "input: UTF-8 typed directly (echo)"
+    },
+    {
+      "atMs": 1353,
+      "atByte": 1154,
+      "note": "successful command",
+      "result": {
+        "ok": true,
+        "lines": [
+          "ok %0 80x24"
+        ]
+      }
+    },
+    {
+      "atMs": 1395,
+      "atByte": 1223,
+      "note": "failing command",
+      "result": {
+        "ok": false,
+        "lines": [
+          "can't find pane: %99"
+        ]
+      }
+    },
+    {
+      "atMs": 1438,
+      "atByte": 1280,
+      "note": "reply line that looks like a guard",
+      "result": {
+        "ok": true,
+        "lines": [
+          "%end 1 2 1"
+        ]
+      }
+    },
+    {
+      "atMs": 1480,
+      "atByte": 1374,
+      "note": "parse error",
+      "result": {
+        "ok": false,
+        "lines": [
+          "parse error: unknown command: no-such-command"
+        ]
+      }
+    },
+    {
+      "atMs": 1480,
+      "atByte": 1374,
+      "note": "pipelined: three commands written before any reply"
+    },
+    {
+      "atMs": 1522,
+      "atByte": 1526,
+      "note": "pipelined results",
+      "result": [
+        {
+          "ok": true,
+          "lines": [
+            "one"
+          ]
+        },
+        {
+          "ok": true,
+          "lines": [
+            "two"
+          ]
+        },
+        {
+          "ok": true,
+          "lines": [
+            "three"
+          ]
+        }
+      ]
+    },
+    {
+      "atMs": 1564,
+      "atByte": 1628,
+      "note": "resize",
+      "result": {
+        "ok": true,
+        "lines": []
+      }
+    },
+    {
+      "atMs": 2007,
+      "atByte": 2404,
+      "note": "snapshot batch (sentinel ok)",
+      "result": {
+        "ok": true,
+        "blocks": 4
+      }
+    },
+    {
+      "atMs": 2049,
+      "atByte": 2526,
+      "note": "batch with a failing middle command",
+      "result": {
+        "ok": false,
+        "blocks": [
+          {
+            "ok": true,
+            "text": "before"
+          },
+          {
+            "ok": false,
+            "text": "can't find pane: %99"
+          }
+        ]
+      }
+    },
+    {
+      "atMs": 2091,
+      "atByte": 2572,
+      "note": "pause-after",
+      "result": {
+        "ok": true,
+        "lines": []
+      }
+    },
+    {
+      "atMs": 2133,
+      "atByte": 2628,
+      "note": "manual pause",
+      "result": {
+        "ok": true,
+        "lines": [
+          "%pause %0"
+        ]
+      }
+    },
+    {
+      "atMs": 2517,
+      "atByte": 2733,
+      "note": "continue",
+      "result": {
+        "ok": true,
+        "lines": [
+          "%continue %0"
+        ]
+      }
+    },
+    {
+      "atMs": 3402,
+      "atByte": 2963,
+      "note": "message (display-message without -p)",
+      "result": {
+        "ok": true,
+        "lines": []
+      }
+    },
+    {
+      "atMs": 3444,
+      "atByte": 3026,
+      "note": "list-clients",
+      "result": {
+        "ok": true,
+        "lines": [
+          "client-180 1 180"
+        ]
+      }
+    },
+    {
+      "atMs": 3534,
+      "atByte": 3026,
+      "note": "has-session (separate exec) while alive",
+      "result": {
+        "code": 0,
+        "signal": null
+      }
+    },
+    {
+      "atMs": 3575,
+      "atByte": 3072,
+      "note": "kill-server",
+      "result": {
+        "ok": true,
+        "lines": []
+      }
+    },
+    {
+      "atMs": 3666,
+      "atByte": 3096,
+      "note": "has-session (separate exec) after kill-server",
+      "result": {
+        "exit": {
+          "code": 1,
+          "signal": null
+        },
+        "stderr": "no server running on /tmp/tmux-1000/td-fixture-xcymx6hs"
+      }
+    }
+  ],
+  "sent": [
+    {
+      "atMs": 424,
+      "atByte": 529,
+      "line": "send-keys -H -t %0 70 72 69 6e 74 66 20 27 63 61 66 5c 33 30 33 5c 32 35 31 20 5c 33 34 34 5c 32 37 30 5c 32 35 35 5c 33 34 36 5c 32 32 36 5c 32 30 37 20 5c 33 36 30 5c 32 33 37 5c 32 33 30 5c 32 30 30 20 5c 30 33 33 5b 31 6d 42 5c 30 33 33 5b 30 6d 20 5c 5c 20 5c 61 7c 5c 74 7c 5c 6e 27 0d"
+    },
+    {
+      "atMs": 868,
+      "atByte": 893,
+      "line": "send-keys -H -t %0 65 63 68 6f 20 c3 a9 e4 b8 ad f0 9f 98 80 0d"
+    },
+    {
+      "atMs": 1311,
+      "atByte": 1096,
+      "line": "display-message -p 'ok #{pane_id} #{pane_width}x#{pane_height}'"
+    },
+    {
+      "atMs": 1353,
+      "atByte": 1154,
+      "line": "select-pane -t %99"
+    },
+    {
+      "atMs": 1395,
+      "atByte": 1223,
+      "line": "display-message -p '%%end 1 2 1'"
+    },
+    {
+      "atMs": 1438,
+      "atByte": 1280,
+      "line": "no-such-command"
+    },
+    {
+      "atMs": 1480,
+      "atByte": 1374,
+      "line": "display-message -p one"
+    },
+    {
+      "atMs": 1480,
+      "atByte": 1374,
+      "line": "display-message -p two"
+    },
+    {
+      "atMs": 1480,
+      "atByte": 1374,
+      "line": "display-message -p three"
+    },
+    {
+      "atMs": 1522,
+      "atByte": 1526,
+      "line": "refresh-client -C 100x30"
+    },
+    {
+      "atMs": 1965,
+      "atByte": 1706,
+      "line": "capture-pane -p -e -J -N -t %0 -S - -E - ; capture-pane -p -e -J -N -a -q -t %0 ; display-message -p -t %0 '#{pane_id}\t#{pane_width}\t#{pane_height}\t#{history_size}\t#{cursor_x}\t#{cursor_y}\t#{alternate_on}' ; capture-pane -p -P -C -t %0 ; display-message -p 'td-oiblqx6quljx'"
+    },
+    {
+      "atMs": 2007,
+      "atByte": 2404,
+      "line": "display-message -p before ; select-pane -t %99 ; display-message -p never-runs ; display-message -p 'td-g3e2ezg7mo24'"
+    },
+    {
+      "atMs": 2049,
+      "atByte": 2526,
+      "line": "refresh-client -f pause-after=2"
+    },
+    {
+      "atMs": 2091,
+      "atByte": 2572,
+      "line": "refresh-client -A '%0:pause'"
+    },
+    {
+      "atMs": 2133,
+      "atByte": 2628,
+      "line": "send-keys -H -t %0 65 63 68 6f 20 70 61 75 73 65 64 0d"
+    },
+    {
+      "atMs": 2475,
+      "atByte": 2674,
+      "line": "refresh-client -A '%0:continue'"
+    },
+    {
+      "atMs": 2917,
+      "atByte": 2733,
+      "line": "send-keys -H -t %0 65 63 68 6f 20 61 66 74 65 72 0d"
+    },
+    {
+      "atMs": 3360,
+      "atByte": 2917,
+      "line": "display-message 'msg-text'"
+    },
+    {
+      "atMs": 3402,
+      "atByte": 2963,
+      "line": "list-clients -F '#{client_name} #{client_control_mode} #{client_pid}'"
+    },
+    {
+      "atMs": 3534,
+      "atByte": 3026,
+      "line": "kill-server"
+    }
+  ],
+  "chunks": [
+    [
+      15,
+      450
+    ],
+    [
+      23,
+      79
+    ],
+    [
+      467,
+      46
+    ],
+    [
+      467,
+      182
+    ],
+    [
+      467,
+      136
+    ],
+    [
+      910,
+      46
+    ],
+    [
+      911,
+      66
+    ],
+    [
+      911,
+      91
+    ],
+    [
+      1353,
+      58
+    ],
+    [
+      1395,
+      69
+    ],
+    [
+      1438,
+      57
+    ],
+    [
+      1480,
+      94
+    ],
+    [
+      1522,
+      152
+    ],
+    [
+      1564,
+      102
+    ],
+    [
+      1564,
+      78
+    ],
+    [
+      2007,
+      698
+    ],
+    [
+      2049,
+      122
+    ],
+    [
+      2091,
+      46
+    ],
+    [
+      2133,
+      56
+    ],
+    [
+      2175,
+      46
+    ],
+    [
+      2517,
+      59
+    ],
+    [
+      2959,
+      46
+    ],
+    [
+      2959,
+      138
+    ],
+    [
+      3402,
+      46
+    ],
+    [
+      3444,
+      63
+    ],
+    [
+      3575,
+      46
+    ],
+    [
+      3577,
+      18
+    ],
+    [
+      3577,
+      6
+    ]
+  ],
+  "exit": {
+    "code": 0,
+    "signal": null
+  },
+  "stderr": ""
+}

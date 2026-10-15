@@ -1,0 +1,16 @@
+# Test-only sshd configuration shared by every test/sshd image. Never use it on a real host.
+Port 22
+HostKey /etc/ssh/ssh_host_ed25519_key
+PermitRootLogin no
+AllowUsers td
+StrictModes yes
+PubkeyAuthentication yes
+AuthorizedKeysFile .ssh/authorized_keys
+PasswordAuthentication yes
+PermitEmptyPasswords no
+KbdInteractiveAuthentication no
+X11Forwarding no
+AllowTcpForwarding no
+PrintMotd no
+PrintLastLog no
+LogLevel VERBOSE

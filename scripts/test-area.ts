@@ -2,9 +2,9 @@
 import { spawnSync } from 'node:child_process';
 
 const AREAS: Record<string, string[]> = {
-  terminal: ['apps/session-manager/src/emulator', 'packages/terminal-config'],
-  ssh: ['apps/session-manager/src/transport', 'apps/session-manager/src/drivers/raw-pty'],
-  tmux: ['apps/session-manager/src/drivers/tmux-control', 'apps/session-manager/test/tmux'],
+  terminal: ['apps/session-manager/test/emulator', 'packages/terminal-config'],
+  ssh: ['apps/session-manager/test/ssh', 'apps/session-manager/test/raw-pty'],
+  tmux: ['apps/session-manager/test/tmux'],
   all: [],
 };
 

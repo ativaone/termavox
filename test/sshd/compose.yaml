@@ -1,0 +1,28 @@
+# Test-only sshd targets (see keys/README.md). Ports are published on 127.0.0.1 only.
+#   docker compose -f test/sshd/compose.yaml up -d --build
+name: termdock-sshd
+services:
+  no-tmux:
+    build: { context: ., dockerfile: no-tmux.Dockerfile }
+    image: termdock-test-sshd:no-tmux
+    hostname: td-no-tmux
+    init: true
+    ports: ['127.0.0.1:2201:22']
+  tmux-3.2a:
+    build: { context: ., dockerfile: tmux-3.2a.Dockerfile }
+    image: termdock-test-sshd:tmux-3.2a
+    hostname: td-tmux-32a
+    init: true
+    ports: ['127.0.0.1:2202:22']
+  tmux-3.4:
+    build: { context: ., dockerfile: tmux-3.4.Dockerfile }
+    image: termdock-test-sshd:tmux-3.4
+    hostname: td-tmux-34
+    init: true
+    ports: ['127.0.0.1:2203:22']
+  tmux-edge:
+    build: { context: ., dockerfile: tmux-edge.Dockerfile }
+    image: termdock-test-sshd:tmux-edge
+    hostname: td-tmux-edge
+    init: true
+    ports: ['127.0.0.1:2204:22']

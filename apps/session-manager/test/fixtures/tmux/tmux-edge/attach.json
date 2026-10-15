@@ -1,0 +1,107 @@
+{
+  "image": "tmux-edge",
+  "tmuxVersion": "tmux 3.8",
+  "recordedAt": "2026-10-15",
+  "description": "second control client attaches to an existing session (new-session -A) → list-clients → detach-client of the first client → shell exit → %exit",
+  "launch": "exec sh -c 'export LC_CTYPE=C.UTF-8; exec /usr/bin/tmux -u -L td-fixture-rknsvwpj -f /dev/null -C start-server '\\\\'; set-option -g history-limit 2000 '\\\\'; set-option -g default-terminal tmux-256color '\\\\'; set-option -g aggressive-resize off '\\\\'; set-option -g detach-on-destroy on '\\\\'; set-option -g window-size latest '\\\\'; set-option -g status off '\\\\'; new-session -A -s main -x 80 -y 24 -e TD_FIXTURE=yes '\\''exec env -u TMUX -u TMUX_PANE \"$SHELL\" -l'\\'",
+  "cols": 80,
+  "rows": 24,
+  "notes": [
+    {
+      "atMs": 447,
+      "atByte": 473,
+      "note": "list-clients",
+      "result": {
+        "ok": true,
+        "lines": [
+          "client-136 1 136",
+          "client-141 1 141"
+        ]
+      }
+    },
+    {
+      "atMs": 532,
+      "atByte": 576,
+      "note": "detach stale client",
+      "result": {
+        "ok": true,
+        "lines": []
+      }
+    },
+    {
+      "atMs": 533,
+      "atByte": 604,
+      "note": "first client exit",
+      "result": {
+        "code": 0,
+        "signal": null
+      }
+    },
+    {
+      "atMs": 834,
+      "atByte": 604,
+      "note": "input: exit"
+    }
+  ],
+  "sent": [
+    {
+      "atMs": 405,
+      "atByte": 393,
+      "line": "list-clients -F '#{client_name} #{client_control_mode} #{client_pid}'"
+    },
+    {
+      "atMs": 447,
+      "atByte": 473,
+      "line": "display-message -p '#{client_name}'"
+    },
+    {
+      "atMs": 489,
+      "atByte": 530,
+      "line": "detach-client -t client-136"
+    },
+    {
+      "atMs": 834,
+      "atByte": 604,
+      "line": "send-keys -H -t %0 65 78 69 74 0d"
+    }
+  ],
+  "chunks": [
+    [
+      5,
+      393
+    ],
+    [
+      447,
+      80
+    ],
+    [
+      489,
+      57
+    ],
+    [
+      532,
+      46
+    ],
+    [
+      533,
+      28
+    ],
+    [
+      838,
+      46
+    ],
+    [
+      838,
+      14
+    ],
+    [
+      841,
+      6
+    ]
+  ],
+  "exit": {
+    "code": 0,
+    "signal": null
+  },
+  "stderr": ""
+}
