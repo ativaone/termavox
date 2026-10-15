@@ -2,7 +2,13 @@
  * Canonical runtime interfaces (plan §5.1). Names are binding; implementations live in
  * transport/, drivers/, emulator/ and core/.
  */
-import type { Protection } from '@termdock/protocol';
+import type {
+  EndReason,
+  ProfileProtection,
+  Protection,
+  SessionState,
+  SessionStatus,
+} from '@termdock/protocol';
 
 export interface Dimensions {
   cols: number;
@@ -118,6 +124,12 @@ export interface Driver {
   start(ctx: DriverContext, dims: Dimensions): Promise<void>;
   input(data: Uint8Array): void;
   resize(dims: Dimensions): void;
+  /**
+   * Ingest backpressure (plan §5.5): the runtime calls these when the emulator's pending writes
+   * cross 8 MiB / fall below 1 MiB. Implementations pause/resume reading the underlying channel.
+   */
+  pauseOutput(): void;
+  resumeOutput(): void;
   /** Leaves the remote alive (graceful shutdown). */
   detach(): Promise<void>;
   /** Kills the remote shell / tmux server. */
@@ -158,4 +170,114 @@ export interface SessionHost {
   terminate(): Promise<void>;
   /** Graceful shutdown: leave protected remotes alive. */
   shutdown(): Promise<void>;
+}
+
+// ── persistence boundaries (implemented over SQLite in P1; in-memory fakes in tests) ──────
+
+/** Identity of the remote tmux session, recorded on first attach to detect remote reboots. */
+export interface RemoteIdentity {
+  sessionCreated: number;
+  panePid: number;
+}
+
+/** Target snapshotted at session creation (plan §9). */
+export interface SessionTarget {
+  kind: 'ssh' | 'local';
+  hostId: string | null;
+  hostname: string;
+  port: number;
+  username: string;
+  credentialId: string | null;
+}
+
+/** Live policies read from the profile at use time (plan §9). */
+export interface SessionPolicies {
+  protectionMode: ProfileProtection;
+  startupCommand: string | null;
+  env: Record<string, string>;
+  keepaliveIntervalS: number;
+  autoReopen: boolean;
+}
+
+export interface SessionRecord {
+  id: string;
+  userId: string;
+  label: string;
+  target: SessionTarget;
+  term: string;
+  scrollbackLines: number;
+  policies: SessionPolicies;
+  desiredState: 'running' | 'terminated';
+  state: SessionState;
+  status: SessionStatus;
+  protection: Protection | null;
+  /** Base of the per-session tmux socket name (plan §6.3). */
+  tmuxToken: string;
+  tmuxVersion: string | null;
+  remoteIdentity: RemoteIdentity | null;
+  cols: number;
+  rows: number;
+  createdAt: number;
+  lastReadyAt: number | null;
+  endedAt: number | null;
+  endReason: EndReason | null;
+}
+
+export type SessionRecordPatch = Partial<
+  Pick<
+    SessionRecord,
+    | 'desiredState'
+    | 'state'
+    | 'status'
+    | 'protection'
+    | 'tmuxVersion'
+    | 'remoteIdentity'
+    | 'cols'
+    | 'rows'
+    | 'lastReadyAt'
+    | 'endedAt'
+    | 'endReason'
+  >
+> & { probe?: Record<string, string> };
+
+export interface SessionEventInput {
+  type: string;
+  detail?: Record<string, unknown>;
+  actorUserId?: string;
+  attachmentId?: string;
+  ip?: string;
+  userAgent?: string;
+}
+
+/**
+ * Session persistence used by the runtime. Writes are fire-and-forget: the SQLite
+ * implementation queues them in a batched writer so the data plane never waits on a lock.
+ */
+export interface SessionStore {
+  get(sessionId: string): Promise<SessionRecord | null>;
+  /** desired_state = running, excluding sessions whose last state is a non-retryable failure. */
+  listRestorable(): Promise<SessionRecord[]>;
+  update(sessionId: string, patch: SessionRecordPatch): void;
+  appendEvent(sessionId: string, event: SessionEventInput): void;
+}
+
+/** A host key as presented by the server (same shape as transport/ssh HostKeyInfo). */
+export interface PresentedHostKey {
+  type: string;
+  fingerprint: string;
+  publicKeyB64: string;
+}
+
+/** Host-key trust store (plan §5.9). Only the daemon writes known_host_keys. */
+export interface HostKeyStore {
+  /** Trusted keys for a host, keyed by key type; loaded before connect. */
+  trusted(hostId: string): Promise<Map<string, PresentedHostKey>>;
+  recordPending(hostId: string, key: PresentedHostKey): Promise<void>;
+  /** Trusts the pending key with this fingerprint; false when none matches (expired). */
+  trustPending(hostId: string, fingerprint: string, decidedBy: string): Promise<boolean>;
+}
+
+/** Who owns what, for authorization checks on WS attach and internal API calls. */
+export interface OwnershipCheck {
+  sessionOwner(sessionId: string): Promise<string | null>;
 }
