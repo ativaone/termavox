@@ -3,8 +3,9 @@ import { blob, index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-or
 import { user } from './auth.ts';
 
 /**
- * Application tables (plan §9). Write ownership: session-manager writes sessions,
- * session_events, credentials ciphertext and first-seen known_host_keys; web writes the rest.
+ * Application tables (plan §9). Write ownership: session-manager writes sessions, session_events,
+ * credentials, known_host_keys, its instance_settings keys and the audit events of those; web
+ * writes the rest.
  */
 const createdAt = () => integer('created_at', { mode: 'timestamp_ms' }).notNull();
 const updatedAt = () => integer('updated_at', { mode: 'timestamp_ms' }).notNull();

@@ -42,7 +42,6 @@ export const EndReason = z.enum([
   'shell_exited',
   'connection_lost',
   'service_restarted',
-  'profile_deleted',
   'error',
 ]);
 export type EndReason = z.infer<typeof EndReason>;

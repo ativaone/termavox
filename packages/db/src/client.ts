@@ -10,12 +10,16 @@ export type TermdockDb = BetterSQLite3Database<typeof schema> & { $client: Datab
 
 export const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'drizzle');
 
-/** Opens the shared SQLite database with the pragmas both processes rely on (plan §9). */
-export function openDb(file: string): TermdockDb {
+/**
+ * Opens the shared SQLite database with the pragmas both processes rely on (plan §9).
+ * session-manager passes a short busy timeout and retries through its batched writer, so a web
+ * transaction never stalls the data plane; web keeps the 5 s default.
+ */
+export function openDb(file: string, opts: { busyTimeoutMs?: number } = {}): TermdockDb {
   if (file !== ':memory:') mkdirSync(dirname(file), { recursive: true });
   const sqlite = new Database(file);
   sqlite.pragma('journal_mode = WAL');
-  sqlite.pragma('busy_timeout = 5000');
+  sqlite.pragma(`busy_timeout = ${opts.busyTimeoutMs ?? 5000}`);
   sqlite.pragma('foreign_keys = ON');
   sqlite.pragma('synchronous = NORMAL');
   return drizzle(sqlite, { schema }) as TermdockDb;

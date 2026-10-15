@@ -59,8 +59,8 @@ export type ClientMessage = z.infer<typeof ClientMessage>;
 export const SessionSummary = z.object({
   id,
   label: z.string(),
-  profileId: id,
-  hostId: id,
+  profileId: id.nullable(), // null after the profile was deleted (history)
+  hostId: id.nullable(),
   hostName: z.string(),
   hostname: z.string(),
   username: z.string(),
@@ -100,6 +100,7 @@ export const ServerMessage = z.discriminatedUnion('type', [
     sessionId: id,
     cols: z.number().int(),
     rows: z.number().int(),
+    scrollbackLines: z.number().int(),
   }),
   z.object({
     type: z.literal('terminal.resized'),

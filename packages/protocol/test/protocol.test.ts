@@ -112,3 +112,13 @@ describe('layout schema', () => {
     expect(WorkspaceLayout.safeParse(bad).success).toBe(false);
   });
 });
+
+describe('fingerprint normalization', () => {
+  it('accepts pasted OpenSSH fingerprints with or without prefix and padding', async () => {
+    const { Fingerprint } = await import('../src/index.ts');
+    const raw = 'nThbg6kXUpJWGl7E1IGOCspRomTxdCARLviKw6E5SY8';
+    expect(Fingerprint.parse(`SHA256:${raw}=`)).toBe(`SHA256:${raw}`);
+    expect(Fingerprint.parse(` ${raw} `)).toBe(`SHA256:${raw}`);
+    expect(Fingerprint.safeParse('MD5:aa:bb').success).toBe(false);
+  });
+});

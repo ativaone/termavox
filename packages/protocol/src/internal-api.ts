@@ -53,6 +53,11 @@ export const CreateCredentialRequest = z.discriminatedUnion('kind', [
     algorithm: z.literal('ed25519'),
   }),
 ]);
+export const RenameCredentialRequest = z.object({
+  actingUserId,
+  name: z.string().trim().min(1).max(120),
+});
+
 export const CreateCredentialResponse = z.object({
   credentialId: id,
   publicKey: z.string().nullable(),
