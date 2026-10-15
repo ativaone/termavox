@@ -77,6 +77,7 @@ Other protocols (RDP/VNC); Agent mode (outbound agent on target servers); RBAC a
 | D-19 | **The interface is designed with the `impeccable` skill** (vendored at `.claude/skills/impeccable`, pinned in `skills-lock.json`). It owns the visual world, design system and UX passes (§11.0). | Owner, 2026-10-15 |
 | D-20 | **Commit in this repository as each functional block is delivered.** No git remote yet, so no push for now. | Owner, 2026-10-15 |
 | D-21 | **Lean, risk-based automated testing.** Test what really needs testing. Tests are mapped into an always-run fast set and a full pre-release battery; the exact pre-release routine is still to be defined with the owner (§15). | Owner, 2026-10-15 |
+| D-23 | Visual direction for the app (impeccable `new-work`, Operate mode): **air-traffic flight-progress strip board** — slate shell, buff session strips with a state-coloured edge, sessions grouped in state lanes; recorded as the direction contract in `apps/web/.impeccable/surfaces/app-workspace.md`. | Owner, 2026-10-15 |
 | D-22 | Test container matrix reduced to alpine:3 (no tmux), ubuntu:22.04 (3.2a), ubuntu:24.04 (3.4), alpine:edge (newest packaged). Base images for deployment (node, caddy) are approved when the deploy phase starts. | Owner, 2026-10-15 |
 
 ### 2.2 Technical decisions (orchestrator; reversible, with rationale)
@@ -251,7 +252,7 @@ interface Emulator {
   write(data: Uint8Array): void;
   resize(dims: Dimensions): void;                       // applied through the write queue (§5.5)
   flush(): Promise<void>;                               // resolves once every earlier write is parsed (snapshot barrier)
-  snapshot(): string;                                   // SerializeAddon output + mode epilogue (§5.3.1); call after flush()
+  snapshot(): Promise<Uint8Array>;                      // takes its own barrier (§5.4): SerializeAddon output + mode epilogue + parser tail
   onReply(cb: (data: Uint8Array) => void): void;        // query replies; forwarded only for none / tmux-normal (§5.3)
   onTitle(cb: (title: string) => void): void;
   onBell(cb: () => void): void;
@@ -325,7 +326,7 @@ interface SessionHost {
 
 ### 5.3 Emulator and query authority
 
-- One `@xterm/headless` `Terminal` per session, built from `packages/terminal-config` (same options and Unicode provider as the browser). Scrollback is the session's `scrollback_lines`, taken from the profile (default **10,000 lines**; memory budget in §17). It is authoritative everywhere: the server emulator, tmux `history-limit` (§6.3) and the browser, which receives it in `session.attached` (§7.3).
+- One `@xterm/headless` `Terminal` per session, built from `packages/terminal-config` (same options and Unicode provider as the browser). Scrollback is the session's `scrollback_lines`, taken from the profile (default **5,000 lines**; snapshot cost §5.4, memory budget §17). It is authoritative everywhere: the server emulator, tmux `history-limit` (§6.3) and the browser, which receives it in `session.attached` (§7.3).
 - **Query-answer authority.** Terminal queries (DA1/DA2, DSR/CPR, DECRQM, XTVERSION, window-ops reports, OSC 4/10/11/12 color queries) must be answered **exactly once**:
   - `none` / `tmux-normal`: the **server emulator** answers: emulator `onReply` → runtime → `driver.input()`. Without this, a program waiting for a CPR would hang while no browser is attached.
   - `tmux-control`: **tmux** answers (its internal emulator replies to the application). The server emulator must **not** answer.
@@ -350,10 +351,10 @@ The serialize addon restores the buffer (scrollback and screen), the cursor posi
    b. appends it to each live attachment's outbound coalescing buffer.
    `seq` is per session and monotonic for the lifetime of the daemon process: it survives `reopen` and tmux rebuilds. Any runtime replacement (reopen, tmux rebuild) sends a `SNAPSHOT` to every attachment first.
 3. Coalescing: flush every **8 ms** or at **64 KiB**, whichever comes first, as one `OUTPUT` frame carrying the seq of its last chunk.
-4. **Snapshot barrier** (on attach, resize or resync): enqueue `term.write('', cb)`. When the callback fires, every previously written chunk has been parsed, so call `snapshot()` synchronously (SerializeAddon `serialize()` + the mode epilogue, §5.3.1) and record `snapshotSeq` = the last seq written before the barrier. Send `SNAPSHOT(snapshotSeq, cols, rows)` (§7.2) and then only chunks with `seq > snapshotSeq`. **[SPIKE S1]** Confirm that write callbacks run synchronously between chunks in xterm 6's write buffer, so serialization is consistent at the barrier.
-5. **Snapshot cache**: one serialized snapshot per (session, seq), shared by every attachment that needs it at that point (e.g. all attachments after a resize).
-6. The client applies a snapshot as: `term.reset()` → `term.resize(cols, rows)` from the frame header → `term.write(snapshot)`. While a `SNAPSHOT` for a channel is being decompressed and applied, the client queues that channel's `OUTPUT` frames; afterwards it drops those with `seq <= snapshotSeq` and applies the rest in order. A client can ask for a fresh snapshot at any time with `terminal.resync { channel }` (e.g. after a decode error).
-7. The client and server parse identical bytes at identical sizes with the identical engine version, so they remain identical. A resync is cheap and is used on every resize and whenever there is doubt: lag, tmux `%pause`, driver desync, a client error.
+4. **Snapshot barrier** (on attach, resync, lag recovery or a tmux rebuild): `Emulator.snapshot()` enqueues its own barrier and serializes synchronously inside xterm's write callback, so the payload reflects exactly the bytes and resizes submitted before the call; the runtime records `snapshotSeq` = the last seq written before calling it. Never emulate it with `await flush()` + a synchronous serialize: the promise continuation runs after xterm has parsed later chunks (ADR-0001). The payload is SerializeAddon `serialize()` + the mode epilogue (§5.3.1) + the parser tail (an escape sequence or UTF-8 character still incomplete at the barrier). Send `SNAPSHOT(snapshotSeq, cols, rows)` (§7.2) and then only chunks with `seq > snapshotSeq`.
+5. **Snapshot cost and cache** (measured in ADR-0001): ~85 ms of serialize CPU at 5k scrollback lines, ~550 ms at 10k (superlinear), during which the daemon's event loop is blocked. Hence: one snapshot per (session, seq), shared by every attachment that needs it; resizes do **not** take snapshots (§5.5); default scrollback 5,000 lines. Moving serialization to a worker thread is a recorded optimization (§17).
+6. The client applies a snapshot as: `term.reset()` → `term.resize(cols, rows)` from the frame header → `term.write(snapshot)`. Browser conditions from ADR-0001: one `Utf8Aligner` per terminal for the snapshot and every `OUTPUT` payload (xterm 6 drops a character when a chunk ends inside certain UTF-8 sequences), the same pinned xterm version and options with Unicode 11 active, and the query silencer installed after every addon. While a `SNAPSHOT` for a channel is being decompressed and applied, the client queues that channel's `OUTPUT` frames; afterwards it drops those with `seq <= snapshotSeq` and applies the rest in order. A client can ask for a fresh snapshot at any time with `terminal.resync { channel }` (e.g. after a decode error).
+7. The client and server parse identical bytes at identical sizes with the identical engine version, so they remain identical. A resync is used whenever there is doubt: lag, tmux `%pause`, driver desync, a client error.
 
 ### 5.5 Attachments, size policy, backpressure
 
@@ -362,11 +363,11 @@ The serialize addon restores the buffer (scrollback and screen), the cursor posi
 - Each attachment reports its *fitted viewport* (`cols × rows` computed by the fit addon) on attach and on change.
 - An attachment becomes **active** when it sends `INPUT` or `terminal.activate` (focus or click on the pane).
 - When the active attachment's viewport differs from the session size, the session resizes to it (debounced 100 ms).
-- **Resize rule.** The server applies a resize to its emulator through the write queue (`term.write('', () => term.resize(c, r))`), so it lands in seq order, and then sends a fresh `SNAPSHOT` (carrying the new `cols`/`rows`) to every attachment. Clients never resize their own buffer independently; they only apply snapshots. `terminal.resized { channel, cols, rows, activeAttachment }` remains as an informational message for the UI (letterbox/scale; `activeAttachment` tells the receiving attachment whether it is the active one). Clients never see attachment ids.
+- **Resize rule (sequenced).** A resize is an event in the output stream. The server flushes the coalescing buffer (so the last `OUTPUT` frame ends at seq N), applies the resize to its emulator through the write queue (`Emulator.resize`, which lands after the bytes up to N), and sends `terminal.resized { channel, cols, rows, seq: N, activeAttachment }` to every attachment. The client applies its own `term.resize(cols, rows)` after writing every `OUTPUT` with `seq <= N` and before any later one. Same bytes, same engine, same resize position → identical reflow, with no snapshot (snapshots cost hundreds of ms, §5.4). Clients never resize their buffer on their own initiative; `activeAttachment` tells the receiving attachment whether it is the active one (letterbox/scale in the UI). Clients never see attachment ids.
 - The order is driver-specific:
-  - raw / tmux-normal: emulator resize (queued) + `setWindow` / `pty.resize` → `SNAPSHOT`.
-  - tmux-control: `refresh-client -C` → `%layout-change` → the driver calls `ctx.resized()` → the runtime resizes the emulator (queued) → `SNAPSHOT` (§6.6).
-- Passive attachments render the session size from the snapshot, scaled down to fit, or letterboxed when larger. They never resize the session until they become active.
+  - raw / tmux-normal: emulator resize (queued) + `setWindow` / `pty.resize` → `terminal.resized`.
+  - tmux-control: `refresh-client -C` → `%layout-change` → the driver calls `ctx.resized()` → the runtime resizes the emulator (queued) → `terminal.resized` (§6.6).
+- Passive attachments render the session size, scaled down to fit, or letterboxed when larger. They never resize the session until they become active.
 - The session size is clamped to 20×5 … 500×200.
 
 **Backpressure**
@@ -533,12 +534,12 @@ Naming: socket `td-<installationId[0:8]>-<session.tmuxToken>`, where `tmuxToken`
 ```sh
 # Sent over an SSH exec channel (no PTY) as:  exec sh -c '<script>'   (§5.11 remote command rule)
 # Example <script>, with values from the probe and the session:
-#   tmux_path=/usr/bin/tmux · utf8_locale=C.UTF-8 · scrollback_lines=10000 · profile env EDITOR=vim
+#   tmux_path=/usr/bin/tmux · utf8_locale=C.UTF-8 · scrollback_lines=5000 · profile env EDITOR=vim
 # `exec /usr/bin/tmux` becomes `exec systemd-run --user --scope --quiet /usr/bin/tmux` only under the §5.11 logind rules.
 export LC_CTYPE=C.UTF-8
 exec /usr/bin/tmux -u -L td-1a2b3c4d-k3j9x2m8q0wz -f /dev/null -C \
   start-server \; \
-  set-option -g history-limit 10000 \; \
+  set-option -g history-limit 5000 \; \
   set-option -g default-terminal tmux-256color \; \
   set-option -g aggressive-resize off \; \
   set-option -g detach-on-destroy on \; \
@@ -717,7 +718,7 @@ Server → client:
 | `session.upsert` / `session.removed` | incremental list updates (also used for sessions created in another tab) |
 | `session.status` | `sessionId, status, state, detail?, retryInMs?` |
 | `session.attached` | `channel, sessionId, cols, rows, scrollbackLines` (followed by a `SNAPSHOT` frame; the browser sizes its scrollback from `scrollbackLines`) |
-| `terminal.resized` | `channel, cols, rows, activeAttachment: boolean` (informational; the size itself is applied only from `SNAPSHOT` frames, §5.5) |
+| `terminal.resized` | `channel, cols, rows, seq, activeAttachment: boolean` — the client resizes after applying every `OUTPUT` with `seq <= seq` and before later ones (§5.5) |
 | `terminal.title` | `channel, title` (sanitized, ≤ 256 chars) |
 | `terminal.bell` | `channel` |
 | `hostkey.prompt` | `sessionId, keyType, fingerprint, mismatch` |
@@ -816,7 +817,7 @@ credentials           id, user_id→user, name, kind('password'|'private_key'),
 connection_profiles   id, user_id→user, host_id→hosts, credential_id→credentials (nullable),
                       name, username, protection_mode('auto'|'off'), startup_command,
                       term(default 'xterm-256color'), env_json, keepalive_interval_s(default 15),
-                      auto_reopen(default 1), scrollback_lines(default 10000),
+                      auto_reopen(default 1), scrollback_lines(default 5000),
                       created_at, updated_at
 
 sessions              id, user_id→user,
@@ -915,7 +916,7 @@ The wireframes in this section define **information architecture and behaviour o
 |---|---|---|
 | Phase 0, before any UI code | `init` | `PRODUCT.md`: users (developers/ops), usage scene (long-lived sessions, many hosts, phone on call), tone, constraints |
 | Phase 0 | `shape` per core surface: workspace (desktop + mobile), auth (login / 2FA / setup), management (hosts / credentials / profiles), admin, settings | UX briefs reviewed by the owner before implementation |
-| Phase 0 | new-work visual world | `DESIGN.md` + tokens (light/dark), terminal palettes, type scale |
+| Phase 0 (done) | new-work visual world | Direction contract (strip board, D-23) in `apps/web/.impeccable/surfaces/app-workspace.md`. Per the skill, `DESIGN.md` and tokens are written **at the finish of the first UI build** by the documenter, from the built world, not before. |
 | As patterns stabilize (P2/P5) | `extract` | Shared tokens and components in `apps/web/components/ui` |
 | Before every UI edit | read `craft-floor` (skill rule) | — |
 | End of each UI block | one bounded round: desktop + mobile together, then `critique` + `audit` on that block, fix in one batch, confirm once, stop | Findings fixed in the block's commit |
@@ -1168,7 +1169,7 @@ Exit criteria are delivery verifications, **not** a mandate to build permanent t
 - **B.** `[once]` The D-22 sshd images start (the KI/OTP variant may follow in P4); a smoke script SSHes into each one with a seeded key and prints `tmux -V` (or "absent").
 - **C.** `[once]` ADR-0001…0006 recorded with the measured results of S1–S6 and a go/no-go. A **small** set of S1/S3 golden scenarios (vim alt screen, wrapped lines, colors, CJK/emoji) is kept as `[T1]`; the rest of the spike code is throwaway.
 - **D.** `[T0]` The protocol codec has round-trip tests for every frame and message type. `[T0]` Version pin: `@xterm/xterm` and `@xterm/headless` resolve to the same version. `[T0]` Query-silencer coverage: with the silencer there is no reply for every query form; without it there is exactly one. `[once]` `packages/db` generates migration `0000` cleanly.
-- **E.** `[once]` `PRODUCT.md` and `DESIGN.md` exist; the owner has approved the workspace and auth `shape` briefs.
+- **E.** `[once]` `apps/web/PRODUCT.md` exists; the owner approved the workspace and auth `shape` briefs and chose the visual direction (D-23, direction contract recorded). `DESIGN.md` follows at the finish of the first UI build (§11.0).
 
 ### Phase 1 — Data plane core (unprotected path), vault, internal API
 
@@ -1178,7 +1179,7 @@ Exit criteria are delivery verifications, **not** a mandate to build permanent t
 
 - **A.** `[T0]` Unit tests for the intricate pure logic only: state machine and `toSessionStatus`, seq/snapshot-barrier bookkeeping, size policy.
 - **B.** `[T1]` Integration (no-tmux sshd): open a session, run `vim /etc/hosts`, close the WS, reattach → the attached client's SerializeAddon `serialize()` output equals the server emulator's (text + attributes + cursor + alt-screen flag), **and** a mode/state probe matches (mouse encoding, cursor style, alt screen).
-- **C.** `[once]` `[T2]` Two attachments: input from either reaches the shell; activating one resizes the session; every attachment receives a fresh `SNAPSHOT` carrying the new size, plus `terminal.resized`.
+- **C.** `[once]` `[T2]` Two attachments: input from either reaches the shell; activating one resizes the session; every attachment receives a sequenced `terminal.resized` and its buffer still equals the server's afterwards.
 - **D.** `[once]` `[T2]` A slow-reader client (reads paused for 10 s during `seq 1 2000000`) → daemon RSS stays under a fixed bound; the client receives a resync snapshot once it reads again and ends in the correct state.
 - **E.** `[once]` `[T2]` `cat` of a 200 MiB file → no crash, emulator consistent, RSS bounded.
 - **F.** `[T0]` Vault unit tests (round trip of the JSON envelope, AAD binding incl. `kind` and `key_version`, wrong-key detection). `[once]` A grep of the DB dump finds no seeded secret material.
@@ -1396,7 +1397,9 @@ Parallel agents share one working tree, so:
 | Control-protocol complexity (desyncs, version quirks) | Bugs in the core promise | Version matrix in CI; desync → reattach + full resync (never kill the session); fallback to `none` with a banner |
 | `KillUserProcesses=yes` kills tmux on remotes | Protection ineffective | Probe reads it via `busctl` plus linger; `systemd-run --user --scope` launch when linger is on; otherwise a visible "enable linger" warning, never a silent protection claim (§5.11); S5 |
 | Serialize addon does not restore every terminal mode | Wrong mouse encoding, cursor style or tab stops after browser reattach | Mode tracker + mode epilogue (§5.3.1); P1 B mode/state probe; S1 enumerates the gaps; remaining gaps documented |
-| Emulator memory: ~12 bytes per cell (10k lines × 120 cols ≈ 14 MiB per session) | High RSS with many sessions | Default 10k lines, configurable per profile; documented budget; soak test; roadmap: compress idle scrollback |
+| Emulator memory: measured ~18 MiB per session at 10k lines × 120 cols (4 MiB JS heap + 14 MiB cell arrays, ADR-0001) | High RSS with many sessions | Default 5k lines, configurable per profile; documented budget; soak test; roadmap: compress idle scrollback |
+| Snapshot serialization blocks the daemon event loop (~85 ms at 5k lines, ~550 ms at 10k) | Input/output latency spikes for every session while one attaches | Snapshot cache per (session, seq); resizes are sequenced events, not snapshots (§5.5); default 5k lines; roadmap: serialize in a worker thread |
+| Emulator relies on xterm 6.0.0 internals (parser state, current attributes) for the parser tail and last-cell reprint (ADR-0001) | Breaks silently on an xterm upgrade | Version pinned on both sides with a T0 test; golden + barrier tests must pass before any xterm bump |
 | Snapshot cost (`snapshot()` on 10k lines; `%pause`-triggered rebuilds) | CPU spikes and latency on resize, lag and flow control | Measured in S1/S4; one cached snapshot per (session, seq) shared by all attachments (§5.4) |
 | Width-table mismatch (tmux vs xterm.js) for emoji/CJK | Misaligned rows after reattach-from-capture | unicode11 on both xterm sides; golden tests; documented limitation |
 | Better Auth plugin fit (username needs email, SQLite adapter, lockout per username+IP, forced password change, forced TOTP enrollment, admin TOTP reset) | Rework of auth | Spike S6 go/no-go per item; Termdock implements missing pieces (e.g. lockout); fallback: minimal hand-rolled auth on the same tables |
@@ -1432,7 +1435,7 @@ Each session runs in its own detached **session host** process (`termdock-sessio
 | Item | Default until decided |
 |---|---|
 | License for a possible open-source release (MIT, Apache-2.0, AGPL-3.0) | Decide before the repository goes public (P8). Recommendation: Apache-2.0 (patent grant) or AGPL-3.0 if hosted forks should share changes. |
-| Default scrollback size | 10,000 lines (memory trade-off, §17) |
+| Default scrollback size | 5,000 lines (snapshot CPU and memory trade-off, §5.4, §17) |
 | Default `auto_reopen` for unprotected sessions | On, with banner |
 | Web auth-session lifetime | 7 days sliding; admin-configurable idle timeout |
 | Public repository/organization name | Not decided |

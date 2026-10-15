@@ -5,7 +5,8 @@
  */
 export const XTERM_VERSION = '6.0.0';
 export const UNICODE_VERSION = '11';
-export const DEFAULT_SCROLLBACK = 10_000;
+/** Snapshot serialization cost grows superlinearly with scrollback (ADR-0001). */
+export const DEFAULT_SCROLLBACK = 5_000;
 export const DEFAULT_COLS = 120;
 export const DEFAULT_ROWS = 40;
 

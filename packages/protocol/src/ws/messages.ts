@@ -107,6 +107,8 @@ export const ServerMessage = z.discriminatedUnion('type', [
     channel,
     cols: z.number().int(),
     rows: z.number().int(),
+    /** Apply after every OUTPUT with seq <= this value and before later ones (plan §5.5). */
+    seq: z.number().int().nonnegative(),
     activeAttachment: z.boolean(),
   }),
   z.object({ type: z.literal('terminal.title'), channel, title: z.string().max(256) }),

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "ec258ee0-58da-4660-99b6-707ab376b2da",
+  "id": "34ba9285-7838-4543-839e-ddb00bff78e3",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "audit_events": {
@@ -190,7 +190,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": 10000
+          "default": 5000
         },
         "created_at": {
           "name": "created_at",

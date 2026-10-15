@@ -25,7 +25,7 @@ CREATE TABLE `connection_profiles` (
 	`env_json` text DEFAULT '{}' NOT NULL,
 	`keepalive_interval_s` integer DEFAULT 15 NOT NULL,
 	`auto_reopen` integer DEFAULT true NOT NULL,
-	`scrollback_lines` integer DEFAULT 10000 NOT NULL,
+	`scrollback_lines` integer DEFAULT 5000 NOT NULL,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade,

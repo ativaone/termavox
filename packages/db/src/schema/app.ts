@@ -92,7 +92,7 @@ export const connectionProfiles = sqliteTable(
     envJson: text('env_json').notNull().default('{}'),
     keepaliveIntervalS: integer('keepalive_interval_s').notNull().default(15),
     autoReopen: integer('auto_reopen', { mode: 'boolean' }).notNull().default(true),
-    scrollbackLines: integer('scrollback_lines').notNull().default(10_000),
+    scrollbackLines: integer('scrollback_lines').notNull().default(5_000),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
