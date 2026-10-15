@@ -1,0 +1,100 @@
+import { z } from 'zod';
+import { Protection, SessionState, SessionStatus } from './session-state.ts';
+
+/** Internal API (session-manager :3002) request/response schemas. Plan §8.3. */
+export const INTERNAL_API_PREFIX = '/internal/v1';
+
+const id = z.string().min(1).max(64);
+const actingUserId = id;
+export const Viewport = z.object({
+  cols: z.number().int().min(20).max(500),
+  rows: z.number().int().min(5).max(200),
+});
+
+export const CreateSessionRequest = z.object({
+  actingUserId,
+  profileId: id,
+  label: z.string().trim().min(1).max(120).optional(),
+  viewport: Viewport,
+});
+export const CreateSessionResponse = z.object({ sessionId: id });
+
+/** Body of terminate / retry / reopen, and of credential deletion. */
+export const ActingUserRequest = z.object({ actingUserId });
+export const ListSessionsQuery = z.object({ actingUserId });
+
+export const LiveSessionStatus = z.object({
+  sessionId: id,
+  state: SessionState,
+  status: SessionStatus,
+  protection: Protection.nullable(),
+  attachments: z.number().int(),
+});
+export const ListSessionsResponse = z.object({ sessions: z.array(LiveSessionStatus) });
+
+export const CreateCredentialRequest = z.discriminatedUnion('kind', [
+  z.object({
+    actingUserId,
+    kind: z.literal('password'),
+    name: z.string().trim().min(1).max(120),
+    password: z.string().min(1).max(4096),
+  }),
+  z.object({
+    actingUserId,
+    kind: z.literal('private_key'),
+    name: z.string().trim().min(1).max(120),
+    privateKey: z.string().min(1).max(32_768),
+    passphrase: z.string().max(4096).optional(),
+  }),
+  z.object({
+    actingUserId,
+    kind: z.literal('generate'),
+    name: z.string().trim().min(1).max(120),
+    algorithm: z.literal('ed25519'),
+  }),
+]);
+export const CreateCredentialResponse = z.object({
+  credentialId: id,
+  publicKey: z.string().nullable(),
+  fingerprint: z.string().nullable(),
+});
+
+export const HostTestRequest = z.object({ actingUserId, profileId: id.optional() });
+export const HostTestResponse = z.object({
+  reachable: z.boolean(),
+  error: z.string().nullable(),
+  hostKey: z.object({ type: z.string(), fingerprint: z.string(), trusted: z.boolean() }).nullable(),
+  probe: z.record(z.string(), z.string()).nullable(),
+});
+
+/** OpenSSH-style fingerprint: `SHA256:` + 43 chars of unpadded base64. */
+export const Fingerprint = z
+  .string()
+  .trim()
+  .transform((v) => (v.startsWith('SHA256:') ? v : `SHA256:${v}`).replace(/=+$/, ''))
+  .pipe(z.string().regex(/^SHA256:[A-Za-z0-9+/]{43}$/));
+
+/** Trusts the pending key with this fingerprint (or pre-trusts a pasted fingerprint). */
+export const TrustHostKeyRequest = z.object({
+  actingUserId,
+  keyType: z.string().min(1).max(64),
+  fingerprint: Fingerprint,
+});
+/** Replaces the trusted key of this type after a mismatch (explicit owner action). */
+export const ReplaceHostKeyRequest = TrustHostKeyRequest.extend({
+  confirmHostName: z.string().min(1),
+});
+export const RevokeHostKeyRequest = z.object({ actingUserId, keyType: z.string().min(1).max(64) });
+
+export const RevokeAuthSessionsRequest = z
+  .object({ authSessionId: id.optional(), userId: id.optional() })
+  .refine((v) => v.authSessionId !== undefined || v.userId !== undefined, {
+    message: 'authSessionId or userId is required',
+  });
+
+export const HealthResponse = z.object({
+  ok: z.boolean(),
+  sessions: z.number().int(),
+  uptimeMs: z.number(),
+  version: z.string(),
+});

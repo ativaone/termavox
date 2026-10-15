@@ -1,0 +1,14 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Dependency build scripts stay blocked. better-sqlite3 loads its bundled prebuilds;
+# ssh2/cpu-features native crypto is optional (ssh2 falls back to pure JS).
+allowBuilds:
+  better-sqlite3: false
+  cpu-features: false
+  esbuild: false
+  ssh2: false
+
+# Exact versions only.
+savePrefix: ''
