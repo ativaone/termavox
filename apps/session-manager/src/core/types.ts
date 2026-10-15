@@ -69,13 +69,22 @@ export interface Emulator {
   write(data: Uint8Array): void;
   /** Applied through the write queue, so it lands at the right byte position. */
   resize(dims: Dimensions): void;
-  /** Resolves once every previously written chunk has been parsed (snapshot barrier). */
+  /** Resolves once every previously written chunk has been parsed. */
   flush(): Promise<void>;
   /**
-   * Serialized state for a snapshot: SerializeAddon output followed by the mode epilogue
-   * (mouse encoding, cursor style, tab stops, title) from the mode tracker. Call after flush().
+   * Snapshot payload (UTF-8 bytes): SerializeAddon output, then the mode epilogue (mouse
+   * encoding, cursor style, tab stops, title, …) from the mode tracker, then the parser tail
+   * (an escape sequence or character still incomplete at the barrier, so the client's parser
+   * resumes in the same state when the following OUTPUT chunks arrive).
+   *
+   * This is the snapshot barrier (plan §5.4): it enqueues its own barrier and serializes
+   * synchronously inside xterm's write callback, so the result reflects exactly the bytes and
+   * resizes submitted before the call, even if more are written while the promise is pending.
+   * `cols`/`rows` read at call time are the snapshot's size. Do not emulate it with
+   * `await flush()` followed by a synchronous serialize: the promise continuation runs after
+   * xterm has already parsed later chunks of the same write batch (ADR-0001).
    */
-  snapshot(): string;
+  snapshot(): Promise<Uint8Array>;
   /** Replies the emulator generates for terminal queries (raw / tmux-normal only). */
   onReply(cb: (data: Uint8Array) => void): void;
   onTitle(cb: (title: string) => void): void;
