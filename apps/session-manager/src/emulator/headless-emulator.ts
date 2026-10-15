@@ -90,6 +90,8 @@ export class HeadlessEmulator implements Emulator {
   private readonly core: XtermInternals;
   /** Bytes of the escape sequence the parser is in the middle of (empty in ground state). */
   private sequenceTail: Uint8Array = EMPTY;
+  /** Bytes written and not parsed yet (see `pendingBytes`). */
+  private unparsedBytes = 0;
   /** Size after every queued resize has been applied. */
   private targetCols: number;
   private targetRows: number;
@@ -106,8 +108,11 @@ export class HeadlessEmulator implements Emulator {
     this.targetRows = this.terminal.rows;
     this.terminal.loadAddon(new Unicode11Addon());
     this.terminal.unicode.activeVersion = UNICODE_VERSION;
-    // Activated on a clipped view instead of loadAddon() (see clippedTerminalView).
-    this.serializer.activate(clippedTerminalView(this.terminal));
+    // Activated on a clipped view instead of loadAddon() (see clippedTerminalView). The addon's
+    // typings name the browser Terminal; headless implements the same API surface it uses.
+    this.serializer.activate(
+      clippedTerminalView(this.terminal) as unknown as Parameters<SerializeAddon['activate']>[0],
+    );
     this.modeTracker = new ModeTracker(this.terminal);
     if (!opts.answerQueries) installQuerySilencer(this.terminal);
     this.core = (this.terminal as unknown as { _core: XtermInternals })._core;
@@ -121,11 +126,22 @@ export class HeadlessEmulator implements Emulator {
     return this.targetRows;
   }
 
+  /** Bytes queued in xterm plus the aligner's carry; decremented in the write callback. */
+  get pendingBytes(): number {
+    return this.unparsedBytes;
+  }
+
   write(data: Uint8Array): void {
+    this.unparsedBytes += data.length;
     // Only complete UTF-8 sequences reach xterm (decoder bug, see Utf8Aligner); xterm itself
     // still decodes statefully, the aligner just moves the chunk boundary.
     const bytes = this.utf8.push(data);
-    if (bytes.length) this.terminal.write(bytes, () => this.trackSequenceTail(bytes));
+    if (bytes.length) {
+      this.terminal.write(bytes, () => {
+        this.unparsedBytes -= bytes.length;
+        this.trackSequenceTail(bytes);
+      });
+    }
   }
 
   resize({ cols, rows }: Dimensions): void {

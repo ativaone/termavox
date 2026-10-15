@@ -1,0 +1,45 @@
+import { RawPtyDriver } from '../drivers/raw-pty/raw-pty-driver.ts';
+import type { ProbeResult } from '../probe/index.ts';
+import type { Driver, RemoteIdentity } from './types.ts';
+
+/** Constructor options of `TmuxControlDriver` (src/drivers/tmux-control, built separately). */
+export interface TmuxControlDriverOptions {
+  probe: ProbeResult;
+  /** Per-session tmux socket name (plan §6.3). */
+  socket: string;
+  scrollbackLines: number;
+  startupCommand: string | null;
+  env: Record<string, string>;
+  previousIdentity: RemoteIdentity | null;
+  onIdentity(identity: RemoteIdentity, rebooted: boolean): void;
+  pauseAfterSeconds?: number;
+}
+
+export interface RawPtyDriverOptions {
+  term: string;
+  env: Record<string, string>;
+}
+
+/** Builds drivers for the runtime. tmux-control is wired by the boot code (main.ts). */
+export interface DriverFactory {
+  rawPty(opts: RawPtyDriverOptions): Driver;
+  /** Absent until the tmux-control driver is wired: sessions then run unprotected. */
+  tmuxControl?: (opts: TmuxControlDriverOptions) => Driver;
+}
+
+export function createDriverFactory(
+  tmuxControl?: (opts: TmuxControlDriverOptions) => Driver,
+): DriverFactory {
+  const factory: DriverFactory = { rawPty: (opts) => new RawPtyDriver(opts) };
+  if (tmuxControl) factory.tmuxControl = tmuxControl;
+  return factory;
+}
+
+/** Socket name `td-<installationId[0:8]>-<tmuxToken>` (plan §6.3; [a-z0-9-] only). */
+export function tmuxSocketName(installationId: string, tmuxToken: string): string {
+  const prefix = installationId
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .slice(0, 8);
+  return `td-${prefix}-${tmuxToken}`;
+}

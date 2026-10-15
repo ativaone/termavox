@@ -8,6 +8,7 @@ import type {
   Protection,
   SessionState,
   SessionStatus,
+  SessionSummary,
 } from '@termdock/protocol';
 
 export interface Dimensions {
@@ -72,6 +73,11 @@ export interface Transport {
 export interface Emulator {
   readonly cols: number;
   readonly rows: number;
+  /**
+   * Bytes handed to `write()` and not parsed yet (queued in xterm plus an incomplete trailing
+   * UTF-8 character). The runtime uses it for ingest backpressure (plan §5.5).
+   */
+  readonly pendingBytes: number;
   write(data: Uint8Array): void;
   /** Applied through the write queue, so it lands at the right byte position. */
   resize(dims: Dimensions): void;
@@ -257,6 +263,11 @@ export interface SessionStore {
   get(sessionId: string): Promise<SessionRecord | null>;
   /** desired_state = running, excluding sessions whose last state is a non-retryable failure. */
   listRestorable(): Promise<SessionRecord[]>;
+  /**
+   * The user's sessions as listed to the UI (`sessions.list`), newest first. The store joins the
+   * host name and profile id; the registry overlays the live runtime state on top.
+   */
+  listForUser(userId: string): Promise<SessionSummary[]>;
   update(sessionId: string, patch: SessionRecordPatch): void;
   appendEvent(sessionId: string, event: SessionEventInput): void;
 }
