@@ -9,6 +9,9 @@ allowBuilds:
   cpu-features: false
   esbuild: false
   ssh2: false
+  # Prebuilt platform binaries come from optional dependencies; their postinstall is not needed.
+  '@parcel/watcher': false
+  '@swc/core': false
 
 # Exact versions only.
 savePrefix: ''
