@@ -75,7 +75,7 @@ Other protocols (RDP/VNC); Agent mode (outbound agent on target servers); RBAC a
 | D-17 | Mobile: **responsive layout + extra-key bar** (Esc, Ctrl, Alt, Tab, arrows…). | Owner, 2026-10-15 |
 | D-18 | **Everything in the repository is in English**: code, comments, docs, commit messages. The UI defaults to English and is switchable to **pt-BR**; both locales ship in MVP. The project may become open source. Conversations with the owner are in Portuguese. | Owner, 2026-10-15 |
 | D-19 | **The interface is designed with the `impeccable` skill** (vendored at `.claude/skills/impeccable`, pinned in `skills-lock.json`). It owns the visual world, design system and UX passes (§11.0). | Owner, 2026-10-15 |
-| D-20 | **Commit in this repository as each functional block is delivered.** No git remote yet, so no push for now. | Owner, 2026-10-15 |
+| D-20 | **Commit in this repository as each functional block is delivered, and push to `origin`** (`github.com/ativaone/termdock`, private; default branch `main`). | Owner, 2026-10-15 (remote added the same day) |
 | D-21 | **Lean, risk-based automated testing.** Test what really needs testing. Tests are mapped into an always-run fast set and a full pre-release battery; the exact pre-release routine is still to be defined with the owner (§15). | Owner, 2026-10-15 |
 | D-23 | Visual direction for the app (impeccable `new-work`, Operate mode): **air-traffic flight-progress strip board** — slate shell, buff session strips with a state-coloured edge, sessions grouped in state lanes; recorded as the direction contract in `apps/web/.impeccable/surfaces/app-workspace.md`. | Owner, 2026-10-15 |
 | D-22 | Test container matrix reduced to alpine:3 (no tmux), ubuntu:22.04 (3.2a), ubuntu:24.04 (3.4), alpine:edge (newest packaged). Base images for deployment (node, caddy) are approved when the deploy phase starts. | Owner, 2026-10-15 |
@@ -1019,7 +1019,7 @@ termdock/
 - session-manager runs TypeScript directly with Node 24 type stripping (`node src/main.ts`), so its code uses erasable syntax only. There is no build step and no tsx.
 - pnpm **11.13.0** (the `packageManager` field) with workspaces and `workspace:*` internal deps; exact external versions; `engines` set; `.nvmrc` = 24. pnpm `allowBuilds` blocks every dependency build script: better-sqlite3 loads its bundled prebuilds, and ssh2's optional native crypto is skipped.
 - Root scripts: `pnpm check` (typecheck + lint + T0), `pnpm test:area <terminal|ssh|tmux>` (T1), `pnpm format`.
-- Commits (D-20): one or more commits per delivered functional block, made by the orchestrator after verification. Messages are short and imperative, at most 2 lines, with no co-author or attribution trailers. Local only until a remote exists (no push).
+- Commits (D-20): one or more commits per delivered functional block, made by the orchestrator after verification. Messages are short and imperative, at most 2 lines, with no co-author or attribution trailers. Each verified commit is pushed to `origin main`.
 - Every architectural change or spike outcome gets an ADR in `docs/adr/`.
 
 ---
@@ -1370,7 +1370,7 @@ For each functional block:
 2. It reviews the diff.
 3. It commits **only the files belonging to that block** (message ≤ 2 lines, no trailers).
 4. Files the owner created (e.g. vendored skills) are never committed without asking.
-5. No push until a remote exists.
+5. Push to `origin main` after each verified commit.
 
 ### 16.2.2 Shared working tree
 
