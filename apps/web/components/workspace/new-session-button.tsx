@@ -47,7 +47,7 @@ export function NewSessionButton({ disabled = false }: { disabled?: boolean }) {
       aria-keyshortcuts={apple ? 'Meta+K' : 'Control+K'}
     >
       <span className="flex-1 text-start">{t('newSession')}</span>
-      <span className="flex items-center gap-0.5" title={t('shortcut')}>
+      <span className="flex items-center gap-0.5 max-md:hidden" title={t('shortcut')}>
         <Kbd tone="inherit">{apple ? '⌘' : 'Ctrl'}</Kbd>
         <Kbd tone="inherit">K</Kbd>
       </span>

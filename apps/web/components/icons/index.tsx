@@ -246,3 +246,72 @@ export function GlobeIcon(props: IconProps) {
     </Icon>
   );
 }
+
+/** Split the pane side by side (a new pane on the right). */
+export function SplitRightIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="1.5" />
+      <path d="M12 4.5v15" />
+    </Icon>
+  );
+}
+
+/** Split the pane top and bottom (a new pane below). */
+export function SplitDownIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="1.5" />
+      <path d="M3.5 12h17" />
+    </Icon>
+  );
+}
+
+/** Actions menu (three stacked dots). */
+export function MoreIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 5.5h.01M12 12h.01M12 18.5h.01" strokeWidth={3} />
+    </Icon>
+  );
+}
+
+/** The terminal rang its bell while you were elsewhere. */
+export function BellIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 2H5l1.5-2Z" />
+      <path d="M10 20.5a2.2 2.2 0 0 0 4 0" />
+    </Icon>
+  );
+}
+
+/** Retry / reconnect now. */
+export function RetryIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" />
+      <path d="M19.5 4.5v4h-4" />
+    </Icon>
+  );
+}
+
+/** A terminal window (empty panes, the palette's session rows). */
+export function TerminalIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="1.5" />
+      <path d="m7.5 9.5 3 2.5-3 2.5M12.5 15h4" />
+    </Icon>
+  );
+}
+
+/** Search field mark. */
+export function SearchIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="10.5" cy="10.5" r="6" />
+      <path d="m15 15 4.5 4.5" />
+    </Icon>
+  );
+}

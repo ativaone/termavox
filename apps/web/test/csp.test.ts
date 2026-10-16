@@ -16,6 +16,18 @@ describe('content security policy (plan §10.2)', () => {
     expect(buildCsp('n', true)).toContain("'unsafe-eval'");
   });
 
+  it("keeps connect-src at 'self' unless a separate WebSocket origin is configured", () => {
+    expect(buildCsp('n')).toContain("connect-src 'self';");
+    expect(buildCsp('n', true, 'ws://localhost:3301/ws')).toContain(
+      "connect-src 'self' ws://localhost:3301;",
+    );
+    expect(buildCsp('n', false, 'wss://term.example.com/ws')).toContain(
+      "connect-src 'self' wss://term.example.com;",
+    );
+    expect(buildCsp('n', false, 'javascript:alert(1)')).toContain("connect-src 'self';");
+    expect(buildCsp('n', false, 'not a url')).toContain("connect-src 'self';");
+  });
+
   it('creates a fresh 128-bit nonce each time', () => {
     const a = createNonce();
     expect(Buffer.from(a, 'base64')).toHaveLength(16);

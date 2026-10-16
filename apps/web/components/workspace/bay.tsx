@@ -1,12 +1,13 @@
 'use client';
 
 import { useLocale, useTranslations } from 'next-intl';
-import { useEffect, useRef, useState } from 'react';
+import { type MouseEvent, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { groupIntoLanes, laneChanged } from '../../lib/sessions/lanes.ts';
 import type { BayData, BaySession } from '../../lib/sessions/types.ts';
 import { Lane } from '../ui/lane.tsx';
 import { Strip } from '../ui/strip.tsx';
+import { StripMenu, type StripMenuActions } from './strip-menu.tsx';
 import { formatAgo, formatAgoShort, formatDuration } from './time.ts';
 
 /**
@@ -32,7 +33,9 @@ function useLaneTransitions(sessions: BaySession[]): BaySession[] {
       apply();
       return;
     }
-    document.startViewTransition(() => flushSync(apply));
+    const transition = document.startViewTransition(() => flushSync(apply));
+    // A transition skipped by a newer one (or a hidden page) still applies the change.
+    transition.ready.catch(() => {});
   }, [sessions]);
   return shown;
 }
@@ -48,22 +51,38 @@ function useNow(initial: number, intervalMs = 30_000): number {
   return now;
 }
 
+/** A plain primary click (modified clicks keep the link's default: a new browser tab…). */
+function isPlainClick(event: MouseEvent): boolean {
+  return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
+}
+
 export function Bay({
   data,
   followedId,
   renderedAt,
   stripHref,
+  onFollow,
+  menuActions,
+  desktop = true,
 }: {
   data: BayData;
   followedId: string | null;
   renderedAt: number;
   stripHref: (id: string) => string;
+  /** Follows a session in place instead of navigating. */
+  onFollow?: (sessionId: string) => void;
+  /** The actions of a strip's menu; no menu without it. */
+  menuActions?: (session: BaySession) => StripMenuActions;
+  /** Desktop menus also open tabs and splits. */
+  desktop?: boolean;
 }) {
   const t = useTranslations('workspace');
   const td = useTranslations('workspace.duration');
   const locale = useLocale();
   const now = useNow(renderedAt);
   const lanes = groupIntoLanes(useLaneTransitions(data.sessions));
+  // Right-click on a strip opens its actions menu.
+  const [menuSignal, setMenuSignal] = useState<{ id: string; n: number } | null>(null);
 
   return (
     <div className="flex flex-col gap-4">
@@ -106,6 +125,33 @@ export function Bay({
                     stamp={ended ? t('strip.stamp') : undefined}
                     followed={session.id === followedId}
                     transitionName={`strip-${session.id}`}
+                    onClick={
+                      onFollow
+                        ? (event) => {
+                            if (!isPlainClick(event)) return;
+                            event.preventDefault();
+                            onFollow(session.id);
+                          }
+                        : undefined
+                    }
+                    onContextMenu={
+                      menuActions
+                        ? (event) => {
+                            event.preventDefault();
+                            setMenuSignal((m) => ({ id: session.id, n: (m?.n ?? 0) + 1 }));
+                          }
+                        : undefined
+                    }
+                    menu={
+                      menuActions ? (
+                        <StripMenu
+                          session={session}
+                          desktop={desktop}
+                          actions={menuActions(session)}
+                          openSignal={menuSignal?.id === session.id ? menuSignal.n : 0}
+                        />
+                      ) : undefined
+                    }
                   />
                 </li>
               );

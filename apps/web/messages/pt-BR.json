@@ -211,11 +211,15 @@
     "tabs": {
       "label": "Sessões abertas",
       "empty": "Nenhuma aba aberta",
-      "close": "Fechar aba. A sessão continua rodando."
+      "close": "Fechar aba. A sessão continua rodando.",
+      "panes": "{count, plural, one {# painel} other {# painéis}}",
+      "bell": "sinal sonoro",
+      "closeLabel": "Fechar a aba {label}. As sessões continuam rodando.",
+      "splitRight": "Dividir à direita",
+      "splitDown": "Dividir abaixo"
     },
     "pane": {
       "label": "Painéis de terminal",
-      "notAttached": "Não anexada",
       "emptyTitle": "Escolha uma sessão",
       "emptyBody": "Escolha uma tira no quadro para abri-la aqui. Fechar uma aba só desanexa; a sessão continua rodando no servidor.",
       "firstRunTitle": "Adicione seu primeiro host",
@@ -225,7 +229,16 @@
       "firstRunStep3": "Inicie uma sessão. Ela roda até você encerrá-la.",
       "firstRunCta": "Adicionar host",
       "noSessionsTitle": "Inicie uma sessão",
-      "noSessionsBody": "Seus hosts estão prontos. Inicie uma sessão e ela aparecerá no quadro."
+      "noSessionsBody": "Seus hosts estão prontos. Inicie uma sessão e ela aparecerá no quadro.",
+      "resize": "Redimensionar painéis",
+      "loading": "Sessão",
+      "emptyPane": "Painel vazio",
+      "emptyPaneBody": "Escolha uma sessão para este painel ou inicie uma nova aqui.",
+      "newHere": "Nova sessão aqui",
+      "close": "Fechar o painel. A sessão continua rodando.",
+      "closeLabel": "Fechar o painel {label}. A sessão continua rodando.",
+      "clipboardDenied": "O navegador não permitiu ler a área de transferência. Toque e segure o terminal para colar.",
+      "tooMany": "Há terminais demais abertos nesta aba do navegador. Feche um painel ou uma aba para abrir este."
     },
     "phone": {
       "back": "Sessões"
@@ -245,6 +258,121 @@
     "account": {
       "label": "Conta",
       "signedInAs": "Conectado como {username}"
+    },
+    "overlay": {
+      "offline": "Sem conexão com o Termdock agora. Tente de novo quando a conexão voltar.",
+      "reconnectingIn": "Reconectando em {seconds, plural, one {# segundo} other {# segundos}}",
+      "reconnectingNow": "Reconectando…",
+      "reconnectingBody": "A conexão com {host} caiu. O Termdock continua tentando.",
+      "retryNow": "Tentar agora",
+      "retry": "Tentar de novo",
+      "disconnectedTitle": "Desconectada",
+      "endedTitle": "Sessão encerrada",
+      "reopen": "Reabrir",
+      "closePane": "Fechar painel",
+      "goneBody": "Esta sessão não existe mais.",
+      "waitTitle": "Aguardando o pedido do host",
+      "waitBody": "O pedido de login expirou ou ainda não chegou. Tente de novo para o host perguntar outra vez.",
+      "rebootTitle": "O host remoto reiniciou",
+      "rebootBody": "O shell anterior foi perdido; um novo foi iniciado.",
+      "acknowledge": "Entendi",
+      "dismiss": "Dispensar",
+      "passive": "Tamanho definido por outra janela. Clique para ajustar."
+    },
+    "hostKey": {
+      "title": "Confiar nesta chave do host?",
+      "body": "{host} apresentou uma chave que o Termdock nunca viu.",
+      "target": "Login",
+      "keyType": "Tipo de chave",
+      "fingerprint": "Impressão digital",
+      "compare": "Compare a impressão digital com a do servidor antes de confiar nela.",
+      "accept": "Confiar e conectar",
+      "reject": "Rejeitar"
+    },
+    "mismatch": {
+      "title": "A chave do host mudou",
+      "body": "{host} apresentou uma chave diferente da confiável. Alguém pode estar interceptando a conexão, então o Termdock se recusou a conectar.",
+      "presented": "Apresentada",
+      "review": "Revisar as chaves na página do host"
+    },
+    "auth": {
+      "title": "O host pede que você entre",
+      "body": "Responda ao pedido de {target}. As respostas vão para o host e nunca são guardadas.",
+      "answer": "Resposta {n}",
+      "submit": "Enviar"
+    },
+    "failure": {
+      "authRejected": "O host rejeitou a credencial.",
+      "credentialInvalid": "A credencial guardada não pode ser usada. Confira na página de credenciais.",
+      "hostKeyRejected": "Você rejeitou a chave do host.",
+      "hostUnreachable": "Não foi possível alcançar o host.",
+      "notFound": "O host, o perfil ou a credencial não existe mais.",
+      "forbidden": "Sua conta não tem permissão para abrir esta sessão.",
+      "localShellDisabled": "Shells locais estão desativados nesta instalação.",
+      "generic": "A conexão falhou e não será tentada de novo automaticamente."
+    },
+    "endReason": {
+      "userTerminated": "A sessão foi encerrada.",
+      "shellExited": "O shell terminou.",
+      "connectionLost": "A conexão caiu e a sessão não estava protegida.",
+      "serviceRestarted": "O Termdock reiniciou e a sessão não estava protegida.",
+      "error": "A sessão parou depois de um erro.",
+      "unknown": "A sessão terminou."
+    },
+    "serverError": {
+      "conflict": "Esse pedido não vale mais. Tente a sessão de novo para receber um novo.",
+      "forbidden": "Sua conta não tem permissão para isso.",
+      "generic": "O Termdock não conseguiu aplicar isso. Tente de novo."
+    },
+    "link": {
+      "title": "Abrir este link?",
+      "body": "Ele abre em uma nova aba do navegador.",
+      "open": "Abrir link",
+      "cancel": "Cancelar"
+    },
+    "menu": {
+      "label": "Ações de {label}",
+      "openInTab": "Abrir em uma nova aba",
+      "splitRight": "Dividir à direita",
+      "splitDown": "Dividir abaixo",
+      "retry": "Tentar agora",
+      "reopen": "Reabrir",
+      "terminate": "Encerrar…",
+      "terminateQuestion": "Encerrar {label}? O shell e tudo o que roda nele param. Isso não pode ser desfeito.",
+      "terminateConfirm": "Encerrar sessão",
+      "cancel": "Cancelar"
+    },
+    "palette": {
+      "label": "Encontre uma sessão ou inicie uma",
+      "placeholder": "Buscar sessões e perfis",
+      "results": "Resultados",
+      "sessions": "Sessões abertas",
+      "newSession": "Iniciar uma sessão",
+      "start": "Iniciar",
+      "starting": "Iniciando…",
+      "noMatch": "Nada corresponde a “{query}”.",
+      "nothing": "Ainda não há sessões nem perfis.",
+      "noProfiles": "Sessões começam a partir de um perfil de conexão. <link>Adicione um na página de um host.</link>",
+      "hintMove": "para mover",
+      "hintChoose": "para abrir",
+      "keyUp": "Seta para cima",
+      "keyDown": "Seta para baixo"
+    },
+    "connection": {
+      "offline": "Sem conexão, tentando de novo",
+      "offlineIn": "Sem conexão, tentando de novo em {seconds, plural, one {# segundo} other {# segundos}}",
+      "retryNow": "Tentar agora",
+      "restarting": "O Termdock está reiniciando…",
+      "forbiddenTitle": "O Termdock recusou a conexão",
+      "forbiddenBody": "Esta página não pode abrir terminais agora. Recarregue para entrar de novo.",
+      "outdatedTitle": "O Termdock foi atualizado",
+      "outdatedBody": "Recarregue a página para carregar a nova versão.",
+      "reload": "Recarregar"
+    },
+    "notice": {
+      "tabLimit": "Você tem 32 abas abertas. Feche uma para abrir outra.",
+      "paneLimit": "Esta aba não comporta mais painéis. Abra a sessão em uma nova aba.",
+      "actionFailed": "O Termdock não respondeu. Confira sua conexão e tente de novo."
     }
   },
   "notFound": {

@@ -211,11 +211,15 @@
     "tabs": {
       "label": "Open sessions",
       "empty": "No open tabs",
-      "close": "Close tab. The session keeps running."
+      "close": "Close tab. The session keeps running.",
+      "panes": "{count, plural, one {# pane} other {# panes}}",
+      "bell": "bell rang",
+      "closeLabel": "Close tab {label}. Sessions keep running.",
+      "splitRight": "Split right",
+      "splitDown": "Split down"
     },
     "pane": {
       "label": "Terminal panes",
-      "notAttached": "Not attached",
       "emptyTitle": "Pick a session",
       "emptyBody": "Choose a strip in the bay to open it here. Closing a tab only detaches; the session keeps running on the server.",
       "firstRunTitle": "Add your first host",
@@ -225,7 +229,16 @@
       "firstRunStep3": "Start a session. It runs until you end it.",
       "firstRunCta": "Add a host",
       "noSessionsTitle": "Start a session",
-      "noSessionsBody": "Your hosts are ready. Start a session and it will appear in the bay."
+      "noSessionsBody": "Your hosts are ready. Start a session and it will appear in the bay.",
+      "resize": "Resize panes",
+      "loading": "Session",
+      "emptyPane": "Empty pane",
+      "emptyPaneBody": "Pick a session for this pane, or start a new one here.",
+      "newHere": "New session here",
+      "close": "Close pane. The session keeps running.",
+      "closeLabel": "Close pane {label}. The session keeps running.",
+      "clipboardDenied": "The browser didn't allow reading the clipboard. Long-press the terminal to paste instead.",
+      "tooMany": "Too many terminals are open in this browser tab. Close a pane or a tab to open this one."
     },
     "phone": {
       "back": "Sessions"
@@ -245,6 +258,121 @@
     "account": {
       "label": "Account",
       "signedInAs": "Signed in as {username}"
+    },
+    "overlay": {
+      "offline": "Not connected to Termdock right now. Try again when the connection is back.",
+      "reconnectingIn": "Reconnecting in {seconds, plural, one {# second} other {# seconds}}",
+      "reconnectingNow": "Reconnecting…",
+      "reconnectingBody": "The connection to {host} dropped. Termdock keeps trying.",
+      "retryNow": "Retry now",
+      "retry": "Retry",
+      "disconnectedTitle": "Disconnected",
+      "endedTitle": "Session ended",
+      "reopen": "Reopen",
+      "closePane": "Close pane",
+      "goneBody": "This session no longer exists.",
+      "waitTitle": "Waiting for the host's prompt",
+      "waitBody": "The sign-in prompt expired or hasn't arrived yet. Retry to ask the host again.",
+      "rebootTitle": "The remote host restarted",
+      "rebootBody": "The previous shell was lost; a new one started.",
+      "acknowledge": "Got it",
+      "dismiss": "Dismiss",
+      "passive": "Sized by another window. Click to fit."
+    },
+    "hostKey": {
+      "title": "Trust this host key?",
+      "body": "{host} presented a key Termdock hasn't seen before.",
+      "target": "Login",
+      "keyType": "Key type",
+      "fingerprint": "Fingerprint",
+      "compare": "Compare the fingerprint with the one on the server before you trust it.",
+      "accept": "Trust and connect",
+      "reject": "Reject"
+    },
+    "mismatch": {
+      "title": "Host key changed",
+      "body": "{host} presented a key that doesn't match the trusted one. Someone may be intercepting the connection, so Termdock refused to connect.",
+      "presented": "Presented",
+      "review": "Review the keys on the host page"
+    },
+    "auth": {
+      "title": "The host asks you to sign in",
+      "body": "Answer the prompt for {target}. Answers go to the host and are never stored.",
+      "answer": "Answer {n}",
+      "submit": "Send"
+    },
+    "failure": {
+      "authRejected": "The host rejected the credential.",
+      "credentialInvalid": "The stored credential can't be used. Check it on the credentials page.",
+      "hostKeyRejected": "You rejected the host key.",
+      "hostUnreachable": "The host can't be reached.",
+      "notFound": "The host, profile or credential no longer exists.",
+      "forbidden": "Your account isn't allowed to open this session.",
+      "localShellDisabled": "Local shells are turned off on this installation.",
+      "generic": "The connection failed and won't be retried automatically."
+    },
+    "endReason": {
+      "userTerminated": "The session was terminated.",
+      "shellExited": "The shell exited.",
+      "connectionLost": "The connection dropped and the session wasn't protected.",
+      "serviceRestarted": "Termdock restarted and the session wasn't protected.",
+      "error": "The session stopped after an error.",
+      "unknown": "The session is over."
+    },
+    "serverError": {
+      "conflict": "That prompt is no longer current. Retry the session to get a fresh one.",
+      "forbidden": "Your account isn't allowed to do that.",
+      "generic": "Termdock couldn't apply that. Try again."
+    },
+    "link": {
+      "title": "Open this link?",
+      "body": "It opens in a new browser tab.",
+      "open": "Open link",
+      "cancel": "Cancel"
+    },
+    "menu": {
+      "label": "Actions for {label}",
+      "openInTab": "Open in a new tab",
+      "splitRight": "Split right",
+      "splitDown": "Split down",
+      "retry": "Retry now",
+      "reopen": "Reopen",
+      "terminate": "Terminate…",
+      "terminateQuestion": "Terminate {label}? The shell and everything running in it stop. This can't be undone.",
+      "terminateConfirm": "Terminate session",
+      "cancel": "Cancel"
+    },
+    "palette": {
+      "label": "Find a session or start one",
+      "placeholder": "Search sessions and profiles",
+      "results": "Results",
+      "sessions": "Open sessions",
+      "newSession": "Start a session",
+      "start": "Start",
+      "starting": "Starting…",
+      "noMatch": "Nothing matches “{query}”.",
+      "nothing": "No sessions or profiles yet.",
+      "noProfiles": "Sessions start from a connection profile. <link>Add one on a host's page.</link>",
+      "hintMove": "to move",
+      "hintChoose": "to open",
+      "keyUp": "Up arrow",
+      "keyDown": "Down arrow"
+    },
+    "connection": {
+      "offline": "Offline, retrying",
+      "offlineIn": "Offline, retrying in {seconds, plural, one {# second} other {# seconds}}",
+      "retryNow": "Retry now",
+      "restarting": "Termdock is restarting…",
+      "forbiddenTitle": "Termdock refused the connection",
+      "forbiddenBody": "This page can't open terminals right now. Reload it to sign in again.",
+      "outdatedTitle": "Termdock was updated",
+      "outdatedBody": "Reload the page to load the new version.",
+      "reload": "Reload"
+    },
+    "notice": {
+      "tabLimit": "You have 32 tabs open. Close one to open another.",
+      "paneLimit": "This tab can't hold more panes. Open the session in a new tab instead.",
+      "actionFailed": "Termdock didn't answer. Check your connection and try again."
     }
   },
   "notFound": {

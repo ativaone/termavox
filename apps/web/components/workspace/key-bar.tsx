@@ -1,7 +1,8 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { type ReactNode, useState } from 'react';
+import type { ReactNode } from 'react';
+import type { TerminalKey } from '../../lib/workspace/keys.ts';
 import {
   ArrowDownIcon,
   ArrowLeftIcon,
@@ -10,15 +11,6 @@ import {
   PasteIcon,
 } from '../icons/index.tsx';
 import { cx } from '../ui/cx.ts';
-
-export type TerminalKey =
-  | 'Escape'
-  | 'Tab'
-  | 'ArrowUp'
-  | 'ArrowDown'
-  | 'ArrowLeft'
-  | 'ArrowRight'
-  | '|';
 
 const KEY_CLASSES =
   'inline-flex h-11 min-w-9 flex-1 select-none items-center justify-center gap-1.5 rounded-control px-1 ' +
@@ -41,6 +33,9 @@ function Key({
       type="button"
       aria-label={label}
       aria-pressed={pressed}
+      // The terminal keeps the focus, so the soft keyboard stays up while keys are tapped.
+      onPointerDown={(event) => event.preventDefault()}
+      onMouseDown={(event) => event.preventDefault()}
       onClick={onPress}
       className={cx(KEY_CLASSES, pressed && 'bg-stock text-stock-ink active:bg-stock-pressed')}
     >
@@ -50,23 +45,27 @@ function Key({
 }
 
 /**
- * Phone extra-key bar (plan §11.2): Esc, Tab, sticky Ctrl, arrows, pipe and paste. Rendering and
- * the sticky Ctrl state only; the terminal client wires `onKey`/`onPaste` in the next workstream.
+ * Phone extra-key bar (plan §11.2): Esc, Tab, sticky Ctrl, arrows, pipe and paste. Ctrl is
+ * owned by the workspace (`ctrl` / `onCtrlChange`) because it also applies to the next key typed
+ * on the soft keyboard. Keys never take the focus from the terminal.
  */
 export function KeyBar({
+  ctrl,
+  onCtrlChange,
   onKey,
   onPaste,
   className,
 }: {
-  onKey?: (key: TerminalKey, modifiers: { ctrl: boolean }) => void;
-  onPaste?: () => void;
+  ctrl: boolean;
+  onCtrlChange(armed: boolean): void;
+  onKey(key: TerminalKey, modifiers: { ctrl: boolean }): void;
+  onPaste(): void;
   className?: string;
 }) {
   const t = useTranslations('workspace.keybar');
-  const [ctrl, setCtrl] = useState(false);
   const send = (key: TerminalKey) => () => {
-    onKey?.(key, { ctrl });
-    setCtrl(false);
+    onKey(key, { ctrl });
+    onCtrlChange(false);
   };
   return (
     <fieldset
@@ -78,7 +77,7 @@ export function KeyBar({
       <legend className="sr-only">{t('label')}</legend>
       <Key onPress={send('Escape')}>{t('esc')}</Key>
       <Key onPress={send('Tab')}>{t('tab')}</Key>
-      <Key pressed={ctrl} onPress={() => setCtrl((on) => !on)}>
+      <Key pressed={ctrl} onPress={() => onCtrlChange(!ctrl)}>
         {t('ctrl')}
       </Key>
       <Key label={t('left')} onPress={send('ArrowLeft')}>

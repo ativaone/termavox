@@ -7,7 +7,12 @@ import { buildCsp, createNonce } from './lib/csp.ts';
  * rendered dynamically. API routes get a static deny-all policy from next.config.ts.
  */
 export function proxy(request: NextRequest) {
-  const csp = buildCsp(createNonce(), process.env.NODE_ENV === 'development');
+  const csp = buildCsp(
+    createNonce(),
+    process.env.NODE_ENV === 'development',
+    // Inlined at build time, like in the browser client (lib/terminal/config.ts).
+    process.env.NEXT_PUBLIC_TERMDOCK_WS_URL,
+  );
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('content-security-policy', csp);
   const response = NextResponse.next({ request: { headers: requestHeaders } });
