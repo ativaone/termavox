@@ -26,6 +26,7 @@ import { type DriverFactory, tmuxSocketName } from './driver-factory.ts';
 import { selectProtection } from './protection.ts';
 import type { TransportFactory, TransportHooks } from './transport-factory.ts';
 import {
+  type AttachmentClient,
   type AttachmentHandle,
   type Dimensions,
   type Driver,
@@ -84,6 +85,11 @@ export interface SessionRuntimeOptions {
   resizeDebounceMs?: number;
   lagPollMs?: number;
   ingestPollMs?: number;
+  /**
+   * A field of the session's summary changed (protection, end, first ready): the registry
+   * publishes `session.upsert`, so the bay never waits for a reload.
+   */
+  onSummaryChange?: () => void;
 }
 
 /** Live fields the registry overlays on stored session summaries. */
@@ -94,6 +100,8 @@ export interface LiveSessionFields {
   lastReadyAt: number | null;
   endedAt: number | null;
   endReason: EndReason | null;
+  /** Absent until this runtime changed state: the stored summary's value stands until then. */
+  statusDetail?: string | null;
 }
 
 interface Snapshot {
@@ -132,8 +140,11 @@ export class SessionRuntime implements SessionHost {
   readonly #lagPollMs: number | undefined;
   readonly #ingestPollMs: number;
   readonly #restored: boolean;
+  readonly #onSummaryChange: () => void;
 
   #state: SessionState;
+  /** `detail` of the latest state change in this process (undefined before the first one). */
+  #statusDetail: string | null | undefined = undefined;
   #wasReady: boolean;
   #desired: 'running' | 'terminated';
   #protection: Protection | null;
@@ -189,6 +200,7 @@ export class SessionRuntime implements SessionHost {
     this.#lagPollMs = options.lagPollMs;
     this.#ingestPollMs = options.ingestPollMs ?? INGEST_POLL_MS;
     this.#restored = options.restored ?? false;
+    this.#onSummaryChange = options.onSummaryChange ?? (() => {});
     this.#seq = options.initialSeq ?? 0;
     this.#state = this.#record.state;
     this.#wasReady = this.#record.lastReadyAt !== null;
@@ -245,6 +257,7 @@ export class SessionRuntime implements SessionHost {
       lastReadyAt: this.#record.lastReadyAt,
       endedAt: this.#record.endedAt,
       endReason: this.#record.endReason,
+      ...(this.#statusDetail !== undefined ? { statusDetail: this.#statusDetail } : {}),
     };
   }
 
@@ -375,9 +388,10 @@ export class SessionRuntime implements SessionHost {
 
   // ── attachments (SessionHost) ───────────────────────────────────────────────
 
-  attach(handle: AttachmentHandle, viewport: Dimensions): void {
+  attach(handle: AttachmentHandle, viewport: Dimensions, client?: AttachmentClient): void {
     if (this.#closed) return;
     if (this.#attachments.has(handle.id)) this.detach(handle.id);
+    if (client) this.#clientEvent('attached', handle.id, client);
     const attachment = new Attachment(handle, viewport, {
       onRecovered: (a) => this.#resync(a),
       ...(this.#lagPollMs !== undefined ? { lagPollMs: this.#lagPollMs } : {}),
@@ -398,9 +412,10 @@ export class SessionRuntime implements SessionHost {
     if (this.#state === 'awaiting_user_input' && !this.#authPrompt) this.#kick();
   }
 
-  detach(attachmentId: string): void {
+  detach(attachmentId: string, client?: AttachmentClient): void {
     const attachment = this.#attachments.get(attachmentId);
     if (!attachment) return;
+    if (client) this.#clientEvent('detached', attachmentId, client);
     attachment.dispose();
     this.#attachments.delete(attachmentId);
     this.#policy.remove(attachmentId);
@@ -729,6 +744,7 @@ export class SessionRuntime implements SessionHost {
   #setProtection(protection: Protection): void {
     this.#protection = protection;
     this.#store.update(this.sessionId, { protection });
+    this.#onSummaryChange();
   }
 
   #createDriver(protection: Protection, probe: ProbeResult, gen: number): Driver {
@@ -803,12 +819,14 @@ export class SessionRuntime implements SessionHost {
 
   #markReady(): void {
     const now = this.#now();
+    const first = this.#record.lastReadyAt === null;
     this.#wasReady = true;
     this.#record.lastReadyAt = now;
     this.#store.update(this.sessionId, { lastReadyAt: now });
     const detail = this.#readyDetail;
     this.#readyDetail = null;
     this.#setState('ready', detail !== null ? { detail } : {});
+    if (first) this.#onSummaryChange();
   }
 
   async #teardownAttempt(): Promise<void> {
@@ -859,6 +877,7 @@ export class SessionRuntime implements SessionHost {
     const from = this.#state;
     if (from === state && extra.detail === undefined && extra.retryInMs === undefined) return;
     this.#state = state;
+    this.#statusDetail = extra.detail ?? null;
     const status = toSessionStatus(state, this.#wasReady);
     this.#store.update(this.sessionId, { state, status });
     this.#event('state_changed', {
@@ -893,6 +912,7 @@ export class SessionRuntime implements SessionHost {
       endReason: reason,
     });
     this.#setState('ended', { detail: reason });
+    this.#onSummaryChange();
   }
 
   #event(type: string, detail?: Record<string, unknown>, actorUserId?: string): void {
@@ -900,6 +920,17 @@ export class SessionRuntime implements SessionHost {
       type,
       ...(detail ? { detail } : {}),
       ...(actorUserId ? { actorUserId } : {}),
+    });
+  }
+
+  /** `attached` / `detached` with the client's address and user agent (plan §10.2). */
+  #clientEvent(type: string, attachmentId: string, client: AttachmentClient): void {
+    this.#store.appendEvent(this.sessionId, {
+      type,
+      attachmentId,
+      actorUserId: this.userId,
+      ...(client.ip ? { ip: client.ip } : {}),
+      ...(client.userAgent ? { userAgent: client.userAgent } : {}),
     });
   }
 

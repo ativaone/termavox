@@ -83,6 +83,7 @@ describe('live bay', () => {
     lastReadyAt: null,
     endedAt,
     endReason: null,
+    statusDetail: null,
   });
 
   it('orders like the server bay: live oldest first, then the latest 20 ended', () => {

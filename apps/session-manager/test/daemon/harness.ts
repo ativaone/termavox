@@ -38,6 +38,7 @@ export class DaemonFixture {
       wsSecretFile: secret('ws_secret', this.#wsSecret),
       logLevel: 'silent',
       dataDir: this.dir,
+      trustedProxies: [],
       masterKeyFile: secret('master_key', randomBytes(32).toString('base64')),
       internalTokenFile: secret('internal_token', this.#token),
       internalHost: '127.0.0.1',

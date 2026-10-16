@@ -18,6 +18,11 @@ x-hardened: &hardened
 # Derived from the domain and HTTPS port unless set; a default port (443) is normalized away.
 x-public-url: &public-url ${TERMDOCK_PUBLIC_URL:-https://${TERMDOCK_DOMAIN:-localhost}:${TERMDOCK_HTTPS_PORT:-443}}
 
+# Fixed subnet of the `edge` network: the only peers there are Caddy, web and session-manager,
+# so session-manager trusts X-Forwarded-For from it (plan §4.3). Change it here if it collides
+# with a network of the Docker host.
+x-edge-subnet: &edge-subnet 172.30.10.0/24
+
 services:
   caddy:
     # caddy:2 (official Docker Hub image; v2.11.7 when pinned), pinned by digest.
@@ -58,6 +63,9 @@ services:
     <<: *hardened
     init: true
     user: "10001:10001"
+    # No published ports: web is reachable only through Caddy. Its rate limits, lockout and audit
+    # trust the single X-Forwarded-For value Caddy sets (plan §4.3); the other `edge` and
+    # `internal` peer, session-manager, never calls web.
     environment:
       TERMDOCK_PUBLIC_URL: *public-url
       TERMDOCK_DATA_DIR: /data
@@ -116,6 +124,8 @@ services:
       TERMDOCK_MASTER_KEY_FILE: /run/secrets/master_key
       # Local direct mode stays off in the container (plan §10.2).
       TERMDOCK_ENABLE_LOCAL_SHELL: "false"
+      # WebSocket client IPs (session_events.ip): believe X-Forwarded-For only from `edge` peers.
+      TERMDOCK_TRUSTED_PROXIES: *edge-subnet
       TERMDOCK_LOG_LEVEL: ${TERMDOCK_LOG_LEVEL:-info}
     secrets:
       - master_key
@@ -153,7 +163,10 @@ services:
 
 networks:
   # caddy <-> web:3000 and caddy <-> session-manager:3001; also the containers' egress (SSH).
-  edge: {}
+  edge:
+    ipam:
+      config:
+        - subnet: *edge-subnet
   # web <-> session-manager:3002 only; no gateway, no outside connectivity.
   internal:
     internal: true

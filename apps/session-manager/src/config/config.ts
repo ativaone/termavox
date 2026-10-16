@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
+import { parseTrustedProxies } from '../ws/client-ip.ts';
 
 const LogLevel = z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']);
 
@@ -12,6 +13,18 @@ const Env = z.object({
   TERMDOCK_WS_SECRET_FILE: z.string().min(1),
   TERMDOCK_LOG_LEVEL: LogLevel.default('info'),
   TERMDOCK_DATA_DIR: z.string().min(1).default('/data'),
+  // Comma-separated IPs/CIDRs allowed to set X-Forwarded-For on WebSockets (plan §4.3).
+  TERMDOCK_TRUSTED_PROXIES: z
+    .string()
+    .default('')
+    .transform((value, ctx) => {
+      try {
+        return parseTrustedProxies(value);
+      } catch (err) {
+        ctx.addIssue({ code: 'custom', message: (err as Error).message });
+        return z.NEVER;
+      }
+    }),
 });
 
 export interface DataPlaneConfig {
@@ -23,6 +36,8 @@ export interface DataPlaneConfig {
   wsSecretFile: string;
   logLevel: z.infer<typeof LogLevel>;
   dataDir: string;
+  /** Peers whose `X-Forwarded-For` names the client (Caddy's network); empty = none. */
+  trustedProxies: string[];
 }
 
 /** Parses the environment; throws a readable error listing every invalid variable. */
@@ -41,6 +56,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): DataPlaneConfi
     wsSecretFile: e.TERMDOCK_WS_SECRET_FILE,
     logLevel: e.TERMDOCK_LOG_LEVEL,
     dataDir: e.TERMDOCK_DATA_DIR,
+    trustedProxies: e.TERMDOCK_TRUSTED_PROXIES,
   };
 }
 

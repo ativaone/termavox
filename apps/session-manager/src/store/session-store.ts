@@ -153,7 +153,11 @@ export class SqliteSessionStore implements SessionStore {
       .filter((r) => r.desiredState === 'running' && r.state !== 'failed');
   }
 
-  /** Every session of the user (history included), newest first, with the host name joined. */
+  /**
+   * Every session of the user (history included), newest first, with the host name joined.
+   * `statusDetail` is only known from history for `failed` sessions (their code, see the class
+   * comment); the registry overlays the live value of runtimes that changed state since boot.
+   */
   async listForUser(userId: string): Promise<SessionSummary[]> {
     const rows = allRows<{
       id: string;
@@ -170,12 +174,19 @@ export class SqliteSessionStore implements SessionStore {
       last_ready_at: number | null;
       ended_at: number | null;
       end_reason: string | null;
+      status_detail: unknown;
     }>(
       this.#sqlite,
       `SELECT s.id, s.label, s.profile_id, s.target_host_id,
               COALESCE(h.name, s.target_hostname) AS host_name, s.target_hostname,
               s.target_username, s.state, s.status, s.protection_effective, s.created_at,
-              s.last_ready_at, s.ended_at, s.end_reason
+              s.last_ready_at, s.ended_at, s.end_reason,
+              CASE WHEN s.state = 'failed' THEN (
+                SELECT json_extract(e.detail_json, '$.detail') FROM session_events e
+                 WHERE e.session_id = s.id AND e.type = 'state_changed'
+                   AND json_extract(e.detail_json, '$.to') = 'failed'
+                 ORDER BY e.created_at DESC, e.id DESC LIMIT 1
+              ) END AS status_detail
          FROM sessions s LEFT JOIN hosts h ON h.id = s.target_host_id
         WHERE s.user_id = ?
         ORDER BY s.created_at DESC, s.rowid DESC`,
@@ -196,6 +207,7 @@ export class SqliteSessionStore implements SessionStore {
       lastReadyAt: r.last_ready_at,
       endedAt: r.ended_at,
       endReason: r.end_reason,
+      statusDetail: typeof r.status_detail === 'string' ? r.status_detail : null,
     }));
   }
 

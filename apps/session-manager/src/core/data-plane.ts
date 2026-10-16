@@ -15,7 +15,8 @@ import type {
 
 export interface DataPlaneDeps {
   publicOrigin: string;
-  ws: { host: string; port: number };
+  /** `trustedProxies`: TERMDOCK_TRUSTED_PROXIES (default: trust no X-Forwarded-For). */
+  ws: { host: string; port: number; trustedProxies?: readonly string[] };
   wsSecret: Uint8Array;
   installationId: string;
   store: SessionStore;
@@ -60,6 +61,7 @@ export function createDataPlane(deps: DataPlaneDeps): DataPlane {
   ws = new WsServer({
     host: deps.ws.host,
     port: deps.ws.port,
+    ...(deps.ws.trustedProxies ? { trustedProxies: deps.ws.trustedProxies } : {}),
     publicOrigin: deps.publicOrigin,
     secret: deps.wsSecret,
     authSessions: deps.authSessions,

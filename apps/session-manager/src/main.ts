@@ -81,7 +81,7 @@ export async function startDaemon(
     const ownership = new SqliteOwnership(db);
     plane = createDataPlane({
       publicOrigin: config.publicOrigin,
-      ws: { host: config.wsHost, port: config.wsPort },
+      ws: { host: config.wsHost, port: config.wsPort, trustedProxies: config.trustedProxies },
       wsSecret,
       installationId,
       store: sessions,

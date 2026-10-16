@@ -160,6 +160,7 @@ export class SessionRegistry {
     for (const { handle, viewport } of attachments) runtime.attach(handle, viewport);
     if (activeId) runtime.activate(activeId);
     void runtime.start();
+    void this.#publishUpsert(record);
     return { sessionId };
   }
 
@@ -232,6 +233,7 @@ export class SessionRegistry {
       notifier,
       installationId,
       logger: this.#log,
+      onSummaryChange: () => void this.#publishUpsert(record),
       ...this.#options.runtime,
       ...extra,
     });
@@ -288,6 +290,7 @@ export class SessionRegistry {
       hostname: record.target.hostname,
       username: record.target.username,
       createdAt: record.createdAt,
+      statusDetail: null,
       ...(runtime
         ? runtime.live()
         : {

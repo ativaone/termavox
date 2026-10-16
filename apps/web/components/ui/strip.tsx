@@ -101,15 +101,16 @@ export function Strip({
       >
         <span aria-hidden="true" className={STATE_FILL[status]} />
         <span className="flex min-w-0 flex-col justify-center gap-0.5 ps-2.5 pe-2">
-          <span className="flex min-w-0 items-center gap-1.5">
-            <span className="truncate font-semibold font-strip text-strip">{label}</span>
+          <span className="truncate font-semibold font-strip text-strip">{label}</span>
+          {/* The stamp shares the target's line: the label keeps the full width (ended strips). */}
+          <span className="flex min-w-0 items-center gap-1.5 text-ink-muted text-xs">
             {stamp ? (
-              <span className="shrink-0 rounded-[2px] border border-rule-strong px-1 font-bold font-strip-wide text-[0.625rem] text-ink-muted leading-3.5">
+              <span className="shrink-0 rounded-[2px] border border-rule-strong px-1 font-bold font-strip-wide text-[0.625rem] leading-3.5">
                 {stamp}
               </span>
             ) : null}
+            <span className="truncate">{target}</span>
           </span>
-          <span className="truncate text-ink-muted text-xs">{target}</span>
         </span>
         <span
           className="flex items-center justify-center border-rule border-s text-ink"

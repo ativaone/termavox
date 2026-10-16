@@ -197,6 +197,7 @@ export function summary(id: string, extra: Partial<SessionSummary> = {}): Sessio
     lastReadyAt: 0,
     endedAt: null,
     endReason: null,
+    statusDetail: null,
     ...extra,
   };
 }

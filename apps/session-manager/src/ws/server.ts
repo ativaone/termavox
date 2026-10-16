@@ -17,8 +17,9 @@ import { ErrorCode } from '@termdock/shared';
 import { type RawData, WebSocket, WebSocketServer } from 'ws';
 import { type Logger, silentLogger } from '../config/logger.ts';
 import type { UserNotifier } from '../core/session-runtime.ts';
-import type { OwnershipCheck } from '../core/types.ts';
+import type { AttachmentClient, OwnershipCheck } from '../core/types.ts';
 import { WsAttachmentHandle } from './attachment-handle.ts';
+import { clientAddress, TrustedProxies } from './client-ip.ts';
 import type { AuthSessionValidator, SessionGateway } from './types.ts';
 
 export const WS_PATH = '/ws';
@@ -27,12 +28,16 @@ export const REVALIDATE_INTERVAL_MS = 60_000;
 export const MAX_CHANNELS = 32;
 export const MAX_PAYLOAD = 1024 * 1024;
 const CLOSE_WAIT_MS = 2_000;
+/** Same cap as web's audit rows. */
+const MAX_USER_AGENT = 256;
 
 export interface WsServerOptions {
   host: string;
   port: number;
   /** Expected `Origin` header: the origin of TERMDOCK_PUBLIC_URL. */
   publicOrigin: string;
+  /** TERMDOCK_TRUSTED_PROXIES: peers whose `X-Forwarded-For` is believed. Default: none. */
+  trustedProxies?: readonly string[];
   /** TERMDOCK_WS_SECRET: HMAC key shared with the ticket issuer (web). */
   secret: Uint8Array;
   authSessions: AuthSessionValidator;
@@ -57,7 +62,7 @@ interface Binding {
 class Connection {
   readonly id = randomUUID();
   readonly ws: WebSocket;
-  readonly ip: string | undefined;
+  readonly client: AttachmentClient;
   readonly channels = new Map<number, Binding>();
   userId: string | null = null;
   authSessionId: string | null = null;
@@ -65,9 +70,13 @@ class Connection {
   queue: Promise<void> = Promise.resolve();
   helloTimer: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(ws: WebSocket, ip: string | undefined) {
+  constructor(ws: WebSocket, client: AttachmentClient) {
     this.ws = ws;
-    this.ip = ip;
+    this.client = client;
+  }
+
+  get ip(): string | undefined {
+    return this.client.ip;
   }
 
   send(message: ServerMessage): void {
@@ -84,6 +93,7 @@ export class WsServer implements UserNotifier {
   readonly #http: Server;
   readonly #wss: WebSocketServer;
   readonly #nonces: NonceCache;
+  readonly #trusted: TrustedProxies;
   readonly #log: Logger;
   readonly #connections = new Set<Connection>();
   readonly #byUser = new Map<string, Set<Connection>>();
@@ -93,6 +103,7 @@ export class WsServer implements UserNotifier {
   constructor(options: WsServerOptions) {
     this.#options = options;
     this.#nonces = options.nonces ?? new NonceCache();
+    this.#trusted = new TrustedProxies(options.trustedProxies ?? []);
     this.#log = (options.logger ?? silentLogger()).child({ component: 'ws' });
     this.#wss = new WebSocketServer({
       noServer: true,
@@ -188,19 +199,25 @@ export class WsServer implements UserNotifier {
       socket.end(`HTTP/1.1 ${status}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
       return;
     }
+    const ip = clientAddress(
+      req.socket.remoteAddress,
+      req.headers['x-forwarded-for'],
+      this.#trusted,
+    );
+    const userAgent = req.headers['user-agent']?.slice(0, MAX_USER_AGENT);
     this.#wss.handleUpgrade(req, socket, head, (ws) => {
       // A close code needs a completed handshake; nothing from this socket is processed.
       if (req.headers.origin !== this.#options.publicOrigin) {
-        this.#log.info({ ip: req.socket.remoteAddress }, 'rejected origin');
+        this.#log.info({ ip }, 'rejected origin');
         ws.close(CloseCode.Forbidden, 'forbidden origin');
         return;
       }
-      this.#accept(ws, req.socket.remoteAddress);
+      this.#accept(ws, { ip, userAgent });
     });
   }
 
-  #accept(ws: WebSocket, ip: string | undefined): void {
-    const conn = new Connection(ws, ip);
+  #accept(ws: WebSocket, client: AttachmentClient): void {
+    const conn = new Connection(ws, client);
     this.#connections.add(conn);
     conn.helloTimer = setTimeout(
       () => this.#close(conn, CloseCode.Unauthenticated, 'hello timeout'),
@@ -343,7 +360,7 @@ export class WsServer implements UserNotifier {
     }
     const handle = new WsAttachmentHandle(randomUUID(), channel, conn.ws);
     conn.channels.set(channel, { sessionId, handle });
-    host.attach(handle, viewport);
+    host.attach(handle, viewport, conn.client);
   }
 
   #detach(conn: Connection, channel: number): void {
@@ -351,7 +368,7 @@ export class WsServer implements UserNotifier {
     if (!binding) return;
     conn.channels.delete(channel);
     binding.handle.close();
-    this.#options.sessions.host(binding.sessionId)?.detach(binding.handle.id);
+    this.#options.sessions.host(binding.sessionId)?.detach(binding.handle.id, conn.client);
   }
 
   #onBinary(conn: Connection, data: Buffer): void {
@@ -444,7 +461,7 @@ export class WsServer implements UserNotifier {
     }
     for (const binding of conn.channels.values()) {
       binding.handle.close();
-      this.#options.sessions.host(binding.sessionId)?.detach(binding.handle.id);
+      this.#options.sessions.host(binding.sessionId)?.detach(binding.handle.id, conn.client);
     }
     conn.channels.clear();
   }

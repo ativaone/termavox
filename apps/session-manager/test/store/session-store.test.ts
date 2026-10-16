@@ -32,15 +32,20 @@ describe('SqliteSessionStore', () => {
     // Read-your-writes before the flush.
     expect(await store.get(a.id)).toMatchObject({ state: 'ready', protection: 'none' });
     store.update(b.id, { state: 'failed', status: 'disconnected' });
-    store.appendEvent(b.id, { type: 'state_changed', detail: { to: 'failed' } });
+    store.appendEvent(b.id, {
+      type: 'state_changed',
+      detail: { to: 'failed', detail: 'AUTH_REJECTED' },
+    });
+    store.appendEvent(b.id, { type: 'state_changed', detail: { to: 'connecting' } });
     await writer.flush();
 
     expect((await store.get(a.id))?.policies.autoReopen).toBe(false);
     expect((await store.listRestorable()).map((r) => r.id)).toEqual([a.id]);
     const listed = await store.listForUser(userId);
-    expect(listed.map((s) => [s.id, s.hostName, s.profileId])).toEqual([
-      [b.id, 'box', profileId],
-      [a.id, 'box', profileId],
+    // A failed session keeps its last failure code (after a restart nothing else knows it).
+    expect(listed.map((s) => [s.id, s.hostName, s.profileId, s.statusDetail])).toEqual([
+      [b.id, 'box', profileId, 'AUTH_REJECTED'],
+      [a.id, 'box', profileId, null],
     ]);
 
     // Profile deleted: history survives (profile_id NULL) and safe defaults apply.

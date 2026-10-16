@@ -250,6 +250,43 @@ describe('TermdockConnection', () => {
     expect(Object.keys(state.hostKeyPrompts)).toEqual(['session-2']);
   });
 
+  it('a fresh page reads the failure reason and a pending reboot notice from the list', async () => {
+    const server = new FakeServer();
+    const failed = {
+      state: 'failed',
+      status: 'disconnected',
+      statusDetail: 'AUTH_REJECTED',
+    } as const;
+    server.sessions = [
+      summary('failed', failed),
+      summary('rebooted', { statusDetail: 'remote_rebooted' }),
+    ];
+    const { connection } = setup(server);
+    connection.connect();
+    await until(() => connection.getSnapshot().sessionsLoaded);
+    const entry = (id: string) => connection.getSnapshot().sessions.find((e) => e.id === id);
+    // The pane's Disconnected slip reads `detail` (pane-overlays.tsx).
+    expect(entry('failed')).toMatchObject({ detail: 'AUTH_REJECTED', remoteRebooted: false });
+    expect(entry('rebooted')).toMatchObject({ remoteRebooted: true });
+    // Dismissed stays dismissed when the summary comes again.
+    connection.acknowledgeRemoteReboot('rebooted');
+    server.last.deliver(
+      JSON.stringify({
+        type: 'session.upsert',
+        session: summary('rebooted', { statusDetail: 'remote_rebooted' }),
+      }),
+    );
+    expect(entry('rebooted')).toMatchObject({ detail: 'remote_rebooted', remoteRebooted: false });
+    // A reboot that happened while the tab was offline latches with the next list.
+    server.last.deliver(
+      JSON.stringify({
+        type: 'sessions.list',
+        sessions: [summary('failed', { statusDetail: 'remote_rebooted' })],
+      }),
+    );
+    expect(entry('failed')).toMatchObject({ detail: 'remote_rebooted', remoteRebooted: true });
+  });
+
   it('4401 surfaces as unauthenticated and does not reconnect', async () => {
     const server = new FakeServer();
     const { connection, ticketCalls } = setup(server);

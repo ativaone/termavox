@@ -113,7 +113,16 @@ export class MemorySessionStore implements SessionStore {
         lastReadyAt: r.lastReadyAt,
         endedAt: r.endedAt,
         endReason: r.endReason,
+        statusDetail: r.state === 'failed' ? this.#failureCode(r.id) : null,
       }));
+  }
+
+  /** Like the SQLite store: a failed session's code from its last `state_changed` event. */
+  #failureCode(sessionId: string): string | null {
+    const event = this.events.findLast(
+      (e) => e.sessionId === sessionId && e.type === 'state_changed' && e.detail?.to === 'failed',
+    );
+    return typeof event?.detail?.detail === 'string' ? event.detail.detail : null;
   }
 
   update(sessionId: string, patch: SessionRecordPatch): void {

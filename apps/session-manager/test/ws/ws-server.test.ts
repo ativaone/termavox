@@ -1,7 +1,12 @@
 import { CloseCode, type ServerMessage, signTicket } from '@termdock/protocol';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { encodeChannelMessage } from '../../src/attachments/wire.ts';
-import type { AttachmentHandle, Dimensions, SessionHost } from '../../src/core/types.ts';
+import type {
+  AttachmentClient,
+  AttachmentHandle,
+  Dimensions,
+  SessionHost,
+} from '../../src/core/types.ts';
 import { WsServer } from '../../src/ws/server.ts';
 import type { SessionGateway } from '../../src/ws/types.ts';
 import { TestClient } from './client.ts';
@@ -11,7 +16,11 @@ const SECRET = new TextEncoder().encode('test-secret-test-secret-test-secret!');
 
 class FakeHost implements SessionHost {
   readonly sessionId: string;
-  readonly attached: Array<{ handle: AttachmentHandle; viewport: Dimensions }> = [];
+  readonly attached: Array<{
+    handle: AttachmentHandle;
+    viewport: Dimensions;
+    client: AttachmentClient | undefined;
+  }> = [];
   readonly inputs: string[] = [];
   readonly detached: string[] = [];
 
@@ -20,8 +29,8 @@ class FakeHost implements SessionHost {
   }
 
   async start(): Promise<void> {}
-  attach(handle: AttachmentHandle, viewport: Dimensions): void {
-    this.attached.push({ handle, viewport });
+  attach(handle: AttachmentHandle, viewport: Dimensions, client?: AttachmentClient): void {
+    this.attached.push({ handle, viewport, client });
     handle.send(
       encodeChannelMessage({
         type: 'session.attached',
@@ -163,6 +172,8 @@ describe('WebSocket server', () => {
     client.send({ type: 'ping', t: 1 });
     await client.next((m) => m.type === 'pong');
     expect(hosts.get('s-alice')!.inputs).toEqual(['ls\r']);
+    // No trusted proxy configured: the socket peer is the client address of the events.
+    expect(hosts.get('s-alice')!.attached[0]!.client?.ip).toBe('127.0.0.1');
     await client.close();
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(hosts.get('s-alice')!.detached).toEqual([hosts.get('s-alice')!.attached[0]!.handle.id]);

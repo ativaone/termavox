@@ -71,6 +71,9 @@ export const SessionSummary = z.object({
   lastReadyAt: z.number().nullable(),
   endedAt: z.number().nullable(),
   endReason: z.string().nullable(),
+  // `detail` of the latest `session.status` (failure code, end reason, `remote_rebooted` …), so
+  // a reloaded client can still say why; after a daemon restart, a failed session's last code.
+  statusDetail: z.string().nullable(),
 });
 export type SessionSummary = z.infer<typeof SessionSummary>;
 

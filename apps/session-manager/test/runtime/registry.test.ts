@@ -1,9 +1,12 @@
+import type { SessionSummary } from '@termdock/protocol';
+import { ErrorCode, TermdockError } from '@termdock/shared';
 import { describe, expect, it } from 'vitest';
 import { createDriverFactory } from '../../src/core/driver-factory.ts';
 import { SessionRegistry } from '../../src/core/session-registry.ts';
 import {
   encode,
   FakeAttachment,
+  type FakeTransportBehavior,
   FakeTransportFactory,
   MemoryHostKeyStore,
   MemorySessionStore,
@@ -11,6 +14,78 @@ import {
   RecordingNotifier,
   until,
 } from './fakes.ts';
+
+function registryWith(behavior?: (attempt: number) => FakeTransportBehavior) {
+  const store = new MemorySessionStore();
+  const notifier = new RecordingNotifier();
+  const factory = new FakeTransportFactory(behavior);
+  const registry = new SessionRegistry({
+    store,
+    hostKeys: new MemoryHostKeyStore(),
+    transports: factory,
+    drivers: createDriverFactory(),
+    notifier,
+    installationId: 'install-1',
+    runtime: { resizeDebounceMs: 1 },
+  });
+  return { store, notifier, factory, registry };
+}
+
+describe('SessionRegistry session.upsert', () => {
+  it('publishes summary changes live: protection, first ready, end and reopen', async () => {
+    const { store, notifier, factory, registry } = registryWith();
+    const upserts = (): SessionSummary[] => notifier.ofType('session.upsert').map((m) => m.session);
+    registry.create(store.add(makeRecord({ id: 's1' })));
+    const rt = registry.host('s1')!;
+    await until(() => rt.state === 'ready' && upserts().some((s) => s.lastReadyAt !== null));
+    expect(upserts()[0]).toMatchObject({ id: 's1', protection: null }); // on creation
+    expect(upserts().some((s) => s.protection === 'none')).toBe(true); // probe decided
+
+    factory.last.pty.finish({ code: 0, signal: null });
+    await until(() => upserts().some((s) => s.status === 'ended'));
+    expect(upserts().at(-1)).toMatchObject({
+      status: 'ended',
+      endReason: 'shell_exited',
+      endedAt: expect.any(Number),
+      statusDetail: 'shell_exited',
+    });
+
+    const before = upserts().length;
+    await registry.reopen('s1', 'user-1');
+    await until(() => registry.host('s1')?.state === 'ready');
+    await until(() =>
+      upserts()
+        .slice(before)
+        .some((s) => s.protection === 'none'),
+    );
+    expect(upserts()[before]).toMatchObject({ endedAt: null, endReason: null });
+    await registry.shutdown();
+  });
+
+  it("keeps a failed session's reason in the list (statusDetail), also after a restart", async () => {
+    const { store, registry } = registryWith(() => ({
+      connect: async () => {
+        throw new TermdockError(ErrorCode.AuthRejected, 'nope');
+      },
+    }));
+    const detailOf = async (id: string) =>
+      (await registry.listForUser('user-1')).find((s) => s.id === id)?.statusDetail;
+    // After a daemon restart only the row and its history are left.
+    store.add(makeRecord({ id: 'old', state: 'failed', status: 'disconnected', lastReadyAt: 1 }));
+    store.appendEvent('old', {
+      type: 'state_changed',
+      detail: { from: 'authenticating', to: 'failed', detail: 'HOST_KEY_REJECTED' },
+    });
+    expect(await detailOf('old')).toBe('HOST_KEY_REJECTED');
+    await registry.attachable('old'); // a pane attaches: the runtime loads without a transition
+    expect(await detailOf('old')).toBe('HOST_KEY_REJECTED');
+
+    registry.create(store.add(makeRecord({ id: 'new' })));
+    await until(() => registry.host('new')?.state === 'failed');
+    expect(await detailOf('new')).toBe('AUTH_REJECTED');
+    await registry.shutdown();
+  });
+});
 
 describe('SessionRegistry.reopen', () => {
   it('refuses protected live sessions; an ended one restarts with its attachments and seq', async () => {

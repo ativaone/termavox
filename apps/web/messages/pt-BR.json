@@ -852,7 +852,9 @@
       "protection_selected": "Proteção definida",
       "protection_degraded": "Proteção reduzida",
       "remote_rebooted": "Host reiniciado",
-      "desync": "Tela ressincronizada"
+      "desync": "Tela ressincronizada",
+      "attached": "Navegador conectado",
+      "detached": "Navegador desconectado"
     }
   },
   "settings": {
@@ -1094,6 +1096,7 @@
       "source": "Origem",
       "detail": "Detalhes",
       "system": "Sistema",
+      "unknownUser": "Usuário desconhecido",
       "type": {
         "auth_login_success": "Login feito",
         "auth_login_failure": "Falha no login",

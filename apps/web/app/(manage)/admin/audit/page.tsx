@@ -8,6 +8,7 @@ import { Pagination, paginate } from '../../../../components/ui/pagination.tsx';
 import { Panel, PanelSection } from '../../../../components/ui/panel.tsx';
 import { NativeSelect } from '../../../../components/ui/select.tsx';
 import { SheetTable, Td, Th, Tr } from '../../../../components/ui/sheet-table.tsx';
+import { auditActorLabel } from '../../../../lib/admin/audit-actor.ts';
 import { requireAdminPage } from '../../../../lib/admin/page-guard.ts';
 import { getAuthRuntime } from '../../../../lib/auth/server.ts';
 import { listUsersForAdmin } from '../../../../lib/repo/admin-users.ts';
@@ -243,7 +244,7 @@ export default async function AdminAuditPage({
                   <span className="font-semibold">{label(row.type)}</span>
                 </Td>
                 <Td label={t('actor')} className="text-sm">
-                  {row.actorName ?? (row.actorId ? row.actorId.slice(0, 8) : t('system'))}
+                  {auditActorLabel(row, t)}
                 </Td>
                 <Td label={t('target')} className="text-sm [overflow-wrap:anywhere]">
                   {targetLabel(row)}

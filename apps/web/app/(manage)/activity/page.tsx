@@ -34,6 +34,8 @@ const KNOWN_EVENTS = [
   'protection_degraded',
   'remote_rebooted',
   'desync',
+  'attached',
+  'detached',
 ] as const;
 type KnownEvent = (typeof KNOWN_EVENTS)[number];
 const isKnownEvent = (type: string): type is KnownEvent =>

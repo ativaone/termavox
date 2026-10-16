@@ -159,6 +159,13 @@ export interface AttachmentHandle {
   readonly bufferedAmount: number;
 }
 
+/** Who is behind an attachment, recorded with its `attached` / `detached` session events. */
+export interface AttachmentClient {
+  /** Client address: the socket peer, or `X-Forwarded-For` from a trusted proxy (plan §4.3). */
+  ip?: string | undefined;
+  userAgent?: string | undefined;
+}
+
 /**
  * Boundary of one session's runtime (state machine, emulator, driver, attachments). In-process
  * in the MVP; the post-MVP worker-per-session design (§18.1) moves it behind a socket.
@@ -166,8 +173,9 @@ export interface AttachmentHandle {
 export interface SessionHost {
   readonly sessionId: string;
   start(): Promise<void>;
-  attach(attachment: AttachmentHandle, viewport: Dimensions): void;
-  detach(attachmentId: string): void;
+  /** `client` is given by the WebSocket server (events); internal hand-overs omit it. */
+  attach(attachment: AttachmentHandle, viewport: Dimensions, client?: AttachmentClient): void;
+  detach(attachmentId: string, client?: AttachmentClient): void;
   input(attachmentId: string, data: Uint8Array): void;
   activate(attachmentId: string): void;
   viewport(attachmentId: string, dims: Dimensions): void;

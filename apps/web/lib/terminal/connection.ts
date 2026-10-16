@@ -53,7 +53,10 @@ export type AuthPromptRequest = Extract<ServerMessage, { type: 'auth.prompt' }>;
 export type ServerError = Extract<ServerMessage, { type: 'error' }>;
 
 export interface SessionEntry extends SessionSummary {
-  /** `detail` of the latest `session.status` (failure code, notice, end reason …). */
+  /**
+   * `detail` of the latest `session.status` (failure code, notice, end reason …); a list or
+   * upsert sets it from the summary's `statusDetail`, so it survives a reload.
+   */
   detail: string | null;
   /** `retryInMs` of the latest status, received at `statusAt` (client clock), for countdowns. */
   retryInMs: number | null;
@@ -127,10 +130,16 @@ const INITIAL_STATE: ConnectionState = {
 function toEntry(summary: SessionSummary, previous?: SessionEntry): SessionEntry {
   return {
     ...summary,
-    detail: previous?.detail ?? null,
+    // The summary is built when it is sent: its detail is as fresh as the latest status.
+    detail: summary.statusDetail,
     retryInMs: previous?.retryInMs ?? null,
     statusAt: previous?.statusAt ?? null,
-    remoteRebooted: previous?.remoteRebooted ?? false,
+    // A fresh page shows a pending reboot notice; one this tab already saw stays dismissed if
+    // the user dismissed it, and one that happened while the tab was offline latches now.
+    remoteRebooted: previous
+      ? previous.remoteRebooted ||
+        (summary.statusDetail === 'remote_rebooted' && previous.detail !== 'remote_rebooted')
+      : summary.statusDetail === 'remote_rebooted',
   };
 }
 

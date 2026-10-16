@@ -727,6 +727,8 @@ Server → client:
 | `error` | `code, message, channel?, sessionId?` |
 | `pong` | `t` |
 
+Session summaries (`sessions.list`, `session.upsert`) carry `statusDetail`: the `detail` of the session's latest `session.status` (failure code, end reason, `remote_rebooted`), so a reloaded page still says why; after a daemon restart a `failed` session's code comes from its last `state_changed` event. `session.upsert` is also sent whenever a summary field changes (protection selected or degraded, first ready, end, reopen).
+
 Close codes: `4400` bad request · `4401` unauthenticated/revoked · `4403` forbidden/bad origin · `4409` protocol version unsupported · `4429` rate limited · `4500` internal.
 
 Evolution: additive changes stay in v1 (receivers ignore unknown fields and unknown message types). Breaking changes bump `protocol`.
@@ -948,6 +950,7 @@ The skill's own rule applies: verification happens in bounded passes, never as o
 - **Sidebar**: sessions grouped by host, each with its status chip (§5.6), a shield for protected sessions (tooltip: "Survives restarts and network drops"; a hollow shield for compatibility mode; none plus a tooltip for unprotected; the warning "remote may kill tmux on disconnect — enable linger" when the §5.11 logind rules give no reliable protection), and uptime. Context menu: rename, open in a new tab, split right/down, terminate (confirmation), reopen (only for ended or unprotected sessions, §5.7). "Ended" collapses the last 20.
 - **New session**: command palette (`Ctrl/Cmd+K`) to search profiles. Also "New session" on a host's page.
 - **Tabs and splits**: each tab holds a split tree (§9). Panes are resizable. **Closing a pane or tab only detaches.** The session keeps running in the sidebar. Terminating is always explicit.
+- **Background tabs**: only the active tab's panes are mounted (attached), so a background tab gets no title or bell updates until it is shown again. Accepted MVP trade-off.
 - **Layout persistence**: saved to `/api/layout` (debounced 1 s; `PUT` with `If-Match: <version>`; on `409` the client reloads and re-applies, §8.2). Opening Termdock in any browser restores tabs, splits and the attached sessions, with snapshots (fidelity per §5.3.1). Panes bound to ended sessions show "Session ended — Reopen".
 - **Overlays inside the pane**: "Connecting…" / "Restoring…" (a subtle spinner over the last known screen, never a blank terminal); Action required (host key with the fingerprint, keyboard-interactive prompts); Reconnecting (countdown + "Retry now", which skips the backoff wait); Disconnected (reason + Retry). Both buttons call the retry endpoint (§8.3).
 - **Keyboard**: when a terminal has focus, every key goes to the terminal. App shortcuts use `Ctrl+Shift+<key>` (configurable): new session, next/previous tab, split, close pane, command palette.
@@ -1086,6 +1089,7 @@ Compose `secrets:` with `file:` are bind mounts outside swarm (the `uid`/`gid`/`
 | `BETTER_AUTH_SECRET_FILE` | web | auth signing secret |
 | `TERMDOCK_INTERNAL_URL` | web | `http://session-manager:3002` |
 | `TERMDOCK_ENABLE_LOCAL_SHELL` | session-manager | default `false` |
+| `TERMDOCK_TRUSTED_PROXIES` | session-manager | comma-separated IPs/CIDRs whose `X-Forwarded-For` (first value) names the WebSocket client, recorded in `session_events.ip`; default empty = trust nothing (socket address); compose sets the `edge` subnet `172.30.10.0/24` (§4.3) |
 | `TERMDOCK_LOG_LEVEL` | both | default `info` |
 
 `deploy/scripts/init-secrets.sh` generates every secret with `openssl rand` into `./secrets/` (gitignored), sets mode 0440 and group 10001 (the images' shared GID) on each file, and warns: **back up `master_key`. Losing it means losing every stored credential.**

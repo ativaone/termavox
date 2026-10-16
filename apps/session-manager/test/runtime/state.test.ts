@@ -166,6 +166,20 @@ describe('SessionRuntime state machine', () => {
     await rt.shutdown();
   });
 
+  it('records attached/detached with the client address and user agent (session_events)', async () => {
+    const h = harness();
+    const rt = h.runtime();
+    const client = { ip: '203.0.113.7', userAgent: 'Firefox' };
+    rt.attach(new FakeAttachment('a1'), { cols: 80, rows: 24 }, client);
+    rt.detach('a1', client);
+    const event = { sessionId: SID, attachmentId: 'a1', actorUserId: 'user-1', ...client };
+    expect(h.store.events.filter((e) => e.attachmentId)).toEqual([
+      { type: 'attached', ...event },
+      { type: 'detached', ...event },
+    ]);
+    await rt.shutdown();
+  });
+
   it('ends on shell exit, on connection loss without auto-reopen, and on terminate', async () => {
     const exited = harness();
     const rt1 = exited.runtime();

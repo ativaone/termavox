@@ -852,7 +852,9 @@
       "protection_selected": "Protection selected",
       "protection_degraded": "Protection degraded",
       "remote_rebooted": "Host rebooted",
-      "desync": "Screen resynchronized"
+      "desync": "Screen resynchronized",
+      "attached": "Browser attached",
+      "detached": "Browser detached"
     }
   },
   "settings": {
@@ -1094,6 +1096,7 @@
       "source": "Source",
       "detail": "Details",
       "system": "System",
+      "unknownUser": "Unknown user",
       "type": {
         "auth_login_success": "Signed in",
         "auth_login_failure": "Sign-in failed",
