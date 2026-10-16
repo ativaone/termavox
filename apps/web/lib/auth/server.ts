@@ -1,8 +1,8 @@
 import 'server-only';
 import { openDb } from '@termdock/db';
-import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { loadWebConfig, readSecretFileSync, secretBytes } from '../config.ts';
+import { liveRequestHeaders } from '../live-headers.ts';
 import type { AuthSession } from './auth.ts';
 import { authGate, type GateOptions } from './gate.ts';
 import { type AuthRuntime, createAuthRuntime } from './runtime.ts';
@@ -35,7 +35,9 @@ function buildRuntimeFromEnv(): AuthRuntime {
  * forced password change, TOTP enrollment).
  */
 export async function requireSession(options?: GateOptions): Promise<AuthSession> {
-  const result = await authGate(getAuthRuntime(), await headers(), options);
+  // Live headers: after a Server Action rotates the session, `headers()` still carries the old
+  // (already deleted) cookie while `cookies()` holds the new one.
+  const result = await authGate(getAuthRuntime(), await liveRequestHeaders(), options);
   if (!result.ok) redirect(result.redirectTo);
   return { session: result.session, user: result.user };
 }

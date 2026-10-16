@@ -1,0 +1,244 @@
+{
+  "common": {
+    "brand": "Termdock",
+    "skipToContent": "Pular para o conteúdo",
+    "working": "Processando…",
+    "signOut": "Sair",
+    "copy": {
+      "copy": "Copiar",
+      "copied": "Copiado",
+      "failed": "Não foi possível copiar. Selecione o texto e copie manualmente."
+    },
+    "password": {
+      "show": "Mostrar senha",
+      "hide": "Ocultar senha"
+    },
+    "locale": {
+      "label": "Idioma",
+      "apply": "Aplicar",
+      "en": "English",
+      "pt-BR": "Português (Brasil)"
+    },
+    "field": {
+      "errorPrefix": "Erro:"
+    }
+  },
+  "meta": {
+    "login": "Entrar",
+    "twoFactor": "Verificação em duas etapas",
+    "setup": "Configurar o Termdock",
+    "changePassword": "Escolha uma nova senha",
+    "enrollTotp": "Configurar a verificação em duas etapas",
+    "workspace": "Área de trabalho",
+    "notFound": "Página não encontrada"
+  },
+  "auth": {
+    "login": {
+      "title": "Entrar",
+      "username": "Usuário",
+      "password": "Senha",
+      "submit": "Entrar",
+      "notice": {
+        "expired": "A etapa de entrada expirou. Entre novamente."
+      },
+      "error": {
+        "missing": "Informe seu usuário e sua senha.",
+        "invalid": "Usuário ou senha incorretos.",
+        "lockedSeconds": "Muitas tentativas sem sucesso. A entrada está pausada por {seconds, plural, one {# segundo} other {# segundos}}.",
+        "lockedMinutes": "Muitas tentativas sem sucesso. A entrada está pausada por {minutes, plural, one {# minuto} other {# minutos}}.",
+        "rateLimited": "Muitas tentativas de entrada a partir desta rede. Aguarde alguns segundos e tente de novo.",
+        "disabled": "Esta conta está desativada. Fale com o administrador do Termdock.",
+        "generic": "Não foi possível entrar. Tente de novo."
+      }
+    },
+    "twoFactor": {
+      "title": "Verificação em duas etapas",
+      "intro": "Digite o código de 6 dígitos do seu aplicativo autenticador.",
+      "code": "Código de verificação",
+      "codeHelp": "O código muda a cada 30 segundos.",
+      "trustDevice": "Confiar neste dispositivo por 30 dias",
+      "trustDeviceHelp": "Este navegador não pedirá o código de novo até lá.",
+      "submit": "Verificar",
+      "useBackup": "Usar um código de backup",
+      "backupIntro": "Digite um dos códigos de backup que você guardou ao configurar a verificação em duas etapas. Cada código funciona uma única vez.",
+      "backupCode": "Código de backup",
+      "useTotp": "Usar o aplicativo autenticador",
+      "otherAccount": "Entrar com outra conta",
+      "error": {
+        "format": "Digite o código de 6 dígitos.",
+        "backupFormat": "Digite um código de backup.",
+        "invalid": "Esse código não é válido. Confira o relógio do seu dispositivo e tente de novo.",
+        "invalidBackup": "Esse código de backup não é válido ou já foi usado.",
+        "locked": "Muitos códigos errados. A verificação está bloqueada por 15 minutos.",
+        "tooManyAttempts": "Muitas tentativas nesta entrada. Entre novamente para receber uma nova etapa de verificação.",
+        "generic": "A verificação falhou. Tente de novo."
+      }
+    },
+    "setup": {
+      "title": "Configurar o Termdock",
+      "intro": "Crie a primeira conta de administrador. Esta página funciona uma única vez, com o token de configuração exibido no log do serviço web.",
+      "token": "Token de configuração",
+      "tokenHelp": "Copie-o da linha do log do serviço web que começa com “No user exists yet”.",
+      "admin": "Conta de administrador",
+      "username": "Usuário",
+      "usernameHelp": "De 3 a 30 letras, números, pontos ou sublinhados.",
+      "email": "E-mail",
+      "password": "Senha",
+      "passwordHelp": "No mínimo 12 caracteres.",
+      "confirm": "Confirme a senha",
+      "submit": "Criar administrador",
+      "error": {
+        "token": "Este token de configuração não confere. Copie-o novamente do log do serviço web.",
+        "busy": "A configuração já está em andamento em outra janela. Aguarde um momento e tente de novo.",
+        "username": "Use de 3 a 30 letras, números, pontos ou sublinhados.",
+        "email": "Informe um e-mail válido.",
+        "passwordShort": "Use no mínimo 12 caracteres.",
+        "passwordLong": "Use no máximo 128 caracteres.",
+        "mismatch": "As senhas não conferem.",
+        "rejected": "Não foi possível criar a conta. Revise os campos e tente de novo.",
+        "generic": "A configuração falhou. Tente de novo."
+      }
+    },
+    "changePassword": {
+      "title": "Escolha uma nova senha",
+      "intro": "O administrador definiu uma senha temporária. Escolha a sua antes de continuar. Outros navegadores conectados a esta conta serão desconectados.",
+      "current": "Senha atual",
+      "new": "Nova senha",
+      "newHelp": "No mínimo 12 caracteres, diferente da atual.",
+      "confirm": "Confirme a nova senha",
+      "submit": "Alterar senha",
+      "error": {
+        "current": "A senha atual está incorreta.",
+        "unchanged": "Escolha uma senha diferente da atual.",
+        "passwordShort": "Use no mínimo 12 caracteres.",
+        "passwordLong": "Use no máximo 128 caracteres.",
+        "mismatch": "As senhas não conferem.",
+        "generic": "Não foi possível alterar a senha. Tente de novo."
+      }
+    },
+    "enrollTotp": {
+      "title": "Configurar a verificação em duas etapas",
+      "intro": "Sua conta exige um código de um aplicativo autenticador a cada entrada.",
+      "password": "Senha",
+      "passwordHelp": "Confirme que é você antes de criarmos um novo segredo.",
+      "start": "Continuar",
+      "scanTitle": "Escaneie o código",
+      "scanHelp": "Escaneie este QR code com o seu aplicativo autenticador.",
+      "qrLabel": "QR code para o seu aplicativo autenticador",
+      "manualLabel": "Não consegue escanear? Digite esta chave no aplicativo.",
+      "manualCopy": "Copiar chave",
+      "code": "Código do aplicativo",
+      "codeHelp": "Digite o código de 6 dígitos exibido no aplicativo para concluir.",
+      "verify": "Ativar a verificação em duas etapas",
+      "doneTitle": "A verificação em duas etapas está ativa",
+      "doneIntro": "Guarde estes códigos de backup em um lugar seguro. Cada um permite entrar uma vez se você perder o autenticador. Eles só são exibidos agora.",
+      "doneCodesLabel": "Códigos de backup",
+      "doneCopy": "Copiar códigos",
+      "doneContinue": "Continuar para a área de trabalho",
+      "enrolledTitle": "A verificação em duas etapas já está ativa",
+      "enrolledIntro": "Esta conta já entra com um código do autenticador.",
+      "error": {
+        "password": "A senha está incorreta.",
+        "format": "Digite o código de 6 dígitos.",
+        "invalid": "Esse código não é válido. Confira o relógio do seu dispositivo e tente de novo.",
+        "enrolled": "A verificação em duas etapas já está ativa nesta conta.",
+        "generic": "Não foi possível configurar a verificação em duas etapas. Tente de novo."
+      }
+    }
+  },
+  "workspace": {
+    "bay": {
+      "label": "Sessões",
+      "newSession": "Nova sessão",
+      "shortcut": "Atalho",
+      "emptyTitle": "Nenhuma sessão ainda",
+      "emptyBody": "Comece uma em Nova sessão. Ela continua rodando até você encerrá-la.",
+      "noHosts": "As sessões aparecem aqui depois que você adicionar um host."
+    },
+    "lane": {
+      "action_required": "Ação necessária",
+      "disconnected": "Desconectadas",
+      "reconnecting": "Reconectando",
+      "restoring": "Restaurando",
+      "connecting": "Conectando",
+      "connected": "Conectadas",
+      "ended": "Encerradas",
+      "count": "{count, plural, one {# sessão} other {# sessões}}",
+      "endedShown": "Últimas {shown} de {total}"
+    },
+    "status": {
+      "connecting": "Conectando…",
+      "restoring": "Restaurando…",
+      "connected": "Conectada",
+      "action_required": "Ação necessária",
+      "reconnecting": "Reconectando…",
+      "disconnected": "Desconectada",
+      "ended": "Encerrada"
+    },
+    "protection": {
+      "tmux-control": "Protegida: sobrevive a reinícios e quedas de rede",
+      "tmux-normal": "Protegida em modo de compatibilidade: sobrevive a reinícios e quedas de rede, histórico restaurado na medida do possível",
+      "none": "Sem proteção: o shell se perde se a conexão cair",
+      "pending": "A proteção é definida quando a sessão inicia"
+    },
+    "strip": {
+      "open": "Abrir {label}",
+      "running": "Rodando há {duration}",
+      "endedAgo": "Encerrada {ago}",
+      "stamp": "Encerrada"
+    },
+    "duration": {
+      "days": "{days}d {hours}h",
+      "hours": "{hours}h {minutes}min",
+      "minutes": "{minutes}min",
+      "underMinute": "<1min",
+      "agoNow": "agora",
+      "agoMinutes": "há {minutes}min",
+      "agoHours": "há {hours}h",
+      "agoDays": "há {days}d"
+    },
+    "tabs": {
+      "label": "Sessões abertas",
+      "empty": "Nenhuma aba aberta",
+      "close": "Fechar aba. A sessão continua rodando."
+    },
+    "pane": {
+      "label": "Painéis de terminal",
+      "notAttached": "Não anexada",
+      "emptyTitle": "Escolha uma sessão",
+      "emptyBody": "Escolha uma tira no quadro para abri-la aqui. Fechar uma aba só desanexa; a sessão continua rodando no servidor.",
+      "firstRunTitle": "Adicione seu primeiro host",
+      "firstRunBody": "O Termdock mantém as sessões SSH abertas no servidor, então você pode fechar o navegador e voltar para a mesma tela.",
+      "firstRunStep1": "Adicione um host e a credencial que dá acesso a ele.",
+      "firstRunStep2": "Confira a impressão digital da chave do host e confie nela.",
+      "firstRunStep3": "Inicie uma sessão. Ela roda até você encerrá-la.",
+      "firstRunCta": "Adicionar host",
+      "noSessionsTitle": "Inicie uma sessão",
+      "noSessionsBody": "Seus hosts estão prontos. Inicie uma sessão e ela aparecerá no quadro."
+    },
+    "phone": {
+      "back": "Sessões"
+    },
+    "keybar": {
+      "label": "Teclas do terminal",
+      "esc": "Esc",
+      "tab": "Tab",
+      "ctrl": "Ctrl",
+      "up": "Seta para cima",
+      "down": "Seta para baixo",
+      "left": "Seta para a esquerda",
+      "right": "Seta para a direita",
+      "pipe": "Barra vertical",
+      "paste": "Colar"
+    },
+    "account": {
+      "label": "Conta",
+      "signedInAs": "Conectado como {username}"
+    }
+  },
+  "notFound": {
+    "title": "Página não encontrada",
+    "body": "Este endereço não leva a lugar nenhum no Termdock.",
+    "home": "Ir para a área de trabalho"
+  }
+}

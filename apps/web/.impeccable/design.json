@@ -1,0 +1,814 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-16T01:39:49+00:00",
+  "title": "Design System: Termdock",
+  "extensions": {
+    "colorMeta": {
+      "board-0": {
+        "role": "neutral",
+        "displayName": "Board Ground",
+        "canonical": "oklch(21.1% 0.023 254.3)",
+        "tonalRamp": [
+          "#050c15",
+          "#1d2630",
+          "#3a434e",
+          "#58626f",
+          "#798390",
+          "#9ba6b4",
+          "#bfcad8",
+          "#e4f0fe"
+        ]
+      },
+      "board-1": {
+        "role": "secondary",
+        "displayName": "Slate Bay",
+        "canonical": "oklch(25.7% 0.028 255.2)",
+        "tonalRamp": [
+          "#040b17",
+          "#1c2633",
+          "#384351",
+          "#576272",
+          "#778394",
+          "#99a6b7",
+          "#bdcadc",
+          "#e4f0ff"
+        ]
+      },
+      "board-2": {
+        "role": "secondary",
+        "displayName": "Slate Tab Bar",
+        "canonical": "oklch(30.5% 0.038 255.0)",
+        "tonalRamp": [
+          "#020b1b",
+          "#182637",
+          "#344356",
+          "#536377",
+          "#738499",
+          "#96a7bd",
+          "#b9cbe2",
+          "#e5f0fe"
+        ]
+      },
+      "board-3": {
+        "role": "secondary",
+        "displayName": "Slate Hover",
+        "canonical": "oklch(34.8% 0.043 255.5)",
+        "tonalRamp": [
+          "#010b1d",
+          "#172639",
+          "#334359",
+          "#516379",
+          "#72849c",
+          "#94a7c0",
+          "#b7cbe5",
+          "#e5f0fe"
+        ]
+      },
+      "board-rule": {
+        "role": "neutral",
+        "displayName": "Board Hairline",
+        "canonical": "oklch(38.9% 0.048 254.6)",
+        "tonalRamp": [
+          "#000b1e",
+          "#14263c",
+          "#30435b",
+          "#4f637c",
+          "#6f849f",
+          "#91a7c3",
+          "#b5cbe8",
+          "#e5f0fe"
+        ]
+      },
+      "board-rule-strong": {
+        "role": "neutral",
+        "displayName": "Board Control Border",
+        "canonical": "oklch(59.7% 0.051 255.5)",
+        "tonalRamp": [
+          "#000a20",
+          "#13263e",
+          "#2f435d",
+          "#4e637e",
+          "#6e84a1",
+          "#90a7c5",
+          "#b3cbeb",
+          "#e5f0fd"
+        ]
+      },
+      "board-ink": {
+        "role": "neutral",
+        "displayName": "Board Ink",
+        "canonical": "oklch(93.1% 0.011 252.1)",
+        "tonalRamp": [
+          "#080c10",
+          "#21262b",
+          "#3e4248",
+          "#5d6268",
+          "#7d8389",
+          "#a0a6ac",
+          "#c4cad1",
+          "#e9eff6"
+        ]
+      },
+      "board-ink-muted": {
+        "role": "neutral",
+        "displayName": "Board Ink Muted",
+        "canonical": "oklch(73.5% 0.035 252.5)",
+        "tonalRamp": [
+          "#020c19",
+          "#192636",
+          "#354354",
+          "#536375",
+          "#748497",
+          "#96a7bb",
+          "#bacbe0",
+          "#e5f0fc"
+        ]
+      },
+      "board-ink-faint": {
+        "role": "neutral",
+        "displayName": "Board Ink Faint",
+        "canonical": "oklch(58.0% 0.040 253.6)",
+        "tonalRamp": [
+          "#010b1b",
+          "#172638",
+          "#334357",
+          "#516378",
+          "#72849a",
+          "#94a7be",
+          "#b8cbe3",
+          "#e5f0fc"
+        ]
+      },
+      "stock": {
+        "role": "primary",
+        "displayName": "Strip Buff",
+        "canonical": "oklch(91.4% 0.047 90.9)",
+        "tonalRamp": [
+          "#120a00",
+          "#2e2406",
+          "#4b4124",
+          "#6b6042",
+          "#8d8262",
+          "#b0a484",
+          "#d4c9a7",
+          "#faeecc"
+        ]
+      },
+      "stock-hover": {
+        "role": "primary",
+        "displayName": "Strip Buff Hover",
+        "canonical": "oklch(93.8% 0.036 89.4)",
+        "tonalRamp": [
+          "#110a00",
+          "#2c240f",
+          "#4a412c",
+          "#69614a",
+          "#8b826a",
+          "#aea48c",
+          "#d2c9af",
+          "#f8eed4"
+        ]
+      },
+      "stock-pressed": {
+        "role": "primary",
+        "displayName": "Strip Buff Pressed",
+        "canonical": "oklch(86.9% 0.055 89.9)",
+        "tonalRamp": [
+          "#130900",
+          "#2f2300",
+          "#4d411d",
+          "#6d603c",
+          "#8f815c",
+          "#b2a47d",
+          "#d7c8a1",
+          "#fdeec5"
+        ]
+      },
+      "stock-followed": {
+        "role": "primary",
+        "displayName": "Followed Strip",
+        "canonical": "oklch(96.7% 0.029 91.6)",
+        "tonalRamp": [
+          "#100b01",
+          "#2a2515",
+          "#474231",
+          "#67614f",
+          "#88826f",
+          "#aba591",
+          "#d0c9b5",
+          "#f5eed9"
+        ]
+      },
+      "stock-ended": {
+        "role": "primary",
+        "displayName": "Ended Strip",
+        "canonical": "oklch(86.4% 0.023 89.8)",
+        "tonalRamp": [
+          "#0f0b02",
+          "#292518",
+          "#474234",
+          "#666153",
+          "#888273",
+          "#aaa595",
+          "#cfc9b9",
+          "#f4eede"
+        ]
+      },
+      "stock-field": {
+        "role": "primary",
+        "displayName": "Writing Field",
+        "canonical": "oklch(97.3% 0.022 92.5)",
+        "tonalRamp": [
+          "#0e0b03",
+          "#292519",
+          "#464235",
+          "#656153",
+          "#878274",
+          "#aaa596",
+          "#cec9ba",
+          "#f3eedf"
+        ]
+      },
+      "stock-rule": {
+        "role": "neutral",
+        "displayName": "Stock Hairline",
+        "canonical": "oklch(80.1% 0.059 89.6)",
+        "tonalRamp": [
+          "#120a00",
+          "#2f2300",
+          "#4e4019",
+          "#6e6039",
+          "#908159",
+          "#b4a47b",
+          "#d8c89e",
+          "#feedc2"
+        ]
+      },
+      "stock-rule-strong": {
+        "role": "neutral",
+        "displayName": "Stock Control Border",
+        "canonical": "oklch(59.4% 0.055 88.5)",
+        "tonalRamp": [
+          "#130900",
+          "#302300",
+          "#4e401d",
+          "#6e603c",
+          "#90815c",
+          "#b3a47d",
+          "#d8c8a0",
+          "#feedc5"
+        ]
+      },
+      "stock-ink": {
+        "role": "neutral",
+        "displayName": "Stock Ink",
+        "canonical": "oklch(24.1% 0.021 86.3)",
+        "tonalRamp": [
+          "#0f0a03",
+          "#2a2419",
+          "#474135",
+          "#666154",
+          "#888274",
+          "#aba496",
+          "#cfc9ba",
+          "#f5eedf"
+        ]
+      },
+      "stock-ink-muted": {
+        "role": "neutral",
+        "displayName": "Stock Ink Muted",
+        "canonical": "oklch(45.1% 0.034 82.3)",
+        "tonalRamp": [
+          "#120900",
+          "#2d2311",
+          "#4b402d",
+          "#6b604b",
+          "#8d816c",
+          "#b0a38d",
+          "#d4c8b1",
+          "#faedd5"
+        ]
+      },
+      "stock-ink-faint": {
+        "role": "neutral",
+        "displayName": "Stock Ink Faint",
+        "canonical": "oklch(59.4% 0.042 85.2)",
+        "tonalRamp": [
+          "#130900",
+          "#2e230a",
+          "#4c4027",
+          "#6c6046",
+          "#8e8166",
+          "#b1a487",
+          "#d6c8ab",
+          "#fbedcf"
+        ]
+      },
+      "pane": {
+        "role": "neutral",
+        "displayName": "Terminal Pane",
+        "canonical": "oklch(17.1% 0.012 254.2)",
+        "tonalRamp": [
+          "#080b10",
+          "#21252b",
+          "#3e4249",
+          "#5d6268",
+          "#7d838a",
+          "#a0a6ad",
+          "#c4cad1",
+          "#e9eff7"
+        ]
+      },
+      "pane-ink-dim": {
+        "role": "neutral",
+        "displayName": "Pane Caption",
+        "canonical": "oklch(62.8% 0.027 252.0)",
+        "tonalRamp": [
+          "#040c16",
+          "#1b2632",
+          "#384350",
+          "#566371",
+          "#778493",
+          "#99a7b6",
+          "#bdcbdb",
+          "#e4f0fd"
+        ]
+      },
+      "state-connected": {
+        "role": "tertiary",
+        "displayName": "Connected Green",
+        "canonical": "oklch(63.5% 0.134 155.3)",
+        "tonalRamp": [
+          "#001004",
+          "#012e17",
+          "#00502b",
+          "#067442",
+          "#28995e",
+          "#54be80",
+          "#7ae3a3",
+          "#c5ffd8"
+        ]
+      },
+      "state-progress": {
+        "role": "tertiary",
+        "displayName": "Restoring Blue",
+        "canonical": "oklch(63.8% 0.127 251.6)",
+        "tonalRamp": [
+          "#000a24",
+          "#00254b",
+          "#00437b",
+          "#1d63a6",
+          "#4285cc",
+          "#66a9f2",
+          "#a2cdfe",
+          "#e4f0fd"
+        ]
+      },
+      "state-reconnecting": {
+        "role": "tertiary",
+        "displayName": "Reconnecting Amber",
+        "canonical": "oklch(75.8% 0.147 80.8)",
+        "tonalRamp": [
+          "#150800",
+          "#332100",
+          "#573d02",
+          "#7f5a00",
+          "#a7790e",
+          "#d4990c",
+          "#fabe48",
+          "#ffeccc"
+        ]
+      },
+      "state-action": {
+        "role": "tertiary",
+        "displayName": "Action Signal Orange",
+        "canonical": "oklch(68.0% 0.187 43.5)",
+        "tonalRamp": [
+          "#200000",
+          "#441300",
+          "#702800",
+          "#a03f05",
+          "#d45403",
+          "#ff7737",
+          "#fdb699",
+          "#fceae3"
+        ]
+      },
+      "state-disconnected": {
+        "role": "tertiary",
+        "displayName": "Disconnected Red",
+        "canonical": "oklch(60.3% 0.184 27.2)",
+        "tonalRamp": [
+          "#220000",
+          "#4d0002",
+          "#800109",
+          "#b21d1d",
+          "#db4840",
+          "#fd7569",
+          "#feb3aa",
+          "#fee9e6"
+        ]
+      },
+      "state-ended": {
+        "role": "tertiary",
+        "displayName": "Ended Slate",
+        "canonical": "oklch(62.3% 0.029 257.1)",
+        "tonalRamp": [
+          "#040b17",
+          "#1c2633",
+          "#384352",
+          "#576272",
+          "#778394",
+          "#9aa6b8",
+          "#bdcadd",
+          "#e6effc"
+        ]
+      },
+      "tint-danger": {
+        "role": "tertiary",
+        "displayName": "Danger Slip",
+        "canonical": "oklch(88.8% 0.042 44.3)",
+        "tonalRamp": [
+          "#190500",
+          "#361e14",
+          "#553b30",
+          "#765a4e",
+          "#997b6e",
+          "#bd9d90",
+          "#e2c1b3",
+          "#ffe9e0"
+        ]
+      },
+      "tint-warning": {
+        "role": "tertiary",
+        "displayName": "Warning Slip",
+        "canonical": "oklch(90.9% 0.075 88.8)",
+        "tonalRamp": [
+          "#130900",
+          "#302300",
+          "#523f04",
+          "#725f2b",
+          "#95804c",
+          "#b8a36e",
+          "#ddc791",
+          "#ffedc1"
+        ]
+      },
+      "tint-info": {
+        "role": "tertiary",
+        "displayName": "Info Slip",
+        "canonical": "oklch(91.8% 0.016 248.0)",
+        "tonalRamp": [
+          "#060c11",
+          "#1f262c",
+          "#3c434a",
+          "#5a626a",
+          "#7b838b",
+          "#9ea6af",
+          "#c1cad3",
+          "#e7f0f9"
+        ]
+      },
+      "tint-success": {
+        "role": "tertiary",
+        "displayName": "Success Slip",
+        "canonical": "oklch(91.0% 0.039 138.2)",
+        "tonalRamp": [
+          "#040f01",
+          "#1b2a17",
+          "#384733",
+          "#566751",
+          "#778872",
+          "#99ab94",
+          "#bdd0b7",
+          "#e2f5dc"
+        ]
+      },
+      "danger-on-stock": {
+        "role": "tertiary",
+        "displayName": "Danger Ink on Stock",
+        "canonical": "oklch(47.3% 0.162 28.6)",
+        "tonalRamp": [
+          "#220000",
+          "#4e0000",
+          "#810001",
+          "#aa2e25",
+          "#d15447",
+          "#fa7869",
+          "#fdb4a9",
+          "#fde9e6"
+        ]
+      },
+      "danger-on-board": {
+        "role": "tertiary",
+        "displayName": "Danger Ink on Board",
+        "canonical": "oklch(75.9% 0.144 26.1)",
+        "tonalRamp": [
+          "#220000",
+          "#4d0004",
+          "#7d0e13",
+          "#a33733",
+          "#ca5b53",
+          "#f27e75",
+          "#feb3ab",
+          "#fee9e6"
+        ]
+      },
+      "danger-fill": {
+        "role": "tertiary",
+        "displayName": "Danger Fill",
+        "canonical": "oklch(51.4% 0.166 28.4)",
+        "tonalRamp": [
+          "#210000",
+          "#4e0000",
+          "#810003",
+          "#ac2b23",
+          "#d35245",
+          "#fc7667",
+          "#ffb3a8",
+          "#fceae7"
+        ]
+      },
+      "focus-board": {
+        "role": "neutral",
+        "displayName": "Focus on Board",
+        "canonical": "oklch(81.2% 0.100 247.0)",
+        "tonalRamp": [
+          "#000b20",
+          "#002745",
+          "#004573",
+          "#2b6596",
+          "#4d87bb",
+          "#70abe0",
+          "#9ccffe",
+          "#e2f1ff"
+        ]
+      },
+      "focus-stock": {
+        "role": "neutral",
+        "displayName": "Focus on Stock",
+        "canonical": "oklch(49.3% 0.150 256.8)",
+        "tonalRamp": [
+          "#00072b",
+          "#002254",
+          "#003f87",
+          "#1d5fb4",
+          "#4182da",
+          "#67a6fe",
+          "#a8ccfd",
+          "#e6effc"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "title": {
+        "displayName": "Title",
+        "purpose": "Auth sheet and empty-state headings."
+      },
+      "subtitle": {
+        "displayName": "Subtitle",
+        "purpose": "Steps inside a sheet, fieldset legends."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "UI copy, intros, notices (prose capped at 52ch)."
+      },
+      "body-form": {
+        "displayName": "Body Form",
+        "purpose": "Typed values in inputs; 16 px avoids zoom-on-focus on phones."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Field labels."
+      },
+      "help": {
+        "displayName": "Help",
+        "purpose": "Help and error text, status chips."
+      },
+      "strip-label": {
+        "displayName": "Strip Label",
+        "purpose": "Session labels in strips, tabs and the phone header (Archivo width 72, caps)."
+      },
+      "lane-label": {
+        "displayName": "Lane Label",
+        "purpose": "Lane headers and the wordmark (Archivo width 80, caps)."
+      },
+      "data": {
+        "displayName": "Data",
+        "purpose": "Uptimes, ages, counts: always tabular figures."
+      },
+      "code": {
+        "displayName": "Code",
+        "purpose": "TOTP key, backup codes, key caps that need it; never decorative."
+      }
+    },
+    "shadows": [
+      {
+        "name": "strip",
+        "value": "0 1px 0 rgb(5 9 14 / 0.45), 0 3px 8px -3px rgb(5 9 14 / 0.55)",
+        "purpose": "Every session strip at rest: paper on the board."
+      },
+      {
+        "name": "strip-followed",
+        "value": "0 1px 0 rgb(5 9 14 / 0.45), 0 6px 14px -4px rgb(5 9 14 / 0.65)",
+        "purpose": "The cocked (followed) strip, lifted slightly."
+      },
+      {
+        "name": "panel",
+        "value": "0 2px 0 rgb(5 9 14 / 0.4), 0 18px 40px -16px rgb(5 9 14 / 0.75)",
+        "purpose": "Auth sheets and in-pane panels."
+      }
+    ],
+    "motion": [
+      {
+        "name": "duration-step",
+        "value": "60ms",
+        "purpose": "Step one: recolour, hover, press. 0 ms under reduced motion."
+      },
+      {
+        "name": "duration-move",
+        "value": "120ms",
+        "purpose": "Step two: a strip moving (cocking, lane change, disclosure chevron). 0 ms under reduced motion."
+      },
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Exponential ease-out for every move."
+      },
+      {
+        "name": "lane-change",
+        "value": "view transition, class strip: old snapshot hidden, group slides duration-move ease-out",
+        "purpose": "Signature move: the edge recolours at once, then the strip slides to its new lane; no cross-fade."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "md",
+        "value": "48rem (768px): below it the bay is the phone switcher screen and a followed session takes the full screen with the extra-key bar"
+      }
+    ],
+    "layout": [
+      {
+        "name": "bay-width",
+        "value": "20rem"
+      },
+      {
+        "name": "tabbar-height",
+        "value": "2.5rem"
+      },
+      {
+        "name": "keybar-height",
+        "value": "3rem"
+      },
+      {
+        "name": "strip-height",
+        "value": "48px"
+      },
+      {
+        "name": "strip-offset",
+        "value": "0.75rem (followed strip)"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button (on the board)",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one primary action of a board surface (New session): buff stock on slate.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M12 5v14M5 12h14\"/></svg><span>New session</span><kbd class=\"ds-kbd\">Ctrl</kbd><kbd class=\"ds-kbd\">K</kbd></button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border:0;border-radius:4px;background:var(--color-stock, #eee2c0);color:var(--color-stock-ink, #241f14);font:500 0.875rem/1.25rem Archivo,ui-sans-serif,system-ui,sans-serif;cursor:pointer;transition:background-color 60ms linear;width:288px} .ds-btn-primary span{flex:1;text-align:start} .ds-btn-primary:hover{background:var(--color-stock-hover, #f4ead0)} .ds-btn-primary:active{background:var(--color-stock-pressed, #e2d3ab)} .ds-btn-primary:focus-visible{outline:2px solid var(--color-focus-board, #8cc8ff);outline-offset:2px} .ds-kbd{display:inline-flex;align-items:center;justify-content:center;height:20px;min-width:20px;padding:0 4px;border:1px solid color-mix(in srgb,currentColor 30%,transparent);border-radius:3px;font:600 0.6875rem/1 Archivo,sans-serif;color:color-mix(in srgb,currentColor 75%,transparent)}"
+    },
+    {
+      "name": "Primary Button (on stock)",
+      "kind": "button",
+      "refersTo": "button-primary-on-stock",
+      "description": "Form submit on a buff sheet: slate on buff, full width, 44 px.",
+      "html": "<button class=\"ds-btn-primary-stock\" type=\"submit\">Sign in</button>",
+      "css": ".ds-btn-primary-stock{height:44px;width:320px;padding:0 16px;border:0;border-radius:4px;background:var(--color-board-1, #1a2431);color:var(--color-stock-hover, #f4ead0);font:500 1rem/1.5rem Archivo,ui-sans-serif,system-ui,sans-serif;cursor:pointer;transition:background-color 60ms linear} .ds-btn-primary-stock:hover{background:var(--color-board-2, #223042)} .ds-btn-primary-stock:active{background:var(--color-board-0, #111923)} .ds-btn-primary-stock:focus-visible{outline:2px solid var(--color-focus-stock, #1d5fb4);outline-offset:2px}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Supporting action on stock (Copy key, Copy codes).",
+      "html": "<button class=\"ds-btn-secondary\" type=\"button\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"8.5\" y=\"8.5\" width=\"11.5\" height=\"11.5\" rx=\"1.75\"/><path d=\"M15.5 8.5V5.75A1.75 1.75 0 0 0 13.75 4h-8A1.75 1.75 0 0 0 4 5.75v8c0 .97.78 1.75 1.75 1.75H8.5\"/></svg>Copy key</button>",
+      "css": ".ds-btn-secondary{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 10px;border:1px solid var(--color-stock-rule-strong, #8c7d58);border-radius:4px;background:transparent;color:var(--color-stock-ink, #241f14);font:500 0.8125rem/1.125rem Archivo,ui-sans-serif,system-ui,sans-serif;cursor:pointer;transition:background-color 60ms linear} .ds-btn-secondary:hover{background:var(--color-stock-pressed, #e2d3ab)} .ds-btn-secondary:active{background:#d7c79d} .ds-btn-secondary:focus-visible{outline:2px solid var(--color-focus-stock, #1d5fb4);outline-offset:2px}"
+    },
+    {
+      "name": "Destructive Button",
+      "kind": "button",
+      "refersTo": "button-destructive",
+      "description": "Ending something (terminate a session); always isolated by 2rem of leading space.",
+      "html": "<div class=\"ds-row\"><button class=\"ds-btn-secondary-plain\" type=\"button\">Rename</button><button class=\"ds-btn-destructive\" type=\"button\">Terminate session</button></div>",
+      "css": ".ds-row{display:flex;align-items:center} .ds-btn-secondary-plain{height:36px;padding:0 14px;border:1px solid var(--color-stock-rule-strong, #8c7d58);border-radius:4px;background:transparent;color:var(--color-stock-ink, #241f14);font:500 0.875rem Archivo,sans-serif} .ds-btn-destructive{margin-inline-start:2rem;height:36px;padding:0 14px;border:1px solid var(--color-danger-on-stock, #a3271f);border-radius:4px;background:transparent;color:var(--color-danger-on-stock, #a3271f);font:500 0.875rem/1.25rem Archivo,ui-sans-serif,system-ui,sans-serif;cursor:pointer;transition:background-color 60ms linear,color 60ms linear} .ds-btn-destructive:hover{background:var(--color-danger-fill, #b3332a);border-color:var(--color-danger-fill, #b3332a);color:#fff} .ds-btn-destructive:focus-visible{outline:2px solid var(--color-focus-stock, #1d5fb4);outline-offset:2px}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Label above, 44 px writing field, error then help below.",
+      "html": "<div class=\"ds-field\"><label class=\"ds-label\" for=\"ds-code\">Verification code</label><input id=\"ds-code\" class=\"ds-input\" aria-invalid=\"true\" aria-describedby=\"ds-code-error ds-code-help\" value=\"000000\"><p id=\"ds-code-error\" class=\"ds-error\">That code is not valid. Check the clock on your device and try again.</p><p id=\"ds-code-help\" class=\"ds-help\">The code changes every 30 seconds.</p></div>",
+      "css": ".ds-field{display:flex;flex-direction:column;gap:6px;width:320px;padding:20px;background:var(--color-stock, #eee2c0)} .ds-label{font:600 0.8125rem/1.125rem Archivo,sans-serif;color:var(--color-stock-ink, #241f14)} .ds-input{height:44px;padding:0 12px;border:1px solid var(--color-stock-rule-strong, #8c7d58);border-radius:4px;background:var(--color-stock-field, #fbf6e6);color:var(--color-stock-ink, #241f14);font:400 1rem/1.5rem 'JetBrains Mono',ui-monospace,monospace;transition:border-color 60ms linear} .ds-input:hover{border-color:var(--color-stock-ink-muted, #5f5440)} .ds-input:focus-visible{border-color:var(--color-focus-stock, #1d5fb4);outline:2px solid var(--color-focus-stock, #1d5fb4);outline-offset:1px} .ds-input[aria-invalid=true]{border-color:var(--color-danger-on-stock, #a3271f);box-shadow:inset 0 0 0 1px var(--color-danger-on-stock, #a3271f)} .ds-error{margin:0;font:500 0.8125rem/1.125rem Archivo,sans-serif;color:var(--color-danger-on-stock, #a3271f)} .ds-help{margin:0;font:400 0.8125rem/1.125rem Archivo,sans-serif;color:var(--color-stock-ink-muted, #5f5440)}"
+    },
+    {
+      "name": "Session Strip",
+      "kind": "custom",
+      "refersTo": "strip",
+      "description": "Signature component: one session, state edge, label over user@host, protection and time cells.",
+      "html": "<div class=\"ds-bay\"><a class=\"ds-strip\" href=\"#\"><span class=\"ds-edge\" style=\"background:var(--color-state-connected,#34a266)\"></span><span class=\"ds-main\"><span class=\"ds-strip-label\">api-1</span><span class=\"ds-target\">deploy@api-prod</span></span><span class=\"ds-cell\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" aria-hidden=\"true\"><path d=\"M12 3.25 19 6v5.25c0 4.4-2.9 8.1-7 9.5-4.1-1.4-7-5.1-7-9.5V6l7-2.75Z\" fill=\"currentColor\"/></svg></span><span class=\"ds-cell ds-time\">3h 42m</span></a><a class=\"ds-strip ds-followed\" href=\"#\" aria-current=\"true\"><span class=\"ds-edge\" style=\"background:var(--color-state-reconnecting,#e0a526)\"></span><span class=\"ds-main\"><span class=\"ds-strip-label\">web-1</span><span class=\"ds-target\">ops@staging</span></span><span class=\"ds-cell\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" aria-hidden=\"true\"><path d=\"M12 3.25 19 6v5.25c0 4.4-2.9 8.1-7 9.5-4.1-1.4-7-5.1-7-9.5V6l7-2.75Z\" fill=\"currentColor\"/></svg></span><span class=\"ds-cell ds-time\">1d 2h</span></a></div>",
+      "css": ".ds-bay{display:flex;flex-direction:column;gap:6px;width:300px;padding:12px 24px 12px 12px;background:var(--color-board-1, #1a2431)} .ds-strip{display:grid;grid-template-columns:4px minmax(0,1fr) 2.25rem 4.5rem;height:48px;overflow:hidden;border-radius:2px;background:var(--color-stock, #eee2c0);color:var(--color-stock-ink, #241f14);text-decoration:none;box-shadow:0 1px 0 rgb(5 9 14 / .45),0 3px 8px -3px rgb(5 9 14 / .55);transition:translate 120ms cubic-bezier(.16,1,.3,1),background-color 120ms cubic-bezier(.16,1,.3,1)} .ds-strip:hover{background:var(--color-stock-hover, #f4ead0)} .ds-strip:active{translate:0 1px} .ds-strip:focus-visible{outline:2px solid var(--color-focus-board, #8cc8ff);outline-offset:2px} .ds-followed{translate:12px 0;background:var(--color-stock-followed, #fbf4df);box-shadow:0 1px 0 rgb(5 9 14 / .45),0 6px 14px -4px rgb(5 9 14 / .65)} .ds-main{display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:0;padding:0 8px 0 10px} .ds-strip-label{font:600 0.9375rem/1.125rem Archivo,sans-serif;font-variation-settings:'wdth' 72;text-transform:uppercase;letter-spacing:.02em} .ds-target{font:400 0.75rem/1rem Archivo,sans-serif;color:var(--color-stock-ink-muted, #5f5440)} .ds-cell{display:flex;align-items:center;justify-content:center;border-inline-start:1px solid var(--color-stock-rule, #cdbd93)} .ds-time{justify-content:flex-end;padding:0 10px 0 6px;font:500 0.8125rem/1.125rem Archivo,sans-serif;font-variant-numeric:tabular-nums}"
+    },
+    {
+      "name": "Lane Header",
+      "kind": "custom",
+      "refersTo": "lane-count",
+      "description": "State swatch, lane caps and a tabular count well above a lane of strips.",
+      "html": "<div class=\"ds-lane\"><h2 class=\"ds-lane-title\"><span class=\"ds-swatch\"></span>Action required</h2><span class=\"ds-count\">2</span></div>",
+      "css": ".ds-lane{display:flex;align-items:center;justify-content:space-between;width:280px;height:32px;padding:0 16px;background:var(--color-board-1, #1a2431)} .ds-lane-title{display:flex;align-items:center;gap:8px;margin:0;font:700 0.6875rem/1rem Archivo,sans-serif;font-variation-settings:'wdth' 80;text-transform:uppercase;letter-spacing:.08em;color:var(--color-board-ink-muted, #9aabbf)} .ds-swatch{width:6px;height:6px;border-radius:1px;background:var(--color-state-action, #f2681f)} .ds-count{min-width:24px;padding:0 6px;border-radius:3px;background:var(--color-board-0, #111923);color:var(--color-board-ink-muted, #9aabbf);font:600 0.75rem/1.25rem Archivo,sans-serif;font-variant-numeric:tabular-nums;text-align:center}"
+    },
+    {
+      "name": "Status Chip",
+      "kind": "chip",
+      "refersTo": "status-chip",
+      "description": "State square beside the status word, in the surface ink.",
+      "html": "<div class=\"ds-chips\"><span class=\"ds-chip\"><span class=\"ds-sq\" style=\"background:var(--color-state-connected,#34a266)\"></span>Connected</span><span class=\"ds-chip\"><span class=\"ds-sq\" style=\"background:var(--color-state-progress,#4c8fd6)\"></span>Restoring…</span><span class=\"ds-chip\"><span class=\"ds-sq\" style=\"background:var(--color-state-action,#f2681f)\"></span>Action required</span></div>",
+      "css": ".ds-chips{display:flex;gap:16px;padding:12px;background:var(--color-pane, #0c1015)} .ds-chip{display:inline-flex;align-items:center;gap:6px;font:500 0.75rem/1rem Archivo,sans-serif;color:var(--color-board-ink, #e3e9f0)} .ds-sq{width:8px;height:8px;border-radius:1px}"
+    },
+    {
+      "name": "Tab",
+      "kind": "nav",
+      "refersTo": "tab",
+      "description": "The followed session in the tab bar: buff, state edge, close only detaches.",
+      "html": "<div class=\"ds-tabbar\"><div class=\"ds-tab\"><span class=\"ds-tab-edge\"></span><a class=\"ds-tab-label\" href=\"#\" aria-current=\"page\">api-1</a><a class=\"ds-tab-close\" href=\"#\" aria-label=\"Close tab. The session keeps running.\">×</a></div></div><div class=\"ds-pane\"></div>",
+      "css": ".ds-tabbar{display:flex;align-items:flex-end;height:40px;padding:0 6px;background:var(--color-board-2, #223042)} .ds-tab{display:flex;height:32px;overflow:hidden;border-radius:3px 3px 0 0;background:var(--color-stock-followed, #fbf4df);color:var(--color-stock-ink, #241f14)} .ds-tab-edge{width:4px;background:var(--color-state-connected, #34a266)} .ds-tab-label{display:flex;align-items:center;padding:0 6px 0 10px;color:inherit;text-decoration:none;font:600 0.9375rem/1.125rem Archivo,sans-serif;font-variation-settings:'wdth' 72;text-transform:uppercase} .ds-tab-close{display:flex;align-items:center;justify-content:center;width:28px;color:var(--color-stock-ink-muted, #5f5440);text-decoration:none} .ds-tab-close:hover{background:var(--color-stock-pressed, #e2d3ab);color:var(--color-stock-ink, #241f14)} .ds-tab a:focus-visible{outline:2px solid var(--color-focus-stock, #1d5fb4);outline-offset:-2px} .ds-pane{height:60px;margin:0 6px 6px;border-top:2px solid var(--color-stock-followed, #fbf4df);border-radius:0 0 3px 3px;background:var(--color-pane, #0c1015)}"
+    },
+    {
+      "name": "Extra-key Bar Key",
+      "kind": "button",
+      "refersTo": "key",
+      "description": "Phone terminal keys; sticky Ctrl turns buff while armed.",
+      "html": "<div class=\"ds-keys\"><button class=\"ds-key\" type=\"button\">Esc</button><button class=\"ds-key\" type=\"button\">Tab</button><button class=\"ds-key\" type=\"button\" aria-pressed=\"true\">Ctrl</button><button class=\"ds-key\" type=\"button\" aria-label=\"Up arrow\">↑</button></div>",
+      "css": ".ds-keys{display:flex;gap:4px;width:300px;padding:6px;background:var(--color-board-2, #223042)} .ds-key{flex:1;height:44px;border:0;border-radius:4px;background:var(--color-board-3, #2b3b50);color:var(--color-board-ink, #e3e9f0);font:600 0.8125rem Archivo,sans-serif;cursor:pointer;transition:background-color 60ms linear} .ds-key:active{background:var(--color-board-rule, #33465e)} .ds-key:focus-visible{outline:2px solid var(--color-focus-board, #8cc8ff);outline-offset:1px} .ds-key[aria-pressed=true]{background:var(--color-stock, #eee2c0);color:var(--color-stock-ink, #241f14)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Strip Board",
+    "overview": "Every terminal session is a flight progress strip racked in a bay: a compact, state-coded record of buff stock that an operator reads in one glance and returns to exactly as it was left. The shell is the board the strips sit on (slate blue, darkest at the edges), the strips and every sheet the user reads or fills in are the same warm buff stock, and the terminal itself is a near-black pane framed by the slate. The system refuses both the neon hacker console and the white SaaS card dashboard: there is no glow, no gradient, no card grid, and no colour that is not doing a job.\n\nThe physical scene decides the scheme: operators keep long sessions open on laptops in dim rooms and check them from a phone at night during an incident, always next to near-black terminal panes, so the board is dark and the reading surfaces are light paper on it. The page declares `color-scheme: dark` (scrollbars, pickers and autofill follow) and deliberately does not flip on `prefers-color-scheme: light`: the dark-board / light-stock contrast is the information structure, not a theme, and the buff stock already gives a light reading surface for every form and strip. All colour is reached through surface roles (`.surface-board`, `.surface-stock`, `.surface-pane`), so a day board can later be added as a remap of the board roles alone when the account theme setting arrives.\n\nDensity is operator density: 48 px strips, 6 px between strips, condensed caps for labels, tabular figures for every live value. Motion is two crisp steps (about 60 ms to recolour or press, 120 ms to move), never a fade.",
+    "keyCharacteristics": [
+      "Slate board shell, buff strip stock, near-black panes: three materials, nothing else.",
+      "A 4 px state edge on every session strip and tab; state colours appear nowhere else.",
+      "One family (Archivo) in two widths: workhorse UI and condensed strip caps.",
+      "Hairline cell rules divide strips and sheets the way a printed strip is ruled.",
+      "The followed session is \"cocked\": slid out of its row in the bay, buff in the tab bar, ruled into its pane.",
+      "State changes slide the strip to its new lane, the edge recolouring first."
+    ],
+    "rules": [
+      {
+        "name": "The State-Only Rule",
+        "body": "The six state colours mean session state. Never use them for brand, emphasis, links or decoration; the wordmark's strip has a slate edge for that reason.",
+        "section": "colors"
+      },
+      {
+        "name": "The Opposite Stock Rule",
+        "body": "A primary action is drawn in the opposite material of its surface: buff on the board, slate on buff. Nothing else on a surface uses that fill.",
+        "section": "colors"
+      },
+      {
+        "name": "The Word Beside the Colour Rule",
+        "body": "A state swatch or edge is always accompanied by the state word (lane header, chip, or screen-reader text).",
+        "section": "colors"
+      },
+      {
+        "name": "The Tabular Rule",
+        "body": "Every live value (uptime, age, count, code) is set in tabular figures so changing digits never shift.",
+        "section": "typography"
+      },
+      {
+        "name": "The Caps Belong to Strips Rule",
+        "body": "Uppercase is only for strip labels, lane labels and the wordmark. Headings, buttons and body copy stay in sentence case; no kicker or eyebrow above a heading.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Elevation Rule",
+        "body": "An element is lifted by its shadow or bounded by a border, never both.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do read every colour through the surface roles (`ink`, `ink-muted`, `rule`, `primary`, `focus`); put new reading surfaces in `.surface-stock` and new shell areas in `.surface-board`.",
+      "Do give every session a strip with its 4 px state edge and its state word nearby, and every live value tabular figures.",
+      "Do keep transitions at the two tokens (`--duration-step` 60 ms, `--duration-move` 120 ms) on `cubic-bezier(0.16, 1, 0.3, 1)`; both drop to 0 under reduced motion.",
+      "Do draw icons from `components/icons` (24-unit grid, 1.75 stroke, round caps) and keep them decorative with the name on the control.",
+      "Do put empty states and in-pane prompts on a buff panel inside the pane."
+    ],
+    "donts": [
+      "Don't use a state colour for anything but session state, or show a state colour without its word.",
+      "Don't fade between states: recolour first, then move.",
+      "Don't add a second sans family, a display face, or monospace outside codes, keys and secrets.",
+      "Don't combine a border with a shadow, nest panels, or round anything past 6 px.",
+      "Don't put a coloured side edge on panels, notices or list items; the 4 px edge belongs to strips and tabs, where it carries state.",
+      "Don't set uppercase anywhere except strip labels, lane labels and the wordmark."
+    ]
+  }
+}

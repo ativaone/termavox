@@ -16,3 +16,6 @@ secrets/
 .env
 .env.*
 !.env.example
+
+# impeccable review screenshots (local evidence, not versioned)
+apps/web/.impeccable/review/

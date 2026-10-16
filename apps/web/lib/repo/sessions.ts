@@ -1,0 +1,64 @@
+import '../server-guard.ts';
+import type { TermdockDb } from '@termdock/db';
+import { Protection, SessionStatus } from '@termdock/protocol';
+import { ENDED_SHOWN } from '../sessions/lanes.ts';
+import type { BayData, BaySession } from '../sessions/types.ts';
+
+/**
+ * User-scoped reads for the workspace bay (plan §10.2 isolation). Every statement filters on
+ * `sessions.user_id = ?`, and the host join also requires the host to belong to that user, so
+ * no other user's session or host name can ever be returned. Raw SQL on the shared
+ * better-sqlite3 handle, like lib/auth/queries.ts (drizzle-orm is not a web dependency).
+ */
+
+interface SessionRow {
+  id: string;
+  label: string;
+  status: string;
+  protection: string | null;
+  user: string;
+  host: string;
+  created_at: number;
+  ended_at: number | null;
+}
+
+const SELECT = `
+  SELECT s.id, s.label, s.status, s.protection_effective AS protection,
+         s.target_username AS user, COALESCE(h.name, s.target_hostname) AS host,
+         s.created_at, s.ended_at
+  FROM sessions s
+  LEFT JOIN hosts h ON h.id = s.target_host_id AND h.user_id = s.user_id`;
+
+function toBaySession(row: SessionRow): BaySession {
+  const status = SessionStatus.safeParse(row.status);
+  const protection = Protection.safeParse(row.protection);
+  return {
+    id: row.id,
+    label: row.label,
+    // An unknown status is shown as Disconnected rather than overstated as healthy.
+    status: status.success ? status.data : 'disconnected',
+    protection: protection.success ? protection.data : null,
+    user: row.user,
+    host: row.host,
+    createdAt: row.created_at,
+    endedAt: row.ended_at,
+  };
+}
+
+/** The signed-in user's bay: all non-ended sessions (oldest first) and the latest ended ones. */
+export function listBaySessions(db: TermdockDb, userId: string): BayData {
+  const sqlite = db.$client;
+  const live = sqlite
+    .prepare(`${SELECT} WHERE s.user_id = ? AND s.status <> 'ended' ORDER BY s.created_at, s.id`)
+    .all(userId) as SessionRow[];
+  const ended = sqlite
+    .prepare(
+      `${SELECT} WHERE s.user_id = ? AND s.status = 'ended'
+       ORDER BY COALESCE(s.ended_at, s.created_at) DESC, s.id LIMIT ?`,
+    )
+    .all(userId, ENDED_SHOWN) as SessionRow[];
+  const { total } = sqlite
+    .prepare(`SELECT COUNT(*) AS total FROM sessions WHERE user_id = ? AND status = 'ended'`)
+    .get(userId) as { total: number };
+  return { sessions: [...live, ...ended].map(toBaySession), endedTotal: total };
+}

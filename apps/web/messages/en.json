@@ -1,0 +1,244 @@
+{
+  "common": {
+    "brand": "Termdock",
+    "skipToContent": "Skip to content",
+    "working": "Working…",
+    "signOut": "Sign out",
+    "copy": {
+      "copy": "Copy",
+      "copied": "Copied",
+      "failed": "Copy failed. Select the text and copy it manually."
+    },
+    "password": {
+      "show": "Show password",
+      "hide": "Hide password"
+    },
+    "locale": {
+      "label": "Language",
+      "apply": "Apply",
+      "en": "English",
+      "pt-BR": "Português (Brasil)"
+    },
+    "field": {
+      "errorPrefix": "Error:"
+    }
+  },
+  "meta": {
+    "login": "Sign in",
+    "twoFactor": "Two-step verification",
+    "setup": "Set up Termdock",
+    "changePassword": "Choose a new password",
+    "enrollTotp": "Set up two-step verification",
+    "workspace": "Workspace",
+    "notFound": "Page not found"
+  },
+  "auth": {
+    "login": {
+      "title": "Sign in",
+      "username": "Username",
+      "password": "Password",
+      "submit": "Sign in",
+      "notice": {
+        "expired": "Your sign-in step expired. Sign in again."
+      },
+      "error": {
+        "missing": "Enter your username and password.",
+        "invalid": "Username or password is incorrect.",
+        "lockedSeconds": "Too many failed attempts. Sign-in is paused for {seconds, plural, one {# second} other {# seconds}}.",
+        "lockedMinutes": "Too many failed attempts. Sign-in is paused for {minutes, plural, one {# minute} other {# minutes}}.",
+        "rateLimited": "Too many sign-in attempts from this network. Wait a few seconds, then try again.",
+        "disabled": "This account is disabled. Contact your Termdock administrator.",
+        "generic": "Sign-in failed. Try again."
+      }
+    },
+    "twoFactor": {
+      "title": "Two-step verification",
+      "intro": "Enter the 6-digit code from your authenticator app.",
+      "code": "Verification code",
+      "codeHelp": "The code changes every 30 seconds.",
+      "trustDevice": "Trust this device for 30 days",
+      "trustDeviceHelp": "This browser won't ask for a code again until then.",
+      "submit": "Verify",
+      "useBackup": "Use a backup code instead",
+      "backupIntro": "Enter one of the backup codes you saved when you set up two-step verification. Each code works once.",
+      "backupCode": "Backup code",
+      "useTotp": "Use the authenticator app instead",
+      "otherAccount": "Sign in with a different account",
+      "error": {
+        "format": "Enter the 6-digit code.",
+        "backupFormat": "Enter a backup code.",
+        "invalid": "That code is not valid. Check the clock on your device and try again.",
+        "invalidBackup": "That backup code is not valid or was already used.",
+        "locked": "Too many wrong codes. Verification is locked for 15 minutes.",
+        "tooManyAttempts": "Too many attempts for this sign-in. Sign in again to get a new verification step.",
+        "generic": "Verification failed. Try again."
+      }
+    },
+    "setup": {
+      "title": "Set up Termdock",
+      "intro": "Create the first administrator account. This page works once, with the one-time setup token printed in the web service log.",
+      "token": "Setup token",
+      "tokenHelp": "Copy it from the web service log line that starts with “No user exists yet”.",
+      "admin": "Administrator account",
+      "username": "Username",
+      "usernameHelp": "3 to 30 letters, numbers, dots or underscores.",
+      "email": "Email",
+      "password": "Password",
+      "passwordHelp": "At least 12 characters.",
+      "confirm": "Confirm password",
+      "submit": "Create administrator",
+      "error": {
+        "token": "This setup token doesn't match. Copy it again from the web service log.",
+        "busy": "Setup is already running in another window. Wait a moment and try again.",
+        "username": "Use 3 to 30 letters, numbers, dots or underscores.",
+        "email": "Enter a valid email address.",
+        "passwordShort": "Use at least 12 characters.",
+        "passwordLong": "Use at most 128 characters.",
+        "mismatch": "The passwords don't match.",
+        "rejected": "The account could not be created. Check the fields and try again.",
+        "generic": "Setup failed. Try again."
+      }
+    },
+    "changePassword": {
+      "title": "Choose a new password",
+      "intro": "Your administrator set a temporary password. Choose your own before you continue. Other browsers signed in to this account will be signed out.",
+      "current": "Current password",
+      "new": "New password",
+      "newHelp": "At least 12 characters, different from the current one.",
+      "confirm": "Confirm new password",
+      "submit": "Change password",
+      "error": {
+        "current": "The current password is incorrect.",
+        "unchanged": "Choose a password different from the current one.",
+        "passwordShort": "Use at least 12 characters.",
+        "passwordLong": "Use at most 128 characters.",
+        "mismatch": "The passwords don't match.",
+        "generic": "The password could not be changed. Try again."
+      }
+    },
+    "enrollTotp": {
+      "title": "Set up two-step verification",
+      "intro": "Your account requires a code from an authenticator app at every sign-in.",
+      "password": "Password",
+      "passwordHelp": "Confirm it's you before a new secret is created.",
+      "start": "Continue",
+      "scanTitle": "Scan the code",
+      "scanHelp": "Scan this QR code with your authenticator app.",
+      "qrLabel": "QR code for your authenticator app",
+      "manualLabel": "Can't scan it? Enter this key in the app instead.",
+      "manualCopy": "Copy key",
+      "code": "Code from the app",
+      "codeHelp": "Enter the 6-digit code the app shows to finish.",
+      "verify": "Turn on two-step verification",
+      "doneTitle": "Two-step verification is on",
+      "doneIntro": "Save these backup codes somewhere safe. Each one signs you in once if you lose your authenticator. They are shown only now.",
+      "doneCodesLabel": "Backup codes",
+      "doneCopy": "Copy codes",
+      "doneContinue": "Continue to workspace",
+      "enrolledTitle": "Two-step verification is already on",
+      "enrolledIntro": "This account already signs in with an authenticator code.",
+      "error": {
+        "password": "The password is incorrect.",
+        "format": "Enter the 6-digit code.",
+        "invalid": "That code is not valid. Check the clock on your device and try again.",
+        "enrolled": "Two-step verification is already on for this account.",
+        "generic": "Two-step verification could not be set up. Try again."
+      }
+    }
+  },
+  "workspace": {
+    "bay": {
+      "label": "Sessions",
+      "newSession": "New session",
+      "shortcut": "Shortcut",
+      "emptyTitle": "No sessions yet",
+      "emptyBody": "Start one with New session. It keeps running until you end it.",
+      "noHosts": "Sessions appear here once you add a host."
+    },
+    "lane": {
+      "action_required": "Action required",
+      "disconnected": "Disconnected",
+      "reconnecting": "Reconnecting",
+      "restoring": "Restoring",
+      "connecting": "Connecting",
+      "connected": "Connected",
+      "ended": "Ended",
+      "count": "{count, plural, one {# session} other {# sessions}}",
+      "endedShown": "Latest {shown} of {total}"
+    },
+    "status": {
+      "connecting": "Connecting…",
+      "restoring": "Restoring…",
+      "connected": "Connected",
+      "action_required": "Action required",
+      "reconnecting": "Reconnecting…",
+      "disconnected": "Disconnected",
+      "ended": "Ended"
+    },
+    "protection": {
+      "tmux-control": "Protected: survives restarts and network drops",
+      "tmux-normal": "Protected in compatibility mode: survives restarts and network drops, history restored best-effort",
+      "none": "Not protected: the shell is lost if the connection drops",
+      "pending": "Protection is decided when the session starts"
+    },
+    "strip": {
+      "open": "Open {label}",
+      "running": "Running for {duration}",
+      "endedAgo": "Ended {ago}",
+      "stamp": "Ended"
+    },
+    "duration": {
+      "days": "{days}d {hours}h",
+      "hours": "{hours}h {minutes}m",
+      "minutes": "{minutes}m",
+      "underMinute": "<1m",
+      "agoNow": "just now",
+      "agoMinutes": "{minutes}m ago",
+      "agoHours": "{hours}h ago",
+      "agoDays": "{days}d ago"
+    },
+    "tabs": {
+      "label": "Open sessions",
+      "empty": "No open tabs",
+      "close": "Close tab. The session keeps running."
+    },
+    "pane": {
+      "label": "Terminal panes",
+      "notAttached": "Not attached",
+      "emptyTitle": "Pick a session",
+      "emptyBody": "Choose a strip in the bay to open it here. Closing a tab only detaches; the session keeps running on the server.",
+      "firstRunTitle": "Add your first host",
+      "firstRunBody": "Termdock holds SSH sessions open on the server, so you can close the browser and come back to the same screen.",
+      "firstRunStep1": "Add a host and the credential that reaches it.",
+      "firstRunStep2": "Check its host key fingerprint and trust it.",
+      "firstRunStep3": "Start a session. It runs until you end it.",
+      "firstRunCta": "Add a host",
+      "noSessionsTitle": "Start a session",
+      "noSessionsBody": "Your hosts are ready. Start a session and it will appear in the bay."
+    },
+    "phone": {
+      "back": "Sessions"
+    },
+    "keybar": {
+      "label": "Terminal keys",
+      "esc": "Esc",
+      "tab": "Tab",
+      "ctrl": "Ctrl",
+      "up": "Up arrow",
+      "down": "Down arrow",
+      "left": "Left arrow",
+      "right": "Right arrow",
+      "pipe": "Pipe",
+      "paste": "Paste"
+    },
+    "account": {
+      "label": "Account",
+      "signedInAs": "Signed in as {username}"
+    }
+  },
+  "notFound": {
+    "title": "Page not found",
+    "body": "This address doesn't lead anywhere in Termdock.",
+    "home": "Go to the workspace"
+  }
+}
