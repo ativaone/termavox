@@ -7,6 +7,7 @@
 A self-hosted, persistent terminal-session runtime for SSH, accessible from the web.
 
 [![Status: pre-alpha](https://img.shields.io/badge/status-pre--alpha-orange)](#status-and-roadmap)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-24_LTS-5FA04E?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)](https://nextjs.org/)
@@ -89,19 +90,19 @@ Three ideas carry the design:
 ## Status and roadmap
 
 > [!WARNING]
-> Termdock is in **early development** and not usable yet. The core runtime is being built and verified piece by piece; the UI comes next.
+> Termdock is **pre-alpha**. The runtime, the web workspace and the Docker deployment work end to end and have had an internal security review, but there is no release yet. Keep it away from production servers until v0.1.0.
 
 | Phase | Scope | Status |
 |---|---|---|
 | 0 | Foundations, canonical contracts, de-risking spikes: emulator fidelity, tmux control protocol, state rebuild under load, flow control, lifecycle (all GO, see ADRs) | ✅ |
 | 1 | Data plane core: session runtime, WebSocket protocol, raw SSH driver, SQLite persistence, credential vault, internal API, daemon boot, dev CLI | ✅ |
-| 2 | Web control plane: login + TOTP, admin, hosts/credentials/profiles, i18n (auth core in progress) | 🚧 |
+| 2 | Web control plane: login + TOTP, admin, hosts/credentials/profiles, audit, i18n (English, Brazilian Portuguese) | ✅ |
 | 3 | tmux control-mode protection end to end: restore after daemon restarts and network drops, verified on tmux 3.2a, 3.4 and 3.8 | ✅ |
-| 4 | Resilience: reconnect, host-key trust, keyboard-interactive flows (protocol level done; UI lands with phase 5) | ✅ |
-| 5 | Workspace UI: sidebar, tabs, splits, mobile key bar | ⏳ |
+| 4 | Resilience: reconnect, host-key trust, keyboard-interactive flows | ✅ |
+| 5 | Workspace UI: sidebar, tabs, splits, mobile key bar, Docker Compose deployment | ✅ |
 | 6 | Local modes (Docker host preset, direct mode) | ⏳ |
 | 7 | Compatibility fallback for old tmux versions | ⏳ |
-| 8 | Hardening, security review, docs, release v0.1.0 | ⏳ |
+| 8 | Hardening, security review, docs, release v0.1.0 (review and hardening done) | 🚧 |
 
 The full plan, with architecture, protocol, data model, security model and per-phase exit criteria, lives in [`docs/implementation-plan.md`](docs/implementation-plan.md). Spike results are recorded as ADRs in [`docs/adr/`](docs/adr/).
 
@@ -170,11 +171,11 @@ Termdock is designed to be deployed as a **privileged bastion**: whoever control
 - Every request is scoped to its owner.
 - Terminal contents are never logged.
 
-The threat model and controls are described in the [implementation plan](docs/implementation-plan.md#10-security). Please do not use Termdock in production before the first release and its security review.
+The threat model and controls are described in the [implementation plan](docs/implementation-plan.md#10-security). An internal pre-release security review has been completed and its findings fixed; please still wait for the first release before using Termdock in production.
 
 ## License
 
-The license has not been chosen yet. It will be decided before the project is opened to the public.
+Termdock is free software, licensed under the [GNU Affero General Public License v3.0 only](LICENSE) (`AGPL-3.0-only`). If you run a modified version as a network service, the AGPL requires you to offer its source to the users of that service.
 
 ---
 

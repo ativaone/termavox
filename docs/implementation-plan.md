@@ -76,9 +76,11 @@ Other protocols (RDP/VNC); Agent mode (outbound agent on target servers); RBAC a
 | D-18 | **Everything in the repository is in English**: code, comments, docs, commit messages. The UI defaults to English and is switchable to **pt-BR**; both locales ship in MVP. The project may become open source. Conversations with the owner are in Portuguese. | Owner, 2026-10-15 |
 | D-19 | **The interface is designed with the `impeccable` skill** (vendored at `.claude/skills/impeccable`, pinned in `skills-lock.json`). It owns the visual world, design system and UX passes (§11.0). | Owner, 2026-10-15 |
 | D-20 | **Commit in this repository as each functional block is delivered, and push to `origin`** (`github.com/ativaone/termdock`, private; default branch `main`). | Owner, 2026-10-15 (remote added the same day) |
-| D-21 | **Lean, risk-based automated testing.** Test what really needs testing. Tests are mapped into an always-run fast set and a full pre-release battery; the exact pre-release routine is still to be defined with the owner (§15). | Owner, 2026-10-15 |
+| D-21 | **Lean, risk-based automated testing.** Test what really needs testing. Tests are mapped into an always-run fast set and a full pre-release battery; the pre-release routine was agreed later as D-25 (§15.4). | Owner, 2026-10-15 |
 | D-23 | Visual direction for the app (impeccable `new-work`, Operate mode): **air-traffic flight-progress strip board** — slate shell, buff session strips with a state-coloured edge, sessions grouped in state lanes; recorded as the direction contract in `apps/web/.impeccable/surfaces/app-workspace.md`. | Owner, 2026-10-15 |
 | D-22 | Test container matrix reduced to alpine:3 (no tmux), ubuntu:22.04 (3.2a), ubuntu:24.04 (3.4), alpine:edge (newest packaged). Base images for deployment (node, caddy) are approved when the deploy phase starts. | Owner, 2026-10-15 |
+| D-24 | **License: GNU AGPL-3.0-only** (`LICENSE`, `license` field in every manifest). "Only" keeps the choice of a later GPL version with the copyright holder; widening to "or later" stays possible. | Owner, 2026-10-16 |
+| D-25 | **Pre-release routine (T2):** a `pnpm test:release` script (T0, every T1 area in sequence, Docker image builds, a scripted end-to-end smoke against the composed stack) plus a short manual checklist. No browser E2E dependency and no soak in the routine. Confirms the T1 tier. | Owner, 2026-10-16 |
 
 ### 2.2 Technical decisions (orchestrator; reversible, with rationale)
 
@@ -1153,7 +1155,7 @@ Exit criteria are delivery verifications, **not** a mandate to build permanent t
 |---|---|
 | `[T0]` | Becomes a permanent test in the **always** set (fast, every change) |
 | `[T1]` | Becomes a permanent test run **when that area changes** |
-| `[T2]` | Belongs to the **pre-release** battery (routine to be defined) |
+| `[T2]` | Belongs to the **pre-release** battery (routine in §15.4, D-25) |
 | `[once]` | Verified once at delivery (scripted or manual); the result goes in the delivery report and commit description. No permanent test. |
 
 ### Phase 0 — Foundations, spikes, canonical contracts
@@ -1316,9 +1318,9 @@ Run by the orchestrator once P2, P4 and P5 are delivered (§16.3).
 |---|---|---|---|
 | **T0 — Always** | Every change, before each commit; on CI when a remote exists | `pnpm check` | typecheck, lint, i18n key parity, fast unit tests (below). No containers, no browser. |
 | **T1 — Area-triggered** | When code in that area changes (and before closing the phase that owns it) | `pnpm test:area <area>` (`terminal`, `tmux`, `ssh`) | Integration against the **core** sshd images only (alpine:3 no-tmux, ubuntu:22.04 3.2a, alpine:edge newest packaged) and the small golden set |
-| **T2 — Pre-release** | Before tagging a release | `pnpm test:release` (planned) + a manual checklist | Full tmux matrix (the three D-22 versions), the few E2E flows, chaos/lifecycle, soak, deployment, security and vulnerability scans. **Exact routine to be defined with the owner (§15.4).** |
+| **T2 — Pre-release** | Before tagging a release | `pnpm test:release` (planned) + a manual checklist | Full tmux matrix (the three D-22 versions), the few E2E flows, chaos/lifecycle, soak, deployment, security and vulnerability scans. The agreed routine is §15.4 (D-25). |
 
-T1 is the middle tier between "always" (T0) and "pre-release" (T2), the two sets D-21 names; it is to be confirmed by the owner together with the release routine (§15.4).
+T1 is the middle tier between "always" (T0) and "pre-release" (T2), the two sets D-21 names; the owner confirmed it together with the release routine (D-25).
 
 ### 15.3 Test map
 
@@ -1336,14 +1338,20 @@ The T1 cells name the `pnpm test:area` area that runs them.
 | Workspace UI | i18n key parity | — | **signature flow (E2E)**: tabs/splits → close browser → reopen → identical layout and content; daemon restart → restored; manual real-phone check | visual/snapshot tests, styling, CRUD form plumbing (covered by `impeccable` audit rounds instead) |
 | Deployment / ops | — | — | clean `compose up` smoke; backup → restore; 24 h soak | — |
 
-### 15.4 Pre-release routine (to be defined)
+### 15.4 Pre-release routine (D-25)
 
-The owner will define the release routine. The T2 column above is the **candidate** content. Proposed shape for that discussion:
+Run before tagging every release, one step at a time (heavy steps never in parallel; capped on small machines):
 
-1. Automated: `pnpm test:release` (full matrix, E2E signature flows, chaos, deployment smoke, OSV scan).
-2. Long-running: the 24 h soak (can run in parallel with manual checks).
-3. Manual checklist (`docs/release-checklist.md`, created when the routine is agreed): real phone, both locales, host-key mismatch UX, KI/OTP host, direct mode outside the container.
-4. Security review for releases that touch auth, the vault, WS or the internal API.
+1. `pnpm test:release`, which stops at the first failure:
+   - T0 (`pnpm check`);
+   - every T1 area in sequence (`terminal`, `ssh`, `tmux`, and the daemon/web integration suites) against the D-22 matrix;
+   - `docker compose build` of the deployment images;
+   - a scripted end-to-end smoke against the composed stack: setup token → first admin → sign-in → host + profile → session → attach over WebSocket and run a command → restart session-manager → the protected session is restored with its screen → terminate;
+   - an OSV scan of the lockfile.
+2. Manual checklist (`docs/release-checklist.md`): real phone, both locales, host-key mismatch UX, a keyboard-interactive/OTP host, backup → restore.
+3. Security review for releases that touch auth, the vault, WS or the internal API.
+
+The routine has no browser E2E dependency and no soak (owner choice); the T2 column of §15.3 items not covered above are verified once at delivery or run ad hoc.
 
 ---
 
@@ -1449,12 +1457,10 @@ Each session runs in its own detached **session host** process (`termdock-sessio
 
 | Item | Default until decided |
 |---|---|
-| License for a possible open-source release (MIT, Apache-2.0, AGPL-3.0) | Decide before the repository goes public (P8). Recommendation: Apache-2.0 (patent grant) or AGPL-3.0 if hosted forks should share changes. |
 | Default scrollback size | 5,000 lines (snapshot CPU and memory trade-off, §5.4, §17) |
 | Default `auto_reopen` for unprotected sessions | On, with banner |
 | Web auth-session lifetime | 7 days sliding; admin-configurable idle timeout |
 | Public repository/organization name | Not decided |
-| Pre-release test routine (§15.4) | Candidate content = the T2 column of §15.3; to be defined with the owner before the first release, together with confirming the T1 tier (§15.2) |
 | Test image with tmux < 3.2 (Phase 7) | None approved (D-22); the normal-mode fallback stays untested until the owner approves one when P7 starts |
 
 ---
