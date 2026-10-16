@@ -1,7 +1,8 @@
 /**
  * Test harness wiring the control-mode building blocks over an exec channel:
  * stdout → LineSplitter → ControlParser → CommandCorrelator, recording raw bytes and events.
- * (The production TmuxControlDriver is a later workstream.)
+ * Used by the protocol tests, the fixture recorders and as a plain second control client in the
+ * driver tests (src/drivers/tmux-control/driver.ts is the production driver).
  */
 import type { ExecChannel, ExecResult } from '../../src/core/types.ts';
 import {

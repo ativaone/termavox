@@ -8,6 +8,7 @@ import {
   hasSessionCommand,
   type LaunchOptions,
   launchCommand,
+  launchCommands,
   launchScript,
   listClients,
   paneCommand,
@@ -105,9 +106,11 @@ describe('launch command', () => {
         'start-server \\; set-option -g history-limit 10000 \\; ' +
         'set-option -g default-terminal tmux-256color \\; set-option -g aggressive-resize off \\; ' +
         'set-option -g detach-on-destroy on \\; set-option -g window-size latest \\; ' +
-        'set-option -g status off \\; new-session -A -s main -x 120 -y 40 -e EDITOR=vim ' +
+        'set-option -g status off \\; set-option -gqw scroll-on-clear off \\; ' +
+        'new-session -A -P -F td-created -s main -x 120 -y 40 -e EDITOR=vim ' +
         '\'exec env -u TMUX -u TMUX_PANE "$SHELL" -l\'',
     );
+    expect(launchCommands(LAUNCH)).toHaveLength(9); // one flags-0 reply block each
   });
 
   it('delivers the exact argv to tmux through the login shell and sh layers', () => {
@@ -126,7 +129,8 @@ describe('launch command', () => {
       ...['set-option', '-g', 'detach-on-destroy', 'on', ';'],
       ...['set-option', '-g', 'window-size', 'latest', ';'],
       ...['set-option', '-g', 'status', 'off', ';'],
-      ...['new-session', '-A', '-s', 'main', '-x', '120', '-y', '40'],
+      ...['set-option', '-gqw', 'scroll-on-clear', 'off', ';'],
+      ...['new-session', '-A', '-P', '-F', 'td-created', '-s', 'main', '-x', '120', '-y', '40'],
       ...['-e', 'EDITOR=vim', '-e', "TD_X=a 'b' \\c $d"],
       // The pane command reaches tmux as ONE argument (else tmux would exec `exec` as a program).
       `exec env -u TMUX -u TMUX_PANE "$SHELL" -lc ${shQuote(startup)}`,

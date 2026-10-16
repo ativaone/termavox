@@ -24,11 +24,23 @@ export class TmuxDesyncError extends Error {
   }
 }
 
+/**
+ * Synchronous notifications for a batch, called from inside `handle()` at the exact position in
+ * the reply stream (a promise continuation would run only after the rest of the chunk was fed).
+ */
+export interface BatchHooks {
+  /** The first reply block of the batch began (`%begin`). */
+  onBegin?: () => void;
+  /** The batch's last reply block ended (`%end` / `%error`), before the promise settles. */
+  onEnd?: () => void;
+}
+
 interface Pending {
   /** Number of commands on the line: tmux answers each with its own block. */
   commands: number;
   blocks: CommandResult[];
   nonce: string | null;
+  hooks: BatchHooks | null;
   resolve: (blocks: CommandResult[]) => void;
   reject: (err: Error) => void;
 }
@@ -66,7 +78,7 @@ export class CommandCorrelator {
 
   /** Sends one tmux command (it must not contain `;` separators or newlines). */
   async send(command: string): Promise<CommandResult> {
-    const [block] = await this.#enqueue([command], null);
+    const [block] = await this.#enqueue([command], null, null);
     return block ?? { ok: false, lines: [] };
   }
 
@@ -75,10 +87,10 @@ export class CommandCorrelator {
    * `display-message -p 'td-<nonce>'` sentinel. Rejects with TmuxDesyncError when the final
    * block is not exactly the sentinel line.
    */
-  async sendBatch(commands: readonly string[]): Promise<BatchResult> {
+  async sendBatch(commands: readonly string[], hooks?: BatchHooks): Promise<BatchResult> {
     if (commands.length === 0) throw new RangeError('sendBatch needs at least one command');
     const nonce = this.#nonce();
-    const blocks = await this.#enqueue([...commands, displayLiteral(nonce)], nonce);
+    const blocks = await this.#enqueue([...commands, displayLiteral(nonce)], nonce, hooks ?? null);
     if (blocks.length <= commands.length || blocks.some((b) => !b.ok)) {
       return { ok: false, blocks };
     }
@@ -97,6 +109,7 @@ export class CommandCorrelator {
         if (this.#active) this.#desync('nested %begin while a reply is open');
         this.#active = this.#queue[0] ?? null;
         if (!this.#active) this.#desync(`reply ${event.guard.raw} with no command pending`);
+        if (this.#active.blocks.length === 0) this.#active.hooks?.onBegin?.();
         return true;
       case 'blockEnd':
       case 'blockError': {
@@ -109,6 +122,7 @@ export class CommandCorrelator {
         entry.blocks.push({ ok, lines: event.lines });
         if (!ok || entry.blocks.length === entry.commands) {
           this.#queue.shift();
+          entry.hooks?.onEnd?.();
           this.#finish(entry);
         }
         return true;
@@ -125,7 +139,11 @@ export class CommandCorrelator {
     for (const entry of this.#queue.splice(0)) entry.reject(err);
   }
 
-  #enqueue(commands: string[], nonce: string | null): Promise<CommandResult[]> {
+  #enqueue(
+    commands: string[],
+    nonce: string | null,
+    hooks: BatchHooks | null,
+  ): Promise<CommandResult[]> {
     if (this.#failed) return Promise.reject(this.#failed);
     for (const command of commands) {
       if (/[\r\n]/.test(command) || command.trim() === '') {
@@ -133,7 +151,7 @@ export class CommandCorrelator {
       }
     }
     return new Promise((resolve, reject) => {
-      this.#queue.push({ commands: commands.length, blocks: [], nonce, resolve, reject });
+      this.#queue.push({ commands: commands.length, blocks: [], nonce, hooks, resolve, reject });
       this.#write(commands.join(' ; '));
     });
   }

@@ -91,6 +91,8 @@ Verification:
 
 ### Final launch command (as executed on tmux-3.2a; values from the probe)
 
+> **Superseded detail (2026-10-15):** the driver (ADR-0003) extended this command with `new-session -A -P -F td-created` (to know whether the session was created) and `set-option -gqw scroll-on-clear off`. `launchCommand()` in `commands.ts` is the source of truth.
+
 The script, before the outer quoting layer:
 
 ```sh

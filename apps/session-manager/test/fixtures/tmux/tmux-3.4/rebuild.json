@@ -1,0 +1,99 @@
+{
+  "image": "tmux-3.4",
+  "tmuxVersion": "tmux 3.4",
+  "recordedAt": "2026-10-15",
+  "description": "One control-mode session (80x24, history-limit 60). After each scenario the driver snapshot batch (snapshotCommands(0) + sentinel) is sent; the flood's batch is sent while output is still arriving.",
+  "cols": 80,
+  "rows": 24,
+  "historyLimit": 60,
+  "scenarios": [
+    {
+      "name": "colors+history+wrapped",
+      "static": true,
+      "startAtByte": 561
+    },
+    {
+      "name": "alternate screen: scroll region, cursor mid-screen, modes",
+      "static": true,
+      "startAtByte": 22019
+    },
+    {
+      "name": "origin mode, scroll region, tab stops, insert mode, cursor style, focus",
+      "static": true,
+      "startAtByte": 30568
+    },
+    {
+      "name": "wide characters at the edge, emoji, combining marks",
+      "static": true,
+      "startAtByte": 42096
+    },
+    {
+      "name": "pending wrap",
+      "static": false,
+      "startAtByte": 53284
+    },
+    {
+      "name": "flood (capture mid-output)",
+      "static": false,
+      "startAtByte": 63674
+    }
+  ],
+  "sent": [
+    {
+      "atByte": 561,
+      "line": "send-keys -H -t %0 66 6f 72 20 69 20 69 6e 20 24 28 73 65 71 20 31 20 33 30 29 3b 20 64 6f 20 70 72 69 6e 74 66 20 27 5c 30 33 33 5b 33 25 64 6d 25 30 33 64 5c 30 33 33 5b 30 6d 20 5c 30 33 33 5b 31 3b 34 6d 62 6f 6c 64 2d 75 6c 5c 30 33 33 5b 30 6d 20 5c 30 33 33 5b 33 38 3b 35 3b 32 30 38 6d 78 32 35 36 5c 30 33 33 5b 30 6d 20 5c 30 33 33 5b 33 38 3b 35 3b 33 6d 6c 6f 77 32 35 36 5c 30 33 33 5b 30 6d 20 5c 30 33 33 5b 33 38 3b 32 3b 31 30 3b 32 30 30 3b 33 30 6d 74 72 75 65 5c 30 33 33 5b 30 6d 20 5c 30 33 33 5b 37 6d 69 6e 76 5c 30 33 33 5b 32 37 6d 20 5c 30 33 33 5b 32 6d 64 69 6d 5c 30 33 33 5b 32 32 6d 20 5c 30 33 33 5b 33 6d 69 74 5c 30 33 33 5b 32 33 6d 20 5c 30 33 33 5b 39 6d 73 74 5c 30 33 33 5b 32 39 6d 20 5c 30 33 33 5b 34 31 6d 62 67 5c 30 33 33 5b 30 6d 20 5c 30 33 33 5b 34 3a 33 6d 63 75 72 6c 79 5c 30 33 33 5b 34 3a 30 6d 20 5c 30 33 33 5b 35 33 6d 6f 76 65 72 5c 30 33 33 5b 35 35 6d 20 5c 33 30 33 5c 32 35 31 5c 33 34 34 5c 32 37 30 5c 32 35 35 5c 33 36 30 5c 32 33 37 5c 32 33 30 5c 32 30 30 5c 6e 27 20 24 28 28 69 20 25 20 38 29 29 20 24 69 3b 20 64 6f 6e 65 3b 20 70 72 69 6e 74 66 20 27 25 30 31 35 30 64 5c 6e 27 20 31 3b 20 70 72 69 6e 74 66 20 27 77 72 61 70 2d 5c 30 33 33 5b 34 34 6d 25 30 31 30 30 64 5c 30 33 33 5b 30 6d 2d 65 6e 64 5c 6e 27 20 32 0d"
+    },
+    {
+      "atByte": 10026,
+      "line": "capture-pane -p -e -J -N -t %0 -S - -E -1 ; capture-pane -p -e -J -N -t %0 ; capture-pane -p -e -N -t %0 ; capture-pane -p -e -J -N -a -q -t %0 ; capture-pane -p -J -t %0 -S -1 -E 0 ; display-message -p -t %0 '#{pane_id}\t#{pane_width}\t#{pane_height}\t#{history_size}\t#{cursor_x}\t#{cursor_y}\t#{alternate_on}\t#{alternate_saved_x}\t#{alternate_saved_y}\t#{scroll_region_upper}\t#{scroll_region_lower}\t#{cursor_flag}\t#{insert_flag}\t#{keypad_cursor_flag}\t#{keypad_flag}\t#{wrap_flag}\t#{origin_flag}\t#{mouse_standard_flag}\t#{mouse_button_flag}\t#{mouse_all_flag}\t#{mouse_sgr_flag}\t#{mouse_utf8_flag}\t#{pane_in_mode}\t#{pane_tabs}\t#{bracket_paste_flag}\t#{cursor_shape}\t#{cursor_blinking}\t#{pane_private_modes}\t#{host}\t#{host_short}\t#{q:pane_title}' ; capture-pane -p -P -C -t %0 ; display-message -p 'td-pj6q4iadrac6'"
+    },
+    {
+      "atByte": 22019,
+      "line": "send-keys -H -t %0 70 72 69 6e 74 66 20 27 5c 30 33 33 5b 3f 31 30 34 39 68 5c 30 33 33 5b 48 5c 30 33 33 5b 32 4a 5c 30 33 33 5b 31 6d 74 69 74 6c 65 20 62 61 72 5c 30 33 33 5b 30 6d 5c 30 33 33 5b 33 3b 32 30 72 5c 30 33 33 5b 35 3b 31 30 48 5c 30 33 33 5b 31 3b 33 33 6d 6d 69 64 5c 30 33 33 5b 30 6d 5c 30 33 33 5b 3f 31 68 5c 30 33 33 3d 5c 30 33 33 5b 3f 31 30 30 32 68 5c 30 33 33 5b 3f 31 30 30 36 68 5c 30 33 33 5b 3f 32 35 6c 5c 30 33 33 5d 32 3b 61 6c 74 2d 61 70 70 5c 30 30 37 5c 30 33 33 5b 31 32 3b 34 48 27 3b 20 72 65 61 64 20 5f 3b 20 70 72 69 6e 74 66 20 27 5c 30 33 33 5b 3f 31 30 34 39 6c 5c 30 33 33 5b 72 5c 30 33 33 5b 3f 31 6c 5c 30 33 33 3e 5c 30 33 33 5b 3f 31 30 30 32 6c 5c 30 33 33 5b 3f 31 30 30 36 6c 5c 30 33 33 5b 3f 32 35 68 27 0d"
+    },
+    {
+      "atByte": 22579,
+      "line": "capture-pane -p -e -J -N -t %0 -S - -E -1 ; capture-pane -p -e -J -N -t %0 ; capture-pane -p -e -N -t %0 ; capture-pane -p -e -J -N -a -q -t %0 ; capture-pane -p -J -t %0 -S -1 -E 0 ; display-message -p -t %0 '#{pane_id}\t#{pane_width}\t#{pane_height}\t#{history_size}\t#{cursor_x}\t#{cursor_y}\t#{alternate_on}\t#{alternate_saved_x}\t#{alternate_saved_y}\t#{scroll_region_upper}\t#{scroll_region_lower}\t#{cursor_flag}\t#{insert_flag}\t#{keypad_cursor_flag}\t#{keypad_flag}\t#{wrap_flag}\t#{origin_flag}\t#{mouse_standard_flag}\t#{mouse_button_flag}\t#{mouse_all_flag}\t#{mouse_sgr_flag}\t#{mouse_utf8_flag}\t#{pane_in_mode}\t#{pane_tabs}\t#{bracket_paste_flag}\t#{cursor_shape}\t#{cursor_blinking}\t#{pane_private_modes}\t#{host}\t#{host_short}\t#{q:pane_title}' ; capture-pane -p -P -C -t %0 ; display-message -p 'td-lffprghzbki2'"
+    },
+    {
+      "atByte": 30363,
+      "line": "send-keys -H -t %0 0d"
+    },
+    {
+      "atByte": 30568,
+      "line": "send-keys -H -t %0 70 72 69 6e 74 66 20 27 5c 30 33 33 5b 33 67 5c 30 33 33 5b 31 3b 35 48 5c 30 33 33 48 5c 30 33 33 5b 31 3b 31 33 48 5c 30 33 33 48 5c 30 33 33 5b 31 3b 33 30 48 5c 30 33 33 48 5c 30 33 33 5b 35 3b 31 35 72 5c 30 33 33 5b 3f 36 68 5c 30 33 33 5b 33 3b 37 48 6f 72 69 67 69 6e 5c 30 33 33 5b 34 68 5c 30 33 33 5b 3f 32 35 6c 5c 30 33 33 5b 35 20 71 5c 30 33 33 5b 3f 31 30 30 34 68 27 3b 20 72 65 61 64 20 5f 3b 20 70 72 69 6e 74 66 20 27 5c 30 33 33 5b 3f 36 6c 5c 30 33 33 5b 72 5c 30 33 33 5b 34 6c 5c 30 33 33 5b 3f 32 35 68 5c 30 33 33 5b 30 20 71 5c 30 33 33 5b 3f 31 30 30 34 6c 27 0d"
+    },
+    {
+      "atByte": 31024,
+      "line": "capture-pane -p -e -J -N -t %0 -S - -E -1 ; capture-pane -p -e -J -N -t %0 ; capture-pane -p -e -N -t %0 ; capture-pane -p -e -J -N -a -q -t %0 ; capture-pane -p -J -t %0 -S -1 -E 0 ; display-message -p -t %0 '#{pane_id}\t#{pane_width}\t#{pane_height}\t#{history_size}\t#{cursor_x}\t#{cursor_y}\t#{alternate_on}\t#{alternate_saved_x}\t#{alternate_saved_y}\t#{scroll_region_upper}\t#{scroll_region_lower}\t#{cursor_flag}\t#{insert_flag}\t#{keypad_cursor_flag}\t#{keypad_flag}\t#{wrap_flag}\t#{origin_flag}\t#{mouse_standard_flag}\t#{mouse_button_flag}\t#{mouse_all_flag}\t#{mouse_sgr_flag}\t#{mouse_utf8_flag}\t#{pane_in_mode}\t#{pane_tabs}\t#{bracket_paste_flag}\t#{cursor_shape}\t#{cursor_blinking}\t#{pane_private_modes}\t#{host}\t#{host_short}\t#{q:pane_title}' ; capture-pane -p -P -C -t %0 ; display-message -p 'td-dbb2utcqsdsr'"
+    },
+    {
+      "atByte": 41891,
+      "line": "send-keys -H -t %0 0d"
+    },
+    {
+      "atByte": 42096,
+      "line": "send-keys -H -t %0 70 72 69 6e 74 66 20 27 25 30 37 39 64 5c 33 34 34 5c 32 37 30 5c 32 35 35 5c 6e 27 20 30 3b 20 70 72 69 6e 74 66 20 27 78 5c 33 36 30 5c 32 33 37 5c 32 33 30 5c 32 30 30 25 2e 30 73 27 20 24 28 73 65 71 20 31 20 34 30 29 3b 20 65 63 68 6f 3b 20 70 72 69 6e 74 66 20 27 65 5c 33 31 34 5c 32 30 31 20 63 6f 6d 62 69 6e 69 6e 67 2c 20 5c 33 34 34 5c 32 37 30 5c 32 35 35 5c 33 34 36 5c 32 32 36 5c 32 30 37 20 63 6a 6b 5c 6e 27 0d"
+    },
+    {
+      "atByte": 42803,
+      "line": "capture-pane -p -e -J -N -t %0 -S - -E -1 ; capture-pane -p -e -J -N -t %0 ; capture-pane -p -e -N -t %0 ; capture-pane -p -e -J -N -a -q -t %0 ; capture-pane -p -J -t %0 -S -1 -E 0 ; display-message -p -t %0 '#{pane_id}\t#{pane_width}\t#{pane_height}\t#{history_size}\t#{cursor_x}\t#{cursor_y}\t#{alternate_on}\t#{alternate_saved_x}\t#{alternate_saved_y}\t#{scroll_region_upper}\t#{scroll_region_lower}\t#{cursor_flag}\t#{insert_flag}\t#{keypad_cursor_flag}\t#{keypad_flag}\t#{wrap_flag}\t#{origin_flag}\t#{mouse_standard_flag}\t#{mouse_button_flag}\t#{mouse_all_flag}\t#{mouse_sgr_flag}\t#{mouse_utf8_flag}\t#{pane_in_mode}\t#{pane_tabs}\t#{bracket_paste_flag}\t#{cursor_shape}\t#{cursor_blinking}\t#{pane_private_modes}\t#{host}\t#{host_short}\t#{q:pane_title}' ; capture-pane -p -P -C -t %0 ; display-message -p 'td-lwc4gycsv4xx'"
+    },
+    {
+      "atByte": 53284,
+      "line": "send-keys -H -t %0 70 72 69 6e 74 66 20 27 25 30 38 30 64 27 20 30 3b 20 73 6c 65 65 70 20 31 2e 35 3b 20 70 72 69 6e 74 66 20 27 58 5c 6e 27 0d"
+    },
+    {
+      "atByte": 53501,
+      "line": "capture-pane -p -e -J -N -t %0 -S - -E -1 ; capture-pane -p -e -J -N -t %0 ; capture-pane -p -e -N -t %0 ; capture-pane -p -e -J -N -a -q -t %0 ; capture-pane -p -J -t %0 -S -1 -E 0 ; display-message -p -t %0 '#{pane_id}\t#{pane_width}\t#{pane_height}\t#{history_size}\t#{cursor_x}\t#{cursor_y}\t#{alternate_on}\t#{alternate_saved_x}\t#{alternate_saved_y}\t#{scroll_region_upper}\t#{scroll_region_lower}\t#{cursor_flag}\t#{insert_flag}\t#{keypad_cursor_flag}\t#{keypad_flag}\t#{wrap_flag}\t#{origin_flag}\t#{mouse_standard_flag}\t#{mouse_button_flag}\t#{mouse_all_flag}\t#{mouse_sgr_flag}\t#{mouse_utf8_flag}\t#{pane_in_mode}\t#{pane_tabs}\t#{bracket_paste_flag}\t#{cursor_shape}\t#{cursor_blinking}\t#{pane_private_modes}\t#{host}\t#{host_short}\t#{q:pane_title}' ; capture-pane -p -P -C -t %0 ; display-message -p 'td-fggy4pwnemvo'"
+    },
+    {
+      "atByte": 63674,
+      "line": "send-keys -H -t %0 66 6f 72 20 69 20 69 6e 20 24 28 73 65 71 20 31 20 31 35 29 3b 20 64 6f 20 73 65 71 20 24 28 28 69 2a 31 30 30 2d 39 39 29 29 20 24 28 28 69 2a 31 30 30 29 29 20 7c 20 61 77 6b 20 27 7b 70 72 69 6e 74 66 20 22 25 64 20 5c 33 30 33 5c 32 35 31 5c 33 34 34 5c 32 37 30 5c 32 35 35 5c 33 36 30 5c 32 33 37 5c 32 33 30 5c 32 30 30 20 5c 30 33 33 5b 30 6d 5c 6e 22 2c 20 24 31 7d 27 3b 20 73 6c 65 65 70 20 30 2e 30 32 3b 20 64 6f 6e 65 0d"
+    },
+    {
+      "atByte": 72680,
+      "line": "capture-pane -p -e -J -N -t %0 -S - -E -1 ; capture-pane -p -e -J -N -t %0 ; capture-pane -p -e -N -t %0 ; capture-pane -p -e -J -N -a -q -t %0 ; capture-pane -p -J -t %0 -S -1 -E 0 ; display-message -p -t %0 '#{pane_id}\t#{pane_width}\t#{pane_height}\t#{history_size}\t#{cursor_x}\t#{cursor_y}\t#{alternate_on}\t#{alternate_saved_x}\t#{alternate_saved_y}\t#{scroll_region_upper}\t#{scroll_region_lower}\t#{cursor_flag}\t#{insert_flag}\t#{keypad_cursor_flag}\t#{keypad_flag}\t#{wrap_flag}\t#{origin_flag}\t#{mouse_standard_flag}\t#{mouse_button_flag}\t#{mouse_all_flag}\t#{mouse_sgr_flag}\t#{mouse_utf8_flag}\t#{pane_in_mode}\t#{pane_tabs}\t#{bracket_paste_flag}\t#{cursor_shape}\t#{cursor_blinking}\t#{pane_private_modes}\t#{host}\t#{host_short}\t#{q:pane_title}' ; capture-pane -p -P -C -t %0 ; display-message -p 'td-7i2aacbgdm2v'"
+    }
+  ]
+}

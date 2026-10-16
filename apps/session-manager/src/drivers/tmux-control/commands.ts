@@ -103,26 +103,29 @@ export function paneCommand(startupCommand?: string | null): string {
   return startupCommand ? `${base}c ${shQuote(startupCommand)}` : base;
 }
 
-/** The POSIX script that launches or attaches the control client (plan §6.3). */
-export function launchScript(opts: LaunchOptions): string {
-  assertAbsolutePath(opts.tmuxPath);
-  assertSocket(opts.socket);
-  assertDimension('cols', opts.cols);
-  assertDimension('rows', opts.rows);
+/**
+ * Printed by `new-session -P` only when it created the session; when `-A` attaches to an
+ * existing one, tmux returns before printing (ADR-0003). The marker lands in the reply block of
+ * the last launch command.
+ */
+export const SESSION_CREATED_MARKER = 'td-created';
+
+/**
+ * The tmux commands of the launch argv, in order. Each one answers with its own flags-0 block,
+ * so the launch is complete when `launchCommands(opts).length` such blocks have ended.
+ */
+export function launchCommands(opts: LaunchOptions): string[] {
   if (!Number.isInteger(opts.historyLimit) || opts.historyLimit < 0) {
     throw new RangeError(`invalid history limit: ${opts.historyLimit}`);
   }
-  if (!/^[A-Za-z0-9_.@-]+$/.test(opts.locale))
-    throw new RangeError(`invalid locale: ${opts.locale}`);
+  assertDimension('cols', opts.cols);
+  assertDimension('rows', opts.rows);
   const envArgs: string[] = [];
   for (const [key, value] of Object.entries(opts.env ?? {})) {
     if (!ENV_KEY.test(key)) throw new RangeError(`invalid environment variable name: ${key}`);
     envArgs.push('-e', shQuote(`${key}=${value}`));
   }
-  const tmux = opts.systemdRun
-    ? `systemd-run --user --scope --quiet ${opts.tmuxPath}`
-    : opts.tmuxPath;
-  const commands = [
+  return [
     'start-server',
     `set-option -g history-limit ${opts.historyLimit}`,
     `set-option -g default-terminal ${opts.defaultTerminal}`,
@@ -130,15 +133,31 @@ export function launchScript(opts: LaunchOptions): string {
     'set-option -g detach-on-destroy on',
     'set-option -g window-size latest',
     'set-option -g status off',
+    // tmux >= 3.3: ED 2 and ED 0 at home clear without scrolling the screen into history, as
+    // xterm.js does, so a rebuilt scrollback matches the live one. 3.2 lacks the option: -q
+    // makes set-option ignore it (the block still ends with %end).
+    'set-option -gqw scroll-on-clear off',
     [
-      `new-session -A -s ${TMUX_SESSION} -x ${opts.cols} -y ${opts.rows}`,
+      `new-session -A -P -F ${SESSION_CREATED_MARKER} -s ${TMUX_SESSION}`,
+      `-x ${opts.cols} -y ${opts.rows}`,
       ...envArgs,
       shQuote(paneCommand(opts.startupCommand)),
     ].join(' '),
   ];
+}
+
+/** The POSIX script that launches or attaches the control client (plan §6.3). */
+export function launchScript(opts: LaunchOptions): string {
+  assertAbsolutePath(opts.tmuxPath);
+  assertSocket(opts.socket);
+  if (!/^[A-Za-z0-9_.@-]+$/.test(opts.locale))
+    throw new RangeError(`invalid locale: ${opts.locale}`);
+  const tmux = opts.systemdRun
+    ? `systemd-run --user --scope --quiet ${opts.tmuxPath}`
+    : opts.tmuxPath;
   return (
     `export LC_CTYPE=${opts.locale}; ` +
-    `exec ${tmux} -u -L ${opts.socket} -f /dev/null -C ${commands.join(' \\; ')}`
+    `exec ${tmux} -u -L ${opts.socket} -f /dev/null -C ${launchCommands(opts).join(' \\; ')}`
   );
 }
 
@@ -152,6 +171,13 @@ export function hasSessionCommand(opts: { tmuxPath: string; socket: string }): s
   assertAbsolutePath(opts.tmuxPath);
   assertSocket(opts.socket);
   return remoteCommand(`exec ${opts.tmuxPath} -L ${opts.socket} has-session -t ${TMUX_SESSION}`);
+}
+
+/** Remote command that kills our tmux server (terminate without a live control client). */
+export function killServerCommand(opts: { tmuxPath: string; socket: string }): string {
+  assertAbsolutePath(opts.tmuxPath);
+  assertSocket(opts.socket);
+  return remoteCommand(`exec ${opts.tmuxPath} -L ${opts.socket} kill-server`);
 }
 
 // Control-mode commands (written to the control client's stdin, one per line).
@@ -204,6 +230,22 @@ export function detachClient(name: string): string {
 export function displayLiteral(text: string): string {
   if (!/^[A-Za-z0-9_-]+$/.test(text)) throw new RangeError(`unsafe literal: ${text}`);
   return `display-message -p '${text}'`;
+}
+
+/**
+ * `display-message -p` expanding a tmux format, optionally for a pane. display-message passes
+ * its template through strftime first (ADR-0002), so `%` is rejected; so are quotes and line
+ * breaks. TABs are allowed (field separators).
+ */
+export function displayFormat(format: string, paneId?: number): string {
+  if (format === '' || /[%'\r\n]/.test(format)) throw new RangeError(`unsafe format: ${format}`);
+  const target = paneId === undefined ? '' : `-t %${paneIdOf(paneId)} `;
+  return `display-message -p ${target}'${format}'`;
+}
+
+/** Leaves copy mode or any other pane mode before input is delivered (plan §6.5). */
+export function sendKeysCancel(paneId: number): string {
+  return `send-keys -X -t %${paneIdOf(paneId)} cancel`;
 }
 
 function paneIdOf(paneId: number): number {

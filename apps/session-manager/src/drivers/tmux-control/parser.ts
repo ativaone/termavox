@@ -218,6 +218,21 @@ function indexOfSeparator(line: Uint8Array, from: number): number {
   return -1;
 }
 
+/**
+ * Size of one pane in a window layout string (`csum,WxH,X,Y,ID` for a single pane; split
+ * layouts nest cells in `{…}` / `[…]`, and only leaf cells carry `,ID`). Null when the pane is
+ * not in the layout.
+ */
+export function paneSizeFromLayout(
+  layout: string,
+  paneId: number,
+): { cols: number; rows: number } | null {
+  for (const match of layout.matchAll(/(\d+)x(\d+),\d+,\d+,(\d+)(?=[,}\]]|$)/g)) {
+    if (Number(match[3]) === paneId) return { cols: Number(match[1]), rows: Number(match[2]) };
+  }
+  return null;
+}
+
 /** Pane geometry of a single-pane window layout (`csum,WxH,X,Y,ID`); null for split layouts. */
 export function singlePaneLayout(
   layout: string,
