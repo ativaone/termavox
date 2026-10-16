@@ -1,0 +1,43 @@
+# Build context for deploy/docker/*.Dockerfile: sources and manifests only. Never send state,
+# secrets or installed dependencies to the Docker daemon.
+
+# VCS, editors, agent tooling
+.git
+.github
+.idea
+.vscode
+.claude
+.mcp.json
+**/.DS_Store
+
+# Installed dependencies and build output (rebuilt inside the image)
+**/node_modules
+**/.next
+**/next-env.d.ts
+**/dist
+**/coverage
+**/test-results
+**/playwright-report
+**/*.tsbuildinfo
+**/*.log
+
+# Runtime state and secrets
+data
+**/secrets
+**/*.db
+**/*.db-shm
+**/*.db-wal
+**/.env
+**/.env.*
+
+# Deployment files other than the Dockerfiles (backups, local env, compose, scripts)
+deploy/*
+!deploy/docker
+
+# Not needed in the images: docs, tests, test fixtures (incl. test-only SSH keys), review evidence
+docs
+test
+scripts
+apps/*/test
+packages/*/test
+apps/web/.impeccable

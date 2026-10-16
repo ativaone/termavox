@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import type { NextConfig } from 'next';
 import createNextIntlPlugin from 'next-intl/plugin';
 
@@ -10,6 +11,10 @@ const SECURITY_HEADERS = [
 ];
 
 const config: NextConfig = {
+  // Self-contained server for the Docker image (deploy/docker/web.Dockerfile).
+  output: 'standalone',
+  // Trace files from the monorepo root so workspace packages and node_modules are included.
+  outputFileTracingRoot: fileURLToPath(new URL('../..', import.meta.url)),
   // Workspace packages ship TypeScript sources.
   transpilePackages: [
     '@termdock/db',

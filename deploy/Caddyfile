@@ -1,0 +1,67 @@
+# Termdock edge proxy (plan §4.3, §13.1). Caddy is the only public listener and the only
+# trusted proxy: `/ws` goes to session-manager, everything else to web. Caddy is not on the
+# `internal` network, so it can never reach the daemon's internal API.
+#
+# Environment (set by deploy/compose.yaml):
+#   TERMDOCK_DOMAIN      site address, e.g. termdock.example.com (default: localhost)
+#   TERMDOCK_HTTP_PORT   HTTP listener, also the published host port (default: 80)
+#   TERMDOCK_HTTPS_PORT  HTTPS listener, also the published host port (default: 443)
+#   TERMDOCK_TLS         auto (default) | internal, see the tls_* snippets below
+#
+# Security headers (CSP, Referrer-Policy, nosniff) come from the apps; only HSTS is added here.
+{
+	http_port {$TERMDOCK_HTTP_PORT:80}
+	https_port {$TERMDOCK_HTTPS_PORT:443}
+	# No admin API: configuration changes mean a container restart.
+	admin off
+	# Never try to install Caddy's local CA into the container's trust store.
+	skip_install_trust
+}
+
+# TERMDOCK_TLS=auto: Caddy's automatic HTTPS. `localhost` and IP addresses get certificates from
+# Caddy's local CA (the same as `tls internal`); a public domain gets a Let's Encrypt/ZeroSSL
+# certificate over ACME (ports 80 and 443 must be reachable from the internet).
+(tls_auto) {
+}
+
+# TERMDOCK_TLS=internal: always use Caddy's local CA, e.g. for a LAN-only name such as
+# termdock.lan. Browsers trust it only after importing the root certificate (see the install
+# guide).
+(tls_internal) {
+	tls internal
+}
+
+# Plain HTTP: redirect to HTTPS on the published port. Caddy's automatic redirect leaves the port
+# out whenever it equals https_port, which breaks a published port other than 443 (with 443 the
+# target reads https://<domain>:443/..., which browsers normalize). ACME HTTP challenges are still
+# answered: Caddy handles them before any route.
+http://{$TERMDOCK_DOMAIN:localhost} {
+	redir https://{host}:{$TERMDOCK_HTTPS_PORT:443}{uri} 308
+}
+
+{$TERMDOCK_DOMAIN:localhost} {
+	import tls_{$TERMDOCK_TLS:auto}
+
+	# Exactly one X-Forwarded-For value: the client address as Caddy sees it (the TCP peer, as no
+	# trusted_proxies are configured). Any client-supplied value is replaced, never appended to:
+	# web's rate limits, lockout and audit trust this header (plan §4.3, ADR-0004). Caddy's
+	# default already behaves this way; the explicit `set` keeps the guarantee if the defaults
+	# change, and stays a single value if trusted_proxies is ever configured.
+	handle /ws {
+		reverse_proxy session-manager:3001 {
+			header_up X-Forwarded-For {client_ip}
+		}
+	}
+
+	handle {
+		reverse_proxy web:3000 {
+			header_up X-Forwarded-For {client_ip}
+		}
+	}
+
+	# HSTS is per host, not per port: never send it for localhost, where it would force HTTPS on
+	# every other local development server in the browser.
+	@hsts not host localhost
+	header @hsts Strict-Transport-Security "max-age=31536000"
+	header -Server
+}

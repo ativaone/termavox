@@ -117,7 +117,21 @@ The full plan, with architecture, protocol, data model, security model and per-p
 | Deployment | Docker Compose + Caddy |
 | Tooling | pnpm workspaces, Biome, Vitest, dockerized sshd test matrix |
 
-## Getting started (development)
+## Getting started
+
+### Run it with Docker
+
+One command starts the three containers behind a single origin: **Caddy** (TLS), **web** and **session-manager**. You need **Docker** with Compose v2 on a Linux host.
+
+```bash
+deploy/scripts/init-secrets.sh                      # generate the secrets; back up deploy/secrets/master_key
+docker compose -f deploy/compose.yaml up -d --build # build both images and start the stack
+docker compose -f deploy/compose.yaml logs web      # the one-time token to create the first admin at /setup
+```
+
+Out of the box it serves `https://localhost` with a certificate from Caddy's local CA. The [installation guide](docs/guides/install.md) covers domains and TLS, backups and restore, upgrades and troubleshooting. Termdock is still pre-alpha, so keep it away from production servers for now.
+
+### Development
 
 You need **Node.js 24**, **pnpm 11** and **Docker** (for the test SSH servers).
 

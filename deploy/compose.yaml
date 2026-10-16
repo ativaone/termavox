@@ -1,0 +1,177 @@
+# Termdock: the whole stack with one command (plan §13). From the repository root:
+#
+#   deploy/scripts/init-secrets.sh
+#   docker compose -f deploy/compose.yaml up -d --build
+#
+# Settings come from the environment or from deploy/.env (template: deploy/.env.example).
+# Full guide: docs/guides/install.md.
+name: termdock
+
+# Hardening shared by every service (plan §10.2).
+x-hardened: &hardened
+  restart: unless-stopped
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+
+# The browser-facing URL: Origin checks (web and the WebSocket upgrade) and auth cookies use it.
+# Derived from the domain and HTTPS port unless set; a default port (443) is normalized away.
+x-public-url: &public-url ${TERMDOCK_PUBLIC_URL:-https://${TERMDOCK_DOMAIN:-localhost}:${TERMDOCK_HTTPS_PORT:-443}}
+
+services:
+  caddy:
+    # caddy:2 (official Docker Hub image; v2.11.7 when pinned), pinned by digest.
+    image: caddy@sha256:685ae3d7c34d9b5f8caeddc5d14051db7bbd88ff1f5a2fa0c16bd8ca328fb7af
+    <<: *hardened
+    # The image's caddy binary carries the cap_net_bind_service file capability; without it in
+    # the bounding set the kernel refuses to exec the binary.
+    cap_add: [NET_BIND_SERVICE]
+    ports:
+      # Same port inside and outside, so Caddy's HTTP/3 advertisement (Alt-Svc) names the
+      # published port; the Caddyfile's HTTP->HTTPS redirect also uses it.
+      - "${TERMDOCK_HTTP_PORT:-80}:${TERMDOCK_HTTP_PORT:-80}"
+      - "${TERMDOCK_HTTPS_PORT:-443}:${TERMDOCK_HTTPS_PORT:-443}"
+      - "${TERMDOCK_HTTPS_PORT:-443}:${TERMDOCK_HTTPS_PORT:-443}/udp"
+    environment:
+      TERMDOCK_DOMAIN: ${TERMDOCK_DOMAIN:-localhost}
+      TERMDOCK_HTTP_PORT: ${TERMDOCK_HTTP_PORT:-80}
+      TERMDOCK_HTTPS_PORT: ${TERMDOCK_HTTPS_PORT:-443}
+      TERMDOCK_TLS: ${TERMDOCK_TLS:-auto}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    tmpfs:
+      - /tmp
+    networks:
+      - edge # never on `internal`: Caddy cannot reach the internal API
+    depends_on:
+      web:
+        condition: service_healthy
+      session-manager:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/docker/web.Dockerfile
+    <<: *hardened
+    init: true
+    user: "10001:10001"
+    environment:
+      TERMDOCK_PUBLIC_URL: *public-url
+      TERMDOCK_DATA_DIR: /data
+      TERMDOCK_INTERNAL_URL: http://session-manager-internal:3002
+      TERMDOCK_INTERNAL_TOKEN_FILE: /run/secrets/internal_token
+      TERMDOCK_WS_SECRET_FILE: /run/secrets/ws_secret
+      BETTER_AUTH_SECRET_FILE: /run/secrets/auth_secret
+    secrets:
+      - auth_secret
+      - internal_token
+      - ws_secret
+    volumes:
+      - termdock-data:/data
+    tmpfs:
+      - /tmp
+      - /app/apps/web/.next/cache:uid=10001,gid=10001,mode=0700
+    networks:
+      - edge
+      - internal
+    depends_on:
+      # The daemon applies the database migrations at boot; web reads the schema at startup.
+      session-manager:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          fetch('http://127.0.0.1:3000/api/health', { signal: AbortSignal.timeout(4000) })
+          .then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1));
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+      start_interval: 2s
+
+  session-manager:
+    build:
+      context: ..
+      dockerfile: deploy/docker/session-manager.Dockerfile
+    <<: *hardened
+    init: true
+    user: "10001:10001"
+    environment:
+      TERMDOCK_PUBLIC_URL: *public-url
+      TERMDOCK_DATA_DIR: /data
+      TERMDOCK_WS_HOST: 0.0.0.0
+      TERMDOCK_WS_PORT: "3001"
+      TERMDOCK_WS_SECRET_FILE: /run/secrets/ws_secret
+      # Bound to the address behind the `internal`-only alias, so the internal API does not
+      # listen on the `edge` network at all (plan §4.3).
+      TERMDOCK_INTERNAL_HOST: session-manager-internal
+      TERMDOCK_INTERNAL_PORT: "3002"
+      TERMDOCK_INTERNAL_TOKEN_FILE: /run/secrets/internal_token
+      TERMDOCK_MASTER_KEY_FILE: /run/secrets/master_key
+      # Local direct mode stays off in the container (plan §10.2).
+      TERMDOCK_ENABLE_LOCAL_SHELL: "false"
+      TERMDOCK_LOG_LEVEL: ${TERMDOCK_LOG_LEVEL:-info}
+    secrets:
+      - master_key
+      - internal_token
+      - ws_secret
+    volumes:
+      - termdock-data:/data
+    tmpfs:
+      - /tmp
+    networks:
+      edge: {}
+      internal:
+        aliases:
+          - session-manager-internal
+    # "This Docker host" preset: reach the host's sshd at host.docker.internal:22 (plan §13.4).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # The daemon's own shutdown budget is 25 s (plan §5.8).
+    stop_grace_period: 30s
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          const token = require('node:fs').readFileSync(process.env.TERMDOCK_INTERNAL_TOKEN_FILE, 'utf8').trim();
+          const url = 'http://' + process.env.TERMDOCK_INTERNAL_HOST + ':' + process.env.TERMDOCK_INTERNAL_PORT + '/internal/v1/health';
+          fetch(url, { headers: { authorization: 'Bearer ' + token }, signal: AbortSignal.timeout(4000) })
+          .then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1));
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+      start_interval: 2s
+
+networks:
+  # caddy <-> web:3000 and caddy <-> session-manager:3001; also the containers' egress (SSH).
+  edge: {}
+  # web <-> session-manager:3002 only; no gateway, no outside connectivity.
+  internal:
+    internal: true
+
+volumes:
+  termdock-data: {} # SQLite database (app.db): back it up with deploy/scripts/backup.sh
+  caddy-data: {} # certificates and Caddy's local CA
+  caddy-config: {}
+
+# Outside swarm these are bind mounts that keep the host files' owner, group and mode
+# (compose's uid/gid/mode keys are ignored), so init-secrets.sh makes each file group 10001,
+# mode 0440: readable by the containers' user, not by other host users.
+secrets:
+  master_key:
+    file: ./secrets/master_key
+  internal_token:
+    file: ./secrets/internal_token
+  ws_secret:
+    file: ./secrets/ws_secret
+  auth_secret:
+    file: ./secrets/auth_secret
