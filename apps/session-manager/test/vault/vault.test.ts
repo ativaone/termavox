@@ -5,7 +5,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { CredentialSecret } from '../../src/core/types.ts';
 import { BatchedWriter } from '../../src/store/batched-writer.ts';
 import { parsePublicKeyLine } from '../../src/transport/ssh/host-key.ts';
-import { CredentialService, VaultCredentialProvider } from '../../src/vault/credentials.ts';
+import {
+  CredentialService,
+  GENERATE_KEY_ATTEMPTS,
+  generateEd25519Key,
+  VaultCredentialProvider,
+} from '../../src/vault/credentials.ts';
 import { parseMasterKey, VaultError } from '../../src/vault/master-key.ts';
 import {
   type CredentialBinding,
@@ -114,6 +119,36 @@ describe('Vault', () => {
     expect(() => vault.verifyKeyCheck(check)).not.toThrow();
     expect(() => testVault().verifyKeyCheck(check)).toThrow(/does not match this database/);
     expect(() => vault.verifyKeyCheck({ ...check, v: 2 })).toThrow(/malformed/);
+  });
+});
+
+describe('generated keys', () => {
+  // ssh2's generator emits a malformed OpenSSH key about once in 400 calls.
+  const malformed = TEST_KEY.replace(/^(-----BEGIN[^\n]*\n)[^\n]{8}/, '$1AAAAAAAA');
+
+  it('keeps only a key that parses back', () => {
+    const outputs = [malformed, malformed, TEST_KEY];
+    const key = generateEd25519Key(() => ({ private: outputs.shift()! }));
+    expect(key.privateKey).toBe(TEST_KEY);
+    expect(key.fingerprint).toBe(TEST_KEY_FINGERPRINT);
+    expect(outputs).toHaveLength(0);
+  });
+
+  it('gives up after a bounded number of attempts', () => {
+    let calls = 0;
+    expect(() =>
+      generateEd25519Key(() => {
+        calls++;
+        return { private: malformed };
+      }),
+    ).toThrow(TermdockError);
+    expect(calls).toBe(GENERATE_KEY_ATTEMPTS);
+  });
+
+  it('generates parseable ed25519 keys', () => {
+    for (let i = 0; i < 50; i++) {
+      expect(generateEd25519Key().publicKey).toMatch(/^ssh-ed25519 [A-Za-z0-9+/]+=* termdock$/);
+    }
   });
 });
 

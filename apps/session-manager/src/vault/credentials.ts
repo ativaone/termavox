@@ -56,6 +56,27 @@ export function inspectPrivateKey(
   };
 }
 
+/** Attempts before giving up on a generated key that does not parse back (see below). */
+export const GENERATE_KEY_ATTEMPTS = 8;
+
+/**
+ * A new ed25519 key in OpenSSH format. ssh2's generator emits a malformed key about once in 400
+ * calls (OpenSSH's ssh-keygen rejects those too), so only a key that parses back is kept.
+ */
+export function generateEd25519Key(
+  generate: () => { private: string } = () =>
+    ssh2.utils.generateKeyPairSync('ed25519', { comment: GENERATED_KEY_COMMENT }),
+): { privateKey: string; publicKey: string; fingerprint: string } {
+  for (let attempt = 1; ; attempt++) {
+    const privateKey = generate().private;
+    try {
+      return { privateKey, ...inspectPrivateKey(privateKey) };
+    } catch (err) {
+      if (attempt >= GENERATE_KEY_ATTEMPTS) throw err;
+    }
+  }
+}
+
 export interface CredentialServiceOptions {
   db: TermdockDb;
   writer: BatchedWriter;
@@ -100,9 +121,9 @@ export class CredentialService {
         break;
       }
       case 'generate': {
-        const pair = ssh2.utils.generateKeyPairSync('ed25519', { comment: GENERATED_KEY_COMMENT });
-        ({ publicKey, fingerprint } = inspectPrivateKey(pair.private));
-        secret = { kind: 'private_key', privateKey: pair.private };
+        const generated = generateEd25519Key();
+        ({ publicKey, fingerprint } = generated);
+        secret = { kind: 'private_key', privateKey: generated.privateKey };
         break;
       }
     }
