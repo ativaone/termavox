@@ -21,6 +21,12 @@
 #
 # Usage: deploy/scripts/rotate-master-key.sh [--yes]
 #   --yes  do not ask for confirmation (required when stdin is not a terminal)
+#
+# Environment (optional, for test stacks such as the release smoke; installs leave it unset):
+#   TERMDOCK_SECRETS_DIR       the secrets directory instead of deploy/secrets/
+#   TERMDOCK_BACKUP_DIR        where the pre-rotate backup is copied instead of deploy/backups/
+#   TERMDOCK_COMPOSE_OVERRIDE  a compose file applied on top of deploy/compose.yaml
+#   (the stack's project name comes from COMPOSE_PROJECT_NAME, which docker compose reads itself)
 set -euo pipefail
 umask 077
 
@@ -31,8 +37,8 @@ readonly NEW_KEY_IN_CONTAINER=/run/secrets/master_key.new
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 deploy_dir=$(dirname -- "$script_dir")
 compose_file="$deploy_dir/compose.yaml"
-secrets_dir="$deploy_dir/secrets"
-backup_dir="$deploy_dir/backups"
+secrets_dir=${TERMDOCK_SECRETS_DIR:-"$deploy_dir/secrets"}
+backup_dir=${TERMDOCK_BACKUP_DIR:-"$deploy_dir/backups"}
 key="$secrets_dir/master_key"
 new_key="$key.new"
 old_key="$key.old"
@@ -61,7 +67,11 @@ done
 command -v openssl >/dev/null 2>&1 || die "openssl is required"
 command -v docker >/dev/null 2>&1 || die "docker is required"
 
-compose() { docker compose -f "$compose_file" "$@"; }
+compose_files=(-f "$compose_file")
+if [[ -n "${TERMDOCK_COMPOSE_OVERRIDE:-}" ]]; then
+  compose_files+=(-f "$TERMDOCK_COMPOSE_OVERRIDE")
+fi
+compose() { docker compose "${compose_files[@]}" "$@"; }
 
 # `vault rotate` in a one-off container; extra arguments go to the CLI (e.g. --dry-run).
 run_rotate() {

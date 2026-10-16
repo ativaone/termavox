@@ -1,0 +1,53 @@
+# TEST-ONLY override for the release smoke (scripts/release-smoke.ts, plan §15.4). Never use it
+# for a real install. The smoke always runs it on top of the deployment file, under its own
+# project name, so nothing here can touch an install of the same host:
+#
+#   docker compose -p termdock-smoke -f deploy/compose.yaml -f test/release/compose.smoke.yaml ...
+#
+# Set by the smoke (required): TERMDOCK_SECRETS_DIR (a temporary directory filled by
+# deploy/scripts/init-secrets.sh), TERMDOCK_HTTP_PORT and TERMDOCK_HTTPS_PORT (high ports).
+# Optional: TERMDOCK_SMOKE_EDGE_SUBNET (default 172.30.111.0/24) and TERMDOCK_SMOKE_SSHD_IMAGE
+# (default termdock-test-sshd:tmux-3.4, built by test/sshd/compose.yaml).
+
+services:
+  caddy:
+    # Loopback only: the smoke stack is never reachable from the network, even briefly.
+    ports: !override
+      - "127.0.0.1:${TERMDOCK_HTTP_PORT:?}:${TERMDOCK_HTTP_PORT:?}"
+      - "127.0.0.1:${TERMDOCK_HTTPS_PORT:?}:${TERMDOCK_HTTPS_PORT:?}"
+
+  session-manager:
+    environment:
+      # Follows the edge subnet below (the deployment file derives both from one anchor).
+      TERMDOCK_TRUSTED_PROXIES: ${TERMDOCK_SMOKE_EDGE_SUBNET:-172.30.111.0/24}
+
+  # The SSH target: an already-built test sshd image (test-only keys, see test/sshd/keys) on the
+  # edge network, where session-manager reaches it by name at a private address the SSH target
+  # policy allows. Never built or pulled here.
+  smoke-sshd:
+    image: ${TERMDOCK_SMOKE_SSHD_IMAGE:-termdock-test-sshd:tmux-3.4}
+    pull_policy: never
+    init: true
+    hostname: td-smoke-sshd
+    mem_limit: 128m
+    pids_limit: 256
+    networks:
+      - edge
+
+networks:
+  # Not the deployment's fixed 172.30.10.0/24: a real install on this host keeps its subnet.
+  edge:
+    ipam:
+      config: !override
+        - subnet: ${TERMDOCK_SMOKE_EDGE_SUBNET:-172.30.111.0/24}
+
+# The temporary secrets of this run instead of deploy/secrets.
+secrets:
+  master_key:
+    file: ${TERMDOCK_SECRETS_DIR:?}/master_key
+  internal_token:
+    file: ${TERMDOCK_SECRETS_DIR:?}/internal_token
+  ws_secret:
+    file: ${TERMDOCK_SECRETS_DIR:?}/ws_secret
+  auth_secret:
+    file: ${TERMDOCK_SECRETS_DIR:?}/auth_secret

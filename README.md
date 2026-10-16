@@ -141,9 +141,12 @@ pnpm install                                   # dependency build scripts are bl
 docker compose -f test/sshd/compose.yaml up -d # test sshd containers: no tmux, tmux 3.2a, 3.4, newest
 pnpm check                                     # typecheck + lint + fast tests (T0)
 pnpm test:area tmux                            # integration tests for one area (terminal | ssh | tmux)
+pnpm test:release                              # pre-release routine: T0, all T1, OSV, image builds, smoke
 ```
 
 The test containers listen on `127.0.0.1:2201–2204` and use **test-only** keys from [`test/sshd/keys/`](test/sshd/keys/). Never reuse them anywhere else.
+
+Before a release, `pnpm test:release` runs the automated routine (its smoke drives the real UI in a local headless Chromium over the DevTools protocol), followed by the manual [release checklist](docs/release-checklist.md); see plan §15.4.
 
 ### Repository layout
 
@@ -158,8 +161,9 @@ packages/
   terminal-config/   xterm options shared by server and browser, query silencer, mode tracker
   shared/            ids, error codes
 deploy/              Docker Compose stack, Caddyfile, Dockerfiles, secrets/backup/restore scripts
-scripts/             dev CLI and the integration test runner
+scripts/             dev CLI, test runners (T1 areas, pre-release routine) and the release smoke
 test/sshd/           SSH server images used by the integration tests
+test/release/        test-only compose override for the release smoke
 docs/                guides, security model, architecture overview, implementation plan, ADRs
 ```
 
@@ -173,6 +177,7 @@ docs/                guides, security model, architecture overview, implementati
 | [Architecture overview](docs/architecture.md) | Components, session lifecycle, protection modes, protocol and persistence, for contributors |
 | [Implementation plan](docs/implementation-plan.md) | The full design, decision log and phased delivery plan |
 | [Architecture decision records](docs/adr/README.md) | Spike outcomes and design decisions |
+| [Release checklist](docs/release-checklist.md) | The manual half of the pre-release routine, after `pnpm test:release` |
 
 ## Security
 

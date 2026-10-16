@@ -15,12 +15,17 @@
 #
 # Usage: deploy/scripts/restore.sh [--yes] BACKUP_FILE
 #   --yes  do not ask for confirmation (required when stdin is not a terminal)
+#
+# Environment (optional, for test stacks such as the release smoke; installs leave it unset):
+#   TERMDOCK_BACKUP_DIR        where the safety backup goes instead of deploy/backups/
+#   TERMDOCK_COMPOSE_OVERRIDE  a compose file applied on top of deploy/compose.yaml
+#   (the stack's project name comes from COMPOSE_PROJECT_NAME, which docker compose reads itself)
 set -euo pipefail
 umask 077
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 deploy_dir=$(dirname -- "$script_dir")
-backup_dir="$deploy_dir/backups"
+backup_dir=${TERMDOCK_BACKUP_DIR:-"$deploy_dir/backups"}
 
 die() {
   printf 'restore: %s\n' "$*" >&2
@@ -47,7 +52,11 @@ done
 [[ -f "$file" && -r "$file" ]] || die "cannot read $file"
 [[ "$(head -c 15 -- "$file")" == "SQLite format 3" ]] || die "$file is not a SQLite database"
 
-compose() { docker compose -f "$deploy_dir/compose.yaml" "$@"; }
+compose_files=(-f "$deploy_dir/compose.yaml")
+if [[ -n "${TERMDOCK_COMPOSE_OVERRIDE:-}" ]]; then
+  compose_files+=(-f "$TERMDOCK_COMPOSE_OVERRIDE")
+fi
+compose() { docker compose "${compose_files[@]}" "$@"; }
 
 running=$(compose ps --status running --services 2>/dev/null || true)
 daemon_running=0

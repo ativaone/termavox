@@ -1266,10 +1266,10 @@ Run by the orchestrator once P2, P4 and P5 are delivered (§16.3).
 - **B.** `[T2]` From a clean checkout: `deploy/scripts/init-secrets.sh && docker compose -f deploy/compose.yaml up -d` → working instance at `https://localhost` (Caddy internal CA); a scripted smoke test passes.
 - **C.** `[T2]` Backup → wipe → restore reproduces users, hosts and sessions metadata; protected sessions resume.
 - **D.** `[T2]` 24 h soak: 20 sessions with periodic output and random attach/detach → no crash; RSS growth within budget; no FD leaks.
-- **E.** `[T2]` Vulnerability scan (OSV via `ats-dependency-security` batch mode) shows no known High/Critical vulnerabilities.
+- **E.** `[T2]` Vulnerability scan (OSV via `ats-dependency-security` batch mode) shows no known High/Critical vulnerabilities. Now the `osv` step of `pnpm test:release` (§15.4), which is stricter: any advisory not in the allowlist fails. Passed 2026-10-16 (one moderate, dev-only advisory allowlisted).
 - **F.** `[once]` `impeccable` release passes (`harden`, `clarify`, `adapt`, `polish`) done; docs reviewed.
-- **G.** `[once]` The owner has defined the pre-release routine (§15.4) and it has been run once end to end.
-- **H.** `[T2]` CSP check: no CSP violations are reported during the E2E signature flow (P5 A).
+- **G.** `[once]` The owner has defined the pre-release routine (§15.4) and it has been run once end to end. **Done 2026-10-16:** the first full `pnpm test:release` run passed every step (guard, T0, all 11 T1 files, OSV, image builds, smoke) in 372 s on the 3.8 GB / 2-CPU development machine.
+- **H.** `[T2]` CSP check: no CSP violations are reported during the E2E signature flow (P5 A). Now checked by the smoke of `pnpm test:release` (§15.4) across its whole flow. Passed 2026-10-16, after zod's eval probe was turned off (`apps/web/instrumentation-client.ts`).
 
 ---
 
@@ -1289,7 +1289,7 @@ Run by the orchestrator once P2, P4 and P5 are delivered (§16.3).
 |---|---|---|---|
 | **T0 — Always** | Every change, before each commit; on CI when a remote exists | `pnpm check` | typecheck, lint, i18n key parity, fast unit tests (below). No containers, no browser. |
 | **T1 — Area-triggered** | When code in that area changes (and before closing the phase that owns it) | `pnpm test:area <area>` (`terminal`, `tmux`, `ssh`) | Integration against the **core** sshd images only (alpine:3 no-tmux, ubuntu:22.04 3.2a, alpine:edge newest packaged) and the small golden set |
-| **T2 — Pre-release** | Before tagging a release | `pnpm test:release` (planned) + a manual checklist | Full tmux matrix (the three D-22 versions), the few E2E flows, chaos/lifecycle, soak, deployment, security and vulnerability scans. The agreed routine is §15.4 (D-25). |
+| **T2 — Pre-release** | Before tagging a release | `pnpm test:release` + a manual checklist (`docs/release-checklist.md`) | Full tmux matrix (the three D-22 versions), the few E2E flows, chaos/lifecycle, soak, deployment, security and vulnerability scans. The agreed routine is §15.4 (D-25). |
 
 T1 is the middle tier between "always" (T0) and "pre-release" (T2), the two sets D-21 names; the owner confirmed it together with the release routine (D-25).
 
@@ -1311,18 +1311,36 @@ The T1 cells name the `pnpm test:area` area that runs them.
 
 ### 15.4 Pre-release routine (D-25)
 
-Run before tagging every release, one step at a time (heavy steps never in parallel; capped on small machines):
+Run before tagging every release, one step at a time (heavy steps never in parallel; memory-capped on small machines):
 
-1. `pnpm test:release`, which stops at the first failure:
-   - T0 (`pnpm check`);
-   - every T1 area in sequence (`terminal`, `ssh`, `tmux`, and the daemon/web integration suites) against the D-22 matrix;
-   - `docker compose build` of the deployment images;
-   - a scripted end-to-end smoke against the composed stack: setup token → first admin → sign-in → host + profile → session → attach over WebSocket and run a command → restart session-manager → the protected session is restored with its screen → terminate;
-   - an OSV scan of the lockfile.
-2. Manual checklist (`docs/release-checklist.md`): real phone, both locales, host-key mismatch UX, a keyboard-interactive/OTP host, backup → restore.
+1. **`pnpm test:release`** ([`scripts/test-release.ts`](../scripts/test-release.ts)) runs these steps strictly in order, stops at the first failure and ends with a summary table (step, duration, PASS/FAIL). `--only <step>[,…]` and `--from <step>` run a subset while debugging; a release needs one full run.
+   1. `guard`: fails if `pnpm-lock.yaml` or `node_modules` contain `plain-crypto-js` (any version) or `axios` 1.14.1 / 0.30.4 (GHSA-fw8c-xr5c-95f9, GHSA-2x9r-6wxq-hrr7), and says to treat the machine as compromised.
+   2. `t0`: `pnpm check`.
+   3. `t1`: every T1 file exactly once, one file at a time. The files are the ones vitest lists for project `t1` (`*.int.test.ts`). Each goes to its `pnpm test:area` area (`terminal`, `ssh`, `tmux`, from [`scripts/test-area.ts`](../scripts/test-area.ts)) or to an `other` group for the suites outside the areas (today the daemon and web integration suites, `apps/session-manager/test/daemon` and `apps/web/test/terminal`); the step prints that mapping and fails unless it covers every file exactly once. The tmux suites run against the whole D-22 matrix (`TD_TMUX_IMAGES=tmux-3.2a,tmux-3.4,tmux-edge`, the T2 column of §15.3) instead of T1's core images. It needs the test sshd containers (`docker compose -f test/sshd/compose.yaml up -d --build`): the step checks that all four answer and never starts or stops them.
+   4. `osv`: [`scripts/osv-scan.ts`](../scripts/osv-scan.ts) sends every `name@version` key of the lockfile's `packages:` section to `https://api.osv.dev/v1/querybatch` (Node built-ins only, no YAML parser). Any advisory not accepted in [`scripts/osv-allowlist.json`](../scripts/osv-allowlist.json) for that exact `name@version` (each entry: id, package, reason, review date) fails the step, and so does a network failure. Accepted today: GHSA-67mh-4wv8-2f99 in esbuild 0.18.20 (moderate; dev-only, pulled in by drizzle-kit).
+   5. `build`: `docker compose -p termdock-smoke -f deploy/compose.yaml build`, session-manager then web.
+   6. `smoke`: [`scripts/release-smoke.ts`](../scripts/release-smoke.ts) against the composed stack (next paragraph).
+
+   Heavy steps (`t0`, each T1 file, the smoke) run under `systemd-run --user --scope -p MemoryMax=${TERMDOCK_RELEASE_MEMORY_MAX:-1500M} -p MemorySwapMax=0` when a user systemd is available, plain otherwise. The image builds run inside dockerd, outside that cap, so they run alone.
+
+   **The smoke** is isolated from any real install: compose project `termdock-smoke`, throwaway named volumes, secrets from `init-secrets.sh` in a temporary directory, Caddy on `127.0.0.1:18080` / `127.0.0.1:18443`, and the test-only override [`test/release/compose.smoke.yaml`](../test/release/compose.smoke.yaml), which adds a test sshd (the already-built `termdock-test-sshd:tmux-3.4` image, test-only keys) on the edge network and moves the edge subnet off the deployment's `172.30.10.0/24`. The deploy scripts reach that stack through opt-in variables (`COMPOSE_PROJECT_NAME`, which docker compose reads itself, plus `TERMDOCK_COMPOSE_OVERRIDE`, `TERMDOCK_SECRETS_DIR` and `TERMDOCK_BACKUP_DIR`); unset, they behave exactly as before. The flow:
+   1. the one-time setup token from web's log, the first admin at `/setup` (then `/setup` is a 404);
+   2. sign out, sign in at `/login`;
+   3. a credential (the imported test private key; its fingerprint checked), a host and a profile;
+   4. a session: trust the host key on first use (fingerprint checked), then Connected and protected;
+   5. `echo termdock-smoke-<random>`, read back from xterm's rows;
+   6. restart session-manager: the pane shows "Restoring…", then Connected with the earlier output still on screen;
+   7. `deploy/scripts/rotate-master-key.sh --yes`, then a new session with the same credential connects (the credential decrypts under the new key);
+   8. terminate both sessions;
+   9. `deploy/scripts/backup.sh`: a backup file that passes the script's integrity check, checked again on the host copy (`node:sqlite`).
+
+   It also fails on any CSP violation the browser reports during the flow (Phase 8 H). Every check prints a PASS/FAIL line; on failure the smoke saves a screenshot and the last 100 log lines of each service to a temporary directory and prints its path. It always tears down, also on failure and Ctrl-C: `docker compose -p termdock-smoke down -v` (that project only) and the temporary secrets. The `termdock-smoke-*` images stay for the next run.
+
+   **Chromium is required for the smoke, and is not a new dependency.** The smoke drives the real web UI over the Chrome DevTools Protocol in a locally installed headless Chromium: `TERMDOCK_SMOKE_CHROME`, else the newest `~/.cache/ms-playwright/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell`; without one it fails with an explanation. The browser is a machine prerequisite like Docker, and the CDP client ([`scripts/cdp.ts`](../scripts/cdp.ts)) is a few hundred lines on Node 24's built-in WebSocket client: no browser-automation package, nothing added to the lockfile. The browser gets a throwaway profile, accepts Caddy's local CA for that run only (`--ignore-certificate-errors`) and runs without WebGL, so xterm uses its DOM renderer and the smoke can read the terminal rows.
+2. Manual checklist ([`docs/release-checklist.md`](release-checklist.md)): real phone, both locales, host-key mismatch UX, a keyboard-interactive/OTP host, backup → restore on a scratch install, CHANGELOG and version, tag.
 3. Security review for releases that touch auth, the vault, WS or the internal API.
 
-The routine has no browser E2E dependency and no soak (owner choice); the T2 column of §15.3 items not covered above are verified once at delivery or run ad hoc.
+The routine adds no browser-automation package and has no soak (owner choice); the T2 column of §15.3 items not covered above are verified once at delivery or run ad hoc.
 
 ---
 

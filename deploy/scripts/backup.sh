@@ -10,6 +10,10 @@
 # Usage: deploy/scripts/backup.sh [DEST_DIR]
 #   DEST_DIR  host directory for the backup (default: deploy/backups; created with mode 0700)
 # Prints the path of the new file (mode 0600) on stdout; progress goes to stderr.
+#
+# Environment (optional, for test stacks such as the release smoke; installs leave it unset):
+#   TERMDOCK_COMPOSE_OVERRIDE  a compose file applied on top of deploy/compose.yaml
+#   (the stack's project name comes from COMPOSE_PROJECT_NAME, which docker compose reads itself)
 set -euo pipefail
 umask 077
 
@@ -30,7 +34,11 @@ esac
 (($# <= 1)) || die "too many arguments (see --help)"
 dest_dir=${1:-"$deploy_dir/backups"}
 
-compose() { docker compose -f "$deploy_dir/compose.yaml" "$@"; }
+compose_files=(-f "$deploy_dir/compose.yaml")
+if [[ -n "${TERMDOCK_COMPOSE_OVERRIDE:-}" ]]; then
+  compose_files+=(-f "$TERMDOCK_COMPOSE_OVERRIDE")
+fi
+compose() { docker compose "${compose_files[@]}" "$@"; }
 
 compose ps --status running --services 2>/dev/null | grep -qx session-manager ||
   die "session-manager is not running (start the stack first)"

@@ -17,6 +17,9 @@
 # Usage: deploy/scripts/init-secrets.sh [--force]
 #   --force  replace existing secret files. Replacing master_key makes every stored credential
 #            unreadable (the daemon refuses to start with a different key).
+#
+# Environment (optional, for test stacks such as the release smoke; installs leave it unset):
+#   TERMDOCK_SECRETS_DIR  write the secrets there instead of deploy/secrets/
 set -euo pipefail
 umask 077
 
@@ -25,7 +28,7 @@ readonly NAMES=(master_key internal_token ws_secret auth_secret)
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 deploy_dir=$(dirname -- "$script_dir")
-secrets_dir="$deploy_dir/secrets"
+secrets_dir=${TERMDOCK_SECRETS_DIR:-"$deploy_dir/secrets"}
 
 die() {
   printf 'init-secrets: %s\n' "$*" >&2

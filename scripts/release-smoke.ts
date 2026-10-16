@@ -1,0 +1,820 @@
+// End-to-end smoke of the composed stack (pre-release routine, plan §15.4). Step 6 of
+// `pnpm test:release`; also runnable alone once the images are built:
+//
+//   docker compose -p termdock-smoke -f deploy/compose.yaml build session-manager
+//   docker compose -p termdock-smoke -f deploy/compose.yaml build web
+//   node scripts/release-smoke.ts
+//
+// Isolated from any real install: compose project `termdock-smoke`, throwaway volumes, secrets
+// from init-secrets.sh in a temporary directory, Caddy on loopback ports 18080/18443 and the
+// test-only override test/release/compose.smoke.yaml (which adds a test sshd from the
+// already-built test image, authenticated with the test-only keys of test/sshd/keys). Everything
+// is torn down on success, failure and Ctrl-C (`down -v` for that project only).
+//
+// The real web UI is driven over the Chrome DevTools Protocol (scripts/cdp.ts) in a local
+// headless Chromium: TERMDOCK_SMOKE_CHROME, else the newest
+// ~/.cache/ms-playwright/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell.
+//
+// Environment: TERMDOCK_SMOKE_CHROME, TERMDOCK_SMOKE_HTTP_PORT (18080),
+// TERMDOCK_SMOKE_HTTPS_PORT (18443), TERMDOCK_SMOKE_MIN_AVAILABLE_MB (900), TMPDIR, and the
+// override's TERMDOCK_SMOKE_SSHD_IMAGE (a test sshd image with tmux >= 3.2) and
+// TERMDOCK_SMOKE_EDGE_SUBNET.
+import { spawn } from 'node:child_process';
+import { createHash, randomBytes } from 'node:crypto';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { createServer } from 'node:net';
+import { homedir, tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
+import en from '../apps/web/messages/en.json' with { type: 'json' };
+import { type CdpPage, type Chromium, launchChromium, sleep } from './cdp.ts';
+
+const ROOT = join(import.meta.dirname, '..');
+const PROJECT = 'termdock-smoke';
+const COMPOSE_FILE = join(ROOT, 'deploy', 'compose.yaml');
+const OVERRIDE = join(ROOT, 'test', 'release', 'compose.smoke.yaml');
+const SCRIPTS = join(ROOT, 'deploy', 'scripts');
+const KEYS = join(ROOT, 'test', 'sshd', 'keys');
+const HTTP_PORT = Number(process.env.TERMDOCK_SMOKE_HTTP_PORT ?? 18080);
+const HTTPS_PORT = Number(process.env.TERMDOCK_SMOKE_HTTPS_PORT ?? 18443);
+const BASE = `https://localhost:${HTTPS_PORT}`;
+const MIN_AVAILABLE_MB = Number(process.env.TERMDOCK_SMOKE_MIN_AVAILABLE_MB ?? 900);
+const SSHD_IMAGE = process.env.TERMDOCK_SMOKE_SSHD_IMAGE ?? 'termdock-test-sshd:tmux-3.4';
+const SSHD_SERVICE = 'smoke-sshd';
+const SERVICES = ['caddy', 'web', 'session-manager', SSHD_SERVICE];
+const APP_IMAGES = [`${PROJECT}-web`, `${PROJECT}-session-manager`];
+const PROJECT_LABEL = `label=com.docker.compose.project=${PROJECT}`;
+
+const ADMIN = { username: 'smokeadmin', email: 'smoke-admin@example.test' };
+const NAMES = { credential: 'smoke-key', host: 'smoke-sshd', profile: 'smoke-profile' };
+const LABELS = {
+  restoring: en.workspace.status.restoring,
+  connecting: en.workspace.status.connecting,
+  newSession: en.workspace.bay.newSession,
+  trust: en.workspace.hostKey.accept,
+  terminate: en.workspace.menu.terminate,
+  terminateConfirm: en.workspace.menu.terminateConfirm,
+  protected: en.workspace.protection['tmux-control'],
+};
+
+// ── output ──────────────────────────────────────────────────────────────────
+
+class SmokeFailure extends Error {}
+
+const results: Array<{ ok: boolean; line: string }> = [];
+function pass(step: string, what: string): void {
+  const line = `PASS  ${step.padEnd(12)} ${what}`;
+  results.push({ ok: true, line });
+  console.log(line);
+}
+function check(step: string, ok: boolean, what: string, detail = ''): void {
+  if (ok) {
+    pass(step, what);
+    return;
+  }
+  const line = `FAIL  ${step.padEnd(12)} ${what}${detail ? `: ${detail}` : ''}`;
+  results.push({ ok: false, line });
+  console.log(line);
+  throw new SmokeFailure(`${step}: ${what}${detail ? `: ${detail}` : ''}`);
+}
+function info(message: string): void {
+  console.log(`smoke: ${message}`);
+}
+
+// ── processes ───────────────────────────────────────────────────────────────
+
+interface RunResult {
+  code: number | null;
+  signal: NodeJS.Signals | null;
+  stdout: string;
+  stderr: string;
+}
+
+let stopping = false;
+const children = new Set<ReturnType<typeof spawn>>();
+
+function run(
+  command: string,
+  args: string[],
+  options: { env?: NodeJS.ProcessEnv; echo?: boolean; allowWhileStopping?: boolean } = {},
+): Promise<RunResult> {
+  if (stopping && !options.allowWhileStopping) {
+    return Promise.reject(new SmokeFailure('interrupted'));
+  }
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd: ROOT,
+      env: options.env ?? process.env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    children.add(child);
+    let stdout = '';
+    let stderr = '';
+    const echo = (chunk: string) => {
+      if (!options.echo) return;
+      for (const line of chunk.split('\n')) if (line.trim()) console.log(`  | ${line}`);
+    };
+    child.stdout.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString();
+      echo(chunk.toString());
+    });
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString();
+      echo(chunk.toString());
+    });
+    child.once('error', (err) => {
+      children.delete(child);
+      reject(err);
+    });
+    child.once('close', (code, signal) => {
+      children.delete(child);
+      resolve({ code, signal, stdout, stderr });
+    });
+  });
+}
+
+// ── isolation: paths and the compose environment ────────────────────────────
+
+const tmpRoot = mkdtempSync(join(tmpdir(), 'termdock-smoke-'));
+const secretsDir = join(tmpRoot, 'secrets');
+const backupDir = join(tmpRoot, 'backups');
+const chromeProfile = join(tmpRoot, 'chrome');
+
+/** Every compose setting is pinned, so a deploy/.env of a real install never leaks in. */
+const smokeEnv: NodeJS.ProcessEnv = {
+  ...process.env,
+  COMPOSE_PROJECT_NAME: PROJECT,
+  TERMDOCK_SMOKE_SSHD_IMAGE: SSHD_IMAGE,
+  TERMDOCK_COMPOSE_OVERRIDE: OVERRIDE,
+  TERMDOCK_SECRETS_DIR: secretsDir,
+  TERMDOCK_BACKUP_DIR: backupDir,
+  TERMDOCK_DOMAIN: 'localhost',
+  TERMDOCK_HTTP_PORT: String(HTTP_PORT),
+  TERMDOCK_HTTPS_PORT: String(HTTPS_PORT),
+  TERMDOCK_PUBLIC_URL: BASE,
+  TERMDOCK_TLS: 'internal',
+  TERMDOCK_LOG_LEVEL: 'info',
+  TERMDOCK_DAEMON_MEM_LIMIT: '1g',
+  TERMDOCK_WEB_MEM_LIMIT: '768m',
+  TERMDOCK_SSH_ALLOW_LOCAL_TARGETS: 'false',
+  TERMDOCK_EVENT_RETENTION_DAYS: '180',
+};
+
+function compose(args: string[], echo = false, allowWhileStopping = false): Promise<RunResult> {
+  return run('docker', ['compose', '-p', PROJECT, '-f', COMPOSE_FILE, '-f', OVERRIDE, ...args], {
+    env: smokeEnv,
+    echo,
+    allowWhileStopping,
+  });
+}
+
+function deployScript(name: string, args: string[]): Promise<RunResult> {
+  return run(join(SCRIPTS, name), args, { env: smokeEnv, echo: true });
+}
+
+async function projectLeftovers(): Promise<string[]> {
+  const listings = await Promise.all([
+    run('docker', ['ps', '-a', '--filter', PROJECT_LABEL, '--format', 'container {{.Names}}'], {
+      allowWhileStopping: true,
+    }),
+    run('docker', ['volume', 'ls', '--filter', PROJECT_LABEL, '--format', 'volume {{.Name}}'], {
+      allowWhileStopping: true,
+    }),
+    run('docker', ['network', 'ls', '--filter', PROJECT_LABEL, '--format', 'network {{.Name}}'], {
+      allowWhileStopping: true,
+    }),
+  ]);
+  return listings.flatMap((r) => r.stdout.split('\n').filter((line) => line.trim()));
+}
+
+// ── helpers ─────────────────────────────────────────────────────────────────
+
+/** OpenSSH-style SHA256 fingerprint of a public key line. */
+function fingerprint(publicKeyLine: string): string {
+  const blob = Buffer.from(publicKeyLine.trim().split(/\s+/)[1] ?? '', 'base64');
+  return `SHA256:${createHash('sha256').update(blob).digest('base64').replace(/=+$/, '')}`;
+}
+
+const sha256 = (data: Buffer | string) => createHash('sha256').update(data).digest('hex');
+const js = (value: unknown) => JSON.stringify(value);
+
+function findChromium(): string {
+  const configured = process.env.TERMDOCK_SMOKE_CHROME;
+  if (configured) {
+    if (!existsSync(configured)) {
+      throw new SmokeFailure(`TERMDOCK_SMOKE_CHROME=${configured} does not exist`);
+    }
+    return configured;
+  }
+  const cache = join(homedir(), '.cache', 'ms-playwright');
+  const candidates = existsSync(cache)
+    ? readdirSync(cache)
+        .filter((name) => name.startsWith('chromium_headless_shell-'))
+        .sort((a, b) => Number(b.split('-')[1]) - Number(a.split('-')[1]))
+        .map((name) => join(cache, name, 'chrome-headless-shell-linux64', 'chrome-headless-shell'))
+        .filter((path) => existsSync(path))
+    : [];
+  const found = candidates[0];
+  if (!found) {
+    throw new SmokeFailure(
+      'no headless Chromium found. The smoke drives the real web UI over the DevTools protocol ' +
+        'and needs a local Chromium binary (it is not a project dependency). Set ' +
+        'TERMDOCK_SMOKE_CHROME to a chrome-headless-shell or chromium executable, or install ' +
+        `one under ${cache}/chromium_headless_shell-<rev>/chrome-headless-shell-linux64/.`,
+    );
+  }
+  return found;
+}
+
+function availableMb(): number {
+  const line = readFileSync('/proc/meminfo', 'utf8')
+    .split('\n')
+    .find((l) => l.startsWith('MemAvailable:'));
+  return Math.floor(Number(line?.split(/\s+/)[1] ?? 0) / 1024);
+}
+
+function portFree(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const server = createServer();
+    server.once('error', () => resolve(false));
+    server.listen(port, '127.0.0.1', () => server.close(() => resolve(true)));
+  });
+}
+
+// ── page helpers ────────────────────────────────────────────────────────────
+
+const stripOf = (sessionId: string) =>
+  `($(${js(`a[href="/workspace?s=${encodeURIComponent(sessionId)}"]`)})?.closest('[data-status]') ?? null)`;
+
+/** Session ids of the strips on the workspace. */
+function stripIds(page: CdpPage): Promise<string[]> {
+  return page.evaluate<string[]>(
+    `$$('a[href^="/workspace?s="]').map((a) => decodeURIComponent(a.getAttribute('href').slice('/workspace?s='.length)))`,
+  );
+}
+
+/** The terminal rows of every terminal on the page (xterm's DOM renderer), trimmed. */
+const ROWS = `$$('.xterm-rows > div').map((row) => (row.textContent ?? '').replace(/\\u00a0/g, ' ').trimEnd())`;
+const PROGRESS = `$$('[data-pane] [role=status]').map(text).filter((t) => t === ${js(LABELS.restoring)} || t === ${js(LABELS.connecting)})`;
+
+async function setLocaleCookie(page: CdpPage): Promise<void> {
+  await page.send('Network.setCookie', { name: 'NEXT_LOCALE', value: 'en', url: BASE });
+}
+
+async function waitConnected(page: CdpPage, sessionId: string, label: string): Promise<void> {
+  await page.waitFor(
+    `(() => { const s = ${stripOf(sessionId)}; return s?.dataset.status === 'connected' && ${PROGRESS}.length === 0; })()`,
+    `${label} to be Connected`,
+    120_000,
+    250,
+  );
+}
+
+/** Opens the palette and starts a session from the smoke profile; returns the new id. */
+async function startSession(page: CdpPage): Promise<string> {
+  const before = new Set(await stripIds(page));
+  await page.click(
+    `$$('button').find((b) => visible(b) && text(b).startsWith(${js(LABELS.newSession)}))`,
+    'the New session button',
+  );
+  const option = `$$('[role=dialog] li[role=option]').find((li) => li.id.includes('-p-') && text(li).includes(${js(NAMES.profile)}))`;
+  await page.click(option, 'the smoke profile in the palette');
+  return page.waitFor<string>(
+    `$$('a[href^="/workspace?s="]').map((a) => decodeURIComponent(a.getAttribute('href').slice('/workspace?s='.length))).find((id) => !${js([...before])}.includes(id))`,
+    'the new session strip',
+    60_000,
+  );
+}
+
+async function typeLine(page: CdpPage, line: string): Promise<void> {
+  await page.waitFor(
+    `(() => { const t = $('.xterm-helper-textarea'); if (!t) return false; t.focus(); return document.activeElement === t; })()`,
+    'the terminal to take focus',
+  );
+  await page.insertText(line);
+  await page.pressEnter();
+}
+
+async function waitForRow(page: CdpPage, exact: string, label: string): Promise<void> {
+  await page.waitFor(`${ROWS}.some((row) => row.trim() === ${js(exact)})`, label, 30_000);
+}
+
+// ── the flow ────────────────────────────────────────────────────────────────
+
+let browser: Chromium | null = null;
+const cspViolations: string[] = [];
+const pageErrors: string[] = [];
+
+async function preflight(): Promise<string> {
+  const chrome = findChromium();
+  info(`Chromium: ${chrome}`);
+  const free = await run('free', ['-m']);
+  for (const line of free.stdout.trimEnd().split('\n')) info(`free -m | ${line}`);
+  const available = availableMb();
+  check(
+    'preflight',
+    available >= MIN_AVAILABLE_MB,
+    `${available} MB available (stack + test sshd + one headless Chromium need about ${MIN_AVAILABLE_MB} MB)`,
+    'free memory first, or lower TERMDOCK_SMOKE_MIN_AVAILABLE_MB if you know it fits',
+  );
+  const images = await run('docker', ['image', 'inspect', '--format', '{{.Id}}', ...APP_IMAGES]);
+  check(
+    'preflight',
+    images.code === 0,
+    `deployment images ${APP_IMAGES.join(', ')} are built`,
+    'build them first (one at a time): docker compose -p termdock-smoke -f deploy/compose.yaml build session-manager && docker compose -p termdock-smoke -f deploy/compose.yaml build web',
+  );
+  const sshd = await run('docker', ['image', 'inspect', '--format', '{{.Id}}', SSHD_IMAGE]);
+  check(
+    'preflight',
+    sshd.code === 0,
+    `test sshd image ${SSHD_IMAGE} is present`,
+    'build it: docker compose -f test/sshd/compose.yaml build tmux-3.4',
+  );
+  const leftovers = await projectLeftovers();
+  if (leftovers.length > 0) {
+    info(`removing leftovers of an earlier smoke run: ${leftovers.join(', ')}`);
+    await compose(['down', '-v', '--remove-orphans', '--timeout', '30'], true);
+  }
+  for (const port of [HTTP_PORT, HTTPS_PORT]) {
+    check('preflight', await portFree(port), `port 127.0.0.1:${port} is free`);
+  }
+  return chrome;
+}
+
+async function startStack(): Promise<void> {
+  mkdirSync(backupDir, { recursive: true, mode: 0o700 });
+  const secrets = await deployScript('init-secrets.sh', []);
+  check(
+    'stack',
+    secrets.code === 0 && existsSync(join(secretsDir, 'master_key')),
+    `init-secrets.sh wrote the secrets to a temporary directory (${secretsDir})`,
+    `exit ${secrets.code}`,
+  );
+  info('starting the stack (compose up --wait; images are never built here)');
+  const up = await compose(['up', '-d', '--no-build', '--wait', '--wait-timeout', '300'], true);
+  check('stack', up.code === 0, `project ${PROJECT} is up and healthy`, `exit ${up.code}`);
+}
+
+async function setupAdmin(page: CdpPage, password: string): Promise<void> {
+  // 1. The one-time setup token from web's log, then the first admin at /setup.
+  let token = '';
+  const deadline = Date.now() + 60_000;
+  while (!token && Date.now() < deadline) {
+    const logs = await compose(['logs', '--no-color', 'web']);
+    token = [...logs.stdout.matchAll(/setup token: ([A-Za-z0-9_-]+)/g)].at(-1)?.[1] ?? '';
+    if (!token) await sleep(1_000);
+  }
+  check('1 setup', token.length > 0, "the one-time setup token is in web's log");
+  await setLocaleCookie(page);
+  await page.navigate(`${BASE}/setup`);
+  await page.waitHydrated(`$('input[name=token]')?.closest('form')`, 'the setup form');
+  await page.fill(`$('input[name=token]')`, token, 'setup token');
+  await page.fill(`$('input[name=username]')`, ADMIN.username, 'username');
+  await page.fill(`$('input[name=email]')`, ADMIN.email, 'email');
+  await page.fill(`$('input[name=password]')`, password, 'password');
+  await page.fill(`$('input[name=confirm]')`, password, 'confirmation');
+  await page.click(
+    `$('input[name=token]').closest('form').querySelector('button[type=submit]')`,
+    'Create administrator',
+  );
+  await page.waitFor(`location.pathname === '/workspace'`, 'the workspace after setup', 60_000);
+  pass('1 setup', `first admin "${ADMIN.username}" created at /setup and signed in`);
+  const status = await page.evaluate<number>(
+    `fetch('/setup', { cache: 'no-store' }).then((r) => r.status)`,
+  );
+  check('1 setup', status === 404, '/setup is closed (404) once an admin exists', `HTTP ${status}`);
+}
+
+async function signIn(page: CdpPage, password: string): Promise<void> {
+  // 2. A fresh sign-in: drop every cookie, then /login.
+  await page.send('Network.clearBrowserCookies');
+  await setLocaleCookie(page);
+  await page.navigate(`${BASE}/workspace`);
+  await page.waitFor(`location.pathname === '/login'`, 'the redirect to /login when signed out');
+  await page.waitHydrated(`$('input[name=username]')?.closest('form')`, 'the login form');
+  await page.fill(`$('input[name=username]')`, ADMIN.username, 'username');
+  await page.fill(`$('input[name=password]')`, password, 'password');
+  await page.click(
+    `$('input[name=username]').closest('form').querySelector('button[type=submit]')`,
+    'Sign in',
+  );
+  await page.waitFor(`location.pathname === '/workspace'`, 'the workspace after sign-in', 60_000);
+  await page.waitFor(
+    `$$('button').some((b) => visible(b) && text(b).startsWith(${js(LABELS.newSession)}))`,
+    'the workspace to render',
+  );
+  check('2 sign-in', true, `signed out, then signed in as "${ADMIN.username}" at /login`);
+}
+
+async function addHostAndProfile(page: CdpPage): Promise<void> {
+  // 3. Credential (the imported test key), host (the smoke sshd), profile.
+  const privateKey = readFileSync(join(KEYS, 'id_ed25519'), 'utf8');
+  const userKeyFp = fingerprint(readFileSync(join(KEYS, 'id_ed25519.pub'), 'utf8'));
+  await page.navigate(`${BASE}/credentials`);
+  await page.waitHydrated(
+    `$('input[name=kind][value=private_key]')?.closest('form')`,
+    'the credential form',
+  );
+  await page.click(`$('input[name=kind][value=private_key]')`, 'the "Paste a key" option');
+  await page.waitFor(`!!$('textarea[name=privateKey]')`, 'the private key field');
+  await page.fill(`$('input[name=name]')`, NAMES.credential, 'credential name');
+  await page.evaluate(
+    `(() => { const el = $('textarea[name=privateKey]'); const set = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set; set.call(el, ${js(privateKey)}); el.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`,
+  );
+  await page.click(
+    `$('textarea[name=privateKey]').closest('form').querySelector('button[type=submit]')`,
+    'Save key',
+  );
+  const shownFp = await page.waitFor<string>(
+    `text(byText('p', ${js(en.credentials.create.done.title.replace('{name}', NAMES.credential))})) && text($$('code').find((c) => text(c).startsWith('SHA256:')))`,
+    'the saved credential and its fingerprint',
+    60_000,
+  );
+  check(
+    '3 host',
+    shownFp === userKeyFp,
+    `credential "${NAMES.credential}" imported (${shownFp}, the test key)`,
+    `expected ${userKeyFp}`,
+  );
+
+  await page.navigate(`${BASE}/hosts/new`);
+  await page.waitHydrated(`$('input[name=hostname]')?.closest('form')`, 'the host form');
+  await page.fill(`$('input[name=name]')`, NAMES.host, 'host name');
+  await page.fill(`$('input[name=hostname]')`, SSHD_SERVICE, 'hostname');
+  await page.fill(`$('input[name=port]')`, '22', 'port');
+  await page.click(
+    `$('input[name=hostname]').closest('form').querySelector('button[type=submit]')`,
+    'Add host',
+  );
+  const hostId = await page.waitFor<string>(
+    `(() => { const m = /^\\/hosts\\/([^/]+)$/.exec(location.pathname); return m && m[1] !== 'new' ? decodeURIComponent(m[1]) : ''; })()`,
+    'the new host page',
+    60_000,
+  );
+  pass('3 host', `host "${NAMES.host}" → ${SSHD_SERVICE}:22 added (${hostId})`);
+
+  await page.navigate(`${BASE}/hosts/${encodeURIComponent(hostId)}?profile=new#profile-form`);
+  const form = `$('input[name=username]')?.closest('form')`;
+  await page.waitHydrated(form, 'the profile form');
+  await page.fill(`${form}.querySelector('input[name=name]')`, NAMES.profile, 'profile name');
+  await page.fill(`${form}.querySelector('input[name=username]')`, 'td', 'login user');
+  const selected = await page.evaluate<boolean>(
+    `(() => { const s = ${form}.querySelector('select[name=credentialId]'); const o = [...s.options].find((x) => x.textContent.trim() === ${js(NAMES.credential)}); if (!o) return false; s.value = o.value; s.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`,
+  );
+  check('3 host', selected, `credential "${NAMES.credential}" offered in the profile form`);
+  await page.click(`${form}.querySelector('button[type=submit]')`, 'Create profile');
+  await page.waitFor(
+    `location.search.includes('done=profileCreated')`,
+    'the created profile',
+    60_000,
+  );
+  pass('3 host', `profile "${NAMES.profile}" (td, ${NAMES.credential}, protection auto) added`);
+}
+
+async function firstSession(page: CdpPage, marker: string): Promise<string> {
+  // 4. Start a session, trust the host key on first use, wait for Connected.
+  const hostFp = fingerprint(readFileSync(join(KEYS, 'ssh_host_ed25519_key.pub'), 'utf8'));
+  await page.navigate(`${BASE}/workspace`);
+  await page.waitHydrated(
+    `$$('button').find((b) => text(b).startsWith(${js(LABELS.newSession)}))`,
+    'the workspace',
+  );
+  const sessionId = await startSession(page);
+  const trust = `byText('button', ${js(LABELS.trust)})`;
+  await page.waitFor(`visible(${trust})`, 'the host-key prompt', 90_000);
+  const shown = await page.evaluate<string>(
+    `text($$('dd').find((d) => text(d).startsWith('SHA256:')))`,
+  );
+  check(
+    '4 session',
+    shown === hostFp,
+    `host-key prompt shows the test sshd key ${shown}`,
+    `expected ${hostFp}`,
+  );
+  await page.click(trust, 'Trust and connect');
+  await waitConnected(page, sessionId, 'the first session');
+  await page.waitFor(
+    `$$('.xterm-rows > div').length > 0`,
+    "xterm's DOM rows (with WebGL available xterm draws on a canvas the smoke cannot read)",
+  );
+  const protection = await page.evaluate<string>(
+    `${stripOf(sessionId)}?.querySelector('[title]')?.getAttribute('title') ?? ''`,
+  );
+  check(
+    '4 session',
+    protection === LABELS.protected,
+    `session ${sessionId} Connected and protected (tmux control mode)`,
+    `protection: "${protection}"`,
+  );
+
+  // 5. A command and its output in xterm's rows.
+  await typeLine(page, `echo ${marker}`);
+  await waitForRow(page, marker, `the output line "${marker}"`);
+  pass('5 command', `typed "echo ${marker}"; the output row reads "${marker}"`);
+  return sessionId;
+}
+
+/** Records every strip status and pane progress chip into window.__smokeTrace. */
+async function startTrace(page: CdpPage, sessionId: string): Promise<void> {
+  await page.evaluate(`(() => {
+    window.__smokeTrace = [];
+    const record = () => {
+      const s = ${stripOf(sessionId)}?.dataset.status ?? null;
+      const c = ${PROGRESS}.join('|');
+      const last = window.__smokeTrace.at(-1);
+      if (!last || last.s !== s || last.c !== c) window.__smokeTrace.push({ t: Date.now(), s, c });
+    };
+    window.__smokeObserver?.disconnect();
+    window.__smokeObserver = new MutationObserver(record);
+    window.__smokeObserver.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
+    record();
+    return true;
+  })()`);
+}
+
+async function readTrace(
+  page: CdpPage,
+): Promise<Array<{ t: number; s: string | null; c: string }>> {
+  return page.evaluate(`window.__smokeTrace ?? []`);
+}
+
+async function restartAndRestore(page: CdpPage, sessionId: string, marker: string): Promise<void> {
+  // 6. Restart session-manager; the protected session comes back with its screen.
+  await startTrace(page, sessionId);
+  const started = Date.now();
+  const restart = await compose(['restart', 'session-manager'], true);
+  check(
+    '6 restore',
+    restart.code === 0,
+    'session-manager container restarted',
+    `exit ${restart.code}`,
+  );
+  await page.waitFor(
+    `(window.__smokeTrace ?? []).some((e) => e.c.includes(${js(LABELS.restoring)}) || e.s === 'restoring')`,
+    '"Restoring…" in the pane',
+    120_000,
+  );
+  await waitConnected(page, sessionId, 'the restored session');
+  const trace = await readTrace(page);
+  const firstRestoring = trace.findIndex(
+    (e) => e.c.includes(LABELS.restoring) || e.s === 'restoring',
+  );
+  const lastEntry = trace.at(-1);
+  const summary = trace
+    .map((e) => `${((e.t - started) / 1000).toFixed(1)}s ${e.s}${e.c ? ` [${e.c}]` : ''}`)
+    .join(' → ');
+  info(`status trace: ${summary}`);
+  check(
+    '6 restore',
+    firstRestoring >= 0 && lastEntry?.s === 'connected' && lastEntry.c === '',
+    'the pane showed "Restoring…", then the session was Connected again',
+    summary,
+  );
+  const rows = await page.evaluate<string[]>(ROWS);
+  check(
+    '6 restore',
+    rows.some((row) => row.trim() === marker),
+    `the earlier output "${marker}" is still on screen after the restart`,
+  );
+}
+
+async function rotateAndReconnect(page: CdpPage, firstId: string, marker: string): Promise<string> {
+  // 7. Rotate the master key, then a new session with the same (re-encrypted) credential.
+  const keyFile = join(secretsDir, 'master_key');
+  const before = sha256(readFileSync(keyFile));
+  await startTrace(page, firstId);
+  const rotate = await deployScript('rotate-master-key.sh', ['--yes']);
+  check(
+    '7 rotate',
+    rotate.code === 0,
+    'rotate-master-key.sh --yes finished',
+    `exit ${rotate.code}`,
+  );
+  const after = sha256(readFileSync(keyFile));
+  const old = existsSync(`${keyFile}.old`) ? sha256(readFileSync(`${keyFile}.old`)) : '';
+  check(
+    '7 rotate',
+    after !== before && old === before,
+    'master_key replaced; the previous key kept as master_key.old',
+  );
+  // The script restarted session-manager: wait until the browser saw it and came back.
+  await page.waitFor(
+    `(window.__smokeTrace ?? []).some((e) => e.c.includes(${js(LABELS.restoring)}) || e.s === 'restoring')`,
+    'the pane to notice the session-manager restart',
+    120_000,
+  );
+  await waitConnected(page, firstId, 'the first session after the rotation restart');
+  pass('7 rotate', 'the first (protected) session was restored on the new key');
+  const secondId = await startSession(page);
+  await waitConnected(page, secondId, 'the second session');
+  const trustPrompt = await page.evaluate<boolean>(
+    `visible(byText('button', ${js(LABELS.trust)}))`,
+  );
+  check('7 rotate', !trustPrompt, `new session ${secondId} Connected with the stored credential`);
+  await typeLine(page, `echo ${marker}`);
+  await waitForRow(page, marker, `the output line "${marker}"`);
+  pass('7 rotate', `the credential decrypts under the new key: "echo ${marker}" answered`);
+  return secondId;
+}
+
+async function terminate(page: CdpPage, ids: string[]): Promise<void> {
+  // 8. Terminate every session through its strip menu.
+  for (const id of ids) {
+    const strip = stripOf(id);
+    await page.click(
+      `${strip}?.querySelector('button[aria-haspopup=menu]')`,
+      `the actions menu of ${id}`,
+    );
+    await page.click(
+      `$$('[role=menuitem]').find((b) => visible(b) && text(b) === ${js(LABELS.terminate)})`,
+      'Terminate…',
+    );
+    await page.click(`byText('button', ${js(LABELS.terminateConfirm)})`, 'Terminate session');
+    await page.waitFor(`${strip}?.dataset.status === 'ended'`, `session ${id} to end`, 60_000);
+    pass('8 terminate', `session ${id} terminated (Ended)`);
+  }
+}
+
+async function backup(ids: string[]): Promise<void> {
+  // 9. An online backup through backup.sh, checked independently.
+  const dest = join(backupDir, 'smoke');
+  const result = await deployScript('backup.sh', [dest]);
+  const file = result.stdout.trim().split('\n').at(-1) ?? '';
+  check(
+    '9 backup',
+    result.code === 0 && existsSync(file),
+    `backup.sh wrote ${file}`,
+    `exit ${result.code}`,
+  );
+  check(
+    '9 backup',
+    result.stderr.includes('integrity_check: ok'),
+    "backup.sh's own integrity check passed inside the container",
+  );
+  check(
+    '9 backup',
+    readFileSync(file).subarray(0, 15).toString() === 'SQLite format 3',
+    'the file is a SQLite database',
+  );
+  const db = new DatabaseSync(file, { readOnly: true });
+  try {
+    const integrity = db.prepare('PRAGMA integrity_check').get() as Record<string, unknown>;
+    const count = (table: string) =>
+      Number((db.prepare(`SELECT count(*) AS n FROM ${table}`).get() as { n: number }).n);
+    const sessions = db.prepare('SELECT id, desired_state FROM sessions').all() as Array<{
+      id: string;
+      desired_state: string;
+    }>;
+    check(
+      '9 backup',
+      Object.values(integrity)[0] === 'ok',
+      'PRAGMA integrity_check on the host copy: ok',
+    );
+    const counts = `users ${count('user')}, hosts ${count('hosts')}, credentials ${count('credentials')}, profiles ${count('connection_profiles')}, sessions ${sessions.length}`;
+    check(
+      '9 backup',
+      count('user') === 1 &&
+        count('hosts') === 1 &&
+        count('credentials') === 1 &&
+        count('connection_profiles') === 1 &&
+        sessions.length === ids.length &&
+        sessions.every((s) => ids.includes(s.id) && s.desired_state === 'terminated'),
+      `the backup holds this run's data (${counts}; both sessions terminated)`,
+    );
+  } finally {
+    db.close();
+  }
+}
+
+// ── failure diagnostics and teardown ────────────────────────────────────────
+
+async function diagnostics(): Promise<void> {
+  const dir = mkdtempSync(join(tmpdir(), 'termdock-smoke-failure-'));
+  if (browser) {
+    try {
+      const shot = join(dir, 'screenshot.png');
+      await browser.page.screenshot(shot);
+      console.log(`smoke: screenshot of the page: ${shot}`);
+      const url = await browser.page.evaluate<string>('location.href');
+      console.log(`smoke: page URL at failure: ${url}`);
+    } catch (err) {
+      console.log(`smoke: no screenshot (${(err as Error).message})`);
+    }
+  }
+  for (const error of pageErrors.slice(-20)) console.log(`smoke: page error: ${error}`);
+  for (const service of SERVICES) {
+    const logs = await compose(['logs', '--no-color', '--tail', '100', service], false, true);
+    console.log(`\n── last 100 log lines of ${service} ──`);
+    console.log((logs.stdout + logs.stderr).trimEnd() || '(none)');
+  }
+  console.log(`\nsmoke: failure artifacts kept in ${dir}`);
+}
+
+let teardownDone: Promise<boolean> | null = null;
+function teardown(): Promise<boolean> {
+  teardownDone ??= (async () => {
+    stopping = true;
+    if (browser) {
+      await browser.close().catch(() => {});
+      browser = null;
+      info('Chromium stopped');
+    }
+    for (const child of children) child.kill('SIGTERM');
+    info(`tearing down project ${PROJECT} (down -v: its containers, networks and volumes only)`);
+    await compose(['down', '-v', '--remove-orphans', '--timeout', '30'], true, true);
+    rmSync(tmpRoot, { recursive: true, force: true });
+    const leftovers = await projectLeftovers();
+    const clean = leftovers.length === 0 && !existsSync(tmpRoot);
+    const line = clean
+      ? `PASS  ${'teardown'.padEnd(12)} no container, network or volume of ${PROJECT} left; temporary secrets removed`
+      : `FAIL  ${'teardown'.padEnd(12)} left behind: ${[...leftovers, ...(existsSync(tmpRoot) ? [tmpRoot] : [])].join(', ')}`;
+    results.push({ ok: clean, line });
+    console.log(line);
+    return clean;
+  })();
+  return teardownDone;
+}
+
+let interrupted = false;
+for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) {
+  process.on(signal, () => {
+    if (interrupted) return;
+    interrupted = true;
+    console.log(`\nsmoke: ${signal}: stopping and tearing down`);
+    void teardown().finally(() => process.exit(130));
+  });
+}
+
+async function main(): Promise<number> {
+  const started = Date.now();
+  const password = `Smoke-${randomBytes(12).toString('base64url')}`;
+  const nonce = randomBytes(4).toString('hex');
+  const markers = [`termdock-smoke-${nonce}`, `termdock-smoke-${nonce}-2`];
+  let failed = false;
+  try {
+    const chrome = await preflight();
+    await startStack();
+    browser = await launchChromium({
+      executable: chrome,
+      userDataDir: chromeProfile,
+      args: [
+        // Caddy's local CA: trusted by this throwaway browser profile only.
+        '--ignore-certificate-errors',
+        // No WebGL: xterm falls back to its DOM renderer, whose rows the smoke reads.
+        '--disable-3d-apis',
+        '--window-size=1366,900',
+        '--lang=en-US',
+      ],
+    });
+    const { page } = browser;
+    await page.send('Runtime.addBinding', { name: '__smokeCsp' });
+    await page.send('Page.addScriptToEvaluateOnNewDocument', {
+      source: `document.addEventListener('securitypolicyviolation', (e) => window.__smokeCsp?.(location.pathname + ': ' + e.effectiveDirective + ' blocked ' + (e.blockedURI || '(inline)') + ' at ' + (e.sourceFile || '?') + ':' + e.lineNumber + ':' + e.columnNumber));`,
+    });
+    page.on('Runtime.bindingCalled', (params) => {
+      if (params.name === '__smokeCsp') cspViolations.push(String(params.payload));
+    });
+    page.on('Runtime.exceptionThrown', (params) => {
+      const details = params.exceptionDetails as {
+        exception?: { description?: string };
+        text?: string;
+      };
+      pageErrors.push(details.exception?.description ?? details.text ?? 'unknown');
+    });
+
+    await setupAdmin(page, password);
+    await signIn(page, password);
+    await addHostAndProfile(page);
+    const firstId = await firstSession(page, markers[0] ?? '');
+    await restartAndRestore(page, firstId, markers[0] ?? '');
+    const secondId = await rotateAndReconnect(page, firstId, markers[1] ?? '');
+    await terminate(page, [secondId, firstId]);
+    check(
+      'csp',
+      cspViolations.length === 0,
+      'no Content-Security-Policy violation reported during the flow',
+      cspViolations.slice(0, 5).join('; '),
+    );
+    await browser.close();
+    browser = null;
+    info('Chromium stopped (flow finished)');
+    await backup([firstId, secondId]);
+  } catch (err) {
+    failed = true;
+    // Interrupted: the signal handler tears down; the browser it closed is not a finding.
+    if (interrupted) return 130;
+    if (!(err instanceof SmokeFailure)) {
+      const line = `FAIL  ${'error'.padEnd(12)} ${(err as Error).message}`;
+      results.push({ ok: false, line });
+      console.log(line);
+    }
+    await diagnostics();
+  }
+  const clean = await teardown();
+  const ok = !failed && clean && results.every((r) => r.ok);
+  console.log(`\nsmoke: ${ok ? 'PASS' : 'FAIL'} in ${Math.round((Date.now() - started) / 1000)} s`);
+  return ok ? 0 : 1;
+}
+
+process.exitCode = await main();

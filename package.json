@@ -13,7 +13,8 @@
     "lint": "biome check .",
     "format": "biome format --write .",
     "test": "vitest run --project t0",
-    "test:area": "node scripts/test-area.ts"
+    "test:area": "node scripts/test-area.ts",
+    "test:release": "node scripts/test-release.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
