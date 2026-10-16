@@ -4,10 +4,18 @@ import createNextIntlPlugin from 'next-intl/plugin';
 
 const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
 
-// Document routes get their nonce CSP from proxy.ts; these apply to every response.
+// Document routes get their nonce CSP from proxy.ts; these apply to every response, including
+// everything Caddy proxies to web (it passes them through unchanged).
 const SECURITY_HEADERS = [
   { key: 'Referrer-Policy', value: 'no-referrer' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
+  // No page needs these browser features; nothing embedded may ask for them either.
+  {
+    key: 'Permissions-Policy',
+    value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+  },
+  // Pages opened from Termdock (terminal links already use noopener) cannot script it back.
+  { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
 ];
 
 const config: NextConfig = {

@@ -6,6 +6,7 @@ import {
   INTERACTIVE_READY_TIMEOUT_MS,
   type KeyboardInteractiveRequest,
   SshTransport,
+  type TargetPolicy,
 } from '../transport/ssh/index.ts';
 import type {
   CredentialProvider,
@@ -29,22 +30,29 @@ export interface TransportFactory {
 }
 
 /**
- * Host-key policy against the trusted keys of a host: a trusted key of the same type and
- * fingerprint → trusted; no trusted key at all → unknown (prompt); trusted keys exist but none
- * matches (same type with another fingerprint, or only other key types) → mismatch. The last
- * case is deliberately strict: offering a different key type is a classic downgrade attempt.
+ * Host-key policy against the trusted and revoked keys of a host: a trusted key of the same type
+ * and fingerprint → trusted; a fingerprint the owner revoked → revoked (fails closed like a
+ * mismatch, even when nothing is trusted any more); no trusted key at all → unknown (prompt);
+ * trusted keys exist but none matches (same type with another fingerprint, or only other key
+ * types) → mismatch. The last case is deliberately strict: offering a different key type is a
+ * classic downgrade attempt. A key that is neither trusted nor revoked after a revocation is
+ * unknown again (a server that rotated to a new key).
  */
 export function decideHostKey(
   trusted: ReadonlyMap<string, PresentedHostKey>,
   key: HostKeyInfo,
+  revoked: ReadonlySet<string> = new Set(),
 ): HostKeyDecision {
-  if (trusted.size === 0) return 'unknown';
-  return trusted.get(key.type)?.fingerprint === key.fingerprint ? 'trusted' : 'mismatch';
+  if (trusted.get(key.type)?.fingerprint === key.fingerprint) return 'trusted';
+  if (revoked.has(key.fingerprint)) return 'revoked';
+  return trusted.size === 0 ? 'unknown' : 'mismatch';
 }
 
 export interface SshTransportFactoryOptions {
   hostKeys: HostKeyStore;
   credentials: CredentialProvider;
+  /** Which addresses sessions may connect to (TERMDOCK_SSH_ALLOW_LOCAL_TARGETS). */
+  targetPolicy: TargetPolicy;
   /** Overrides the handshake timeout (tests); otherwise chosen per credential kind. */
   readyTimeoutMs?: number;
 }
@@ -69,6 +77,7 @@ export class SshTransportFactory implements TransportFactory {
     const { hostKeys } = this.#options;
     const hostId = target.hostId;
     const trusted = await hostKeys.trusted(hostId);
+    const revoked = await hostKeys.revoked(hostId);
     const credential = target.credentialId
       ? await this.#options.credentials.get(target.credentialId, record.userId)
       : null;
@@ -79,7 +88,7 @@ export class SshTransportFactory implements TransportFactory {
       username: target.username,
       credential,
       verifyHostKey: (key) => {
-        const decision = decideHostKey(trusted, key);
+        const decision = decideHostKey(trusted, key, revoked);
         if (decision === 'trusted' && !trusted.get(key.type)?.publicKeyB64) {
           // A pasted pre-trust fingerprint just matched: keep the key itself from now on.
           hostKeys.rememberPublicKey(hostId, key).catch(() => {});
@@ -89,6 +98,7 @@ export class SshTransportFactory implements TransportFactory {
       },
       preferredHostKeyTypes: [...trusted.keys()],
       onKeyboardInteractive: (request) => hooks.onKeyboardInteractive(request),
+      targetPolicy: this.#options.targetPolicy,
       keepaliveIntervalMs: Math.max(1, policies.keepaliveIntervalS) * 1000,
       readyTimeoutMs:
         this.#options.readyTimeoutMs ??

@@ -4,11 +4,16 @@ import { ErrorCode, TermdockError } from '@termdock/shared';
 import type { z } from 'zod';
 import { decideHostKey } from '../core/transport-factory.ts';
 import { type CredentialProvider, TransportError } from '../core/types.ts';
-import { type ProbeResult, parseProbeOutput, probeCommand } from '../probe/index.ts';
+import { type ProbeResult, runProbe, storableProbe } from '../probe/index.ts';
 import { requireActingUser } from '../store/access.ts';
 import type { SqliteHostKeyStore } from '../store/host-key-store.ts';
 import { getRow } from '../store/sqlite.ts';
-import { type HostKeyDecision, type HostKeyInfo, SshTransport } from '../transport/ssh/index.ts';
+import {
+  type HostKeyDecision,
+  type HostKeyInfo,
+  SshTransport,
+  type TargetPolicy,
+} from '../transport/ssh/index.ts';
 
 export const HOST_TEST_READY_TIMEOUT_MS = 10_000;
 export const HOST_TEST_PROBE_TIMEOUT_MS = 15_000;
@@ -19,6 +24,8 @@ export interface HostTestDeps {
   db: TermdockDb;
   hostKeys: SqliteHostKeyStore;
   credentials: CredentialProvider;
+  /** The same target policy as sessions: a refused host reports TARGET_NOT_ALLOWED. */
+  targetPolicy: TargetPolicy;
   readyTimeoutMs?: number;
   probeTimeoutMs?: number;
 }
@@ -32,7 +39,8 @@ export interface HostTestInput {
 /**
  * Internal API `hosts/:id/test` ("Fetch & verify", plan §5.9): connects to the host and reports
  * the presented host key. An unknown key is recorded as `pending` (then trusted via
- * `trust-key`); a mismatch is audited. Only with a profile and an already trusted key does the
+ * `trust-key`); a mismatch, or a key the owner revoked, is audited and reported as
+ * HOST_KEY_MISMATCH. Only with a profile and an already trusted key does the
  * test authenticate (profile user + credential) and run the capability probe. Without a profile
  * the handshake is aborted right after the host key, so no failed login reaches the host.
  * Host-key verification is never bypassed: the transport only proceeds on a trusted key.
@@ -67,6 +75,7 @@ export async function testHost(
     ? await deps.credentials.get(profile.credential_id, input.actingUserId)
     : null;
   const trusted = await deps.hostKeys.trusted(host.id);
+  const revoked = await deps.hostKeys.revoked(host.id);
 
   // Written by the verifier callback during the handshake.
   const seen: { key?: HostKeyInfo; decision?: HostKeyDecision } = {};
@@ -76,13 +85,14 @@ export async function testHost(
     username: profile?.username ?? NO_PROFILE_USERNAME,
     credential,
     verifyHostKey: (key) => {
-      const decision = decideHostKey(trusted, key);
+      const decision = decideHostKey(trusted, key, revoked);
       seen.key = key;
       seen.decision = decision;
       // Without a profile there is nothing to authenticate with: stop after the host key.
       return profile ? decision : 'unknown';
     },
     preferredHostKeyTypes: [...trusted.keys()],
+    targetPolicy: deps.targetPolicy,
     readyTimeoutMs: deps.readyTimeoutMs ?? HOST_TEST_READY_TIMEOUT_MS,
   });
   let error: string | null = null;
@@ -112,6 +122,11 @@ export async function testHost(
   if (decision === 'mismatch') {
     deps.hostKeys.recordMismatch(host.id, key, input.actingUserId, { source: 'host_test' });
   }
+  if (decision === 'revoked') {
+    deps.hostKeys.recordRevokedPresented(host.id, key, input.actingUserId, {
+      source: 'host_test',
+    });
+  }
   const isTrusted = decision === 'trusted';
   return {
     reachable: true,
@@ -119,40 +134,15 @@ export async function testHost(
       ? profile
         ? error
         : null
-      : decision === 'mismatch'
+      : decision === 'mismatch' || decision === 'revoked'
         ? ErrorCode.HostKeyMismatch
         : null,
     hostKey: { type: key.type, fingerprint: key.fingerprint, trusted: isTrusted },
-    probe: probe?.raw ?? null,
+    probe: probe ? storableProbe(probe.raw) : null,
   };
 }
 
 function errorCode(err: unknown): string {
   if (err instanceof TermdockError || err instanceof TransportError) return err.code;
   return ErrorCode.HostUnreachable;
-}
-
-async function runProbe(transport: SshTransport, timeoutMs: number): Promise<ProbeResult> {
-  const channel = await transport.exec(probeCommand());
-  const read = async (stream: AsyncIterable<Uint8Array>): Promise<Buffer> => {
-    const parts: Uint8Array[] = [];
-    for await (const part of stream) parts.push(part);
-    return Buffer.concat(parts);
-  };
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(
-      () => reject(new TransportError('PROBE_TIMEOUT', 'capability probe timed out', true)),
-      timeoutMs,
-    );
-  });
-  try {
-    const [stdout] = await Promise.race([
-      Promise.all([read(channel.stdout), read(channel.stderr), channel.exit]),
-      timeout,
-    ]);
-    return parseProbeOutput(stdout.toString('utf8'));
-  } finally {
-    clearTimeout(timer);
-  }
 }

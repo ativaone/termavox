@@ -46,8 +46,11 @@ export function parseTrustedProxies(value: string): string[] {
 }
 
 /**
- * The client address of a connection: the first `X-Forwarded-For` value when the socket peer is
- * a trusted proxy and that value is an IP, otherwise the socket peer itself.
+ * The client address of a connection. Only when the socket peer is a trusted proxy is
+ * `X-Forwarded-For` read, from the right (the end proxies append to): trusted proxies are
+ * skipped, and the first other value is the client, as in Better Auth. Values to its left were
+ * written by the client itself and are never believed. Without such a value (an empty header,
+ * a non-IP value before the client is found, only trusted hops) it is the socket peer.
  */
 export function clientAddress(
   peer: string | undefined,
@@ -56,9 +59,17 @@ export function clientAddress(
 ): string | undefined {
   const socket = peer === undefined ? undefined : unmapIPv4(peer);
   if (!trusted.has(socket)) return socket;
-  const header = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
-  const first = header?.split(',')[0]?.trim();
-  return first && isIP(unmapIPv4(first)) !== 0 ? unmapIPv4(first) : socket;
+  const header = Array.isArray(forwardedFor) ? forwardedFor.join(',') : (forwardedFor ?? '');
+  const hops = header
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  for (let i = hops.length - 1; i >= 0; i--) {
+    const hop = unmapIPv4(hops[i]!);
+    if (isIP(hop) === 0) return socket;
+    if (!trusted.has(hop)) return hop;
+  }
+  return socket;
 }
 
 /** `::ffff:192.0.2.1` → `192.0.2.1` (dual-stack sockets report IPv4 peers mapped). */

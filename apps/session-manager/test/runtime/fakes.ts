@@ -147,6 +147,7 @@ export class MemorySessionStore implements SessionStore {
 
 export class MemoryHostKeyStore implements HostKeyStore {
   readonly trustedKeys = new Map<string, Map<string, PresentedHostKey>>();
+  readonly revokedKeys = new Map<string, Set<string>>();
   readonly pending: Array<{ hostId: string; key: PresentedHostKey }> = [];
 
   trust(hostId: string, key: PresentedHostKey): void {
@@ -159,11 +160,16 @@ export class MemoryHostKeyStore implements HostKeyStore {
     return new Map(this.trustedKeys.get(hostId) ?? []);
   }
 
+  async revoked(hostId: string): Promise<Set<string>> {
+    return new Set(this.revokedKeys.get(hostId) ?? []);
+  }
+
   async recordPending(hostId: string, key: PresentedHostKey): Promise<void> {
     this.pending.push({ hostId, key });
   }
 
   async trustPending(hostId: string, fingerprint: string): Promise<boolean> {
+    if (this.revokedKeys.get(hostId)?.has(fingerprint)) return false;
     const index = this.pending.findIndex(
       (p) => p.hostId === hostId && p.key.fingerprint === fingerprint,
     );

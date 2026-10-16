@@ -2,7 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { promisify } from 'node:util';
 import { gzip } from 'node:zlib';
 import {
+  AUTH_PROMPT_LIMITS,
   type EndReason,
+  isControlChar,
+  isInvisibleFormatChar,
   type Protection,
   type ServerMessage,
   type SessionState,
@@ -19,7 +22,7 @@ import {
 } from '../attachments/wire.ts';
 import { type Logger, silentLogger } from '../config/logger.ts';
 import { HeadlessEmulator } from '../emulator/headless-emulator.ts';
-import { type ProbeResult, parseProbeOutput, probeCommand } from '../probe/index.ts';
+import { type ProbeResult, runProbe, storableProbe } from '../probe/index.ts';
 import type { KeyboardInteractiveRequest } from '../transport/ssh/index.ts';
 import { backoffDelay } from './backoff.ts';
 import { type DriverFactory, tmuxSocketName } from './driver-factory.ts';
@@ -28,6 +31,7 @@ import type { TransportFactory, TransportHooks } from './transport-factory.ts';
 import {
   type AttachmentClient,
   type AttachmentHandle,
+  BadLaunchParamsError,
   type Dimensions,
   type Driver,
   type DriverContext,
@@ -90,6 +94,8 @@ export interface SessionRuntimeOptions {
    * publishes `session.upsert`, so the bay never waits for a reload.
    */
   onSummaryChange?: () => void;
+  /** The runtime may have become `idle`: the registry schedules its eviction. */
+  onIdle?: () => void;
 }
 
 /** Live fields the registry overlays on stored session summaries. */
@@ -141,6 +147,7 @@ export class SessionRuntime implements SessionHost {
   readonly #ingestPollMs: number;
   readonly #restored: boolean;
   readonly #onSummaryChange: () => void;
+  readonly #onIdle: () => void;
 
   #state: SessionState;
   /** `detail` of the latest state change in this process (undefined before the first one). */
@@ -151,6 +158,8 @@ export class SessionRuntime implements SessionHost {
   #closed = false;
   #started = false;
   #terminating = false;
+  /** terminate() is still tearing the remote down. */
+  #terminateInFlight = false;
 
   // connect loop
   #generation = 0;
@@ -162,7 +171,7 @@ export class SessionRuntime implements SessionHost {
   #transport: Transport | null = null;
   #driver: Driver | null = null;
   #pendingHostKey: PresentedHostKey | null = null;
-  #mismatchKey: { type: string; fingerprint: string } | null = null;
+  #mismatchKey: { type: string; fingerprint: string; revoked: boolean } | null = null;
   #authPrompt: AuthPrompt | null = null;
   #promptExpired = false;
   #bannerBeforeStart: string | null = null;
@@ -201,6 +210,7 @@ export class SessionRuntime implements SessionHost {
     this.#ingestPollMs = options.ingestPollMs ?? INGEST_POLL_MS;
     this.#restored = options.restored ?? false;
     this.#onSummaryChange = options.onSummaryChange ?? (() => {});
+    this.#onIdle = options.onIdle ?? (() => {});
     this.#seq = options.initialSeq ?? 0;
     this.#state = this.#record.state;
     this.#wasReady = this.#record.lastReadyAt !== null;
@@ -247,6 +257,20 @@ export class SessionRuntime implements SessionHost {
 
   get attachmentCount(): number {
     return this.#attachments.size;
+  }
+
+  /**
+   * Nothing runs (the session is not meant to run, no connect loop, no terminate in progress)
+   * and nobody is attached: the registry may evict the runtime after its idle TTL.
+   */
+  get idle(): boolean {
+    return (
+      !this.#closed &&
+      this.#desired !== 'running' &&
+      this.#attachments.size === 0 &&
+      !this.#loopRunning &&
+      !this.#terminateInFlight
+    );
   }
 
   live(): LiveSessionFields {
@@ -305,15 +329,21 @@ export class SessionRuntime implements SessionHost {
   async terminate(): Promise<void> {
     if (this.#state === 'ended' || this.#terminating || this.#closed) return;
     this.#terminating = true;
-    this.#desired = 'terminated';
-    this.#store.update(this.sessionId, { desiredState: 'terminated' });
-    this.#setState('terminating');
-    const driver = this.#driver;
-    const transport = this.#transport;
-    this.#stopActivity();
-    if (driver) await driver.terminate().catch((err) => this.#warn('driver terminate', err));
-    if (transport) await closeQuietly(transport);
-    this.#end('user_terminated');
+    this.#terminateInFlight = true;
+    try {
+      this.#desired = 'terminated';
+      this.#store.update(this.sessionId, { desiredState: 'terminated' });
+      this.#setState('terminating');
+      const driver = this.#driver;
+      const transport = this.#transport;
+      this.#stopActivity();
+      if (driver) await driver.terminate().catch((err) => this.#warn('driver terminate', err));
+      if (transport) await closeQuietly(transport);
+      this.#end('user_terminated');
+    } finally {
+      this.#terminateInFlight = false;
+      this.#maybeIdle();
+    }
   }
 
   /** Graceful daemon shutdown: protected remotes stay alive; persisted state is kept. */
@@ -419,6 +449,7 @@ export class SessionRuntime implements SessionHost {
     attachment.dispose();
     this.#attachments.delete(attachmentId);
     this.#policy.remove(attachmentId);
+    this.#maybeIdle();
   }
 
   input(attachmentId: string, data: Uint8Array): void {
@@ -458,6 +489,7 @@ export class SessionRuntime implements SessionHost {
       .finally(() => {
         this.#loopRunning = false;
         this.#firstAttempt.resolve();
+        this.#maybeIdle();
       });
   }
 
@@ -537,9 +569,12 @@ export class SessionRuntime implements SessionHost {
 
     try {
       this.#setState('probing');
-      const probe = await this.#probe(transport);
+      const probe = await runProbe(transport, PROBE_TIMEOUT_MS);
       if (gen !== this.#generation) return 'stopped';
-      this.#store.update(this.sessionId, { probe: probe.raw, tmuxVersion: probe.tmuxVersionRaw });
+      this.#store.update(this.sessionId, {
+        probe: storableProbe(probe.raw),
+        tmuxVersion: probe.tmuxVersionRaw,
+      });
       const choice = this.#chooseProtection(probe);
       await this.#ensureEmulatorMode(choice.protection !== 'tmux-control');
       if (gen !== this.#generation) return 'stopped';
@@ -575,6 +610,12 @@ export class SessionRuntime implements SessionHost {
       // one outcome per attempt, and a confirmed exit wins over a retry.
       if (this.#exitedGen === gen) return 'exited';
       this.#warn('session start failed', err);
+      // A profile or probe value the launch cannot pass safely: every retry would log in to
+      // the host again only to fail the same way, so the session waits for the user instead.
+      if (err instanceof BadLaunchParamsError) {
+        this.#fail(ErrorCode.BadLaunchParams);
+        return 'park';
+      }
       return 'retry';
     }
   }
@@ -595,10 +636,15 @@ export class SessionRuntime implements SessionHost {
           const presented = err.details?.presented as
             | { type: string; fingerprint: string }
             | undefined;
-          this.#mismatchKey = presented ?? null;
-          this.#event('host_key_mismatch', presented ? { ...presented } : {});
+          // A key the owner revoked fails closed exactly like any other mismatch (§5.9).
+          const revoked = err.details?.revoked === true;
+          this.#mismatchKey = presented ? { ...presented, revoked } : null;
+          this.#event(
+            revoked ? 'host_key_revoked_presented' : 'host_key_mismatch',
+            presented ? { keyType: presented.type, fingerprint: presented.fingerprint } : {},
+          );
           this.#fail(err.code);
-          if (presented) this.#notify(this.#hostKeyPrompt(presented, true));
+          if (this.#mismatchKey) this.#notify(this.#hostKeyPrompt(this.#mismatchKey, true));
           return 'park';
         }
         case ErrorCode.AuthTimeout:
@@ -611,6 +657,7 @@ export class SessionRuntime implements SessionHost {
         case ErrorCode.AuthRejected:
         case ErrorCode.CredentialInvalid:
         case ErrorCode.LocalShellDisabled:
+        case ErrorCode.TargetNotAllowed:
         case ErrorCode.NotFound:
         case ErrorCode.Forbidden:
           this.#fail(err.code);
@@ -651,15 +698,28 @@ export class SessionRuntime implements SessionHost {
   #promptUser(request: KeyboardInteractiveRequest, gen: number): Promise<string[] | null> {
     if (gen !== this.#generation) return Promise.resolve(null);
     this.#cancelPrompt();
+    // More prompts than the protocol carries cannot be answered positionally: the round is
+    // refused (the transport reports AUTH_REJECTED).
+    if (request.prompts.length > AUTH_PROMPT_LIMITS.prompts) {
+      return Promise.reject(new Error('too many keyboard-interactive prompts'));
+    }
     return new Promise((resolve) => {
       const promptId = randomUUID();
+      // Host-controlled text (§5.10): capped, without controls or invisible formatting.
       const message: ServerMessage = {
         type: 'auth.prompt',
         sessionId: this.sessionId,
         promptId,
-        name: request.name,
-        instructions: request.instructions,
-        prompts: request.prompts.map((p) => ({ text: p.text, echo: p.echo })),
+        name: sanitizePromptText(request.name, AUTH_PROMPT_LIMITS.name, false),
+        instructions: sanitizePromptText(
+          request.instructions,
+          AUTH_PROMPT_LIMITS.instructions,
+          true,
+        ),
+        prompts: request.prompts.map((p) => ({
+          text: sanitizePromptText(p.text, AUTH_PROMPT_LIMITS.text, false),
+          echo: p.echo,
+        })),
       };
       const timer = setTimeout(() => {
         if (this.#authPrompt?.id !== promptId) return;
@@ -680,31 +740,6 @@ export class SessionRuntime implements SessionHost {
     clearTimeout(prompt.timer);
     this.#authPrompt = null;
     prompt.resolve(null);
-  }
-
-  async #probe(transport: Transport): Promise<ProbeResult> {
-    const channel = await transport.exec(probeCommand());
-    const read = async (stream: AsyncIterable<Uint8Array>): Promise<Buffer> => {
-      const parts: Uint8Array[] = [];
-      for await (const part of stream) parts.push(part);
-      return Buffer.concat(parts);
-    };
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const timeout = new Promise<never>((_, reject) => {
-      timer = setTimeout(
-        () => reject(new TransportError('PROBE_TIMEOUT', 'capability probe timed out', true)),
-        PROBE_TIMEOUT_MS,
-      );
-    });
-    try {
-      const [stdout] = await Promise.race([
-        Promise.all([read(channel.stdout), read(channel.stderr), channel.exit]),
-        timeout,
-      ]);
-      return parseProbeOutput(stdout.toString('utf8'));
-    } finally {
-      clearTimeout(timer);
-    }
   }
 
   /** Effective protection: chosen at first start, then honoured or degraded (§5.7, §5.11). */
@@ -913,6 +948,11 @@ export class SessionRuntime implements SessionHost {
     });
     this.#setState('ended', { detail: reason });
     this.#onSummaryChange();
+    this.#maybeIdle();
+  }
+
+  #maybeIdle(): void {
+    if (this.idle) this.#onIdle();
   }
 
   #event(type: string, detail?: Record<string, unknown>, actorUserId?: string): void {
@@ -938,13 +978,17 @@ export class SessionRuntime implements SessionHost {
     this.#notifier.sendToUser(this.userId, message);
   }
 
-  #hostKeyPrompt(key: { type: string; fingerprint: string }, mismatch: boolean): ServerMessage {
+  #hostKeyPrompt(
+    key: { type: string; fingerprint: string; revoked?: boolean },
+    mismatch: boolean,
+  ): ServerMessage {
     return {
       type: 'hostkey.prompt',
       sessionId: this.sessionId,
       keyType: key.type,
       fingerprint: key.fingerprint,
       mismatch,
+      ...(mismatch && key.revoked ? { revoked: true } : {}),
     };
   }
 
@@ -1156,13 +1200,34 @@ function formatClock(ms: number): string {
   return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-/** Titles go to the UI: no control characters, at most 256 UTF-16 units (§7.3). */
+/**
+ * Titles go to the UI: no control characters, no invisible formatting (bidi overrides,
+ * zero-width characters), at most 256 UTF-16 units (§7.3). The web's `cleanTitle` is the twin.
+ */
 export function sanitizeTitle(title: string): string {
   let out = '';
   for (const ch of title) {
     const code = ch.codePointAt(0)!;
-    if (code < 0x20 || (code >= 0x7f && code <= 0x9f)) continue;
+    if (isControlChar(code) || isInvisibleFormatChar(code)) continue;
     if (out.length + ch.length > MAX_TITLE_LENGTH) break;
+    out += ch;
+  }
+  return out;
+}
+
+/**
+ * Keyboard-interactive text from the host (§5.10): C0/C1 controls and invisible formatting are
+ * dropped (line feeds survive in `multiline` text such as instructions), then the text is cut
+ * to `max` UTF-16 units without splitting a character.
+ */
+export function sanitizePromptText(text: string, max: number, multiline: boolean): string {
+  let out = '';
+  for (const ch of text) {
+    const code = ch.codePointAt(0)!;
+    if ((isControlChar(code) && !(multiline && ch === '\n')) || isInvisibleFormatChar(code)) {
+      continue;
+    }
+    if (out.length + ch.length > max) break;
     out += ch;
   }
   return out;

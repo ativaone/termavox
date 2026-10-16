@@ -74,16 +74,21 @@ export async function readSecretFile(path: string, minLength = 32): Promise<Uint
   return new TextEncoder().encode(value);
 }
 
+const Flag = z
+  .enum(['true', 'false', '1', '0', ''])
+  .default('false')
+  .transform((v) => v === 'true' || v === '1');
+
 const DaemonEnv = z.object({
   TERMDOCK_MASTER_KEY_FILE: z.string().min(1),
   TERMDOCK_INTERNAL_TOKEN_FILE: z.string().min(1),
   // 127.0.0.1 outside containers; compose sets 0.0.0.0 (reachable on the `internal` network only).
   TERMDOCK_INTERNAL_HOST: z.string().min(1).default('127.0.0.1'),
   TERMDOCK_INTERNAL_PORT: z.coerce.number().int().min(0).max(65_535).default(3002),
-  TERMDOCK_ENABLE_LOCAL_SHELL: z
-    .enum(['true', 'false', '1', '0', ''])
-    .default('false')
-    .transform((v) => v === 'true' || v === '1'),
+  TERMDOCK_ENABLE_LOCAL_SHELL: Flag,
+  // SSH targets on loopback, link-local, unspecified, multicast or the daemon's own addresses
+  // are refused unless this is set (plan §10.2).
+  TERMDOCK_SSH_ALLOW_LOCAL_TARGETS: Flag,
 });
 
 /** Everything the daemon process needs (plan §13.2): the data plane plus vault and internal API. */
@@ -95,6 +100,8 @@ export interface DaemonConfig extends DataPlaneConfig {
   internalHost: string;
   internalPort: number;
   enableLocalShell: boolean;
+  /** TERMDOCK_SSH_ALLOW_LOCAL_TARGETS: sessions and host tests may reach local addresses. */
+  sshAllowLocalTargets: boolean;
   /** `<dataDir>/app.db`. */
   dbFile: string;
 }
@@ -121,6 +128,7 @@ export function loadDaemonConfig(env: NodeJS.ProcessEnv = process.env): DaemonCo
     internalHost: e.TERMDOCK_INTERNAL_HOST,
     internalPort: e.TERMDOCK_INTERNAL_PORT,
     enableLocalShell: e.TERMDOCK_ENABLE_LOCAL_SHELL,
+    sshAllowLocalTargets: e.TERMDOCK_SSH_ALLOW_LOCAL_TARGETS,
     dbFile: join(base.dataDir, 'app.db'),
   };
 }

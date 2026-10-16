@@ -1,10 +1,12 @@
 import { ErrorCode } from '@termdock/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+  type ConnectionRevoker,
   changePassword,
   createUserWithTemporaryPassword,
   resetUserTotp,
   setTemporaryPassword,
+  signOutSession,
 } from '../lib/auth/account.ts';
 import { authGate } from '../lib/auth/gate.ts';
 import {
@@ -195,5 +197,40 @@ describe('Better Auth core (S6)', () => {
     expect(await gate(hankSession.jar)).toMatchObject({ ok: false, reason: 'banned' });
     const blocked = await call(t.rt, 'GET', '/list-sessions', { jar: hankSession.jar });
     expect(blocked.status).toBe(403);
+  });
+
+  it('closes WebSockets at once on a password change (all) and on sign-out (that session), L3', async () => {
+    const revoked: Array<{ authSessionId?: string; userId?: string }> = [];
+    const revoke: ConnectionRevoker = async (target) => {
+      revoked.push(target);
+    };
+    const ivy = await createUser(t.rt, 'ivy');
+    const first = await signIn(t.rt, 'ivy');
+    const second = await signIn(t.rt, 'ivy');
+    await changePassword(
+      t.rt,
+      first.jar.headers(),
+      { currentPassword: PASSWORD, newPassword: 'a brand new password 7' },
+      revoke,
+    );
+    // Better Auth replaced every session, this browser's included: every WebSocket goes.
+    expect(revoked).toEqual([{ userId: ivy.id }]);
+    expect(await gate(second.jar)).toMatchObject({ ok: false, reason: 'unauthenticated' });
+
+    revoked.length = 0;
+    const third = await signIn(t.rt, 'ivy', { password: 'a brand new password 7' });
+    const current = await authGate(t.rt, third.jar.headers());
+    expect(current.ok).toBe(true);
+    const sessionId = current.ok ? current.session.id : '';
+    await signOutSession(t.rt, third.jar.headers(), revoke);
+    expect(revoked).toEqual([{ authSessionId: sessionId }]);
+    expect(await gate(third.jar)).toMatchObject({ ok: false, reason: 'unauthenticated' });
+
+    // An unreachable daemon never blocks the change or the sign-out.
+    const fourth = await signIn(t.rt, 'ivy', { password: 'a brand new password 7' });
+    const down: ConnectionRevoker = async () => {
+      throw new Error('ECONNREFUSED');
+    };
+    await expect(signOutSession(t.rt, fourth.jar.headers(), down)).resolves.toBeUndefined();
   });
 });

@@ -307,11 +307,13 @@ export function FetchVerify({
 
 const KNOWN_CODES = [
   'HOST_UNREACHABLE',
+  'TARGET_NOT_ALLOWED',
   'HOST_KEY_MISMATCH',
   'AUTH_REJECTED',
   'AUTH_TIMEOUT',
   'CREDENTIAL_INVALID',
   'PROBE_TIMEOUT',
+  'PROBE_TOO_LARGE',
   'CONNECTION_LOST',
 ] as const;
 type KnownCode = (typeof KNOWN_CODES)[number];

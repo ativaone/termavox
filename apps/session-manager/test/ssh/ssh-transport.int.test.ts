@@ -1,9 +1,10 @@
 // T1: SshTransport against the test sshd containers (core images).
 // Precondition: docker compose -f test/sshd/compose.yaml up -d --build
+import { lookup } from 'node:dns/promises';
 import { ErrorCode, TermdockError } from '@termdock/shared';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { TransportError } from '../../src/core/types.ts';
-import type { SshTransport } from '../../src/transport/ssh/index.ts';
+import { type ResolveAll, type SshTransport, TargetPolicy } from '../../src/transport/ssh/index.ts';
 import {
   HOST_KEY,
   requireSshd,
@@ -155,5 +156,29 @@ describe('SshTransport authentication and lifecycle (tmux-3.2a)', () => {
     const pending = transport(image).connect(controller.signal);
     controller.abort(new Error('user cancelled'));
     await expect(pending).rejects.toThrow('user cancelled');
+  });
+});
+
+describe('SSH target policy over a real connection (L4)', () => {
+  it('connects to a host name through the policy lookup; the default policy refuses it', async () => {
+    const resolved: string[] = [];
+    const resolve: ResolveAll = async (hostname, options) => {
+      const addresses = await lookup(hostname, { ...options, all: true });
+      resolved.push(...addresses.map((a) => a.address));
+      return addresses;
+    };
+    const allowed = transport('no-tmux', {
+      host: 'localhost',
+      targetPolicy: new TargetPolicy({ allowLocalTargets: true, resolve }),
+    });
+    await allowed.connect(AbortSignal.timeout(15_000));
+    expect((await runExec(allowed, 'echo ok')).stdout).toBe('ok\n');
+    expect(resolved).toContain('127.0.0.1');
+
+    const refused = transport('no-tmux', {
+      host: 'localhost',
+      targetPolicy: new TargetPolicy({ allowLocalTargets: false }),
+    });
+    expect(await connectError(refused)).toMatchObject({ code: 'TARGET_NOT_ALLOWED' });
   });
 });

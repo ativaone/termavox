@@ -31,6 +31,9 @@ services:
     # The image's caddy binary carries the cap_net_bind_service file capability; without it in
     # the bounding set the kernel refuses to exec the binary.
     cap_add: [NET_BIND_SERVICE]
+    # Memory and process ceilings per service (plan §10.2): one service cannot exhaust the host.
+    mem_limit: 256m
+    pids_limit: 128
     ports:
       # Same port inside and outside, so Caddy's HTTP/3 advertisement (Alt-Svc) names the
       # published port; the Caddyfile's HTTP->HTTPS redirect also uses it.
@@ -63,6 +66,8 @@ services:
     <<: *hardened
     init: true
     user: "10001:10001"
+    mem_limit: ${TERMDOCK_WEB_MEM_LIMIT:-768m}
+    pids_limit: 256
     # No published ports: web is reachable only through Caddy. Its rate limits, lockout and audit
     # trust the single X-Forwarded-For value Caddy sets (plan §4.3); the other `edge` and
     # `internal` peer, session-manager, never calls web.
@@ -110,6 +115,8 @@ services:
     <<: *hardened
     init: true
     user: "10001:10001"
+    mem_limit: ${TERMDOCK_DAEMON_MEM_LIMIT:-1g}
+    pids_limit: 512
     environment:
       TERMDOCK_PUBLIC_URL: *public-url
       TERMDOCK_DATA_DIR: /data
@@ -126,6 +133,9 @@ services:
       TERMDOCK_ENABLE_LOCAL_SHELL: "false"
       # WebSocket client IPs (session_events.ip): believe X-Forwarded-For only from `edge` peers.
       TERMDOCK_TRUSTED_PROXIES: *edge-subnet
+      # SSH targets on loopback, link-local, multicast or this container's own addresses are
+      # refused unless set to true (private LAN ranges and host.docker.internal stay allowed).
+      TERMDOCK_SSH_ALLOW_LOCAL_TARGETS: ${TERMDOCK_SSH_ALLOW_LOCAL_TARGETS:-false}
       TERMDOCK_LOG_LEVEL: ${TERMDOCK_LOG_LEVEL:-info}
     secrets:
       - master_key

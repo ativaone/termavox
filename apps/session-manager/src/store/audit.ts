@@ -10,7 +10,8 @@ export type DaemonAuditType =
   | 'host_key.trust'
   | 'host_key.replace'
   | 'host_key.revoke'
-  | 'host_key.mismatch';
+  | 'host_key.mismatch'
+  | 'host_key.revoked_presented';
 
 export interface AuditInput {
   type: DaemonAuditType;

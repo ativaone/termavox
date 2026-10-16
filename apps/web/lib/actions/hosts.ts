@@ -144,6 +144,8 @@ export async function fetchHostKey(
     };
   } catch (err) {
     if (!isInternalApiError(err)) throw err;
+    // The daemon allows a few host tests per user and minute.
+    if (err.kind === 'rate_limited') return { message: t('testLimit') };
     return { message: t(serviceErrorKey(err)) };
   }
 }

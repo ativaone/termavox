@@ -23,6 +23,11 @@ export interface ProbeResult {
   raw: Record<string, string>;
 }
 
+/** Probe values are host-controlled: each one is cut to this many characters when parsed. */
+export const PROBE_VALUE_MAX_LENGTH = 256;
+/** `probe_json` (and a host test's `probe`) above this size is dropped (UTF-8 bytes). */
+export const PROBE_JSON_MAX_BYTES = 16 * 1024;
+
 const TMUX_FALLBACK_PATHS = ['/usr/bin/tmux', '/usr/local/bin/tmux', '/opt/homebrew/bin/tmux'];
 const TERMINFO_DIRS = [
   '"$HOME/.terminfo"',
@@ -66,9 +71,17 @@ function tristate(value: string | undefined): Tristate {
   return value === 'yes' || value === 'no' ? value : 'unknown';
 }
 
+/** Cuts `value` to `max` UTF-16 units without splitting a surrogate pair. */
+function truncate(value: string, max: number): string {
+  if (value.length <= max) return value;
+  const end = /[\uD800-\uDBFF]/.test(value.charAt(max - 1)) ? max - 1 : max;
+  return value.slice(0, end);
+}
+
 /**
  * Parses the probe output. Lines that are not `known_key=value` (e.g. noise printed by a
- * user's rc file before `exec sh`) are ignored; the last occurrence of a key wins.
+ * user's rc file before `exec sh`) are ignored; the last occurrence of a key wins. Values are
+ * cut to PROBE_VALUE_MAX_LENGTH characters before anything stores or renders them.
  */
 export function parseProbeOutput(output: string): ProbeResult {
   const raw: Record<string, string> = {};
@@ -86,7 +99,9 @@ export function parseProbeOutput(output: string): ProbeResult {
     const eq = line.indexOf('=');
     if (eq <= 0) continue;
     const key = line.slice(0, eq);
-    if (known.has(key)) raw[key] = line.slice(eq + 1).replace(/\r$/, '');
+    if (known.has(key)) {
+      raw[key] = truncate(line.slice(eq + 1).replace(/\r$/, ''), PROBE_VALUE_MAX_LENGTH);
+    }
   }
   const nonEmpty = (value: string | undefined): string | null => (value ? value : null);
   const tmuxPath = raw.tmux_path?.startsWith('/') ? raw.tmux_path : null;
@@ -103,4 +118,9 @@ export function parseProbeOutput(output: string): ProbeResult {
     linger: tristate(raw.linger),
     raw,
   };
+}
+
+/** `raw` as stored in `probe_json` and returned by a host test: null when it is too large. */
+export function storableProbe(raw: Record<string, string>): Record<string, string> | null {
+  return Buffer.byteLength(JSON.stringify(raw), 'utf8') > PROBE_JSON_MAX_BYTES ? null : raw;
 }

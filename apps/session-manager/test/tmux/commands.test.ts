@@ -3,6 +3,7 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
+import { BadLaunchParamsError } from '../../src/core/types.ts';
 import {
   detachClient,
   hasSessionCommand,
@@ -18,6 +19,7 @@ import {
   refreshClientSize,
   remoteCommand,
   shQuote,
+  tmuxArg,
   tmuxQuote,
 } from '../../src/drivers/tmux-control/index.ts';
 
@@ -60,6 +62,31 @@ function fakeArgvPrinter(name: string): string {
 }
 
 const argvOf = (out: string): string[] => out.split('\0').slice(0, -1);
+
+/**
+ * tmux's own split of its argv into commands (cmd_parse_from_arguments, 3.2a to 3.8): an
+ * argument ending in `;` ends the command, unless it ends in `\;`, which becomes `;`.
+ */
+function tmuxCommands(argv: string[]): string[][] {
+  const commands: string[][] = [];
+  let current: string[] = [];
+  for (const arg of argv) {
+    if (!arg.endsWith(';')) {
+      current.push(arg);
+      continue;
+    }
+    const body = arg.slice(0, -1);
+    if (body.endsWith('\\')) {
+      current.push(`${body.slice(0, -1)};`);
+      continue;
+    }
+    if (body !== '') current.push(body);
+    commands.push(current);
+    current = [];
+  }
+  if (current.length > 0) commands.push(current);
+  return commands;
+}
 
 const LAUNCH: LaunchOptions = {
   tmuxPath: '/usr/bin/tmux',
@@ -162,6 +189,53 @@ describe('launch command', () => {
     expect(() => launchScript({ ...LAUNCH, env: { 'BAD-KEY': 'x' } })).toThrow(RangeError);
     expect(() => launchScript({ ...LAUNCH, cols: 0 })).toThrow(RangeError);
     expect(() => launchScript({ ...LAUNCH, startupCommand: 'a\nb' })).toThrow(RangeError);
+  });
+
+  it('refuses profile and probe values with BadLaunchParamsError (non-retryable, M1)', () => {
+    const refused: Array<Partial<LaunchOptions>> = [
+      { startupCommand: 'a\nb' },
+      { startupCommand: 'a\rb' },
+      { env: { TD_X: 'line\nbreak' } },
+      { env: { TD_X: 'nul\0byte' } },
+      { env: { 'BAD-KEY': 'x' } },
+      { tmuxPath: '/usr/bin/tmux;id' },
+      { tmuxPath: 'relative/tmux' },
+      { locale: 'C.UTF-8\nX' },
+      { socket: 'TD;rm' },
+    ];
+    for (const value of refused) {
+      expect(() => launchCommand({ ...LAUNCH, ...value })).toThrow(BadLaunchParamsError);
+    }
+    const error = (() => {
+      try {
+        launchCommand({ ...LAUNCH, env: { TD_X: 'a\nb' } });
+      } catch (err) {
+        return err;
+      }
+    })();
+    expect(error).toBeInstanceOf(RangeError);
+    expect(error).toMatchObject({ code: 'BAD_LAUNCH_PARAMS' });
+    // A bad dimension is not a launch parameter of the profile or the probe.
+    expect(() => launchScript({ ...LAUNCH, cols: 0 })).not.toThrow(BadLaunchParamsError);
+  });
+
+  it('escapes a trailing `;` so tmux neither splits the command nor loses it (L8)', () => {
+    expect(tmuxArg('plain')).toBe('plain');
+    expect(tmuxArg('a;')).toBe('a\\;');
+    expect(tmuxArg(';')).toBe('\\;');
+    expect(tmuxArg('a\\;')).toBe('a\\\\;');
+    expect(tmuxArg('a;b')).toBe('a;b');
+
+    const env = { TD_SEMI: 'value;', TD_ESCAPED: 'x\\;', TD_BARE: ';', TD_MID: 'a;b' };
+    const argv = argvOf(sh(launchCommand({ ...LAUNCH, tmuxPath: fakeArgvPrinter('tmux'), env })));
+    const commands = tmuxCommands(argv);
+    expect(commands).toHaveLength(launchCommands({ ...LAUNCH, env }).length);
+    const newSession = commands.at(-1)!;
+    expect(newSession[0]).toBe('new-session');
+    const values = newSession.flatMap((arg, i) => (newSession[i - 1] === '-e' ? [arg] : []));
+    expect(values).toEqual(['TD_SEMI=value;', 'TD_ESCAPED=x\\;', 'TD_BARE=;', 'TD_MID=a;b']);
+    // The pane command stays one argument, untouched.
+    expect(newSession.at(-1)).toBe('exec env -u TMUX -u TMUX_PANE "$SHELL" -l');
   });
 });
 

@@ -26,6 +26,12 @@ export const WS_PATH = '/ws';
 export const HELLO_TIMEOUT_MS = 5_000;
 export const REVALIDATE_INTERVAL_MS = 60_000;
 export const MAX_CHANNELS = 32;
+/** Concurrent connections per user; the next one is closed with 4429. */
+export const MAX_CONNECTIONS_PER_USER = 16;
+/** Attached channels per user across all their connections; more attaches are refused. */
+export const MAX_ATTACHMENTS_PER_USER = 64;
+/** Messages received on a connection and not handled yet; beyond it, 4429. */
+export const MAX_IN_FLIGHT = 64;
 export const MAX_PAYLOAD = 1024 * 1024;
 const CLOSE_WAIT_MS = 2_000;
 /** Same cap as web's audit rows. */
@@ -50,6 +56,9 @@ export interface WsServerOptions {
   helloTimeoutMs?: number;
   revalidateIntervalMs?: number;
   maxChannels?: number;
+  maxConnectionsPerUser?: number;
+  maxAttachmentsPerUser?: number;
+  maxInFlight?: number;
   maxPayload?: number;
   now?: () => number;
 }
@@ -68,6 +77,8 @@ class Connection {
   authSessionId: string | null = null;
   closing = false;
   queue: Promise<void> = Promise.resolve();
+  /** Messages received and not handled yet (the queue's length). */
+  inFlight = 0;
   helloTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(ws: WebSocket, client: AttachmentClient) {
@@ -224,12 +235,25 @@ export class WsServer implements UserNotifier {
       this.#options.helloTimeoutMs ?? HELLO_TIMEOUT_MS,
     );
     ws.on('message', (data, isBinary) => {
+      if (conn.closing) return;
+      // The queue holds every frame read while an earlier one is handled: bounded.
+      if (++conn.inFlight > (this.#options.maxInFlight ?? MAX_IN_FLIGHT)) {
+        this.#log.info(
+          { connectionId: conn.id, userId: conn.userId },
+          'too many messages in flight',
+        );
+        this.#close(conn, CloseCode.RateLimited, 'too many messages in flight');
+        return;
+      }
       // One message at a time per connection, so an attach finishes before later input.
       conn.queue = conn.queue
         .then(() => this.#onMessage(conn, toBuffer(data), isBinary))
         .catch((err: unknown) => {
           this.#log.error({ err, connectionId: conn.id }, 'message handling failed');
           this.#close(conn, CloseCode.Internal, 'internal error');
+        })
+        .finally(() => {
+          conn.inFlight--;
         });
     });
     ws.on('error', (err) =>
@@ -278,6 +302,12 @@ export class WsServer implements UserNotifier {
       return this.#close(conn, CloseCode.Unauthenticated, 'auth session invalid');
     }
     if (conn.closing) return;
+    // Counted after the last await, so concurrent hellos cannot all slip under the cap.
+    const open = this.#byUser.get(uid)?.size ?? 0;
+    if (open >= (this.#options.maxConnectionsPerUser ?? MAX_CONNECTIONS_PER_USER)) {
+      this.#log.info({ userId: uid, ip: conn.ip }, 'too many connections for user');
+      return this.#close(conn, CloseCode.RateLimited, 'too many connections');
+    }
     conn.userId = uid;
     conn.authSessionId = asid;
     let userConnections = this.#byUser.get(uid);
@@ -351,16 +381,41 @@ export class WsServer implements UserNotifier {
       this.#close(conn, CloseCode.BadRequest, 'too many channels');
       return;
     }
+    // Checked before any work and again right before the channel is bound (after the awaits).
+    if (this.#userAttachmentsFull(conn)) {
+      this.#error(conn, ErrorCode.RateLimited, 'too many attached terminals', {
+        channel,
+        sessionId,
+      });
+      return;
+    }
     if (!(await this.#owns(conn, sessionId, channel))) return;
-    const host = await this.#options.sessions.attachable(sessionId);
+    const { sessions } = this.#options;
+    let host = await sessions.attachable(sessionId);
+    // An idle runtime may have been evicted in between: attach to the session's current one.
+    if (host && sessions.host(sessionId) !== host) host = await sessions.attachable(sessionId);
     if (conn.closing) return;
     if (!host) {
       this.#error(conn, ErrorCode.NotFound, 'session not found', { channel, sessionId });
       return;
     }
+    if (this.#userAttachmentsFull(conn)) {
+      this.#error(conn, ErrorCode.RateLimited, 'too many attached terminals', {
+        channel,
+        sessionId,
+      });
+      return;
+    }
     const handle = new WsAttachmentHandle(randomUUID(), channel, conn.ws);
     conn.channels.set(channel, { sessionId, handle });
     host.attach(handle, viewport, conn.client);
+  }
+
+  /** The user of `conn` already has MAX_ATTACHMENTS_PER_USER channels attached. */
+  #userAttachmentsFull(conn: Connection): boolean {
+    let attached = 0;
+    for (const other of this.#byUser.get(conn.userId!) ?? []) attached += other.channels.size;
+    return attached >= (this.#options.maxAttachmentsPerUser ?? MAX_ATTACHMENTS_PER_USER);
   }
 
   #detach(conn: Connection, channel: number): void {

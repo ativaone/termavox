@@ -259,10 +259,12 @@ describe('daemon (SQLite + vault + internal API + WS) against no-tmux', () => {
       });
     expect((await replace(otherFingerprint, 'wrong name')).status).toBe(400);
     expect((await replace(otherFingerprint)).status).toBe(204);
+    // The host still presents the key that replace just revoked: refused like any mismatch,
+    // and flagged as a revoked key (§5.9).
     const mismatched = await create();
     expect(
       await watcher.next((m) => m.type === 'hostkey.prompt' && m.sessionId === mismatched, 15_000),
-    ).toMatchObject({ fingerprint: HOST_KEY.fingerprint, mismatch: true });
+    ).toMatchObject({ fingerprint: HOST_KEY.fingerprint, mismatch: true, revoked: true });
     expect(await status(mismatched, 'disconnected')).toMatchObject({
       state: 'failed',
       detail: 'HOST_KEY_MISMATCH',
@@ -279,7 +281,7 @@ describe('daemon (SQLite + vault + internal API + WS) against no-tmux', () => {
     expect(daemon.plane.registry.host(mismatched)?.state).toBe('failed');
     expect((await keys()).find((k) => k.status === 'trusted')?.fingerprint).toBe(otherFingerprint);
     expect(auditTypes(db)).toEqual(
-      expect.arrayContaining(['host_key.replace', 'host_key.mismatch']),
+      expect.arrayContaining(['host_key.replace', 'host_key.revoked_presented']),
     );
 
     // The owner replaces the key (typed host name) and retries: connected; the replaced key was
@@ -304,7 +306,26 @@ describe('daemon (SQLite + vault + internal API + WS) against no-tmux', () => {
     expect((await revoke()).status).toBe(204);
     expect((await revoke()).status).toBe(404);
     expect((await keys()).filter((k) => k.status === 'trusted')).toEqual([]);
-    for (const id of [sessionId, mismatched]) {
+
+    // The revoked key presented again with nothing trusted: no first-use prompt, refused like a
+    // mismatch; neither the prompt, trust-key nor pre-trust can bring it back (M2).
+    const afterRevoke = await create();
+    expect(
+      await watcher.next((m) => m.type === 'hostkey.prompt' && m.sessionId === afterRevoke, 15_000),
+    ).toMatchObject({ fingerprint: HOST_KEY.fingerprint, mismatch: true, revoked: true });
+    expect(await status(afterRevoke, 'disconnected')).toMatchObject({
+      state: 'failed',
+      detail: 'HOST_KEY_MISMATCH',
+    });
+    expect((await keys()).filter((k) => k.status === 'pending')).toEqual([]);
+    const trustAgain = await fixture.api(daemon, 'POST', `/hosts/${hostId}/trust-key`, {
+      actingUserId: userId,
+      keyType: HOST_KEY.type,
+      fingerprint: HOST_KEY.fingerprint,
+    });
+    expect(trustAgain.status).toBe(409);
+    expect((await keys()).filter((k) => k.status === 'trusted')).toEqual([]);
+    for (const id of [sessionId, mismatched, afterRevoke]) {
       await fixture.api(daemon, 'POST', `/sessions/${id}/terminate`, { actingUserId: userId });
     }
   });

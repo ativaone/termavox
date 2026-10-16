@@ -84,3 +84,52 @@ describe.each(IMAGES)('tmux control mode (%s)', (image) => {
     expect((await runExec(transport, hasSessionCommand(opts))).exit.code).toBe(1);
   });
 });
+
+// Every tmux of the matrix (3.2a, 3.4, 3.8): a profile env value ending in `;` (plan §6.3, L8).
+const SEMICOLON_IMAGES: SshdImage[] = ['tmux-3.2a', 'tmux-3.4', 'tmux-edge'];
+
+describe.each(SEMICOLON_IMAGES)('env values ending in ; (%s)', (image) => {
+  let transport: SshTransport;
+  let opts: LaunchOptions;
+
+  beforeAll(async () => {
+    await requireSshd([image]);
+    transport = sshdTransport(image);
+    await transport.connect(AbortSignal.timeout(15_000));
+    const probe = parseProbeOutput((await runExec(transport, probeCommand())).stdout);
+    opts = {
+      tmuxPath: probe.tmuxPath!,
+      socket: `td-t1-${randomToken(12)}`,
+      locale: probe.utf8Locale!,
+      historyLimit: 5000,
+      defaultTerminal: probe.tiTmux256 ? 'tmux-256color' : 'screen-256color',
+      cols: 80,
+      rows: 24,
+      env: { TD_SEMI: 'ends with;', TD_ESC: 'esc\\;', TD_BARE: ';' },
+      startupCommand: null,
+    };
+  });
+
+  afterAll(async () => {
+    await runExec(
+      transport,
+      `exec sh -c '${opts.tmuxPath} -L ${opts.socket} kill-server 2>/dev/null; true'`,
+    ).catch(() => {});
+    await transport.close();
+  });
+
+  it('launches, and the values reach the shell intact', async () => {
+    const client = new TestControlClient(await transport.exec(launchCommand(opts)));
+    await client.waitFor((e) => e.type === 'sessionChanged');
+    await client.waitFor((e) => e.type === 'output'); // the shell prompt
+    await client.waitIdle(300);
+    await client.input(0, 'echo "V=[$TD_SEMI][$TD_ESC][$TD_BARE]"\r');
+    await expect
+      .poll(() => client.outputText(0), { timeout: 5_000 })
+      .toContain('V=[ends with;][esc\\;][;]\r\n');
+    const exited = client.next((e) => e.type === 'exit');
+    expect((await client.send('kill-server')).ok).toBe(true);
+    await exited;
+    expect(client.errors).toEqual([]);
+  });
+});

@@ -41,8 +41,9 @@ export interface HostKeyEntry {
  * - `already_trusted`: that exact key was already trusted (idempotent).
  * - `no_match`: no unexpired pending key with that fingerprint (and pre-trust not allowed).
  * - `conflict`: a different key of that type is trusted; only replace-key may change it.
+ * - `revoked`: the owner revoked that key for the host; only replace-key may trust it again.
  */
-export type TrustOutcome = 'trusted' | 'already_trusted' | 'no_match' | 'conflict';
+export type TrustOutcome = 'trusted' | 'already_trusted' | 'no_match' | 'conflict' | 'revoked';
 
 const COLUMNS =
   'id, key_type, public_key_b64, fingerprint_sha256, status, first_seen_at, decided_by, decided_at';
@@ -51,8 +52,9 @@ const COLUMNS =
  * Host-key trust store over `known_host_keys` (the daemon writes every row, plan §9).
  * Invariants: at most one `trusted` row per host and key type (also enforced by the partial
  * unique index; handled here so it never surfaces as a constraint error); pending rows expire
- * 24 h after `first_seen_at`; every pending/trust/replace/revoke/mismatch writes an
- * `audit_events` row in the same transaction.
+ * 24 h after `first_seen_at`; a revoked fingerprint is never recorded as pending nor trusted
+ * again except through replace-key; every pending/trust/replace/revoke/mismatch (and a revoked
+ * key presented again) writes an `audit_events` row in the same transaction.
  */
 export class SqliteHostKeyStore implements HostKeyStore {
   readonly #sqlite: Sqlite;
@@ -83,10 +85,24 @@ export class SqliteHostKeyStore implements HostKeyStore {
     );
   }
 
-  /** Records a presented unknown key as pending (keeps `first_seen_at` of an existing one). */
+  /** Fingerprints of the host's revoked keys (decided against with the trusted ones). */
+  async revoked(hostId: string): Promise<Set<string>> {
+    const rows = allRows<{ fingerprint_sha256: string }>(
+      this.#sqlite,
+      `SELECT DISTINCT fingerprint_sha256 FROM known_host_keys WHERE host_id = ? AND status = 'revoked'`,
+      hostId,
+    );
+    return new Set(rows.map((r) => r.fingerprint_sha256));
+  }
+
+  /**
+   * Records a presented unknown key as pending (keeps `first_seen_at` of an existing one). A
+   * revoked fingerprint is never recorded: it is not unknown, and no prompt may offer it.
+   */
   recordPending(hostId: string, key: PresentedHostKey): Promise<void> {
     return this.#writer.run('host_key.pending', (sqlite) => {
       const now = this.#now();
+      if (this.#isRevoked(sqlite, hostId, key.fingerprint)) return;
       execute(
         sqlite,
         "DELETE FROM known_host_keys WHERE host_id = ? AND status = 'pending' AND first_seen_at <= ?",
@@ -124,7 +140,10 @@ export class SqliteHostKeyStore implements HostKeyStore {
     });
   }
 
-  /** In-flow decision (`hostkey.decision`): trusts exactly the pending key, never a pasted one. */
+  /**
+   * In-flow decision (`hostkey.decision`): trusts exactly the pending key, never a pasted one,
+   * and never a revoked one.
+   */
   async trustPending(hostId: string, fingerprint: string, decidedBy: string): Promise<boolean> {
     const outcome = await this.trust(hostId, { fingerprint, decidedBy, allowPreTrust: false });
     return outcome === 'trusted' || outcome === 'already_trusted';
@@ -165,8 +184,7 @@ export class SqliteHostKeyStore implements HostKeyStore {
       const keyType = pending?.key_type ?? opts.keyType;
       if (!keyType) return 'no_match';
       const current = this.#trustedRow(sqlite, hostId, keyType);
-      if (current) {
-        if (current.fingerprint_sha256 !== opts.fingerprint) return 'conflict';
+      if (current?.fingerprint_sha256 === opts.fingerprint) {
         if (pending) {
           if (current.public_key_b64 === null) {
             execute(
@@ -180,6 +198,9 @@ export class SqliteHostKeyStore implements HostKeyStore {
         }
         return 'already_trusted';
       }
+      // A revoked key comes back only through replace-key (explicit and name-confirmed).
+      if (this.#isRevoked(sqlite, hostId, opts.fingerprint)) return 'revoked';
+      if (current) return 'conflict';
       this.#promote(sqlite, hostId, keyType, opts.fingerprint, pending, opts.decidedBy, now);
       insertAudit(sqlite, {
         type: 'host_key.trust',
@@ -277,6 +298,29 @@ export class SqliteHostKeyStore implements HostKeyStore {
     });
   }
 
+  /**
+   * Audits a server presenting a key the owner revoked for the host (refused like a mismatch).
+   * The actor is the user whose connection observed it.
+   */
+  recordRevokedPresented(
+    hostId: string,
+    presented: { type: string; fingerprint: string },
+    actorUserId: string | null,
+    detail: Record<string, unknown> = {},
+  ): void {
+    const at = this.#now();
+    this.#writer.enqueue('host_key.revoked_presented', (sqlite) => {
+      insertAudit(sqlite, {
+        type: 'host_key.revoked_presented',
+        actorUserId,
+        targetType: 'host',
+        targetId: hostId,
+        detail: { keyType: presented.type, fingerprint: presented.fingerprint, ...detail },
+        at,
+      });
+    });
+  }
+
   /** Every key row of a host (newest first), with pending expiry resolved. */
   async list(hostId: string): Promise<HostKeyEntry[]> {
     const now = this.#now();
@@ -315,6 +359,18 @@ export class SqliteHostKeyStore implements HostKeyStore {
       keyType ?? null,
       keyType ?? null,
       now - PENDING_TTL_MS,
+    );
+  }
+
+  #isRevoked(sqlite: Sqlite, hostId: string, fingerprint: string): boolean {
+    return (
+      getRow(
+        sqlite,
+        `SELECT 1 AS revoked FROM known_host_keys
+          WHERE host_id = ? AND status = 'revoked' AND fingerprint_sha256 = ? LIMIT 1`,
+        hostId,
+        fingerprint,
+      ) !== undefined
     );
   }
 
@@ -370,8 +426,9 @@ export class SqliteHostKeyStore implements HostKeyStore {
 }
 
 /**
- * Wraps a transport factory so that every host-key mismatch observed during a session's
- * handshake is audited (the runtime records it as a session event; the audit log needs it too).
+ * Wraps a transport factory so that every host-key mismatch (and revoked key) observed during a
+ * session's handshake is audited (the runtime records it as a session event; the audit log
+ * needs it too).
  */
 export function auditHostKeyMismatches(
   inner: TransportFactory,
@@ -384,6 +441,9 @@ export function auditHostKeyMismatches(
           const hostId = record.target.hostId;
           if (decision === 'mismatch' && hostId) {
             hostKeys.recordMismatch(hostId, key, record.userId, { sessionId: record.id });
+          }
+          if (decision === 'revoked' && hostId) {
+            hostKeys.recordRevokedPresented(hostId, key, record.userId, { sessionId: record.id });
           }
           hooks.onHostKey(key, decision);
         },

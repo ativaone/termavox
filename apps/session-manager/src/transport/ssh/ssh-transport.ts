@@ -1,3 +1,4 @@
+import { Socket } from 'node:net';
 import { ErrorCode, TermdockError } from '@termdock/shared';
 import type { ClientChannel, ConnectConfig, KeyboardInteractiveCallback, Prompt } from 'ssh2';
 import ssh2 from 'ssh2';
@@ -20,6 +21,7 @@ import {
   decideKeyboardInteractive,
   type KeyboardInteractiveRequest,
 } from './keyboard-interactive.ts';
+import type { TargetPolicy } from './target-policy.ts';
 
 const { Client } = ssh2;
 
@@ -47,10 +49,15 @@ export interface SshTransportOptions {
   keepaliveIntervalMs?: number;
   keepaliveCountMax?: number;
   readyTimeoutMs?: number;
+  /**
+   * SSH target policy (plan §10.2): the daemon resolves the host itself and connects only to
+   * an address the policy allows (TARGET_NOT_ALLOWED otherwise). Unset: connects as given.
+   */
+  targetPolicy?: TargetPolicy;
 }
 
 type ConnectFailure =
-  | { kind: 'host-key'; decision: 'unknown' | 'mismatch'; key: HostKeyInfo }
+  | { kind: 'host-key'; decision: 'unknown' | 'mismatch' | 'revoked'; key: HostKeyInfo }
   | { kind: 'host-key-error'; message: string }
   | { kind: 'ki-rejected' }
   | { kind: 'ki-timeout' };
@@ -145,8 +152,9 @@ export class SshTransport implements Transport {
             );
         },
       };
-      const serverHostKey = hostKeyAlgorithms(options.preferredHostKeyTypes ?? []);
-      if (serverHostKey) config.algorithms = { serverHostKey };
+      config.algorithms = {
+        serverHostKey: hostKeyAlgorithms(options.preferredHostKeyTypes ?? []),
+      };
       const credential = options.credential;
       if (credential?.kind === 'password') config.password = credential.password;
       if (credential?.kind === 'private_key') {
@@ -232,10 +240,30 @@ export class SshTransport implements Transport {
         }
       });
 
+      const policy = options.targetPolicy;
+      let sock: Socket | null = null;
+      if (policy) {
+        let target: string;
+        try {
+          target = policy.target(options.host);
+        } catch (err) {
+          settle(err as Error);
+          return;
+        }
+        // Our own socket, so that names resolve through the policy's lookup: the address the
+        // socket connects to is one the policy allowed, from that same resolution.
+        sock = new Socket();
+        sock.setMaxListeners(0);
+        sock.connect({ host: target, port: options.port, lookup: policy.lookup });
+        config.sock = sock;
+      }
+
       try {
         client.connect(config);
       } catch (err) {
-        // ssh2 throws synchronously on unparsable keys and wrong passphrases.
+        // ssh2 throws synchronously on unparsable keys and wrong passphrases, before it takes
+        // over our socket: close it, or it would stay connected to the host.
+        sock?.destroy();
         settle(
           new TermdockError(
             ErrorCode.CredentialInvalid,
@@ -315,13 +343,19 @@ function mapConnectError(
   hostVerified: boolean,
   kiPending: boolean,
 ): Error {
+  // Refused by the target policy before any connection was made.
+  if (err instanceof TermdockError && err.code === ErrorCode.TargetNotAllowed) return err;
   if (failure?.kind === 'host-key') {
     const { key } = failure;
-    if (failure.decision === 'mismatch') {
+    if (failure.decision === 'mismatch' || failure.decision === 'revoked') {
+      const revoked = failure.decision === 'revoked';
       return new TermdockError(
         ErrorCode.HostKeyMismatch,
-        `host key mismatch: presented ${key.type} ${key.fingerprint}`,
-        { presented: { type: key.type, fingerprint: key.fingerprint } },
+        `host key mismatch: presented ${revoked ? 'revoked ' : ''}${key.type} ${key.fingerprint}`,
+        {
+          presented: { type: key.type, fingerprint: key.fingerprint },
+          ...(revoked ? { revoked: true } : {}),
+        },
       );
     }
     return new TermdockError(

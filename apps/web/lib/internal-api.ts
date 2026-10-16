@@ -342,6 +342,17 @@ function badResponse(status: number): InternalApiError {
  */
 const holder = globalThis as unknown as { __termdockInternalApi?: InternalApiClient };
 
+/**
+ * Closes WebSockets through the daemon (`auth-sessions/revoke`) for Server Actions; rejects
+ * (never throws) when the daemon or its configuration is unavailable.
+ */
+export async function revokeConnections(target: {
+  authSessionId?: string;
+  userId?: string;
+}): Promise<void> {
+  await getInternalApi().revokeAuthSessions(target);
+}
+
 export function getInternalApi(): InternalApiClient {
   if (!holder.__termdockInternalApi) {
     const config = loadWebConfig();

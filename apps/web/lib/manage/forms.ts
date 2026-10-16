@@ -65,8 +65,10 @@ export const PROFILE_ISSUES = [
   'username',
   'protection',
   'startupLong',
+  'startupControl',
   'envKey',
   'envValue',
+  'envValueControl',
   'envCount',
   'keepalive',
   'scrollback',
@@ -121,6 +123,20 @@ export const KEEPALIVE_MAX = 300;
 export const ENV_MAX = 32;
 export const ENV_KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
+/**
+ * C0 control characters other than TAB (CR, LF, NUL, ESC…). The startup command and the
+ * environment reach the host inside one quoted shell line, which cannot carry them.
+ */
+export function hasControlChars(value: string): boolean {
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i);
+    if (code < 0x20 && code !== 0x09) return true;
+  }
+  return false;
+}
+
+const singleLine = (value: string): boolean => !hasControlChars(value);
+
 export const ProfileForm = z.object({
   name: z.string().trim().min(1, 'nameRequired').max(80, 'nameLong'),
   username: z
@@ -131,12 +147,16 @@ export const ProfileForm = z.object({
     .regex(/^\S+$/, 'username'),
   credentialId: z.string().max(64).nullable(),
   protectionMode: z.enum(['auto', 'off'], { message: 'protection' }),
-  startupCommand: z.string().max(1_000, 'startupLong').nullable(),
+  startupCommand: z
+    .string()
+    .max(1_000, 'startupLong')
+    .refine(singleLine, 'startupControl')
+    .nullable(),
   env: z
     .array(
       z.object({
         key: z.string().regex(ENV_KEY_PATTERN, 'envKey'),
-        value: z.string().max(1_000, 'envValue'),
+        value: z.string().max(1_000, 'envValue').refine(singleLine, 'envValueControl'),
       }),
     )
     .max(ENV_MAX, 'envCount'),

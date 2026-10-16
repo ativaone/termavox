@@ -4,7 +4,9 @@ export type { Logger };
 
 /**
  * Keys that must never reach the logs (tickets, keystrokes, prompt answers, credential
- * material). Code never logs them on purpose; redaction is the safety net.
+ * material, profile environments and policies, which often hold API keys, and HTTP auth
+ * headers). Code never logs them on purpose; redaction is the safety net. The web logger keeps
+ * the same list (apps/web/lib/logger.ts).
  */
 export const REDACT_PATHS = [
   'ticket',
@@ -16,6 +18,11 @@ export const REDACT_PATHS = [
   'payload',
   'data',
   'input',
+  'env',
+  'policies',
+  'authorization',
+  'cookie',
+  'token',
   '*.ticket',
   '*.answers',
   '*.password',
@@ -25,6 +32,10 @@ export const REDACT_PATHS = [
   '*.payload',
   '*.data',
   '*.input',
+  '*.env',
+  '*.authorization',
+  '*.cookie',
+  '*.token',
 ];
 
 export function createLogger(level: string, name = 'session-manager'): Logger {

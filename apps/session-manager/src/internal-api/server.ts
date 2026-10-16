@@ -25,10 +25,13 @@ import { isAdmin, requireActingUser } from '../store/access.ts';
 import type { SqliteHostKeyStore } from '../store/host-key-store.ts';
 import type { SqliteSessionStore } from '../store/session-store.ts';
 import { getRow } from '../store/sqlite.ts';
+import type { TargetPolicy } from '../transport/ssh/index.ts';
 import type { CredentialService } from '../vault/credentials.ts';
 import { type HostTestDeps, testHost } from './host-test.ts';
 
 export const MAX_BODY_BYTES = 64 * 1024;
+/** Host tests per user and minute: each one opens an SSH connection to a user-chosen target. */
+export const HOST_TEST_LIMIT = { max: 10, windowMs: 60_000 } as const;
 const CLOSE_GRACE_MS = 2_000;
 
 /** What the internal API needs from the session registry (`SessionRegistry` satisfies it). */
@@ -62,10 +65,13 @@ export interface InternalApiOptions {
   connections: ConnectionRevoker;
   /** TERMDOCK_ENABLE_LOCAL_SHELL. */
   enableLocalShell: boolean;
+  /** SSH target policy for host tests (the same one sessions use). */
+  targetPolicy: TargetPolicy;
   version: string;
   startedAt?: number;
   hostTest?: Pick<HostTestDeps, 'readyTimeoutMs' | 'probeTimeoutMs'>;
   logger?: Logger;
+  now?: () => number;
 }
 
 /** An error answered with a specific HTTP status (`{ code, message }` body). */
@@ -131,6 +137,34 @@ interface Route {
 const ID = '([^/]{1,64})';
 const NO_CONTENT: Reply = { status: 204 };
 
+/** In-memory sliding-window counter per key (e.g. host tests per user). */
+export class SlidingWindowLimit {
+  readonly #hits = new Map<string, number[]>();
+  readonly #max: number;
+  readonly #windowMs: number;
+  readonly #now: () => number;
+
+  constructor(max: number, windowMs: number, now: () => number = Date.now) {
+    this.#max = max;
+    this.#windowMs = windowMs;
+    this.#now = now;
+  }
+
+  /** Counts one more for `key`; false (and not counted) when its window is already full. */
+  take(key: string): boolean {
+    const now = this.#now();
+    const since = now - this.#windowMs;
+    if (this.#hits.size > 1024) {
+      for (const [k, hits] of this.#hits) if ((hits.at(-1) ?? 0) <= since) this.#hits.delete(k);
+    }
+    const recent = (this.#hits.get(key) ?? []).filter((at) => at > since);
+    const allowed = recent.length < this.#max;
+    if (allowed) recent.push(now);
+    this.#hits.set(key, recent);
+    return allowed;
+  }
+}
+
 /**
  * Internal API (plan §8.3) on its own `node:http` listener, reachable only from web. Every
  * request needs the bearer token (missing/wrong → 401). Bodies are JSON (≤ 64 KiB), validated
@@ -147,12 +181,18 @@ export class InternalApi {
   readonly #routes: Route[];
   readonly #log: Logger;
   readonly #startedAt: number;
+  readonly #hostTests: SlidingWindowLimit;
 
   constructor(options: InternalApiOptions) {
     this.#options = options;
     this.#tokenDigest = tokenDigest(options.token);
     this.#log = (options.logger ?? silentLogger()).child({ component: 'internal-api' });
     this.#startedAt = options.startedAt ?? Date.now();
+    this.#hostTests = new SlidingWindowLimit(
+      HOST_TEST_LIMIT.max,
+      HOST_TEST_LIMIT.windowMs,
+      options.now,
+    );
     this.#routes = this.#buildRoutes();
     this.#server = createServer({ requestTimeout: 60_000, headersTimeout: 10_000 }, (req, res) => {
       void this.#handle(req, res);
@@ -382,11 +422,18 @@ export class InternalApi {
 
   async #testHost(ctx: RequestContext): Promise<Reply> {
     const body = parse(HostTestRequest, ctx.body);
+    if (!this.#hostTests.take(body.actingUserId)) {
+      throw new TermdockError(
+        ErrorCode.RateLimited,
+        `at most ${HOST_TEST_LIMIT.max} host tests per minute; try again shortly`,
+      );
+    }
     const result = await testHost(
       {
         db: this.#options.db,
         hostKeys: this.#options.hostKeys,
         credentials: this.#options.credentialProvider,
+        targetPolicy: this.#options.targetPolicy,
         ...this.#options.hostTest,
       },
       { actingUserId: body.actingUserId, hostId: ctx.params[0]!, profileId: body.profileId },
@@ -407,6 +454,12 @@ export class InternalApi {
       throw new TermdockError(
         ErrorCode.Conflict,
         'another key of this type is trusted for the host; use replace-key',
+      );
+    }
+    if (outcome === 'revoked') {
+      throw new TermdockError(
+        ErrorCode.Conflict,
+        'this key was revoked for the host; only replace-key can trust it again',
       );
     }
     return NO_CONTENT;

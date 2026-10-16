@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AUTH_PROMPT_LIMITS,
   decodeFrame,
   encodeFrame,
   FrameType,
+  isControlChar,
+  isInvisibleFormatChar,
   NonceCache,
   parseClientMessage,
+  parseServerMessage,
   signTicket,
   toSessionStatus,
   verifyTicket,
@@ -41,6 +45,60 @@ describe('control messages', () => {
       type: 'terminal.activate',
       channel: 3,
     });
+  });
+
+  it('caps keyboard-interactive text (L2) and carries the optional revoked flag (M2)', () => {
+    const prompt = (patch: Record<string, unknown>) =>
+      JSON.stringify({
+        type: 'auth.prompt',
+        sessionId: 's1',
+        promptId: 'p1',
+        name: 'Host',
+        instructions: 'Use your token',
+        prompts: [{ text: 'OTP: ', echo: false }],
+        ...patch,
+      });
+    expect(parseServerMessage(prompt({}))).toMatchObject({ type: 'auth.prompt' });
+    const long = (n: number) => 'x'.repeat(n + 1);
+    expect(() => parseServerMessage(prompt({ name: long(AUTH_PROMPT_LIMITS.name) }))).toThrow();
+    expect(() =>
+      parseServerMessage(prompt({ instructions: long(AUTH_PROMPT_LIMITS.instructions) })),
+    ).toThrow();
+    expect(() =>
+      parseServerMessage(
+        prompt({ prompts: [{ text: long(AUTH_PROMPT_LIMITS.text), echo: true }] }),
+      ),
+    ).toThrow();
+    const many = Array.from({ length: AUTH_PROMPT_LIMITS.prompts + 1 }, () => ({
+      text: 'Q',
+      echo: true,
+    }));
+    expect(() => parseServerMessage(prompt({ prompts: many }))).toThrow();
+
+    const hostKey = { type: 'hostkey.prompt', sessionId: 's1', keyType: 'ssh-ed25519' };
+    const fingerprint = `SHA256:${'A'.repeat(43)}`;
+    expect(
+      parseServerMessage(
+        JSON.stringify({ ...hostKey, fingerprint, mismatch: true, revoked: true }),
+      ),
+    ).toMatchObject({ mismatch: true, revoked: true });
+    expect(
+      parseServerMessage(JSON.stringify({ ...hostKey, fingerprint, mismatch: false })),
+    ).not.toHaveProperty('revoked');
+  });
+});
+
+describe('remote text character classes (L2, L9)', () => {
+  it('names the invisible formatting characters both sides strip', () => {
+    const invisible = [0x200b, 0x200c, 0x200d, 0x200e, 0x200f, 0x202a, 0x202e, 0x2066, 0x2069];
+    for (const code of [...invisible, 0xfeff]) expect(isInvisibleFormatChar(code)).toBe(true);
+    for (const code of [0x200a, 0x2010, 0x2029, 0x202f, 0x2065, 0x206a, 0x41, 0x4e2d]) {
+      expect(isInvisibleFormatChar(code)).toBe(false);
+    }
+    for (const code of [0x00, 0x09, 0x0a, 0x1b, 0x1f, 0x7f, 0x80, 0x9f]) {
+      expect(isControlChar(code)).toBe(true);
+    }
+    for (const code of [0x20, 0x7e, 0xa0]) expect(isControlChar(code)).toBe(false);
   });
 });
 

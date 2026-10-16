@@ -11,6 +11,27 @@ import { resetTotp } from './queries.ts';
  * through the auth gate first; Server Actions call these and map TermdockError to their result.
  */
 
+/**
+ * Closes the WebSockets of an auth session or of a user right away (internal API
+ * `auth-sessions/revoke`) instead of at the daemon's next 60 s revalidation.
+ */
+export type ConnectionRevoker = (target: {
+  authSessionId?: string;
+  userId?: string;
+}) => Promise<void>;
+
+/** Best effort: when the daemon is unreachable, its revalidation closes them within 60 s. */
+async function revokeQuietly(
+  revoke: ConnectionRevoker | undefined,
+  target: { authSessionId?: string; userId?: string },
+): Promise<void> {
+  try {
+    await revoke?.(target);
+  } catch {
+    // revalidation fallback
+  }
+}
+
 /** Gate + role check for admin operations. */
 export async function requireAdmin(deps: GateDeps, headers: Headers): Promise<AuthSession> {
   const gate = await authGate(deps, headers);
@@ -24,12 +45,16 @@ export async function requireAdmin(deps: GateDeps, headers: Headers): Promise<Au
 
 /**
  * The user's own password change, also the way out of a forced change (`mustChangePassword`;
- * Termdock's after-hook on `/change-password` clears the flag). Other sessions are revoked.
+ * Termdock's after-hook on `/change-password` clears the flag). Other sessions are revoked:
+ * Better Auth deletes every auth session of the user, the current one included, and signs this
+ * browser in again with a new one. So every WebSocket open until now belongs to a deleted
+ * session, and all of the user's WebSockets are closed.
  */
 export async function changePassword(
   deps: GateDeps,
   headers: Headers,
   input: { currentPassword: string; newPassword: string },
+  revokeConnections?: ConnectionRevoker,
 ): Promise<void> {
   const gate = await authGate(deps, headers, { allow: ['password-change', 'totp-enrollment'] });
   if (!gate.ok && !('user' in gate)) {
@@ -38,6 +63,18 @@ export async function changePassword(
   await call(() =>
     deps.auth.api.changePassword({ headers, body: { ...input, revokeOtherSessions: true } }),
   );
+  await revokeQuietly(revokeConnections, { userId: gate.user.id });
+}
+
+/** Signs out the current auth session and closes its WebSockets. */
+export async function signOutSession(
+  deps: GateDeps,
+  headers: Headers,
+  revokeConnections?: ConnectionRevoker,
+): Promise<void> {
+  const current = await deps.auth.api.getSession({ headers }).catch(() => null);
+  await call(() => deps.auth.api.signOut({ headers }));
+  if (current) await revokeQuietly(revokeConnections, { authSessionId: current.session.id });
 }
 
 export const NewUserInput = z.object({

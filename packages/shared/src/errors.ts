@@ -16,6 +16,10 @@ export const ErrorCode = {
   AuthTimeout: 'AUTH_TIMEOUT',
   CredentialInvalid: 'CREDENTIAL_INVALID',
   LocalShellDisabled: 'LOCAL_SHELL_DISABLED',
+  /** A launch parameter (profile or probe value) cannot be passed to the remote safely. */
+  BadLaunchParams: 'BAD_LAUNCH_PARAMS',
+  /** The SSH target resolves only to addresses the daemon's target policy denies. */
+  TargetNotAllowed: 'TARGET_NOT_ALLOWED',
   SessionEnded: 'SESSION_ENDED',
   Internal: 'INTERNAL',
 } as const;

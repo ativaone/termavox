@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { matchAcceptLanguage, resolveLocale } from '../i18n/locales.ts';
+import { FAILURE_KEYS } from '../lib/sessions/reasons.ts';
 import en from '../messages/en.json' with { type: 'json' };
 import ptBR from '../messages/pt-BR.json' with { type: 'json' };
 
@@ -16,6 +17,21 @@ describe('message catalogs (plan §8.4)', () => {
     const ptKeys = keys(ptBR).sort();
     expect(ptKeys.filter((k) => !enKeys.includes(k))).toEqual([]);
     expect(enKeys.filter((k) => !ptKeys.includes(k))).toEqual([]);
+  });
+
+  it('words every failure code a session can stop with, new ones included', () => {
+    expect(FAILURE_KEYS).toMatchObject({
+      BAD_LAUNCH_PARAMS: 'badLaunchParams',
+      TARGET_NOT_ALLOWED: 'targetNotAllowed',
+    });
+    for (const catalog of [en, ptBR]) {
+      for (const key of Object.values(FAILURE_KEYS)) {
+        expect(catalog.workspace.failure).toHaveProperty(key);
+      }
+      for (const code of ['TARGET_NOT_ALLOWED', 'PROBE_TOO_LARGE']) {
+        expect(catalog.hosts.diagnostics.code).toHaveProperty(code);
+      }
+    }
   });
 
   it('has no empty messages', () => {

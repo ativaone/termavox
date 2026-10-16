@@ -30,6 +30,7 @@ const KNOWN_EVENTS = [
   'host_key_unknown',
   'host_key_rejected',
   'host_key_mismatch',
+  'host_key_revoked_presented',
   'auth_prompt',
   'auth_prompt_expired',
   'protection_selected',
@@ -124,7 +125,8 @@ export default async function ActivityPage({
       case 'host_key_rejected':
       case 'host_key_trusted':
       case 'host_key_expired':
-      case 'host_key_mismatch': {
+      case 'host_key_mismatch':
+      case 'host_key_revoked_presented': {
         const keyType = detail.keyType ?? detail.type;
         return join(
           typeof keyType === 'string' ? keyType : null,

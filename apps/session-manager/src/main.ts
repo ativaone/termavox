@@ -21,6 +21,7 @@ import { BatchedWriter } from './store/batched-writer.ts';
 import { auditHostKeyMismatches, SqliteHostKeyStore } from './store/host-key-store.ts';
 import { SqliteSessionStore } from './store/session-store.ts';
 import { ensureInstallationId } from './store/settings.ts';
+import { TargetPolicy } from './transport/ssh/index.ts';
 import { CredentialService, VaultCredentialProvider } from './vault/credentials.ts';
 import { ensureVaultKeyCheck, Vault } from './vault/vault.ts';
 
@@ -79,6 +80,8 @@ export async function startDaemon(
     const credentialProvider = new VaultCredentialProvider({ db, writer, vault });
     const credentials = new CredentialService({ db, writer, vault });
     const ownership = new SqliteOwnership(db);
+    // One policy for sessions and host tests (plan §10.2).
+    const targetPolicy = new TargetPolicy({ allowLocalTargets: config.sshAllowLocalTargets });
     plane = createDataPlane({
       publicOrigin: config.publicOrigin,
       ws: { host: config.wsHost, port: config.wsPort, trustedProxies: config.trustedProxies },
@@ -90,7 +93,7 @@ export async function startDaemon(
       ownership,
       authSessions: new SqliteAuthSessionValidator(db),
       transports: auditHostKeyMismatches(
-        new SshTransportFactory({ hostKeys, credentials: credentialProvider }),
+        new SshTransportFactory({ hostKeys, credentials: credentialProvider, targetPolicy }),
         hostKeys,
       ),
       tmuxControl: (opts) => new TmuxControlDriver(opts),
@@ -112,6 +115,7 @@ export async function startDaemon(
       registry: plane.registry,
       connections: plane.ws,
       enableLocalShell: config.enableLocalShell,
+      targetPolicy,
       version: VERSION,
       logger: log,
       ...(overrides.hostTest ? { hostTest: overrides.hostTest } : {}),

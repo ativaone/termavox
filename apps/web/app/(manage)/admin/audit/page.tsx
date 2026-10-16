@@ -48,6 +48,7 @@ const KNOWN_TYPES = new Set([
   'host_key.replace',
   'host_key.revoke',
   'host_key.mismatch',
+  'host_key.revoked_presented',
 ]);
 
 /** Message keys cannot contain dots (next-intl nesting), so `auth.lockout` reads `auth_lockout`. */
@@ -74,7 +75,8 @@ type AuditTypeKey =
   | 'host_key_trust'
   | 'host_key_replace'
   | 'host_key_revoke'
-  | 'host_key_mismatch';
+  | 'host_key_mismatch'
+  | 'host_key_revoked_presented';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

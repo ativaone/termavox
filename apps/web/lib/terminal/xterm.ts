@@ -18,7 +18,10 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { type ITerminalOptions, Terminal } from '@xterm/xterm';
 import type { Size } from './layout.ts';
+import { hyperlinkHandler, type LinkConfirm, openLink } from './links.ts';
 import type { Dimensions, Disposable } from './types.ts';
+
+export type { LinkConfirm } from './links.ts';
 
 /** Rendering-only options the UI may set. Cursor style/blink are terminal state, not listed. */
 export type TerminalAppearance = Pick<
@@ -34,9 +37,6 @@ export type TerminalAppearance = Pick<
   | 'minimumContrastRatio'
   | 'drawBoldTextInBrightColors'
 >;
-
-/** Decides whether a clicked link opens (the UI shows its confirmation). */
-export type LinkConfirm = (uri: string) => boolean | Promise<boolean>;
 
 export interface BrowserTerminalOptions {
   appearance?: TerminalAppearance;
@@ -67,16 +67,6 @@ interface RenderInternals {
   _core?: { _renderService?: { dimensions?: { css?: { cell?: Size } } } };
 }
 
-function openLink(uri: string, confirm: LinkConfirm | undefined): void {
-  if (!confirm || !/^https?:\/\//i.test(uri)) return;
-  void Promise.resolve(confirm(uri)).then(
-    (ok) => {
-      if (ok) window.open(uri, '_blank', 'noopener,noreferrer');
-    },
-    () => {},
-  );
-}
-
 /** Creates the terminal inside `container` (which should be empty and sized by the layout). */
 export function createBrowserTerminal(
   container: HTMLElement,
@@ -87,6 +77,8 @@ export function createBrowserTerminal(
     ...sharedTerminalOptions,
     // Resized to the session's scrollbackLines when `session.attached` arrives.
     scrollback: DEFAULT_SCROLLBACK,
+    // OSC 8 hyperlinks follow the same confirmation and http(s) filter as plain-text links.
+    linkHandler: hyperlinkHandler(options.confirmLink),
   });
   terminal.loadAddon(new Unicode11Addon());
   terminal.unicode.activeVersion = UNICODE_VERSION;

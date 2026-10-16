@@ -8,7 +8,8 @@
 #   TERMDOCK_HTTPS_PORT  HTTPS listener, also the published host port (default: 443)
 #   TERMDOCK_TLS         auto (default) | internal, see the tls_* snippets below
 #
-# Security headers (CSP, Referrer-Policy, nosniff) come from the apps; only HSTS is added here.
+# Security headers (CSP, Referrer-Policy, nosniff, Permissions-Policy, Cross-Origin-Opener-Policy)
+# come from web and pass through unchanged; only HSTS is added here.
 {
 	http_port {$TERMDOCK_HTTP_PORT:80}
 	https_port {$TERMDOCK_HTTPS_PORT:443}

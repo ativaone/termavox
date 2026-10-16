@@ -70,16 +70,3 @@ export function useWorkspace(): WorkspaceContextValue {
   if (!value) throw new Error('useWorkspace outside the workspace shell');
   return value;
 }
-
-/** Terminal titles come sanitized from the daemon; this also drops controls and caps the length. */
-export function cleanTitle(title: string): string | null {
-  const text = Array.from(title)
-    .filter((ch) => {
-      const code = ch.codePointAt(0) ?? 0;
-      return code >= 0x20 && code !== 0x7f && !(code >= 0x80 && code < 0xa0);
-    })
-    .join('')
-    .replace(/\s+/g, ' ')
-    .trim();
-  return text ? text.slice(0, 120) : null;
-}

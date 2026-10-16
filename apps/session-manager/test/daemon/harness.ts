@@ -44,6 +44,8 @@ export class DaemonFixture {
       internalHost: '127.0.0.1',
       internalPort: 0,
       enableLocalShell: false,
+      // The test sshd containers listen on 127.0.0.1, a local target refused by default.
+      sshAllowLocalTargets: true,
       dbFile: join(this.dir, 'app.db'),
     };
   }

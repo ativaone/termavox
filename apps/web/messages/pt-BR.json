@@ -292,12 +292,14 @@
     "mismatch": {
       "title": "A chave do host mudou",
       "body": "{host} apresentou uma chave diferente da confiável. Alguém pode estar interceptando a conexão, então o Termdock se recusou a conectar.",
+      "revokedBody": "{host} apresentou uma chave que você revogou. O Termdock se recusou a conectar.",
       "presented": "Apresentada",
       "review": "Revisar as chaves na página do host"
     },
     "auth": {
       "title": "O host pede que você entre",
-      "body": "Responda ao pedido de {target}. As respostas vão para o host e nunca são guardadas.",
+      "asks": "O host {target} pergunta:",
+      "note": "As respostas vão para o host e nunca são guardadas.",
       "answer": "Resposta {n}",
       "submit": "Enviar"
     },
@@ -310,6 +312,8 @@
       "forbidden": "Sua conta não tem permissão para abrir esta sessão.",
       "localShellDisabled": "Shells locais estão desativados nesta instalação.",
       "hostKeyMismatch": "O host apresentou uma chave diferente da confiável.",
+      "badLaunchParams": "O comando de inicialização ou o ambiente do perfil contém caracteres que o Termdock não consegue passar ao host com segurança. Edite o perfil e tente de novo.",
+      "targetNotAllowed": "O endereço do host é o próprio servidor do Termdock ou um endereço de loopback, link-local ou multicast, o que esta instalação não permite.",
       "generic": "A conexão falhou e não será tentada de novo automaticamente."
     },
     "endReason": {
@@ -559,8 +563,10 @@
         "credential": "Escolha uma das suas credenciais.",
         "protection": "Escolha um modo de proteção.",
         "startupLong": "Use no máximo 1000 caracteres.",
+        "startupControl": "Use uma única linha, sem caracteres de controle (tabulações são permitidas).",
         "envKey": "Nomes de variáveis usam letras, dígitos e sublinhados, e não podem começar com dígito.",
         "envValue": "Valores de variáveis podem ter no máximo 1000 caracteres.",
+        "envValueControl": "Valores de variáveis devem ter uma única linha, sem caracteres de controle (tabulações são permitidas).",
         "envCount": "Use no máximo 32 variáveis.",
         "envDuplicate": "Cada nome de variável só pode aparecer uma vez.",
         "keepalive": "Use um número inteiro de segundos de 5 a 300.",
@@ -600,11 +606,13 @@
       },
       "code": {
         "HOST_UNREACHABLE": "Confira o nome do host e a porta, e se o servidor do Termdock consegue alcançar o host.",
+        "TARGET_NOT_ALLOWED": "Esta instalação não permite conectar a este endereço: ele é o próprio servidor do Termdock, ou um endereço de loopback, link-local ou multicast.",
         "HOST_KEY_MISMATCH": "A chave apresentada não confere com a chave confiada.",
         "AUTH_REJECTED": "O host recusou o usuário ou a credencial do perfil.",
         "AUTH_TIMEOUT": "O login demorou demais. O host pode estar esperando uma resposta interativa.",
         "CREDENTIAL_INVALID": "Não foi possível usar a credencial do perfil.",
         "PROBE_TIMEOUT": "A sondagem de recursos demorou demais para responder.",
+        "PROBE_TOO_LARGE": "A sondagem de recursos produziu mais saída do que o Termdock lê.",
         "CONNECTION_LOST": "A conexão caiu durante a verificação.",
         "OTHER": "A verificação falhou. Tente de novo."
       },
@@ -660,7 +668,7 @@
       "error": {
         "profile": "Escolha um dos perfis deste host.",
         "notFound": "Este host não existe mais.",
-        "trustConflict": "Outra chave deste tipo já é confiada. Use Substituir chave confiada.",
+        "trustConflict": "Outra chave deste tipo já é confiada, ou esta chave foi revogada para o host. Use Substituir chave confiada.",
         "keyNotFound": "Essa chave não está mais pendente. Use Buscar e verificar de novo.",
         "fingerprint": "Informe uma impressão digital SHA256 (43 caracteres depois de SHA256:).",
         "confirmName": "Digite o nome do host exatamente.",
@@ -669,6 +677,7 @@
         "conflict": "As chaves do host mudaram nesse meio-tempo. Recarregue a página.",
         "forbidden": "Sua conta não tem permissão para isso.",
         "limit": "Muitas solicitações. Aguarde um pouco.",
+        "testLimit": "Verificações demais no último minuto. Aguarde um pouco e tente de novo.",
         "rejected": "O serviço de sessões recusou a solicitação.",
         "generic": "Algo deu errado. Tente de novo."
       }
@@ -848,6 +857,7 @@
       "host_key_unknown": "Chave de host desconhecida",
       "host_key_rejected": "Chave de host recusada",
       "host_key_mismatch": "Chave de host divergente",
+      "host_key_revoked_presented": "Chave de host revogada apresentada",
       "auth_prompt": "Pedido de login",
       "auth_prompt_expired": "Pedido de login expirado",
       "protection_selected": "Proteção definida",
@@ -1026,7 +1036,7 @@
       },
       "totpReset": {
         "title": "Verificação em duas etapas",
-        "intro": "Redefinir remove o autenticador e os dispositivos confiáveis do usuário. Se a verificação em duas etapas for obrigatória, ele a configura de novo no próximo login.",
+        "intro": "Redefinir remove o autenticador e os dispositivos confiáveis do usuário, e o desconecta de todos os lugares. Se a verificação em duas etapas for obrigatória, ele a configura de novo no próximo login.",
         "notEnrolled": "O usuário não configurou a verificação em duas etapas.",
         "label": "Redefinir verificação em duas etapas…",
         "question": "Redefinir a verificação em duas etapas de {username}? O autenticador e os códigos de backup deixam de funcionar.",
@@ -1134,7 +1144,8 @@
         "host_key_trust": "Chave de host confiada",
         "host_key_replace": "Chave de host substituída",
         "host_key_revoke": "Chave de host revogada",
-        "host_key_mismatch": "Chave de host divergente"
+        "host_key_mismatch": "Chave de host divergente",
+        "host_key_revoked_presented": "Chave de host revogada apresentada"
       },
       "details": {
         "key": {

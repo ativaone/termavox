@@ -4,11 +4,15 @@
  * Quoting layers of the launch command:
  *   1. the user's login shell (sh, bash, zsh, fish, csh…) parses `exec sh -c '<script>'`;
  *   2. `sh` parses the script (POSIX);
- *   3. tmux receives its argv and splits commands on `;` arguments;
+ *   3. tmux receives its argv and splits commands on `;` arguments (see tmuxArg);
  *   4. tmux runs the pane command with `default-shell -c` (the user's $SHELL again).
  * Layers 1 and 4 may be fish or csh, so `shQuote` only emits constructs those shells read the
  * same way as POSIX sh (see shQuote), and remote scripts stay on one line.
+ *
+ * A value the builders cannot pass safely throws BadLaunchParamsError (a RangeError): the
+ * runtime fails the session instead of reconnecting, since a retry would only repeat it.
  */
+import { BadLaunchParamsError } from '../../core/types.ts';
 
 /** Session name inside every Termdock tmux server. */
 export const TMUX_SESSION = 'main';
@@ -26,7 +30,7 @@ const SOCKET_NAME = /^[a-z0-9-]{1,64}$/;
  */
 export function shQuote(value: string): string {
   if (value.includes('\n') || value.includes('\r') || value.includes('\0')) {
-    throw new RangeError('shQuote: value must be a single line without NUL');
+    throw new BadLaunchParamsError('shQuote: value must be a single line without NUL');
   }
   if (SAFE_WORD.test(value)) return value;
   let out = "'";
@@ -83,18 +87,30 @@ export interface LaunchOptions {
 
 function assertAbsolutePath(path: string): void {
   if (!path.startsWith('/') || !SAFE_WORD.test(path)) {
-    throw new RangeError(`invalid tmux path: ${path}`);
+    throw new BadLaunchParamsError(`invalid tmux path: ${path}`);
   }
 }
 
 function assertSocket(socket: string): void {
-  if (!SOCKET_NAME.test(socket)) throw new RangeError(`invalid tmux socket name: ${socket}`);
+  if (!SOCKET_NAME.test(socket)) {
+    throw new BadLaunchParamsError(`invalid tmux socket name: ${socket}`);
+  }
 }
 
 function assertDimension(name: string, value: number): void {
   if (!Number.isInteger(value) || value < 1 || value > 10_000) {
     throw new RangeError(`invalid ${name}: ${value}`);
   }
+}
+
+/**
+ * One argument of the launch argv as tmux must receive it (layer 3). tmux ends a command at any
+ * argument whose last character is `;`, unless it ends in `\;`, which tmux turns into `;`. So a
+ * trailing `;` gets a backslash in front that tmux consumes: the values `a;` and `a\;` are sent
+ * as `a\;` and `a\\;` and arrive unchanged.
+ */
+export function tmuxArg(value: string): string {
+  return value.endsWith(';') ? `${value.slice(0, -1)}\\;` : value;
 }
 
 /** The pane command: the user's login shell, with our tmux variables removed (plan §6.3). */
@@ -116,14 +132,16 @@ export const SESSION_CREATED_MARKER = 'td-created';
  */
 export function launchCommands(opts: LaunchOptions): string[] {
   if (!Number.isInteger(opts.historyLimit) || opts.historyLimit < 0) {
-    throw new RangeError(`invalid history limit: ${opts.historyLimit}`);
+    throw new BadLaunchParamsError(`invalid history limit: ${opts.historyLimit}`);
   }
   assertDimension('cols', opts.cols);
   assertDimension('rows', opts.rows);
   const envArgs: string[] = [];
   for (const [key, value] of Object.entries(opts.env ?? {})) {
-    if (!ENV_KEY.test(key)) throw new RangeError(`invalid environment variable name: ${key}`);
-    envArgs.push('-e', shQuote(`${key}=${value}`));
+    if (!ENV_KEY.test(key)) {
+      throw new BadLaunchParamsError(`invalid environment variable name: ${key}`);
+    }
+    envArgs.push('-e', shQuote(tmuxArg(`${key}=${value}`)));
   }
   return [
     'start-server',
@@ -141,7 +159,7 @@ export function launchCommands(opts: LaunchOptions): string[] {
       `new-session -A -P -F ${SESSION_CREATED_MARKER} -s ${TMUX_SESSION}`,
       `-x ${opts.cols} -y ${opts.rows}`,
       ...envArgs,
-      shQuote(paneCommand(opts.startupCommand)),
+      shQuote(tmuxArg(paneCommand(opts.startupCommand))),
     ].join(' '),
   ];
 }
@@ -150,8 +168,9 @@ export function launchCommands(opts: LaunchOptions): string[] {
 export function launchScript(opts: LaunchOptions): string {
   assertAbsolutePath(opts.tmuxPath);
   assertSocket(opts.socket);
-  if (!/^[A-Za-z0-9_.@-]+$/.test(opts.locale))
-    throw new RangeError(`invalid locale: ${opts.locale}`);
+  if (!/^[A-Za-z0-9_.@-]+$/.test(opts.locale)) {
+    throw new BadLaunchParamsError(`invalid locale: ${opts.locale}`);
+  }
   const tmux = opts.systemdRun
     ? `systemd-run --user --scope --quiet ${opts.tmuxPath}`
     : opts.tmuxPath;

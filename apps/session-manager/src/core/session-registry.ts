@@ -15,6 +15,12 @@ export const RESTORE_CONCURRENCY = 4;
 export const RESTORE_HOST_SPACING_MS = 500;
 /** Daemon shutdown budget for the runtimes (inside compose's 30 s grace period). */
 export const SHUTDOWN_BUDGET_MS = 20_000;
+/**
+ * A runtime that is idle (session not meant to run, nobody attached) this long is disposed: an
+ * attach to an ended session loads a runtime with its own emulator, and nothing else would ever
+ * free it. A later attach simply loads the session again.
+ */
+export const RUNTIME_IDLE_TTL_MS = 60_000;
 
 export interface SessionRegistryOptions {
   store: SessionStore;
@@ -26,6 +32,8 @@ export interface SessionRegistryOptions {
   logger?: Logger;
   restoreConcurrency?: number;
   restoreHostSpacingMs?: number;
+  /** Default RUNTIME_IDLE_TTL_MS. */
+  idleTtlMs?: number;
   /** Extra runtime options (timings in tests). */
   runtime?: Partial<
     Pick<
@@ -38,6 +46,12 @@ export interface SessionRegistryOptions {
 /**
  * Owns every session runtime of the process. The internal API (create/terminate/retry/reopen)
  * and the WebSocket server reach sessions only through here.
+ *
+ * Eviction: a runtime that reports itself idle gets a timer; when it fires and the runtime is
+ * still idle, still the session's runtime and not in use by a registry operation (pinned), it
+ * leaves the map first and is disposed after. The map entry is the only way to reach a runtime,
+ * so a later attach loads a fresh one, never the disposed one, and never a second one while the
+ * first is live. Timers stop at shutdown.
  */
 export class SessionRegistry {
   readonly #options: SessionRegistryOptions;
@@ -45,11 +59,16 @@ export class SessionRegistry {
   readonly #loading = new Map<string, Promise<SessionRuntime | null>>();
   /** Sessions queued for boot restore and not started yet. */
   readonly #pendingRestore = new Set<string>();
+  readonly #evictions = new Map<string, ReturnType<typeof setTimeout>>();
+  /** Registry operations in progress per session: their runtime is never evicted meanwhile. */
+  readonly #pins = new Map<string, number>();
+  readonly #idleTtlMs: number;
   readonly #log: Logger;
   #closed = false;
 
   constructor(options: SessionRegistryOptions) {
     this.#options = options;
+    this.#idleTtlMs = options.idleTtlMs ?? RUNTIME_IDLE_TTL_MS;
     this.#log = options.logger ?? silentLogger();
   }
 
@@ -120,13 +139,17 @@ export class SessionRegistry {
   }
 
   async terminate(sessionId: string, actingUserId: string): Promise<void> {
-    const runtime = await this.#owned(sessionId, actingUserId);
-    await runtime.terminate();
+    await this.#pinned(sessionId, async () => {
+      const runtime = await this.#owned(sessionId, actingUserId);
+      await runtime.terminate();
+    });
   }
 
   async retry(sessionId: string, actingUserId: string): Promise<void> {
-    const runtime = await this.#owned(sessionId, actingUserId);
-    await runtime.retry();
+    await this.#pinned(sessionId, async () => {
+      const runtime = await this.#owned(sessionId, actingUserId);
+      await runtime.retry();
+    });
   }
 
   /**
@@ -134,6 +157,10 @@ export class SessionRegistry {
    * `none`; attachments move to the new runtime and get a fresh snapshot; seq continues.
    */
   async reopen(sessionId: string, actingUserId: string): Promise<{ sessionId: string }> {
+    return this.#pinned(sessionId, () => this.#reopen(sessionId, actingUserId));
+  }
+
+  async #reopen(sessionId: string, actingUserId: string): Promise<{ sessionId: string }> {
     const old = await this.#owned(sessionId, actingUserId);
     if (old.state !== 'ended' && old.protection !== 'none') {
       throw new TermdockError(
@@ -210,6 +237,8 @@ export class SessionRegistry {
   /** Graceful shutdown of every runtime, bounded by the shutdown budget. */
   async shutdown(budgetMs = SHUTDOWN_BUDGET_MS): Promise<void> {
     this.#closed = true;
+    for (const eviction of this.#evictions.values()) clearTimeout(eviction);
+    this.#evictions.clear();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const budget = new Promise<void>((resolve) => {
       timer = setTimeout(resolve, budgetMs);
@@ -234,11 +263,49 @@ export class SessionRegistry {
       installationId,
       logger: this.#log,
       onSummaryChange: () => void this.#publishUpsert(record),
+      onIdle: () => this.#scheduleEviction(record.id),
       ...this.#options.runtime,
       ...extra,
     });
     this.#runtimes.set(record.id, runtime);
     return runtime;
+  }
+
+  /** (Re)starts the idle timer of a session's runtime; the check happens when it fires. */
+  #scheduleEviction(sessionId: string): void {
+    if (this.#closed) return;
+    clearTimeout(this.#evictions.get(sessionId));
+    const timer = setTimeout(() => {
+      if (this.#evictions.get(sessionId) === timer) this.#evictions.delete(sessionId);
+      this.#evict(sessionId);
+    }, this.#idleTtlMs);
+    timer.unref?.();
+    this.#evictions.set(sessionId, timer);
+  }
+
+  #evict(sessionId: string): void {
+    const runtime = this.#runtimes.get(sessionId);
+    if (this.#closed || !runtime?.idle || this.#pins.has(sessionId)) return;
+    // Out of the map first: from now on an attach loads the session again.
+    this.#runtimes.delete(sessionId);
+    void runtime
+      .shutdown()
+      .catch((err) => this.#log.warn({ err, sessionId }, 'evicted runtime shutdown failed'))
+      .finally(() => runtime.dispose());
+  }
+
+  /** Runs a registry operation with the session's runtime protected from eviction. */
+  async #pinned<T>(sessionId: string, operation: () => Promise<T>): Promise<T> {
+    this.#pins.set(sessionId, (this.#pins.get(sessionId) ?? 0) + 1);
+    try {
+      return await operation();
+    } finally {
+      const left = (this.#pins.get(sessionId) ?? 1) - 1;
+      if (left > 0) this.#pins.set(sessionId, left);
+      else this.#pins.delete(sessionId);
+      // An eviction skipped while pinned would never come back: re-arm it.
+      if (left === 0 && this.#runtimes.get(sessionId)?.idle) this.#scheduleEviction(sessionId);
+    }
   }
 
   async #load(sessionId: string): Promise<SessionRuntime | null> {
@@ -251,8 +318,13 @@ export class SessionRegistry {
         .get(sessionId)
         .then((record) => {
           if (!record) return null;
+          const live = this.#runtimes.get(sessionId);
+          if (live) return live;
           const restored = this.#pendingRestore.has(sessionId);
-          return this.#runtimes.get(sessionId) ?? this.#spawn(record, { restored });
+          const runtime = this.#spawn(record, { restored });
+          // Loaded for an attach or an operation: unless it gets used, it is idle from now.
+          if (runtime.idle) this.#scheduleEviction(sessionId);
+          return runtime;
         })
         .finally(() => this.#loading.delete(sessionId));
       this.#loading.set(sessionId, loading);

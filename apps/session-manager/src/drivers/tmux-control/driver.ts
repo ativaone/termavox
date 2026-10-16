@@ -271,13 +271,16 @@ export class TmuxControlDriver implements Driver {
       startupCommand: typedStartup ? null : this.#opts.startupCommand,
       systemdRun: logindPolicy(probe).systemdRun,
     };
-    this.#launchBlocks = launchCommands(launch).length;
     this.#launch = deferred<boolean>();
     try {
+      // Built (and so validated) before any remote exec: a value the builders refuse
+      // (BadLaunchParamsError) rejects here, through the same cleanup as any failed start.
+      const command = launchCommand(launch);
+      this.#launchBlocks = launchCommands(launch).length;
       // A reattach first makes sure a server whose socket was deleted is reachable again, so the
       // launch does not start a second server and report a reboot (plan §6.10).
       if (this.#opts.previousIdentity !== null) await this.#recoverSocket(ctx.transport);
-      const channel = await ctx.transport.exec(launchCommand(launch));
+      const channel = await ctx.transport.exec(command);
       this.#channel = channel;
       if (this.#pausedBy.size > 0) channel.pause();
       this.#correlator = new CommandCorrelator((line) => this.#write(`${line}\n`));

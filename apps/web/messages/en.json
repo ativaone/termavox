@@ -292,12 +292,14 @@
     "mismatch": {
       "title": "Host key changed",
       "body": "{host} presented a key that doesn't match the trusted one. Someone may be intercepting the connection, so Termdock refused to connect.",
+      "revokedBody": "{host} presented a key you revoked. Termdock refused to connect.",
       "presented": "Presented",
       "review": "Review the keys on the host page"
     },
     "auth": {
       "title": "The host asks you to sign in",
-      "body": "Answer the prompt for {target}. Answers go to the host and are never stored.",
+      "asks": "Host {target} asks:",
+      "note": "Answers go to the host and are never stored.",
       "answer": "Answer {n}",
       "submit": "Send"
     },
@@ -310,6 +312,8 @@
       "forbidden": "Your account isn't allowed to open this session.",
       "localShellDisabled": "Local shells are turned off on this installation.",
       "hostKeyMismatch": "The host presented a different key than the trusted one.",
+      "badLaunchParams": "The profile's startup command or environment contains characters Termdock can't pass to the host safely. Edit the profile, then retry.",
+      "targetNotAllowed": "The host's address is the Termdock server itself or a loopback, link-local or multicast address, which this installation doesn't allow.",
       "generic": "The connection failed and won't be retried automatically."
     },
     "endReason": {
@@ -559,8 +563,10 @@
         "credential": "Choose one of your credentials.",
         "protection": "Choose a protection mode.",
         "startupLong": "Use at most 1000 characters.",
+        "startupControl": "Use a single line without control characters (tabs are fine).",
         "envKey": "Variable names use letters, digits and underscores, and can't start with a digit.",
         "envValue": "Variable values can have at most 1000 characters.",
+        "envValueControl": "Variable values must be a single line without control characters (tabs are fine).",
         "envCount": "Use at most 32 variables.",
         "envDuplicate": "Each variable name can appear only once.",
         "keepalive": "Use a whole number of seconds from 5 to 300.",
@@ -600,11 +606,13 @@
       },
       "code": {
         "HOST_UNREACHABLE": "Check the hostname and port, and that the Termdock server can reach the host.",
+        "TARGET_NOT_ALLOWED": "This installation doesn't allow connecting to this address: it is the Termdock server itself, or a loopback, link-local or multicast address.",
         "HOST_KEY_MISMATCH": "The presented key does not match the trusted one.",
         "AUTH_REJECTED": "The host rejected the profile's user or credential.",
         "AUTH_TIMEOUT": "The login took too long. The host may be waiting for an interactive prompt.",
         "CREDENTIAL_INVALID": "The profile's credential could not be used.",
         "PROBE_TIMEOUT": "The capability probe took too long to answer.",
+        "PROBE_TOO_LARGE": "The capability probe printed more output than Termdock reads.",
         "CONNECTION_LOST": "The connection dropped during the check.",
         "OTHER": "The check failed. Try again."
       },
@@ -660,7 +668,7 @@
       "error": {
         "profile": "Choose one of this host's profiles.",
         "notFound": "This host no longer exists.",
-        "trustConflict": "Another key of this type is already trusted. Use Replace trusted key instead.",
+        "trustConflict": "Another key of this type is already trusted, or this key was revoked for the host. Use Replace trusted key instead.",
         "keyNotFound": "That key is no longer pending. Run Fetch & verify again.",
         "fingerprint": "Enter a SHA256 fingerprint (43 characters after SHA256:).",
         "confirmName": "Type the host's name exactly.",
@@ -669,6 +677,7 @@
         "conflict": "The host's keys changed meanwhile. Reload the page.",
         "forbidden": "Your account isn't allowed to do that.",
         "limit": "Too many requests. Wait a moment.",
+        "testLimit": "Too many checks in the last minute. Wait a moment, then try again.",
         "rejected": "The session service rejected the request.",
         "generic": "Something went wrong. Try again."
       }
@@ -848,6 +857,7 @@
       "host_key_unknown": "Unknown host key",
       "host_key_rejected": "Host key rejected",
       "host_key_mismatch": "Host key mismatch",
+      "host_key_revoked_presented": "Revoked host key presented",
       "auth_prompt": "Login prompt",
       "auth_prompt_expired": "Login prompt expired",
       "protection_selected": "Protection selected",
@@ -1026,7 +1036,7 @@
       },
       "totpReset": {
         "title": "Two-step verification",
-        "intro": "Resetting removes the user's authenticator and trusted devices. If two-step verification is required, they set it up again at next sign-in.",
+        "intro": "Resetting removes the user's authenticator and trusted devices, and signs them out everywhere. If two-step verification is required, they set it up again at next sign-in.",
         "notEnrolled": "The user hasn't set up two-step verification.",
         "label": "Reset two-step verification…",
         "question": "Reset two-step verification for {username}? Their authenticator and backup codes stop working.",
@@ -1134,7 +1144,8 @@
         "host_key_trust": "Host key trusted",
         "host_key_replace": "Host key replaced",
         "host_key_revoke": "Host key revoked",
-        "host_key_mismatch": "Host key mismatch"
+        "host_key_mismatch": "Host key mismatch",
+        "host_key_revoked_presented": "Revoked host key presented"
       },
       "details": {
         "key": {

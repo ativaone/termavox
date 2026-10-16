@@ -5,9 +5,10 @@ import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTerminalChannel } from '../../lib/terminal/react.ts';
 import { ctrlChar } from '../../lib/workspace/keys.ts';
+import { cleanTitle } from '../../lib/workspace/title.ts';
 import { cx } from '../ui/cx.ts';
 import { type LinkPrompt, PaneOverlays } from './pane-overlays.tsx';
-import { cleanTitle, type PanePlace, useWorkspace } from './workspace-context.tsx';
+import { type PanePlace, useWorkspace } from './workspace-context.tsx';
 
 /** Ctrl+Shift+K (⌘⇧K): the palette from inside a terminal, where Ctrl/⌘K belongs to the shell. */
 export function isPaletteShortcut(event: KeyboardEvent): boolean {

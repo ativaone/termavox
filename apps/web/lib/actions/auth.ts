@@ -6,9 +6,10 @@ import { redirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { z } from 'zod';
 import { isLocale, LOCALE_COOKIE } from '../../i18n/locales.ts';
-import { changePassword } from '../auth/account.ts';
+import { changePassword, signOutSession } from '../auth/account.ts';
 import { completeSetup, getAuthRuntime } from '../auth/server.ts';
 import { type AuthErrorInfo, authErrorInfo } from '../auth-errors.ts';
+import { revokeConnections } from '../internal-api.ts';
 import { qrPath } from '../qr.ts';
 import { setUserLocale } from '../repo/users.ts';
 import { ROUTES } from '../routes.ts';
@@ -215,7 +216,12 @@ export async function changeOwnPassword(_prev: FormState, formData: FormData): P
 
   let unauthenticated = false;
   try {
-    await changePassword(getAuthRuntime(), await headers(), { currentPassword, newPassword });
+    await changePassword(
+      getAuthRuntime(),
+      await headers(),
+      { currentPassword, newPassword },
+      revokeConnections,
+    );
   } catch (err) {
     if (!(err instanceof TermdockError)) throw err;
     const code = err.details?.betterAuthCode;
@@ -287,9 +293,10 @@ export async function enrollTotp(prev: EnrollState, formData: FormData): Promise
 
 export async function signOut(): Promise<void> {
   try {
-    await getAuthRuntime().auth.api.signOut({ headers: await headers() });
+    // Also closes this auth session's WebSockets at once (other sessions stay signed in).
+    await signOutSession(getAuthRuntime(), await headers(), revokeConnections);
   } catch (err) {
-    if (!authErrorInfo(err)) throw err;
+    if (!(err instanceof TermdockError)) throw err;
   }
   redirect(ROUTES.login);
 }

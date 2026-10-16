@@ -8,6 +8,7 @@ import { getTranslations } from 'next-intl/server';
 import { changePassword } from '../auth/account.ts';
 import { getAuthRuntime, requireSession } from '../auth/server.ts';
 import { authErrorInfo } from '../auth-errors.ts';
+import { revokeConnections } from '../internal-api.ts';
 import { checked, integer, type ManageState, text } from '../manage/forms.ts';
 import { TerminalPreferencesInput } from '../preferences/terminal.ts';
 import { saveTerminalPreferences as savePreferencesRow } from '../repo/preferences.ts';
@@ -73,7 +74,12 @@ export async function changePasswordInSettings(
 
   let unauthenticated = false;
   try {
-    await changePassword(getAuthRuntime(), await headers(), { currentPassword, newPassword });
+    await changePassword(
+      getAuthRuntime(),
+      await headers(),
+      { currentPassword, newPassword },
+      revokeConnections,
+    );
   } catch (err) {
     if (!(err instanceof TermdockError)) throw err;
     const code = err.details?.betterAuthCode;

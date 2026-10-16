@@ -1,5 +1,6 @@
 import type { AddressInfo } from 'node:net';
 import { type Logger, silentLogger } from '../config/logger.ts';
+import { TargetPolicy } from '../transport/ssh/index.ts';
 import { WsServer, type WsServerOptions } from '../ws/server.ts';
 import type { AuthSessionValidator } from '../ws/types.ts';
 import { createDriverFactory, type TmuxControlDriverOptions } from './driver-factory.ts';
@@ -27,6 +28,8 @@ export interface DataPlaneDeps {
   /** `(opts) => new TmuxControlDriver(opts)`; without it sessions run unprotected. */
   tmuxControl?: (opts: TmuxControlDriverOptions) => Driver;
   transports?: TransportFactory;
+  /** For the default transport factory; default: local targets refused (plan §10.2). */
+  targetPolicy?: TargetPolicy;
   logger?: Logger;
   /** Test timings. */
   registry?: Pick<SessionRegistryOptions, 'runtime' | 'restoreHostSpacingMs'>;
@@ -51,7 +54,11 @@ export function createDataPlane(deps: DataPlaneDeps): DataPlane {
     hostKeys: deps.hostKeys,
     transports:
       deps.transports ??
-      new SshTransportFactory({ hostKeys: deps.hostKeys, credentials: deps.credentials }),
+      new SshTransportFactory({
+        hostKeys: deps.hostKeys,
+        credentials: deps.credentials,
+        targetPolicy: deps.targetPolicy ?? new TargetPolicy({ allowLocalTargets: false }),
+      }),
     drivers: createDriverFactory(deps.tmuxControl),
     notifier: { sendToUser: (userId, message) => ws?.sendToUser(userId, message) },
     installationId: deps.installationId,

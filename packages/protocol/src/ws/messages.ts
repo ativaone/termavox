@@ -77,7 +77,18 @@ export const SessionSummary = z.object({
 });
 export type SessionSummary = z.infer<typeof SessionSummary>;
 
-export const AuthPrompt = z.object({ text: z.string(), echo: z.boolean() });
+/** Caps on host-provided keyboard-interactive text; the daemon trims to them before sending. */
+export const AUTH_PROMPT_LIMITS = {
+  name: 256,
+  instructions: 2048,
+  text: 256,
+  prompts: 16,
+} as const;
+
+export const AuthPrompt = z.object({
+  text: z.string().max(AUTH_PROMPT_LIMITS.text),
+  echo: z.boolean(),
+});
 
 export const ServerMessage = z.discriminatedUnion('type', [
   z.object({
@@ -122,14 +133,16 @@ export const ServerMessage = z.discriminatedUnion('type', [
     keyType: z.string(),
     fingerprint: z.string(),
     mismatch: z.boolean(),
+    /** With `mismatch`: the presented key is one the owner revoked for this host. */
+    revoked: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('auth.prompt'),
     sessionId: id,
     promptId: id,
-    name: z.string(),
-    instructions: z.string(),
-    prompts: z.array(AuthPrompt),
+    name: z.string().max(AUTH_PROMPT_LIMITS.name),
+    instructions: z.string().max(AUTH_PROMPT_LIMITS.instructions),
+    prompts: z.array(AuthPrompt).max(AUTH_PROMPT_LIMITS.prompts),
   }),
   z.object({
     type: z.literal('server.shutting_down'),

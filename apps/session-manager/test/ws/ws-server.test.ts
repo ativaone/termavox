@@ -7,8 +7,15 @@ import type {
   Dimensions,
   SessionHost,
 } from '../../src/core/types.ts';
-import { WsServer } from '../../src/ws/server.ts';
+import {
+  MAX_ATTACHMENTS_PER_USER,
+  MAX_CHANNELS,
+  MAX_CONNECTIONS_PER_USER,
+  MAX_IN_FLIGHT,
+  WsServer,
+} from '../../src/ws/server.ts';
 import type { SessionGateway } from '../../src/ws/types.ts';
+import { until } from '../runtime/fakes.ts';
 import { TestClient } from './client.ts';
 
 const ORIGIN = 'https://termdock.test';
@@ -57,19 +64,34 @@ class FakeHost implements SessionHost {
 const hosts = new Map([
   ['s-alice', new FakeHost('s-alice')],
   ['s-bob', new FakeHost('s-bob')],
+  ['s-dave', new FakeHost('s-dave')],
 ]);
 const owners = new Map([
   ['s-alice', 'alice'],
   ['s-bob', 'bob'],
+  ['s-slow', 'alice'],
+  ['s-evicted', 'alice'],
+  ['s-dave', 'dave'],
 ]);
+/** An attach to s-slow waits for this, holding its connection's message queue. */
+let slowAttach: Promise<void> = Promise.resolve();
+/** s-evicted: the first load returns a runtime that the registry replaced right after. */
+const evicted = { stale: new FakeHost('s-evicted'), fresh: new FakeHost('s-evicted'), loads: 0 };
 const invalidAuthSessions = new Set<string>(['asid-revoked']);
 /** Keyboard-interactive prompts waiting per user, and the answers routed to the gateway. */
 const waiting = new Map<string, ServerMessage[]>();
 const authResponses: Array<[string, string, string[], string]> = [];
 
 const gateway: SessionGateway = {
-  host: (id) => hosts.get(id),
-  attachable: async (id) => hosts.get(id) ?? null,
+  host: (id) => (id === 's-evicted' ? evicted.fresh : hosts.get(id)),
+  attachable: async (id) => {
+    if (id === 's-slow') {
+      await slowAttach;
+      return hosts.get('s-alice') ?? null;
+    }
+    if (id === 's-evicted') return evicted.loads++ === 0 ? evicted.stale : evicted.fresh;
+    return hosts.get(id) ?? null;
+  },
   listForUser: async () => [],
   pendingPrompts: (userId) => waiting.get(userId) ?? [],
   hostKeyDecision: async () => false,
@@ -235,5 +257,89 @@ describe('WebSocket server', () => {
     expect((await alice.closed).code).toBe(CloseCode.Unauthenticated);
     expect(bob.ws.readyState).toBe(bob.ws.OPEN);
     await bob.close();
+  });
+
+  it('closes the 17th concurrent connection of a user with 4429 (M4)', async () => {
+    const open: TestClient[] = [];
+    for (let i = 0; i < MAX_CONNECTIONS_PER_USER; i++) open.push(await connect('carol'));
+    const other = await connect('bob'); // other users are not affected
+    const extra = await TestClient.open(url, ORIGIN);
+    extra.send({ type: 'hello', protocol: 1, ticket: ticket('carol') });
+    expect((await extra.closed).code).toBe(CloseCode.RateLimited);
+    // A slot frees up when one closes.
+    await open.pop()!.close();
+    await until(() => server.connectionCount === open.length + 1); // carol's and bob's
+    open.push(await connect('carol'));
+    await Promise.all([...open, other].map((c) => c.close()));
+  });
+
+  it('refuses attaches beyond 64 per user across connections, keeping the connection (M4)', async () => {
+    const viewport = { cols: 80, rows: 24 };
+    const attached = (c: TestClient) =>
+      c.messages.filter((m) => m.type === 'session.attached').length;
+    const clients: TestClient[] = [];
+    for (let i = 0; i < MAX_ATTACHMENTS_PER_USER / MAX_CHANNELS; i++) {
+      const client = await connect('dave');
+      for (let channel = 0; channel < MAX_CHANNELS; channel++) {
+        client.send({ type: 'session.attach', channel, sessionId: 's-dave', viewport });
+      }
+      await until(() => attached(client) === MAX_CHANNELS);
+      clients.push(client);
+    }
+    const last = await connect('dave');
+    last.send({ type: 'session.attach', channel: 1, sessionId: 's-dave', viewport });
+    expect(await last.next((m) => m.type === 'error')).toMatchObject({
+      code: 'RATE_LIMITED',
+      channel: 1,
+      sessionId: 's-dave',
+    });
+    expect(last.ws.readyState).toBe(last.ws.OPEN);
+    // Detaching anywhere frees one.
+    clients[0]!.send({ type: 'session.detach', channel: 0 });
+    clients[0]!.send({ type: 'ping', t: 9 });
+    await clients[0]!.next((m) => m.type === 'pong');
+    last.send({ type: 'session.attach', channel: 2, sessionId: 's-dave', viewport });
+    await last.next((m) => m.type === 'session.attached');
+    await Promise.all([...clients, last].map((c) => c.close()));
+  });
+
+  it('closes a connection with 4429 beyond 64 messages in flight (L5)', async () => {
+    const viewport = { cols: 80, rows: 24 };
+    let release!: () => void;
+    slowAttach = new Promise((resolve) => {
+      release = resolve;
+    });
+    const client = await connect();
+    // The attach holds the queue; 63 more messages make 64 in flight: allowed.
+    client.send({ type: 'session.attach', channel: 1, sessionId: 's-slow', viewport });
+    for (let i = 0; i < MAX_IN_FLIGHT - 1; i++) client.send({ type: 'ping', t: i });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    release();
+    await client.next((m) => m.type === 'pong' && m.t === MAX_IN_FLIGHT - 2);
+    expect(client.ws.readyState).toBe(client.ws.OPEN);
+
+    let releaseAgain!: () => void;
+    slowAttach = new Promise((resolve) => {
+      releaseAgain = resolve;
+    });
+    client.send({ type: 'session.attach', channel: 2, sessionId: 's-slow', viewport });
+    for (let i = 0; i < MAX_IN_FLIGHT; i++) client.send({ type: 'ping', t: 1000 + i });
+    expect((await client.closed).code).toBe(CloseCode.RateLimited);
+    releaseAgain();
+    slowAttach = Promise.resolve();
+  });
+
+  it("attaches to the session's current runtime when the loaded one was evicted meanwhile", async () => {
+    const client = await connect();
+    client.send({
+      type: 'session.attach',
+      channel: 5,
+      sessionId: 's-evicted',
+      viewport: { cols: 80, rows: 24 },
+    });
+    await client.next((m) => m.type === 'session.attached');
+    expect(evicted.stale.attached).toHaveLength(0);
+    expect(evicted.fresh.attached).toHaveLength(1);
+    await client.close();
   });
 });

@@ -4,6 +4,7 @@ import { signTicket } from '@termdock/protocol';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDataPlane, type DataPlane } from '../../src/core/data-plane.ts';
 import type { SessionRuntime } from '../../src/core/session-runtime.ts';
+import { TargetPolicy } from '../../src/transport/ssh/index.ts';
 import { diff, probe } from '../emulator/harness.ts';
 import { MemoryHostKeyStore, MemorySessionStore, makeRecord, until } from '../runtime/fakes.ts';
 import { HOST_KEY, requireSshd, SSHD_PORTS, TEST_USER, USER_KEY } from '../ssh/sshd.ts';
@@ -86,6 +87,8 @@ beforeAll(async () => {
     credentials: { get: async () => ({ kind: 'private_key', privateKey: USER_KEY }) },
     ownership: { sessionOwner: async (id) => store.records.get(id)?.userId ?? null },
     authSessions: { isValid: () => true },
+    // The test sshd listens on 127.0.0.1, a local target the default policy refuses.
+    targetPolicy: new TargetPolicy({ allowLocalTargets: true }),
     registry: { runtime: { resizeDebounceMs: 20 } },
   });
   const { address } = await plane.start();

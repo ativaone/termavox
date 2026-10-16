@@ -134,4 +134,22 @@ describe('admin operations', () => {
       adminSetBanned(deps(), adminJar.headers(), { userId: admin, banned: true }),
     ).rejects.toEqual(expect.objectContaining({ code: ErrorCode.BadRequest }));
   });
+
+  it('a TOTP reset signs the user out everywhere and closes their WebSockets (L3)', async () => {
+    const jill = (await createUser(t.rt, 'jill')).id;
+    const sessions = () =>
+      (
+        t.rt.db.$client
+          .prepare('SELECT COUNT(*) AS n FROM auth_session WHERE user_id = ?')
+          .get(jill) as { n: number }
+      ).n;
+    await signIn(t.rt, 'jill');
+    expect(sessions()).toBe(1);
+    const before = calls.length;
+    await adminResetTotp(deps(), adminJar.headers(), jill);
+    expect(calls.slice(before)).toEqual([`revoke ${jill}`]);
+    expect(audit('auth.totp_reset')).toMatchObject([{ actor_user_id: admin, target_id: jill }]);
+    expect(sessions()).toBe(0);
+    expect((await signIn(t.rt, 'jill')).res.status).toBe(200); // a fresh sign-in still works
+  });
 });

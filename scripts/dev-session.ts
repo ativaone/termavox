@@ -152,6 +152,8 @@ function init(args: string[]): void {
     TERMDOCK_INTERNAL_HOST: '127.0.0.1',
     TERMDOCK_INTERNAL_PORT: '3002',
     TERMDOCK_LOG_LEVEL: 'info',
+    // The test sshd containers listen on 127.0.0.1, a local target refused by default.
+    TERMDOCK_SSH_ALLOW_LOCAL_TARGETS: 'true',
   };
   const lines = Object.entries(env).map(([k, v]) => `${k}=${v}`);
   writeFileSync(

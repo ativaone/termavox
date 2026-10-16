@@ -11,11 +11,16 @@ export interface HostKeyInfo {
   publicKeyB64: string;
 }
 
-export type HostKeyDecision = 'trusted' | 'unknown' | 'mismatch';
+/**
+ * `revoked`: the presented key is one the owner revoked for this host. It fails closed exactly
+ * like `mismatch` (no prompt, no in-flow accept); only the reason differs (plan §5.9).
+ */
+export type HostKeyDecision = 'trusted' | 'unknown' | 'mismatch' | 'revoked';
 
 /**
  * ssh2's default server host key algorithms (lib/protocol/constants.js DEFAULT_SERVER_HOST_KEY
- * on a Node with Ed25519), most preferred first. A T0 test keeps the two in sync.
+ * on a Node with Ed25519), most preferred first, without `ssh-rsa`: RSA host keys are verified
+ * with SHA-2 signatures only, never SHA-1. A T0 test keeps the two in sync.
  */
 export const DEFAULT_HOST_KEY_ALGORITHMS: readonly ServerHostKeyAlgorithm[] = [
   'ssh-ed25519',
@@ -24,29 +29,25 @@ export const DEFAULT_HOST_KEY_ALGORITHMS: readonly ServerHostKeyAlgorithm[] = [
   'ecdsa-sha2-nistp521',
   'rsa-sha2-512',
   'rsa-sha2-256',
-  'ssh-rsa',
 ];
 
-/** Signature algorithms that authenticate a host key of `keyType` (RSA keys have three). */
+/** Signature algorithms that authenticate a host key of `keyType` (RSA keys: SHA-2 only). */
 function algorithmsForKeyType(keyType: string): string[] {
-  return keyType === 'ssh-rsa' ? ['rsa-sha2-512', 'rsa-sha2-256', 'ssh-rsa'] : [keyType];
+  return keyType === 'ssh-rsa' ? ['rsa-sha2-512', 'rsa-sha2-256'] : [keyType];
 }
 
 /**
  * The `serverHostKey` list for a host with trusted keys of `trustedTypes`: those algorithms
  * first, then the other defaults. A server with several host keys then presents the trusted one
- * instead of whichever type ssh2 prefers, which would read as a mismatch. Undefined (keep ssh2's
- * default) when nothing is trusted yet.
+ * instead of whichever type ssh2 prefers, which would read as a mismatch. With nothing trusted
+ * yet, the defaults (always an explicit list, so ssh2's own `ssh-rsa` is never offered).
  */
-export function hostKeyAlgorithms(
-  trustedTypes: Iterable<string>,
-): ServerHostKeyAlgorithm[] | undefined {
+export function hostKeyAlgorithms(trustedTypes: Iterable<string>): ServerHostKeyAlgorithm[] {
   const preferred = [...trustedTypes]
     .flatMap(algorithmsForKeyType)
     .filter((a): a is ServerHostKeyAlgorithm =>
       (DEFAULT_HOST_KEY_ALGORITHMS as readonly string[]).includes(a),
     );
-  if (preferred.length === 0) return undefined;
   return [...new Set([...preferred, ...DEFAULT_HOST_KEY_ALGORITHMS])];
 }
 

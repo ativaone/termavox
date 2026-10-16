@@ -126,7 +126,11 @@ export async function adminSetBanned(
   return outcome;
 }
 
-/** Admin TOTP reset: the user enrolls again at next sign-in when TOTP is required for them. */
+/**
+ * Admin TOTP reset: the user enrolls again at next sign-in when TOTP is required for them. Like
+ * a password reset, the user's auth sessions are revoked (Better Auth) and their WebSockets
+ * closed, so nothing signed in with the old second factor stays open.
+ */
 export async function adminResetTotp(
   deps: AdminDeps,
   headers: Headers,
@@ -141,6 +145,12 @@ export async function adminResetTotp(
     targetId: userId,
     ...meta(deps, headers),
   });
+  await callAuth(() => deps.auth.api.revokeUserSessions({ headers, body: { userId } }));
+  try {
+    await deps.internalApi.revokeAuthSessions({ userId });
+  } catch {
+    // The daemon's 60 s revalidation closes them (the auth sessions are gone).
+  }
 }
 
 /**

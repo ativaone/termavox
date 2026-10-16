@@ -13,6 +13,7 @@ import { SqliteOwnership } from '../../src/store/access.ts';
 import { BatchedWriter } from '../../src/store/batched-writer.ts';
 import { SqliteHostKeyStore } from '../../src/store/host-key-store.ts';
 import { SqliteSessionStore } from '../../src/store/session-store.ts';
+import { TargetPolicy } from '../../src/transport/ssh/index.ts';
 import { CredentialService, VaultCredentialProvider } from '../../src/vault/credentials.ts';
 import {
   insertHost,
@@ -122,6 +123,7 @@ beforeEach(async () => {
     registry,
     connections: { revoke: () => 0 },
     enableLocalShell: false,
+    targetPolicy: new TargetPolicy({ allowLocalTargets: false }),
     version: 'test',
   });
   const address = await api.listen();
@@ -307,5 +309,38 @@ describe('internal API admin: terminate a user’s sessions', () => {
     expect(done).toEqual({ status: 200, json: { terminated: 1 } });
     // Terminated as the owner, so the registry's ownership check applies; ended ones are skipped.
     expect(registry.actions).toEqual([`terminate ${live} ${userA}`]);
+  });
+});
+
+describe('internal API host tests and host keys', () => {
+  it('reports a refused target as a result and allows 10 host tests per user and minute (L4)', async () => {
+    // hostA points at 127.0.0.1: refused by the default target policy, without connecting.
+    for (let i = 0; i < 10; i++) {
+      expect(await call('POST', `/hosts/${hostA}/test`, { actingUserId: userA })).toEqual({
+        status: 200,
+        json: { reachable: false, error: 'TARGET_NOT_ALLOWED', hostKey: null, probe: null },
+      });
+    }
+    expect(await call('POST', `/hosts/${hostA}/test`, { actingUserId: userA })).toMatchObject({
+      status: 429,
+      json: { code: 'RATE_LIMITED' },
+    });
+    // Per user: another user still has their own budget.
+    const hostB = insertHost(fixture.db, userB);
+    expect((await call('POST', `/hosts/${hostB}/test`, { actingUserId: userB })).status).toBe(200);
+  });
+
+  it('refuses to trust a revoked key again; replace-key with the confirmed name does (M2)', async () => {
+    const fingerprint = `SHA256:${'R'.repeat(43)}`;
+    const body = { actingUserId: userA, keyType: 'ssh-ed25519', fingerprint };
+    expect((await call('POST', `/hosts/${hostA}/trust-key`, body)).status).toBe(204);
+    const revoke = { actingUserId: userA, keyType: 'ssh-ed25519' };
+    expect((await call('POST', `/hosts/${hostA}/revoke-key`, revoke)).status).toBe(204);
+    const refused = await call('POST', `/hosts/${hostA}/trust-key`, body);
+    expect(refused).toMatchObject({ status: 409, json: { code: 'CONFLICT' } });
+    expect(refused.json?.message).toMatch(/revoked/);
+    const replace = { ...body, confirmHostName: 'alpha' };
+    expect((await call('POST', `/hosts/${hostA}/replace-key`, replace)).status).toBe(204);
+    expect((await call('POST', `/hosts/${hostA}/trust-key`, body)).status).toBe(204); // idempotent
   });
 });

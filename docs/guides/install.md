@@ -83,8 +83,19 @@ cp deploy/.env.example deploy/.env
 | `TERMDOCK_PUBLIC_URL` | `https://<domain>:<https port>` | The browser-facing URL. It is used for Origin checks and cookies, and a `:443` suffix is normalized away. Set it only when browsers reach Termdock under another URL, for example through a port forward |
 | `TERMDOCK_TLS` | `auto` | `auto` or `internal` (see [Domain and TLS](#domain-and-tls)) |
 | `TERMDOCK_LOG_LEVEL` | `info` | session-manager log level |
+| `TERMDOCK_DAEMON_MEM_LIMIT` | `1g` | Memory limit of the session-manager container (Compose `mem_limit`). Raise it for many concurrent sessions or long scrollback |
+| `TERMDOCK_WEB_MEM_LIMIT` | `768m` | Memory limit of the web container |
+| `TERMDOCK_SSH_ALLOW_LOCAL_TARGETS` | `false` | `true` lets hosts point at loopback, link-local, multicast or session-manager's own addresses (see [SSH targets](#ssh-targets)) |
 
 `TERMDOCK_ENABLE_LOCAL_SHELL` is fixed to `false` in the containers. Local direct mode is meant for running session-manager outside Docker (plan §13.3).
+
+Every container also has a process limit (`pids_limit`: session-manager 512, web 256, Caddy 128), and Caddy a fixed 256 MiB memory limit. A container that reaches its memory limit is killed and restarted by Docker. Protected sessions survive a session-manager restart; check `docker compose -f deploy/compose.yaml ps` and the logs if it happens.
+
+### SSH targets
+
+session-manager resolves each host's name itself and connects only to an address it allows, both for sessions and for **Fetch & verify**. By default it refuses loopback (`127.0.0.0/8`, `::1`), link-local (`169.254.0.0/16`, where cloud metadata services live, and `fe80::/10`), unspecified (`0.0.0.0`, `::`) and multicast addresses, and the addresses of its own network interfaces, IPv4-mapped IPv6 forms included. Such a host fails with "not allowed" instead of connecting, and is not retried. Private LAN ranges (`10/8`, `172.16/12`, `192.168/16`, `fc00::/7`) stay allowed, and so does the Docker host behind `host.docker.internal`.
+
+Set `TERMDOCK_SSH_ALLOW_LOCAL_TARGETS=true` to allow those addresses too, for example when session-manager runs outside Docker and should reach an SSH server on the same machine. Fetch & verify is also limited to 10 checks per user per minute.
 
 ## 4. Start
 

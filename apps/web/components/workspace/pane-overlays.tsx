@@ -233,7 +233,11 @@ function MismatchPanel({ entry, prompt }: { entry: SessionEntry; prompt: HostKey
           title={t('mismatch.title')}
           titleId={titleId}
         />
-        <Notice tone="danger">{t('mismatch.body', { host: entry.hostName })}</Notice>
+        <Notice tone="danger">
+          {prompt?.revoked
+            ? t('mismatch.revokedBody', { host: entry.hostName })
+            : t('mismatch.body', { host: entry.hostName })}
+        </Notice>
         {prompt ? (
           <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-base">
             <dt className="font-semibold text-ink-muted text-sm">{t('hostKey.keyType')}</dt>
@@ -271,6 +275,8 @@ function AuthPanel({
   const { connection } = useWorkspace();
   const titleId = useId();
   const [offline, setOffline] = useState(false);
+  const hostName = prompt.name.trim();
+  const instructions = prompt.instructions.trim();
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -284,18 +290,24 @@ function AuthPanel({
   return (
     <Panel aria-labelledby={titleId} className="w-full max-w-[28rem]">
       <form onSubmit={submit} className="flex flex-col gap-4 px-5 py-4" autoComplete="off">
+        {/* Termdock's own title and framing line, always: the host's name and instructions are
+            quoted beneath as host content, never shown as the panel's own words (§5.10). */}
         <Head
           status="action_required"
           statusLabel={t('status.action_required')}
-          title={prompt.name.trim() || t('auth.title')}
+          title={t('auth.title')}
           titleId={titleId}
         >
-          {prompt.instructions.trim() ? (
-            <p className="whitespace-pre-line">{prompt.instructions.trim()}</p>
-          ) : (
-            t('auth.body', { target: `${entry.username}@${entry.hostname}` })
-          )}
+          {t('auth.asks', { target: `${entry.username}@${entry.hostname}` })}
         </Head>
+        {hostName || instructions ? (
+          <div className="flex flex-col gap-1 rounded-control bg-field px-4 py-3 text-base text-ink">
+            {hostName ? <p className="break-words font-semibold">{hostName}</p> : null}
+            {instructions ? (
+              <p className="whitespace-pre-line break-words">{instructions}</p>
+            ) : null}
+          </div>
+        ) : null}
         {prompt.prompts.map((field, i) => {
           const label = field.text.trim() || t('auth.answer', { n: i + 1 });
           const common = {
@@ -322,6 +334,7 @@ function AuthPanel({
             />
           );
         })}
+        <p className="text-ink-muted text-sm">{t('auth.note')}</p>
         {offline ? <Notice tone="warning">{t('overlay.offline')}</Notice> : null}
         <div>
           <Button type="submit" variant="primary">

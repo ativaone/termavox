@@ -23,3 +23,11 @@ export {
   SshTransport,
   type SshTransportOptions,
 } from './ssh-transport.ts';
+export {
+  classifyTarget,
+  ipBytes,
+  type ResolveAll,
+  type TargetDenial,
+  TargetPolicy,
+  type TargetPolicyOptions,
+} from './target-policy.ts';

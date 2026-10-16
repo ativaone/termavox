@@ -10,6 +10,7 @@ import type {
   SessionStatus,
   SessionSummary,
 } from '@termdock/protocol';
+import { ErrorCode } from '@termdock/shared';
 
 export interface Dimensions {
   cols: number;
@@ -28,6 +29,21 @@ export class TransportError extends Error {
   }
 }
 
+/**
+ * A launch parameter the remote command builders refuse to pass (plan §5.11 remote command rule):
+ * a profile value with a line break or NUL, or a probe value (tmux path, locale) outside the
+ * safe word set. Retrying cannot fix it, so the runtime fails the session with
+ * BAD_LAUNCH_PARAMS instead of reconnecting. A RangeError, like the builders' other checks.
+ */
+export class BadLaunchParamsError extends RangeError {
+  readonly code = ErrorCode.BadLaunchParams;
+
+  constructor(message: string) {
+    super(message);
+    this.name = 'BadLaunchParamsError';
+  }
+}
+
 export interface ExecResult {
   code: number | null;
   signal: string | null;
@@ -41,6 +57,8 @@ export interface ExecChannel {
   /** Pauses/resumes reading stdout (backpressure). */
   pause(): void;
   resume(): void;
+  /** Closes the channel on both sides (SSH channels; fakes may leave it out). */
+  close?(): void;
   readonly exit: Promise<ExecResult>;
 }
 
@@ -252,7 +270,7 @@ export type SessionRecordPatch = Partial<
     | 'endedAt'
     | 'endReason'
   >
-> & { probe?: Record<string, string> };
+> & { probe?: Record<string, string> | null };
 
 export interface SessionEventInput {
   type: string;
@@ -291,8 +309,16 @@ export interface PresentedHostKey {
 export interface HostKeyStore {
   /** Trusted keys for a host, keyed by key type; loaded before connect. */
   trusted(hostId: string): Promise<Map<string, PresentedHostKey>>;
+  /**
+   * Fingerprints the owner revoked for a host, loaded with the trusted keys: a server presenting
+   * one fails closed like a mismatch (plan §5.9).
+   */
+  revoked(hostId: string): Promise<Set<string>>;
   recordPending(hostId: string, key: PresentedHostKey): Promise<void>;
-  /** Trusts the pending key with this fingerprint; false when none matches (expired). */
+  /**
+   * Trusts the pending key with this fingerprint; false when none matches (expired) or the
+   * fingerprint was revoked for the host.
+   */
   trustPending(hostId: string, fingerprint: string, decidedBy: string): Promise<boolean>;
   /**
    * A presented key matched a trusted row that has no `public_key_b64` (a pasted pre-trust

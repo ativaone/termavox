@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import type { TransportFactory } from '../../src/core/transport-factory.ts';
+import { decideHostKey, type TransportFactory } from '../../src/core/transport-factory.ts';
 import type { PresentedHostKey, Transport } from '../../src/core/types.ts';
 import { BatchedWriter } from '../../src/store/batched-writer.ts';
 import {
@@ -191,5 +191,75 @@ describe('SqliteHostKeyStore', () => {
       fingerprint: presented.fingerprint,
       sessionId: 's1',
     });
+  });
+
+  it('a revoked key fails closed: never pending or trusted again except through replace-key (M2)', async () => {
+    const { db, writer, store, userId, hostId, trustedRows } = setup();
+    const a = key('A');
+    await store.recordPending(hostId, a);
+    expect(await store.trustPending(hostId, a.fingerprint, userId)).toBe(true);
+    expect(await store.revoke(hostId, a.type, userId)).toBe(true);
+    expect(await store.revoked(hostId)).toEqual(new Set([a.fingerprint]));
+
+    // The server presents it again: revoked, not unknown, even though nothing is trusted.
+    const [trusted, revoked] = [await store.trusted(hostId), await store.revoked(hostId)];
+    expect(trusted.size).toBe(0);
+    expect(decideHostKey(trusted, a, revoked)).toBe('revoked');
+    // A brand-new key after the revocation is a first use again (a rotated server).
+    expect(decideHostKey(trusted, key('N'), revoked)).toBe('unknown');
+
+    // No prompt can offer it, and neither the prompt, trust-key nor pre-trust accepts it.
+    await store.recordPending(hostId, a);
+    expect((await store.list(hostId)).filter((k) => k.status === 'pending')).toEqual([]);
+    expect(await store.trustPending(hostId, a.fingerprint, userId)).toBe(false);
+    const pasted = { fingerprint: a.fingerprint, keyType: a.type, decidedBy: userId };
+    expect(await store.trust(hostId, { ...pasted, allowPreTrust: true })).toBe('revoked');
+    expect(await store.trust(hostId, { ...pasted, allowPreTrust: false })).toBe('no_match');
+    expect(trustedRows()).toEqual([]);
+
+    // A pending row of it left over from before the fix cannot be promoted either.
+    db.$client
+      .prepare(
+        `INSERT INTO known_host_keys (id, host_id, key_type, public_key_b64, fingerprint_sha256, status, first_seen_at)
+         VALUES ('stale', ?, ?, ?, ?, 'pending', ?)`,
+      )
+      .run(hostId, a.type, a.publicKeyB64, a.fingerprint, 1_000_000);
+    expect(await store.trustPending(hostId, a.fingerprint, userId)).toBe(false);
+    expect(trustedRows()).toEqual([]);
+
+    // replace-key (host name confirmed by the route) is the explicit way back.
+    await store.replace(hostId, a.type, a.fingerprint, userId);
+    expect(trustedRows()).toEqual([{ fp: a.fingerprint }]);
+    const after = await store.trusted(hostId);
+    expect(decideHostKey(after, a, await store.revoked(hostId))).toBe('trusted');
+    expect(await store.trust(hostId, { ...pasted, allowPreTrust: true })).toBe('already_trusted');
+
+    store.recordRevokedPresented(hostId, a, userId, { source: 'host_test' });
+    await writer.flush();
+    expect(auditTypes(db)).toContain('host_key.revoked_presented');
+    expect(auditTypes(db).filter((t) => t === 'host_key.pending')).toHaveLength(1);
+  });
+
+  it('audits a revoked key seen by a session handshake as host_key.revoked_presented', async () => {
+    const { db, writer, store, userId, hostId } = setup();
+    const presented = key('R');
+    const inner: TransportFactory = {
+      async create(_record, hooks) {
+        hooks.onHostKey(presented, 'revoked');
+        return {} as Transport;
+      },
+    };
+    const decisions: string[] = [];
+    const record = makeRecord({ id: 's1', userId });
+    await auditHostKeyMismatches(inner, store).create(
+      { ...record, target: { ...record.target, hostId } },
+      {
+        onHostKey: (_key, decision) => decisions.push(decision),
+        onKeyboardInteractive: async () => null,
+      },
+    );
+    await writer.flush();
+    expect(decisions).toEqual(['revoked']);
+    expect(auditTypes(db)).toEqual(['host_key.revoked_presented']);
   });
 });

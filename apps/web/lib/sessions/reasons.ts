@@ -13,6 +13,8 @@ export const FAILURE_KEYS = {
   NOT_FOUND: 'notFound',
   FORBIDDEN: 'forbidden',
   LOCAL_SHELL_DISABLED: 'localShellDisabled',
+  BAD_LAUNCH_PARAMS: 'badLaunchParams',
+  TARGET_NOT_ALLOWED: 'targetNotAllowed',
 } as const;
 
 /** End reasons (`sessions.end_reason`, the detail of `ended`), mapped to their message key. */

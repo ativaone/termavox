@@ -275,7 +275,7 @@ Taken when the driver was wired into the daemon. Where they differ from the sect
   - Verified on 3.2a, 3.4 and 3.8 (`driver-lifecycle` test 8). Cost: one exec per reattach.
 - **Bracketed paste before tmux 3.7.** The heuristic stays: on in the normal screen (shells at a prompt enable it), off in the alternate screen. tmux does not report the mode before 3.7, and this matches what a shell or a full-screen program almost always set.
 - **Startup command in raw mode.** `RawPtyDriver` types `startupCommand` + Enter once into each shell it opens. Raw mode has no reattach, so every start is a new shell.
-- **Host-key negotiation prefers trusted types.** When a host has trusted keys, ssh2's `serverHostKey` list puts the algorithms of those key types first (RSA: `rsa-sha2-512`, `rsa-sha2-256`, `ssh-rsa`), then the rest of ssh2's defaults. A server with several host keys then presents the trusted one instead of a type that would read as a mismatch. When a presented key matches a pasted pre-trust fingerprint (`public_key_b64` NULL), the key is stored on that row.
+- **Host-key negotiation prefers trusted types.** When a host has trusted keys, ssh2's `serverHostKey` list puts the algorithms of those key types first (RSA: `rsa-sha2-512`, `rsa-sha2-256`; SHA-1 `ssh-rsa` is never offered), then the rest of ssh2's defaults. A server with several host keys then presents the trusted one instead of a type that would read as a mismatch. When a presented key matches a pasted pre-trust fingerprint (`public_key_b64` NULL), the key is stored on that row.
 
 **Evidence:**
 - **T0:**
