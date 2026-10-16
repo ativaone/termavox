@@ -10,6 +10,9 @@ import { admin } from 'better-auth/plugins/admin';
 import { twoFactor } from 'better-auth/plugins/two-factor';
 import { username } from 'better-auth/plugins/username';
 import type { WebLogger } from '../logger.ts';
+import { findUserIdByUsername } from '../repo/admin-users.ts';
+import { insertAuditEvent } from '../repo/audit.ts';
+import { auditPlugin } from './audit-plugin.ts';
 import type { LoginLockout } from './lockout.ts';
 import {
   type Argon2Params,
@@ -113,6 +116,8 @@ export function createAuth(options: CreateAuthOptions) {
       username({ immutableUsername: true }),
       twoFactor({ issuer: 'Termdock', trustDeviceMaxAge: 30 * DAY_S }),
       admin({ defaultRole: 'user', adminRoles: ['admin'] }),
+      // After twoFactor: it audits each auth endpoint's final result (lib/auth/audit-plugin.ts).
+      auditPlugin({ db, logger }),
       // Must stay last: copies Set-Cookie into Next's cookie store for Server Actions.
       nextCookies(),
     ],
@@ -204,6 +209,23 @@ export function createAuth(options: CreateAuthOptions) {
               logger.warn(
                 `sign-in locked for ${Math.ceil(lockedForMs / 1000)} s after repeated failures (username ${JSON.stringify(name)}, ip ${ip})`,
               );
+              const target = findUserIdByUsername(db, name);
+              try {
+                insertAuditEvent(db, {
+                  type: 'auth.lockout',
+                  actorUserId: null,
+                  targetType: target ? 'user' : null,
+                  targetId: target,
+                  detail: {
+                    lockedForS: Math.ceil(lockedForMs / 1000),
+                    ...(target ? {} : { unknownUser: true }),
+                  },
+                  ip: ip === 'unknown' ? null : ip,
+                  userAgent: (ctx.headers ?? ctx.request?.headers)?.get('user-agent') ?? null,
+                });
+              } catch {
+                logger.error('audit write failed (auth.lockout)');
+              }
             }
           } else if (returned !== undefined) {
             // The password was right (a TOTP challenge may still follow; it has its own lockout).

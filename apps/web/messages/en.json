@@ -30,7 +30,18 @@
     "changePassword": "Choose a new password",
     "enrollTotp": "Set up two-step verification",
     "workspace": "Workspace",
-    "notFound": "Page not found"
+    "notFound": "Page not found",
+    "hosts": "Hosts",
+    "hostNew": "Add a host",
+    "dockerHost": "Add this Docker host",
+    "credentials": "Credentials",
+    "activity": "Activity",
+    "settingsAccount": "Account settings",
+    "settingsTerminal": "Terminal settings",
+    "adminUsers": "Users",
+    "adminUser": "User",
+    "adminSettings": "Instance settings",
+    "adminAudit": "Audit log"
   },
   "auth": {
     "login": {
@@ -240,5 +251,746 @@
     "title": "Page not found",
     "body": "This address doesn't lead anywhere in Termdock.",
     "home": "Go to the workspace"
+  },
+  "nav": {
+    "label": "Manage",
+    "menu": "Menu",
+    "workspace": "Workspace",
+    "hosts": "Hosts",
+    "credentials": "Credentials",
+    "activity": "Activity",
+    "settings": "Settings",
+    "admin": "Admin",
+    "signedInAs": "Signed in as {username}"
+  },
+  "manage": {
+    "pagination": {
+      "nav": "Pages",
+      "previous": "Previous",
+      "next": "Next",
+      "status": "Page {page} of {pageCount}"
+    },
+    "sessionError": {
+      "unavailable": "The session service is not responding. Try again in a moment.",
+      "timeout": "The session service took too long to answer. Try again.",
+      "notFound": "That session or profile no longer exists.",
+      "conflict": "That session can't take this action right now.",
+      "forbidden": "Your account isn't allowed to do that.",
+      "limit": "You've reached the maximum number of running sessions. End one first.",
+      "rejected": "The session service rejected the request.",
+      "generic": "Something went wrong. Try again.",
+      "localShellDisabled": "Local shells are turned off on this installation.",
+      "reopenConflict": "Only ended or unprotected sessions can be reopened."
+    }
+  },
+  "hosts": {
+    "title": "Hosts",
+    "intro": "Servers Termdock connects to. Each host has connection profiles that say who to log in as.",
+    "add": "Add a host",
+    "kind": {
+      "ssh": "SSH",
+      "local": "Local"
+    },
+    "list": {
+      "caption": "Your hosts",
+      "name": "Name",
+      "address": "Address",
+      "kind": "Kind",
+      "profiles": "Profiles",
+      "sessions": "Running sessions",
+      "localAddress": "This server (direct mode)"
+    },
+    "empty": {
+      "title": "No hosts yet",
+      "body": "A host is a server Termdock reaches over SSH. Add one, check its host key, then create a profile to start sessions.",
+      "dockerHelp": "Running Termdock in Docker on the server you want to reach? “Add this Docker host” creates the host and a dedicated key for you."
+    },
+    "notice": {
+      "hostCreated": "Host added. Next, add a connection profile and check the host key.",
+      "hostSaved": "Host saved. Running sessions keep the address they started with.",
+      "hostDeleted": "Host deleted.",
+      "profileCreated": "Profile added.",
+      "profileSaved": "Profile saved. It applies to new sessions.",
+      "profileDeleted": "Profile deleted.",
+      "keyTrusted": "Host key trusted.",
+      "keyPretrusted": "Fingerprint trusted. The first connection must present a matching key.",
+      "keyReplaced": "Trusted key replaced.",
+      "keyRevoked": "Trusted key revoked. The next connection asks you to trust a key again."
+    },
+    "error": {
+      "nameRequired": "Enter a name.",
+      "nameLong": "Use at most 80 characters.",
+      "kind": "Choose a kind.",
+      "hostnameRequired": "Enter a hostname or IP address.",
+      "hostname": "Use a hostname or IP address, without spaces or a scheme.",
+      "port": "Use a port from 1 to 65535.",
+      "invalid": "Check this field.",
+      "kindLocal": "Local hosts are not available on this installation.",
+      "notFound": "This host no longer exists.",
+      "hostInUse": "This host still has running sessions. Terminate them first, then delete the host."
+    },
+    "new": {
+      "title": "Add a host",
+      "intro": "Give the server a name you'll recognise and the address Termdock uses to reach it.",
+      "submit": "Add host"
+    },
+    "form": {
+      "name": "Name",
+      "nameHelp": "Shown in the bay and in session labels, e.g. api-prod.",
+      "kind": "Kind",
+      "kindSsh": "SSH server",
+      "kindSshHelp": "Termdock connects over SSH and checks the host key.",
+      "kindLocal": "Local shell (direct mode)",
+      "kindLocalHelp": "A shell on the machine running the session service. For administrators only.",
+      "hostname": "Hostname or IP address",
+      "hostnameHelp": "As reachable from the Termdock server, e.g. 10.0.0.12 or db.internal.",
+      "port": "Port",
+      "localReason": {
+        "off": "Direct mode is off. An administrator can turn it on in instance settings; it also needs local shells enabled on the session service.",
+        "adminOnly": "Local shells run as the session service's own user, so only administrators can create them."
+      }
+    },
+    "settings": {
+      "title": "Host details",
+      "intro": "Edits apply to new sessions. Running sessions keep the address they started with.",
+      "submit": "Save host"
+    },
+    "delete": {
+      "title": "Delete host",
+      "intro": "Deletes the host with its profiles and trusted keys. Session history is kept.",
+      "blocked": "{count, plural, one {# session is still running on this host. Terminate it} other {# sessions are still running on this host. Terminate them}} before you delete the host.",
+      "toWorkspace": "Go to the workspace",
+      "label": "Delete host…",
+      "question": "Delete {name}, its connection profiles and its trusted keys? This can't be undone.",
+      "confirm": "Delete host"
+    },
+    "profile": {
+      "title": "Connection profiles",
+      "intro": "Who to log in as and with which credential. Sessions start from a profile.",
+      "add": "Add profile",
+      "newTitle": "New profile",
+      "editTitle": "Edit {name}",
+      "empty": "No profiles yet. Add one with the user name on this host and a credential, then start sessions from it.",
+      "edit": "Edit",
+      "delete": "Delete…",
+      "deleteQuestion": "Delete the profile {name}? Session history is kept.",
+      "deleteConfirm": "Delete profile",
+      "list": {
+        "name": "Profile",
+        "login": "Login",
+        "protection": "Protection",
+        "scrollback": "Scrollback",
+        "actions": "Actions",
+        "noCredential": "No stored credential"
+      },
+      "mode": {
+        "auto": "Auto (tmux)",
+        "off": "Off"
+      },
+      "form": {
+        "name": "Profile name",
+        "nameHelp": "e.g. deploy or root.",
+        "username": "User name on the host",
+        "usernameHelp": "The account Termdock logs in as.",
+        "credential": "Credential",
+        "credentialNone": "None (prompt in the terminal)",
+        "credentialEmpty": "You have no credentials yet.",
+        "credentialHelp": "The key or password Termdock uses for this login.",
+        "credentialManage": "Manage credentials",
+        "protection": "Session protection",
+        "protectionAuto": "Auto (recommended)",
+        "protectionAutoHelp": "When the host has tmux 3.2 or newer, Termdock runs the shell inside tmux, invisibly. The session then survives Termdock restarts and network drops, with the same screen when you return. Without tmux the session runs unprotected and says so.",
+        "protectionOff": "Off",
+        "protectionOffHelp": "A plain shell. If the connection drops or Termdock restarts, the shell is lost.",
+        "startup": "Startup command",
+        "startupHelp": "Optional. Runs once when the shell starts, e.g. cd /srv/app.",
+        "env": "Environment variables",
+        "envHelp": "Optional. Set for the remote shell when it starts.",
+        "envKey": "Variable {n} name",
+        "envValue": "Variable {n} value",
+        "envKeyPlaceholder": "NAME",
+        "envValuePlaceholder": "value",
+        "envRemove": "Remove variable {n}",
+        "envAdd": "Add variable",
+        "keepalive": "Keepalive interval (seconds)",
+        "keepaliveHelp": "How often Termdock checks the connection: {min} to {max}.",
+        "scrollback": "Scrollback lines",
+        "scrollbackHelp": "Kept on the server for each session: {min} to {max}.",
+        "autoReopen": "Reopen unprotected sessions automatically",
+        "autoReopenHelp": "If an unprotected shell is lost, start a new one in the same terminal with a notice line instead of ending the session.",
+        "save": "Save profile",
+        "create": "Add profile",
+        "cancel": "Cancel"
+      },
+      "error": {
+        "nameRequired": "Enter a profile name.",
+        "nameLong": "Use at most 80 characters.",
+        "usernameRequired": "Enter the user name on the host.",
+        "username": "Use a user name without spaces, at most 64 characters.",
+        "credential": "Choose one of your credentials.",
+        "protection": "Choose a protection mode.",
+        "startupLong": "Use at most 1000 characters.",
+        "envKey": "Variable names use letters, digits and underscores, and can't start with a digit.",
+        "envValue": "Variable values can have at most 1000 characters.",
+        "envCount": "Use at most 32 variables.",
+        "envDuplicate": "Each variable name can appear only once.",
+        "keepalive": "Use a whole number of seconds from 5 to 300.",
+        "scrollback": "Use a whole number of lines from 1000 to 10000.",
+        "invalid": "Check this field.",
+        "notFound": "This profile or host no longer exists.",
+        "inUse": "Sessions started from this profile are still running. Terminate them first, then delete the profile."
+      }
+    },
+    "diagnostics": {
+      "title": "Diagnostics",
+      "intro": "Check the host's identity before the first session, and see whether sessions would be protected.",
+      "trust": "Trust this key",
+      "localOnly": "Host keys and the capability probe apply to SSH hosts only.",
+      "fetch": {
+        "profile": "Also log in with",
+        "profileHelp": "With a profile, Termdock logs in (once the key is trusted) and checks tmux and logind on the host.",
+        "profileNone": "No profile: host key only",
+        "submit": "Fetch & verify",
+        "help": "Connects to the host and shows the key it presents. Nothing is trusted until you choose to."
+      },
+      "result": {
+        "unreachable": "The host could not be reached",
+        "presented": "Presented host key",
+        "compare": "Compare the fingerprint with the one the server's administrator gives you before you trust it.",
+        "mismatchTitle": "The host presented a different key",
+        "mismatchBody": "This is not the key you trusted. If the server was reinstalled or its key rotated, replace the trusted key. Otherwise, do not connect: someone may be intercepting the connection.",
+        "loginFailed": "The host key is trusted, but the login failed",
+        "noProbe": "The host key is trusted. The probe did not run.",
+        "pickProfile": "The host key is trusted. Choose a profile above to check tmux and logind too."
+      },
+      "status": {
+        "trusted": "Trusted",
+        "pending": "Pending",
+        "revoked": "Revoked",
+        "mismatch": "Mismatch"
+      },
+      "code": {
+        "HOST_UNREACHABLE": "Check the hostname and port, and that the Termdock server can reach the host.",
+        "HOST_KEY_MISMATCH": "The presented key does not match the trusted one.",
+        "AUTH_REJECTED": "The host rejected the profile's user or credential.",
+        "AUTH_TIMEOUT": "The login took too long. The host may be waiting for an interactive prompt.",
+        "CREDENTIAL_INVALID": "The profile's credential could not be used.",
+        "PROBE_TIMEOUT": "The capability probe took too long to answer.",
+        "CONNECTION_LOST": "The connection dropped during the check.",
+        "OTHER": "The check failed. Try again."
+      },
+      "keys": {
+        "title": "Host keys",
+        "empty": "No keys recorded yet. Run Fetch & verify, or paste the expected fingerprint below.",
+        "seen": "Seen",
+        "decided": "Decided"
+      },
+      "replace": {
+        "title": "Replace trusted key",
+        "intro": "Only after you confirmed with the server's administrator that its key changed. The current trusted key of this type is revoked.",
+        "fingerprint": "New fingerprint",
+        "fingerprintHelp": "The SHA256 fingerprint of the new {keyType} key.",
+        "confirm": "Type {name} to confirm",
+        "confirmHelp": "The host's name, exactly as shown at the top of this page.",
+        "submit": "Replace trusted key"
+      },
+      "revoke": {
+        "label": "Revoke…",
+        "question": "Revoke the trusted {keyType} key? New connections will stop until you trust a key again.",
+        "confirm": "Revoke key"
+      },
+      "pretrust": {
+        "title": "Paste expected fingerprint",
+        "intro": "Trust a fingerprint before the first connection. On the server, its administrator can print it with",
+        "command": "ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub",
+        "keyType": "Key type",
+        "fingerprint": "Fingerprint",
+        "fingerprintHelp": "SHA256 format, with or without the SHA256: prefix.",
+        "submit": "Trust this fingerprint"
+      },
+      "probe": {
+        "title": "Capability probe",
+        "tmux": "tmux",
+        "tmuxMissing": "Not installed",
+        "locale": "UTF-8 locale",
+        "localeMissing": "None found",
+        "shell": "Login shell",
+        "unknown": "Unknown",
+        "protected": "Sessions would be protected",
+        "protectedBody": "tmux control mode: sessions survive Termdock restarts and network drops.",
+        "unprotected": "Sessions would not be protected",
+        "reason": {
+          "off": "Protection is off in this profile.",
+          "no_tmux": "tmux is not installed on the host. Install tmux 3.2 or newer to protect sessions.",
+          "too_old": "The host's tmux is older than 3.2, which Termdock needs for protection.",
+          "no_locale": "The host has no UTF-8 locale, which tmux needs."
+        },
+        "lingerTitle": "The host may kill tmux on disconnect",
+        "lingerBody": "systemd-logind is set to kill user processes when the SSH login ends. Enable linger for this user (loginctl enable-linger) and make sure systemd-run is available, or protection is not reliable."
+      },
+      "error": {
+        "profile": "Choose one of this host's profiles.",
+        "notFound": "This host no longer exists.",
+        "trustConflict": "Another key of this type is already trusted. Use Replace trusted key instead.",
+        "keyNotFound": "That key is no longer pending. Run Fetch & verify again.",
+        "fingerprint": "Enter a SHA256 fingerprint (43 characters after SHA256:).",
+        "confirmName": "Type the host's name exactly.",
+        "unavailable": "The session service is not responding. Try again in a moment.",
+        "timeout": "The check took too long. The host may be unreachable.",
+        "conflict": "The host's keys changed meanwhile. Reload the page.",
+        "forbidden": "Your account isn't allowed to do that.",
+        "limit": "Too many requests. Wait a moment.",
+        "rejected": "The session service rejected the request.",
+        "generic": "Something went wrong. Try again."
+      }
+    },
+    "docker": {
+      "cta": "Add this Docker host",
+      "title": "Add this Docker host",
+      "intro": "When Termdock runs in Docker, it can reach the machine that runs Docker over SSH at host.docker.internal. Termdock generates a key for it; you add the key to the user on that machine.",
+      "username": "User on the Docker host",
+      "usernameHelp": "The account sessions log in as, e.g. your own user on that machine.",
+      "submit": "Create host and key",
+      "credentialName": "Docker host key",
+      "hostName": "Docker host",
+      "creates": {
+        "host": "A host at {hostname}, port 22",
+        "key": "A new ed25519 key, stored encrypted",
+        "profile": "A profile for that user with the key"
+      },
+      "done": {
+        "title": "Host and key created",
+        "body": "Two steps remain on the Docker host before {username}@{hostname} accepts the connection.",
+        "step1": "1. Add the key for the user",
+        "command": "Run this as that user on the Docker host",
+        "copyCommand": "Copy command",
+        "line": "Or add this line to ~/.ssh/authorized_keys",
+        "copyLine": "Copy line",
+        "fingerprint": "Key fingerprint:",
+        "once": "The key is shown here once. Copy it now.",
+        "step2": "2. Make sure sshd accepts connections from Docker",
+        "sshd": "The SSH server on the Docker host must listen on an address the containers reach (the Docker bridge, e.g. 172.17.0.1). Termdock's compose file maps host.docker.internal to that gateway.",
+        "step3": "3. Verify the host key",
+        "verify": "On the host page, run Fetch & verify and trust the key the Docker host presents.",
+        "open": "Open the host"
+      },
+      "error": {
+        "username": "Use a user name of letters, digits, dots, dashes or underscores.",
+        "unavailable": "The session service is not responding, so no key was created. Try again in a moment.",
+        "timeout": "The session service took too long, so no key was created. Try again.",
+        "notFound": "Your account was not found.",
+        "conflict": "The key could not be created. Try again.",
+        "forbidden": "Your account isn't allowed to do that.",
+        "limit": "Too many requests. Wait a moment.",
+        "rejected": "The session service rejected the request.",
+        "generic": "The key could not be created. Try again."
+      }
+    }
+  },
+  "credentials": {
+    "title": "Credentials",
+    "intro": "Keys and passwords Termdock uses to log in to your hosts. The session service stores them encrypted; after saving, nobody can view a secret again.",
+    "kind": {
+      "password": "Password",
+      "private_key": "SSH key"
+    },
+    "notice": {
+      "renamed": "Credential renamed.",
+      "deleted": "Credential deleted."
+    },
+    "list": {
+      "title": "Your credentials",
+      "empty": "No credentials yet. Generate a key (recommended) or add an existing key or password.",
+      "name": "Credential",
+      "kind": "Kind",
+      "lastUsed": "Last used",
+      "actions": "Actions",
+      "usedBy": "{count, plural, =0 {Not used by any profile} one {Used by # profile} other {Used by # profiles}}",
+      "never": "Never",
+      "rename": "Rename",
+      "delete": "Delete…",
+      "deleteQuestion": "Delete {name}? Profiles that use it will have no credential.",
+      "deleteConfirm": "Delete credential"
+    },
+    "create": {
+      "title": "New credential",
+      "intro": "Secrets are sent once to the session service and never shown again.",
+      "kind": "Type",
+      "kinds": {
+        "generate": "Generate key",
+        "private_key": "Paste a key",
+        "password": "Password"
+      },
+      "kindHelp": {
+        "generate": "New ed25519 key",
+        "private_key": "OpenSSH or PEM",
+        "password": "For the login"
+      },
+      "name": "Name",
+      "nameHelp": "So you can tell it apart, e.g. deploy key 2026.",
+      "password": "Password",
+      "passwordHelp": "Stored encrypted; Termdock answers the host's password prompt with it.",
+      "privateKey": "Private key",
+      "privateKeyHelp": "Paste the whole key, including the BEGIN and END lines.",
+      "passphrase": "Passphrase",
+      "passphraseHelp": "Only if the key is protected by one.",
+      "generateNote": "Termdock creates an ed25519 key pair. The private key never leaves the session service; you get the public key to install on your hosts.",
+      "submit": {
+        "generate": "Generate key",
+        "private_key": "Save key",
+        "password": "Save password"
+      },
+      "done": {
+        "title": "{name} is saved",
+        "generated": "Install the public key on each host for the user that will log in with it.",
+        "stored": "The secret is stored encrypted and won't be shown again.",
+        "publicKey": "Public key",
+        "copyKey": "Copy public key",
+        "command": "Install it for the current user on a host",
+        "copyCommand": "Copy command",
+        "once": "This is the only time the public key is shown here. Copy it now.",
+        "fingerprint": "Fingerprint:",
+        "another": "Add another credential"
+      }
+    },
+    "rename": {
+      "label": "New name",
+      "submit": "Save name",
+      "cancel": "Cancel"
+    },
+    "error": {
+      "nameRequired": "Enter a name.",
+      "nameLong": "Use at most 120 characters.",
+      "passwordRequired": "Enter the password.",
+      "privateKeyRequired": "Paste the private key.",
+      "privateKeyLong": "This key is too long.",
+      "privateKeyInvalid": "This key could not be read. Check the whole key was pasted and the passphrase is right.",
+      "inUse": "A running session uses this credential. Terminate it first, then delete the credential.",
+      "unavailable": "The session service is not responding. Nothing was saved; try again in a moment.",
+      "timeout": "The session service took too long. Check the list before you try again.",
+      "notFound": "This credential no longer exists.",
+      "conflict": "This credential is in use.",
+      "forbidden": "Your account isn't allowed to do that.",
+      "limit": "Too many requests. Wait a moment.",
+      "rejected": "The session service rejected the request. Check the fields and try again.",
+      "generic": "Something went wrong. Try again."
+    }
+  },
+  "activity": {
+    "title": "Activity",
+    "intro": "What happened to your sessions, newest first. Terminal input and output are never recorded.",
+    "views": "Activity views",
+    "view": {
+      "events": "Events",
+      "sessions": "Sessions"
+    },
+    "events": {
+      "caption": "Session events",
+      "empty": "No events yet. They appear once you start a session.",
+      "time": "Time",
+      "event": "Event",
+      "session": "Session",
+      "detail": "Details"
+    },
+    "sessions": {
+      "caption": "Session history",
+      "empty": "No sessions yet.",
+      "session": "Session",
+      "status": "Status",
+      "protection": "Protection",
+      "started": "Started",
+      "ended": "Ended",
+      "running": "Still running"
+    },
+    "protection": {
+      "tmux-control": "Protected",
+      "tmux-normal": "Protected (compatibility)",
+      "none": "Not protected",
+      "pending": "Not decided"
+    },
+    "type": {
+      "created": "Session created",
+      "state_changed": "State changed",
+      "reopened": "Reopened",
+      "restore_started": "Restore started",
+      "restored": "Restored",
+      "restore_failed": "Restore failed",
+      "connection_lost": "Connection lost",
+      "host_key_unknown": "Unknown host key",
+      "host_key_rejected": "Host key rejected",
+      "host_key_mismatch": "Host key mismatch",
+      "auth_prompt": "Login prompt",
+      "auth_prompt_expired": "Login prompt expired",
+      "protection_selected": "Protection selected",
+      "protection_degraded": "Protection degraded",
+      "remote_rebooted": "Host rebooted",
+      "desync": "Screen resynchronized"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "sections": "Settings sections",
+    "account": {
+      "tab": "Account",
+      "password": {
+        "title": "Password",
+        "intro": "Changing it signs out your other browsers.",
+        "changed": "Password changed. Your other browsers were signed out."
+      },
+      "totp": {
+        "title": "Two-step verification",
+        "intro": "A code from an authenticator app at every sign-in.",
+        "on": "On",
+        "off": "Off",
+        "requiredNote": "Two-step verification is required for your account, so it can't be turned off here.",
+        "done": "Done",
+        "disabled": "Two-step verification is off.",
+        "password": "Password",
+        "disableHelp": "Confirm your password to turn two-step verification off.",
+        "disable": "Turn off two-step verification",
+        "error": {
+          "password": "The password is incorrect.",
+          "required": "Two-step verification is required for your account.",
+          "generic": "Two-step verification could not be turned off. Try again."
+        }
+      },
+      "language": {
+        "title": "Language",
+        "intro": "Used for the interface and for notices written into your terminals."
+      }
+    },
+    "terminal": {
+      "tab": "Terminal",
+      "title": "Terminal",
+      "intro": "How your terminals look and behave in every browser. Scrollback is set per connection profile.",
+      "scheme": "Color scheme",
+      "schemes": {
+        "board": "Board",
+        "slate": "Slate",
+        "buff": "Buff paper",
+        "contrast": "High contrast"
+      },
+      "font": "Font",
+      "fontHelp": "JetBrains Mono is included; the others need to be installed on your device.",
+      "fonts": {
+        "jetbrains-mono": "JetBrains Mono",
+        "system": "System monospace",
+        "cascadia-code": "Cascadia Code",
+        "fira-code": "Fira Code"
+      },
+      "size": "Font size",
+      "sizeHelp": "{min} to {max} px.",
+      "cursor": "Cursor",
+      "cursors": {
+        "block": "Block",
+        "bar": "Bar",
+        "underline": "Underline"
+      },
+      "blink": "Blinking cursor",
+      "preview": "Preview",
+      "clipboard": "Clipboard and links",
+      "copyOnSelect": "Copy on select",
+      "copyOnSelectHelp": "Selected text goes to the clipboard right away.",
+      "rightClickPaste": "Paste with right click",
+      "rightClickPasteHelp": "Right click pastes instead of opening the browser menu.",
+      "osc52": "Let programs write to the clipboard (OSC 52)",
+      "osc52Help": "Remote programs such as tmux or vim can then replace your clipboard without asking. Leave off unless you need it.",
+      "confirmLinks": "Confirm before opening links",
+      "confirmLinksHelp": "Shows the full address before a link from the terminal opens.",
+      "submit": "Save terminal settings",
+      "saved": "Terminal settings saved. Open terminals pick them up when they reconnect.",
+      "error": {
+        "fontSize": "Use a font size from 10 to 24.",
+        "generic": "The settings could not be saved. Check the fields and try again."
+      }
+    }
+  },
+  "admin": {
+    "title": "Administration",
+    "sections": "Administration sections",
+    "users": {
+      "tab": "Users",
+      "list": {
+        "title": "Users",
+        "intro": "Each user sees only their own hosts, credentials and sessions.",
+        "user": "User",
+        "role": "Role",
+        "status": "Status",
+        "totp": "Two-step",
+        "lastSignIn": "Last sign-in",
+        "never": "Never"
+      },
+      "role": {
+        "title": "Role",
+        "admin": "Administrator",
+        "user": "User",
+        "label": "Role",
+        "help": "Administrators manage users, instance settings and the audit log.",
+        "selfHelp": "You can't remove your own administrator role.",
+        "submit": "Change role"
+      },
+      "status": {
+        "active": "Active",
+        "disabled": "Disabled",
+        "mustChange": "Temporary password"
+      },
+      "totp": {
+        "on": "On",
+        "off": "Off",
+        "pending": "Required, not set up"
+      },
+      "create": {
+        "title": "New user",
+        "intro": "The user signs in with a temporary password and must choose their own at first sign-in.",
+        "username": "Username",
+        "usernameHelp": "3 to 30 letters, numbers, dots or underscores. It can't be changed later.",
+        "email": "Email",
+        "name": "Display name",
+        "nameHelp": "Optional.",
+        "password": "Temporary password",
+        "passwordHelp": "At least 12 characters. Share it over a safe channel.",
+        "role": "Role",
+        "roles": {
+          "user": "User",
+          "admin": "Administrator"
+        },
+        "totp": "Require two-step verification",
+        "totpHelp": "The user sets it up at first sign-in.",
+        "submit": "Create user"
+      },
+      "detail": {
+        "back": "All users",
+        "title": "Account",
+        "email": "Email",
+        "name": "Display name",
+        "created": "Created",
+        "lastSignIn": "Last sign-in",
+        "sessions": "Running sessions",
+        "sessionsCount": "{count, plural, =0 {None} one {# session} other {# sessions}}"
+      },
+      "ban": {
+        "title": "Access",
+        "self": "You can't disable your own account.",
+        "enableIntro": "The account is disabled: the user can't sign in. Their terminal sessions were left as they were.",
+        "enable": "Enable account",
+        "disableIntro": "Disabling signs the user out everywhere and closes their open terminals at once. Their sessions keep running on the server unless you terminate them.",
+        "disable": "Disable account…",
+        "question": "Disable {username}? They are signed out right away and can't sign in until you enable the account.",
+        "terminate": "{count, plural, =0 {No running sessions to terminate} one {Also terminate their running session} other {Also terminate their # running sessions}}",
+        "terminateHelp": "Ends the shells on their hosts. This can't be undone.",
+        "confirm": "Disable account"
+      },
+      "totpReset": {
+        "title": "Two-step verification",
+        "intro": "Resetting removes the user's authenticator and trusted devices. If two-step verification is required, they set it up again at next sign-in.",
+        "notEnrolled": "The user hasn't set up two-step verification.",
+        "label": "Reset two-step verification…",
+        "question": "Reset two-step verification for {username}? Their authenticator and backup codes stop working.",
+        "confirm": "Reset"
+      },
+      "password": {
+        "title": "Password",
+        "intro": "Sets a temporary password. The user must change it at next sign-in, and is signed out everywhere now.",
+        "label": "Temporary password",
+        "help": "At least 12 characters. Share it over a safe channel.",
+        "submit": "Set temporary password"
+      },
+      "notice": {
+        "created": "User created. Share the temporary password with them over a safe channel.",
+        "totpReset": "Two-step verification reset.",
+        "enabled": "Account enabled. The user can sign in again.",
+        "disabled": "Account disabled. The user was signed out and their open terminals closed; their sessions keep running.",
+        "disabledTerminated": "Account disabled. {count, plural, =0 {No sessions needed terminating} one {# session was terminated} other {# sessions were terminated}}.",
+        "connectionsOpen": "The session service could not be reached, so terminals the user still has open may stay connected for a short while.",
+        "terminateFailed": "The session service could not be reached, so the user's sessions were not terminated.",
+        "passwordReset": "Temporary password set. The user must change it at next sign-in.",
+        "roleChanged": "Role changed."
+      },
+      "error": {
+        "username": "Use 3 to 30 letters, numbers, dots or underscores.",
+        "usernameTaken": "This username is already taken.",
+        "email": "Enter a valid email address.",
+        "emailTaken": "Another account already uses this email.",
+        "nameLong": "Use at most 100 characters.",
+        "passwordShort": "Use at least 12 characters.",
+        "passwordLong": "Use at most 128 characters.",
+        "createFailed": "The user could not be created. Check the fields and try again.",
+        "self": "You can't disable your own account.",
+        "selfRole": "You can't remove your own administrator role.",
+        "notFound": "This user no longer exists.",
+        "generic": "Something went wrong. Try again."
+      }
+    },
+    "settings": {
+      "tab": "Instance settings",
+      "title": "Instance settings",
+      "intro": "Apply to every user of this installation. Each change is recorded in the audit log.",
+      "security": "Sign-in",
+      "requireTotp": "Require two-step verification for everyone",
+      "requireTotpHelp": "Everyone without it, you included, must set it up before they can continue.",
+      "sessions": "Sessions",
+      "max": "Maximum running sessions per user",
+      "maxHelp": "New sessions are refused above this number. Default 50.",
+      "direct": "Direct mode",
+      "localShell": "Show local shells (direct mode) to administrators",
+      "localShellHelp": "Lets administrators add a local host. It works only when the session service also runs with TERMDOCK_ENABLE_LOCAL_SHELL=true.",
+      "localShellWarning": "Local shells run as the session service's own user, which can read the master key and the database. Turning this on gives administrators effective access to every stored credential.",
+      "submit": "Save settings",
+      "saved": "Settings saved.",
+      "unchanged": "Nothing changed.",
+      "error": {
+        "max": "Use a whole number from 1 to 1000.",
+        "generic": "The settings could not be saved. Try again."
+      }
+    },
+    "audit": {
+      "tab": "Audit log",
+      "title": "Audit log",
+      "filters": "Filter",
+      "filterType": "Event",
+      "filterActor": "Actor",
+      "allTypes": "All events",
+      "allActors": "Everyone",
+      "from": "From",
+      "to": "To",
+      "apply": "Apply",
+      "clear": "Clear",
+      "utc": "Dates are in UTC. Times in the table are in your time zone.",
+      "empty": "No audit events yet.",
+      "emptyFiltered": "No events match these filters.",
+      "caption": "Audit events ({total})",
+      "time": "Time",
+      "event": "Event",
+      "actor": "Actor",
+      "target": "Target",
+      "source": "Source",
+      "detail": "Details",
+      "system": "System",
+      "type": {
+        "auth_login_success": "Signed in",
+        "auth_login_failure": "Sign-in failed",
+        "auth_lockout": "Sign-in locked",
+        "auth_password_change": "Password changed",
+        "auth_password_reset": "Password reset by admin",
+        "auth_totp_enable": "Two-step turned on",
+        "auth_totp_disable": "Two-step turned off",
+        "auth_totp_reset": "Two-step reset by admin",
+        "auth_session_revoke": "Sign-ins revoked",
+        "user_create": "User created",
+        "user_ban": "Account disabled",
+        "user_unban": "Account enabled",
+        "user_role_change": "Role changed",
+        "user_sessions_terminate": "Sessions terminated by admin",
+        "admin_setting_change": "Instance setting changed",
+        "credential_create": "Credential created",
+        "credential_rename": "Credential renamed",
+        "credential_delete": "Credential deleted",
+        "host_key_pending": "Host key seen",
+        "host_key_trust": "Host key trusted",
+        "host_key_replace": "Host key replaced",
+        "host_key_revoke": "Host key revoked",
+        "host_key_mismatch": "Host key mismatch"
+      }
+    }
   }
 }

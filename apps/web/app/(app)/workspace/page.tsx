@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { WorkspaceShell } from '../../../components/workspace/workspace-shell.tsx';
 import { isLocale } from '../../../i18n/locales.ts';
+import { isAdminRole } from '../../../lib/admin/core.ts';
 import { getAuthRuntime, requireSession } from '../../../lib/auth/server.ts';
 import { countHosts } from '../../../lib/repo/hosts.ts';
 import { listBaySessions } from '../../../lib/repo/sessions.ts';
@@ -34,6 +35,7 @@ export default async function WorkspacePage({
       locale={isLocale(locale) ? locale : 'en'}
       workspaceHref={ROUTES.workspace}
       hostsHref={ROUTES.hosts}
+      isAdmin={isAdminRole(user.role)}
     />
   );
 }

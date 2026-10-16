@@ -97,6 +97,13 @@ export const RevokeAuthSessionsRequest = z
     message: 'authSessionId or userId is required',
   });
 
+/**
+ * Admin action: terminates every non-ended session of the user in the path. The acting user must
+ * be an admin (not banned); anyone else gets 403.
+ */
+export const TerminateUserSessionsRequest = z.object({ actingUserId });
+export const TerminateUserSessionsResponse = z.object({ terminated: z.number().int().min(0) });
+
 export const HealthResponse = z.object({
   ok: z.boolean(),
   sessions: z.number().int(),

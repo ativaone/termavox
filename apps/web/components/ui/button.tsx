@@ -13,6 +13,11 @@ interface ButtonStyle {
   block?: boolean;
   /** Icon-only control: square, the accessible name comes from aria-label. */
   iconOnly?: boolean;
+  /**
+   * Destructive only: the 2rem leading space that sets it apart from neighbouring actions.
+   * Off for a destructive control that stands alone on its row.
+   */
+  isolated?: boolean;
 }
 
 const BASE =
@@ -48,7 +53,7 @@ const VARIANT: Record<ButtonVariant, string> = {
     'bg-transparent text-ink-muted hover:bg-quiet-hover hover:text-ink active:bg-quiet-pressed ' +
     'disabled:bg-transparent disabled:text-ink-faint',
   destructive:
-    'ms-8 border border-danger bg-transparent text-danger hover:border-danger-fill hover:bg-danger-fill ' +
+    'border border-danger bg-transparent text-danger hover:border-danger-fill hover:bg-danger-fill ' +
     'hover:text-white active:bg-danger-on-stock disabled:border-rule disabled:bg-transparent disabled:text-ink-faint',
 };
 
@@ -57,8 +62,15 @@ export function buttonClasses({
   size = 'md',
   block = false,
   iconOnly = false,
+  isolated = true,
 }: ButtonStyle = {}): string {
-  return cx(BASE, iconOnly ? ICON_SIZE[size] : SIZE[size], VARIANT[variant], block && 'w-full');
+  return cx(
+    BASE,
+    iconOnly ? ICON_SIZE[size] : SIZE[size],
+    VARIANT[variant],
+    variant === 'destructive' && isolated && 'ms-8',
+    block && 'w-full',
+  );
 }
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>, ButtonStyle {
@@ -72,6 +84,7 @@ export function Button({
   size,
   block,
   iconOnly,
+  isolated,
   loading = false,
   icon,
   className,
@@ -85,7 +98,7 @@ export function Button({
       type={type}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
-      className={cx(buttonClasses({ variant, size, block, iconOnly }), className)}
+      className={cx(buttonClasses({ variant, size, block, iconOnly, isolated }), className)}
       {...props}
     >
       {loading ? <Spinner /> : icon}
@@ -102,13 +115,17 @@ export function ButtonLink({
   size,
   block,
   iconOnly,
+  isolated,
   icon,
   className,
   children,
   ...props
 }: ButtonLinkProps) {
   return (
-    <Link className={cx(buttonClasses({ variant, size, block, iconOnly }), className)} {...props}>
+    <Link
+      className={cx(buttonClasses({ variant, size, block, iconOnly, isolated }), className)}
+      {...props}
+    >
       {icon}
       {children}
     </Link>

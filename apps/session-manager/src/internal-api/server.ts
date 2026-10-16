@@ -14,13 +14,14 @@ import {
   RevokeAuthSessionsRequest,
   RevokeHostKeyRequest,
   type SessionSummary,
+  TerminateUserSessionsRequest,
   TrustHostKeyRequest,
 } from '@termdock/protocol';
 import { ErrorCode, TermdockError } from '@termdock/shared';
 import type { z } from 'zod';
 import { type Logger, silentLogger } from '../config/logger.ts';
 import type { CredentialProvider, OwnershipCheck, SessionRecord } from '../core/types.ts';
-import { requireActingUser } from '../store/access.ts';
+import { isAdmin, requireActingUser } from '../store/access.ts';
 import type { SqliteHostKeyStore } from '../store/host-key-store.ts';
 import type { SqliteSessionStore } from '../store/session-store.ts';
 import { getRow } from '../store/sqlite.ts';
@@ -293,6 +294,11 @@ export class InternalApi {
       },
       {
         method: 'POST',
+        pattern: path(`/users/${ID}/terminate-sessions`),
+        handler: (c) => this.#terminateUserSessions(c),
+      },
+      {
+        method: 'POST',
         pattern: path('/auth-sessions/revoke'),
         handler: (c) => this.#revokeAuthSessions(c),
       },
@@ -441,6 +447,37 @@ export class InternalApi {
     );
     if (!host) throw new TermdockError(ErrorCode.NotFound, 'host not found');
     return host;
+  }
+
+  // ── admin ─────────────────────────────────────────────────────────────────
+
+  /**
+   * Terminates every non-ended session of the target user (admin "also terminate sessions").
+   * The acting user must be an admin and not banned (403 otherwise); an unknown target is 404.
+   * Each session is terminated as its owner, through the registry's own ownership check.
+   */
+  async #terminateUserSessions(ctx: RequestContext): Promise<Reply> {
+    const { actingUserId } = parse(TerminateUserSessionsRequest, ctx.body);
+    const sqlite = this.#options.db.$client;
+    const actor = requireActingUser(sqlite, actingUserId);
+    if (!isAdmin(actor)) throw new TermdockError(ErrorCode.Forbidden, 'admin only');
+    const targetId = ctx.params[0]!;
+    const target = getRow<{ id: string }>(sqlite, 'SELECT id FROM user WHERE id = ?', targetId);
+    if (!target) throw new TermdockError(ErrorCode.NotFound, 'user not found');
+    const { registry } = this.#options;
+    const live = (await registry.listForUser(target.id)).filter((s) => s.state !== 'ended');
+    let terminated = 0;
+    for (const session of live) {
+      try {
+        await registry.terminate(session.id, target.id);
+        terminated++;
+      } catch (err) {
+        // Ended or removed meanwhile: nothing left to terminate.
+        if (!(err instanceof TermdockError && err.code === ErrorCode.NotFound)) throw err;
+      }
+    }
+    this.#log.info({ targetUserId: target.id, terminated }, 'admin terminated user sessions');
+    return { status: 200, body: { terminated } };
   }
 
   // ── system ────────────────────────────────────────────────────────────────

@@ -276,3 +276,36 @@ describe('internal API ownership (foreign resources are 404, like missing ones)'
     });
   });
 });
+
+describe('internal API admin: terminate a user’s sessions', () => {
+  it('lets only an admin terminate every non-ended session of the target user', async () => {
+    const viewport = { cols: 80, rows: 24 };
+    const create = async () =>
+      (await call('POST', '/sessions', { actingUserId: userA, profileId: profileA, viewport })).json
+        ?.sessionId as string;
+    const live = await create();
+    const ended = await create();
+    fixture.db.$client.prepare("UPDATE sessions SET state = 'ended' WHERE id = ?").run(ended);
+    const path = `/users/${userA}/terminate-sessions`;
+
+    // A regular user (even acting on their own sessions) and an unknown actor are refused.
+    expect(await call('POST', path, { actingUserId: userB })).toMatchObject({
+      status: 403,
+      json: { code: 'FORBIDDEN' },
+    });
+    expect((await call('POST', path, { actingUserId: userA })).status).toBe(403);
+    expect((await call('POST', path, { actingUserId: 'ghost' })).status).toBe(403);
+    const bannedAdmin = insertUser(fixture.db, { role: 'admin', banned: true });
+    expect((await call('POST', path, { actingUserId: bannedAdmin })).status).toBe(403);
+    expect(registry.actions).toEqual([]);
+
+    const admin = insertUser(fixture.db, { role: 'user,admin' });
+    expect(
+      (await call('POST', '/users/nobody/terminate-sessions', { actingUserId: admin })).status,
+    ).toBe(404);
+    const done = await call('POST', path, { actingUserId: admin });
+    expect(done).toEqual({ status: 200, json: { terminated: 1 } });
+    // Terminated as the owner, so the registry's ownership check applies; ended ones are skipped.
+    expect(registry.actions).toEqual([`terminate ${live} ${userA}`]);
+  });
+});

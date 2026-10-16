@@ -777,6 +777,7 @@ Bearer `TERMDOCK_INTERNAL_TOKEN`, compared in constant time; a missing or wrong 
 | `POST /internal/v1/hosts/:id/trust-key` | `{ actingUserId, keyType, fingerprint }` → `204`. Trusts the pending key with that fingerprint; with no pending match, records a pasted pre-trust fingerprint (normalized, §5.9). |
 | `POST /internal/v1/hosts/:id/replace-key` | `{ actingUserId, keyType, fingerprint, confirmHostName }` → `204`. After a mismatch: revokes the trusted key of that type and trusts the given fingerprint; `confirmHostName` must equal the host name. |
 | `POST /internal/v1/hosts/:id/revoke-key` | `{ actingUserId, keyType }` → `204`. Marks the trusted key of that type `revoked`. |
+| `POST /internal/v1/users/:id/terminate-sessions` | `{ actingUserId }` → `{ terminated }`. Admin only (acting user must be an admin and not banned → else `403`); terminates every non-ended session of the target user (used by the admin "disable user" flow). |
 | `POST /internal/v1/auth-sessions/revoke` | `{ authSessionId? , userId? }` → `204`; closes the matching WebSockets |
 | `GET /internal/v1/health` | → `{ ok, sessions, uptimeMs, version }` |
 

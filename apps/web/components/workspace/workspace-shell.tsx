@@ -15,6 +15,7 @@ import { cx } from '../ui/cx.ts';
 import { STATE_FILL } from '../ui/state.ts';
 import { StatusChip } from '../ui/status-chip.tsx';
 import { Wordmark } from '../ui/wordmark.tsx';
+import { AccountMenu } from './account-menu.tsx';
 import { Bay } from './bay.tsx';
 import { FirstRunPanel, PickSessionPanel } from './empty-panels.tsx';
 import { KeyBar } from './key-bar.tsx';
@@ -80,6 +81,8 @@ export interface WorkspaceShellProps {
   locale: Locale;
   workspaceHref: string;
   hostsHref: string;
+  /** Shows the Admin entry in the account menu. */
+  isAdmin?: boolean;
 }
 
 /**
@@ -96,6 +99,7 @@ export function WorkspaceShell({
   locale,
   workspaceHref,
   hostsHref,
+  isAdmin = false,
 }: WorkspaceShellProps) {
   const t = useTranslations('workspace');
   const tc = useTranslations('common');
@@ -139,11 +143,8 @@ export function WorkspaceShell({
         </div>
 
         <footer className="flex flex-col gap-2 border-board-rule border-t px-3 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <div className="flex items-center justify-between gap-2 ps-1">
-            <p className="min-w-0 truncate font-medium text-board-ink text-sm">
-              <span className="sr-only">{t('account.signedInAs', { username })}</span>
-              <span aria-hidden="true">{username}</span>
-            </p>
+          <div className="flex items-start justify-between gap-2">
+            <AccountMenu username={username} isAdmin={isAdmin} />
             <SignOutButton label={tc('signOut')} iconOnly />
           </div>
           <LocaleSwitcher locale={locale} hideLabel fill />

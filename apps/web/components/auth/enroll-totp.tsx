@@ -28,9 +28,12 @@ function secretGroups(secret: string): string[] {
 export function EnrollTotp({
   enrolled,
   workspaceHref,
+  continueLabel,
 }: {
   enrolled: boolean;
   workspaceHref: string;
+  /** Label of the final link (default: continue to the workspace). */
+  continueLabel?: string;
 }) {
   const t = useTranslations('auth.enrollTotp');
   const tf = useTranslations('common.field');
@@ -60,7 +63,7 @@ export function EnrollTotp({
           href={workspaceHref}
           className={buttonClasses({ variant: 'primary', size: 'lg', block: true })}
         >
-          {t('doneContinue')}
+          {continueLabel ?? t('doneContinue')}
           <ArrowRightIcon size={18} />
         </Link>
       </div>

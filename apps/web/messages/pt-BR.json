@@ -30,7 +30,18 @@
     "changePassword": "Escolha uma nova senha",
     "enrollTotp": "Configurar a verificação em duas etapas",
     "workspace": "Área de trabalho",
-    "notFound": "Página não encontrada"
+    "notFound": "Página não encontrada",
+    "hosts": "Hosts",
+    "hostNew": "Adicionar host",
+    "dockerHost": "Adicionar este host Docker",
+    "credentials": "Credenciais",
+    "activity": "Atividade",
+    "settingsAccount": "Configurações da conta",
+    "settingsTerminal": "Configurações do terminal",
+    "adminUsers": "Usuários",
+    "adminUser": "Usuário",
+    "adminSettings": "Configurações da instância",
+    "adminAudit": "Log de auditoria"
   },
   "auth": {
     "login": {
@@ -240,5 +251,746 @@
     "title": "Página não encontrada",
     "body": "Este endereço não leva a lugar nenhum no Termdock.",
     "home": "Ir para a área de trabalho"
+  },
+  "nav": {
+    "label": "Gerenciar",
+    "menu": "Menu",
+    "workspace": "Área de trabalho",
+    "hosts": "Hosts",
+    "credentials": "Credenciais",
+    "activity": "Atividade",
+    "settings": "Configurações",
+    "admin": "Admin",
+    "signedInAs": "Conectado como {username}"
+  },
+  "manage": {
+    "pagination": {
+      "nav": "Páginas",
+      "previous": "Anterior",
+      "next": "Próxima",
+      "status": "Página {page} de {pageCount}"
+    },
+    "sessionError": {
+      "unavailable": "O serviço de sessões não está respondendo. Tente de novo daqui a pouco.",
+      "timeout": "O serviço de sessões demorou demais para responder. Tente de novo.",
+      "notFound": "Essa sessão ou esse perfil não existe mais.",
+      "conflict": "Essa sessão não aceita esta ação agora.",
+      "forbidden": "Sua conta não tem permissão para isso.",
+      "limit": "Você atingiu o número máximo de sessões em execução. Encerre uma antes.",
+      "rejected": "O serviço de sessões recusou a solicitação.",
+      "generic": "Algo deu errado. Tente de novo.",
+      "localShellDisabled": "Shells locais estão desativados nesta instalação.",
+      "reopenConflict": "Só sessões encerradas ou desprotegidas podem ser reabertas."
+    }
+  },
+  "hosts": {
+    "title": "Hosts",
+    "intro": "Servidores aos quais o Termdock se conecta. Cada host tem perfis de conexão que dizem com qual usuário entrar.",
+    "add": "Adicionar host",
+    "kind": {
+      "ssh": "SSH",
+      "local": "Local"
+    },
+    "list": {
+      "caption": "Seus hosts",
+      "name": "Nome",
+      "address": "Endereço",
+      "kind": "Tipo",
+      "profiles": "Perfis",
+      "sessions": "Sessões em execução",
+      "localAddress": "Este servidor (modo direto)"
+    },
+    "empty": {
+      "title": "Nenhum host ainda",
+      "body": "Um host é um servidor que o Termdock acessa por SSH. Adicione um, confira a chave do host e crie um perfil para iniciar sessões.",
+      "dockerHelp": "Está rodando o Termdock no Docker, no próprio servidor que quer acessar? “Adicionar este host Docker” cria o host e uma chave dedicada para você."
+    },
+    "notice": {
+      "hostCreated": "Host adicionado. Agora crie um perfil de conexão e confira a chave do host.",
+      "hostSaved": "Host salvo. Sessões em execução mantêm o endereço com que começaram.",
+      "hostDeleted": "Host excluído.",
+      "profileCreated": "Perfil adicionado.",
+      "profileSaved": "Perfil salvo. Vale para as novas sessões.",
+      "profileDeleted": "Perfil excluído.",
+      "keyTrusted": "Chave do host confiada.",
+      "keyPretrusted": "Impressão digital confiada. A primeira conexão precisa apresentar uma chave igual.",
+      "keyReplaced": "Chave confiada substituída.",
+      "keyRevoked": "Chave confiada revogada. Na próxima conexão você precisará confiar em uma chave de novo."
+    },
+    "error": {
+      "nameRequired": "Informe um nome.",
+      "nameLong": "Use no máximo 80 caracteres.",
+      "kind": "Escolha um tipo.",
+      "hostnameRequired": "Informe um nome de host ou endereço IP.",
+      "hostname": "Use um nome de host ou endereço IP, sem espaços nem protocolo.",
+      "port": "Use uma porta de 1 a 65535.",
+      "invalid": "Confira este campo.",
+      "kindLocal": "Hosts locais não estão disponíveis nesta instalação.",
+      "notFound": "Este host não existe mais.",
+      "hostInUse": "Este host ainda tem sessões em execução. Encerre-as antes de excluir o host."
+    },
+    "new": {
+      "title": "Adicionar host",
+      "intro": "Dê ao servidor um nome fácil de reconhecer e o endereço que o Termdock usa para alcançá-lo.",
+      "submit": "Adicionar host"
+    },
+    "form": {
+      "name": "Nome",
+      "nameHelp": "Aparece no painel e nos rótulos das sessões, por exemplo api-prod.",
+      "kind": "Tipo",
+      "kindSsh": "Servidor SSH",
+      "kindSshHelp": "O Termdock se conecta por SSH e confere a chave do host.",
+      "kindLocal": "Shell local (modo direto)",
+      "kindLocalHelp": "Um shell na máquina que roda o serviço de sessões. Só para administradores.",
+      "hostname": "Nome do host ou endereço IP",
+      "hostnameHelp": "Como alcançado a partir do servidor do Termdock, por exemplo 10.0.0.12 ou db.internal.",
+      "port": "Porta",
+      "localReason": {
+        "off": "O modo direto está desligado. Um administrador pode ligá-lo nas configurações da instância; ele também exige shells locais ativados no serviço de sessões.",
+        "adminOnly": "Shells locais rodam com o usuário do próprio serviço de sessões, por isso só administradores podem criá-los."
+      }
+    },
+    "settings": {
+      "title": "Dados do host",
+      "intro": "As alterações valem para novas sessões. Sessões em execução mantêm o endereço com que começaram.",
+      "submit": "Salvar host"
+    },
+    "delete": {
+      "title": "Excluir host",
+      "intro": "Exclui o host com seus perfis e chaves confiadas. O histórico de sessões é mantido.",
+      "blocked": "{count, plural, one {# sessão ainda está em execução neste host. Encerre-a} other {# sessões ainda estão em execução neste host. Encerre-as}} antes de excluir o host.",
+      "toWorkspace": "Ir para a área de trabalho",
+      "label": "Excluir host…",
+      "question": "Excluir {name}, seus perfis de conexão e suas chaves confiadas? Não dá para desfazer.",
+      "confirm": "Excluir host"
+    },
+    "profile": {
+      "title": "Perfis de conexão",
+      "intro": "Com qual usuário entrar e com qual credencial. As sessões começam a partir de um perfil.",
+      "add": "Adicionar perfil",
+      "newTitle": "Novo perfil",
+      "editTitle": "Editar {name}",
+      "empty": "Nenhum perfil ainda. Adicione um com o nome de usuário neste host e uma credencial, e inicie sessões a partir dele.",
+      "edit": "Editar",
+      "delete": "Excluir…",
+      "deleteQuestion": "Excluir o perfil {name}? O histórico de sessões é mantido.",
+      "deleteConfirm": "Excluir perfil",
+      "list": {
+        "name": "Perfil",
+        "login": "Login",
+        "protection": "Proteção",
+        "scrollback": "Histórico",
+        "actions": "Ações",
+        "noCredential": "Sem credencial salva"
+      },
+      "mode": {
+        "auto": "Automática (tmux)",
+        "off": "Desligada"
+      },
+      "form": {
+        "name": "Nome do perfil",
+        "nameHelp": "Por exemplo deploy ou root.",
+        "username": "Usuário no host",
+        "usernameHelp": "A conta com que o Termdock entra.",
+        "credential": "Credencial",
+        "credentialNone": "Nenhuma (pedir no terminal)",
+        "credentialEmpty": "Você ainda não tem credenciais.",
+        "credentialHelp": "A chave ou senha que o Termdock usa neste login.",
+        "credentialManage": "Gerenciar credenciais",
+        "protection": "Proteção da sessão",
+        "protectionAuto": "Automática (recomendada)",
+        "protectionAutoHelp": "Quando o host tem tmux 3.2 ou mais recente, o Termdock roda o shell dentro do tmux, de forma invisível. Assim a sessão sobrevive a reinícios do Termdock e a quedas de rede, com a mesma tela quando você voltar. Sem tmux, a sessão roda desprotegida e avisa isso.",
+        "protectionOff": "Desligada",
+        "protectionOffHelp": "Um shell simples. Se a conexão cair ou o Termdock reiniciar, o shell se perde.",
+        "startup": "Comando inicial",
+        "startupHelp": "Opcional. Roda uma vez quando o shell inicia, por exemplo cd /srv/app.",
+        "env": "Variáveis de ambiente",
+        "envHelp": "Opcional. Definidas no shell remoto quando ele inicia.",
+        "envKey": "Nome da variável {n}",
+        "envValue": "Valor da variável {n}",
+        "envKeyPlaceholder": "NOME",
+        "envValuePlaceholder": "valor",
+        "envRemove": "Remover variável {n}",
+        "envAdd": "Adicionar variável",
+        "keepalive": "Intervalo de keepalive (segundos)",
+        "keepaliveHelp": "Com que frequência o Termdock verifica a conexão: de {min} a {max}.",
+        "scrollback": "Linhas de histórico",
+        "scrollbackHelp": "Guardadas no servidor para cada sessão: de {min} a {max}.",
+        "autoReopen": "Reabrir sessões desprotegidas automaticamente",
+        "autoReopenHelp": "Se um shell desprotegido se perder, inicia outro no mesmo terminal com uma linha de aviso, em vez de encerrar a sessão.",
+        "save": "Salvar perfil",
+        "create": "Adicionar perfil",
+        "cancel": "Cancelar"
+      },
+      "error": {
+        "nameRequired": "Informe um nome para o perfil.",
+        "nameLong": "Use no máximo 80 caracteres.",
+        "usernameRequired": "Informe o usuário no host.",
+        "username": "Use um nome de usuário sem espaços, com no máximo 64 caracteres.",
+        "credential": "Escolha uma das suas credenciais.",
+        "protection": "Escolha um modo de proteção.",
+        "startupLong": "Use no máximo 1000 caracteres.",
+        "envKey": "Nomes de variáveis usam letras, dígitos e sublinhados, e não podem começar com dígito.",
+        "envValue": "Valores de variáveis podem ter no máximo 1000 caracteres.",
+        "envCount": "Use no máximo 32 variáveis.",
+        "envDuplicate": "Cada nome de variável só pode aparecer uma vez.",
+        "keepalive": "Use um número inteiro de segundos de 5 a 300.",
+        "scrollback": "Use um número inteiro de linhas de 1000 a 10000.",
+        "invalid": "Confira este campo.",
+        "notFound": "Este perfil ou host não existe mais.",
+        "inUse": "Sessões iniciadas a partir deste perfil ainda estão em execução. Encerre-as antes de excluir o perfil."
+      }
+    },
+    "diagnostics": {
+      "title": "Diagnóstico",
+      "intro": "Confira a identidade do host antes da primeira sessão e veja se as sessões ficariam protegidas.",
+      "trust": "Confiar nesta chave",
+      "localOnly": "Chaves de host e a sondagem de recursos valem só para hosts SSH.",
+      "fetch": {
+        "profile": "Entrar também com",
+        "profileHelp": "Com um perfil, o Termdock faz login (depois que a chave estiver confiada) e verifica o tmux e o logind no host.",
+        "profileNone": "Sem perfil: só a chave do host",
+        "submit": "Buscar e verificar",
+        "help": "Conecta ao host e mostra a chave que ele apresenta. Nada é confiado até você decidir."
+      },
+      "result": {
+        "unreachable": "Não foi possível alcançar o host",
+        "presented": "Chave apresentada pelo host",
+        "compare": "Compare a impressão digital com a que o administrador do servidor passar antes de confiar.",
+        "mismatchTitle": "O host apresentou outra chave",
+        "mismatchBody": "Esta não é a chave em que você confiou. Se o servidor foi reinstalado ou trocou de chave, substitua a chave confiada. Caso contrário, não conecte: alguém pode estar interceptando a conexão.",
+        "loginFailed": "A chave do host é confiada, mas o login falhou",
+        "noProbe": "A chave do host é confiada. A sondagem não rodou.",
+        "pickProfile": "A chave do host é confiada. Escolha um perfil acima para verificar também o tmux e o logind."
+      },
+      "status": {
+        "trusted": "Confiada",
+        "pending": "Pendente",
+        "revoked": "Revogada",
+        "mismatch": "Divergente"
+      },
+      "code": {
+        "HOST_UNREACHABLE": "Confira o nome do host e a porta, e se o servidor do Termdock consegue alcançar o host.",
+        "HOST_KEY_MISMATCH": "A chave apresentada não confere com a chave confiada.",
+        "AUTH_REJECTED": "O host recusou o usuário ou a credencial do perfil.",
+        "AUTH_TIMEOUT": "O login demorou demais. O host pode estar esperando uma resposta interativa.",
+        "CREDENTIAL_INVALID": "Não foi possível usar a credencial do perfil.",
+        "PROBE_TIMEOUT": "A sondagem de recursos demorou demais para responder.",
+        "CONNECTION_LOST": "A conexão caiu durante a verificação.",
+        "OTHER": "A verificação falhou. Tente de novo."
+      },
+      "keys": {
+        "title": "Chaves do host",
+        "empty": "Nenhuma chave registrada ainda. Use Buscar e verificar ou cole a impressão digital esperada abaixo.",
+        "seen": "Vista em",
+        "decided": "Decidida em"
+      },
+      "replace": {
+        "title": "Substituir chave confiada",
+        "intro": "Só depois de confirmar com o administrador do servidor que a chave mudou. A chave confiada atual deste tipo é revogada.",
+        "fingerprint": "Nova impressão digital",
+        "fingerprintHelp": "A impressão digital SHA256 da nova chave {keyType}.",
+        "confirm": "Digite {name} para confirmar",
+        "confirmHelp": "O nome do host, exatamente como aparece no topo desta página.",
+        "submit": "Substituir chave confiada"
+      },
+      "revoke": {
+        "label": "Revogar…",
+        "question": "Revogar a chave {keyType} confiada? Novas conexões param até você confiar em uma chave de novo.",
+        "confirm": "Revogar chave"
+      },
+      "pretrust": {
+        "title": "Colar impressão digital esperada",
+        "intro": "Confie em uma impressão digital antes da primeira conexão. No servidor, o administrador pode exibi-la com",
+        "command": "ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub",
+        "keyType": "Tipo de chave",
+        "fingerprint": "Impressão digital",
+        "fingerprintHelp": "Formato SHA256, com ou sem o prefixo SHA256:.",
+        "submit": "Confiar nesta impressão digital"
+      },
+      "probe": {
+        "title": "Sondagem de recursos",
+        "tmux": "tmux",
+        "tmuxMissing": "Não instalado",
+        "locale": "Locale UTF-8",
+        "localeMissing": "Nenhum encontrado",
+        "shell": "Shell de login",
+        "unknown": "Desconhecido",
+        "protected": "As sessões ficariam protegidas",
+        "protectedBody": "Modo de controle do tmux: as sessões sobrevivem a reinícios do Termdock e a quedas de rede.",
+        "unprotected": "As sessões não ficariam protegidas",
+        "reason": {
+          "off": "A proteção está desligada neste perfil.",
+          "no_tmux": "O tmux não está instalado no host. Instale o tmux 3.2 ou mais recente para proteger as sessões.",
+          "too_old": "O tmux do host é anterior à versão 3.2, que o Termdock exige para a proteção.",
+          "no_locale": "O host não tem um locale UTF-8, que o tmux exige."
+        },
+        "lingerTitle": "O host pode encerrar o tmux ao desconectar",
+        "lingerBody": "O systemd-logind está configurado para encerrar os processos do usuário quando o login SSH termina. Ative o linger para este usuário (loginctl enable-linger) e garanta que o systemd-run esteja disponível; sem isso a proteção não é confiável."
+      },
+      "error": {
+        "profile": "Escolha um dos perfis deste host.",
+        "notFound": "Este host não existe mais.",
+        "trustConflict": "Outra chave deste tipo já é confiada. Use Substituir chave confiada.",
+        "keyNotFound": "Essa chave não está mais pendente. Use Buscar e verificar de novo.",
+        "fingerprint": "Informe uma impressão digital SHA256 (43 caracteres depois de SHA256:).",
+        "confirmName": "Digite o nome do host exatamente.",
+        "unavailable": "O serviço de sessões não está respondendo. Tente de novo daqui a pouco.",
+        "timeout": "A verificação demorou demais. O host pode estar inacessível.",
+        "conflict": "As chaves do host mudaram nesse meio-tempo. Recarregue a página.",
+        "forbidden": "Sua conta não tem permissão para isso.",
+        "limit": "Muitas solicitações. Aguarde um pouco.",
+        "rejected": "O serviço de sessões recusou a solicitação.",
+        "generic": "Algo deu errado. Tente de novo."
+      }
+    },
+    "docker": {
+      "cta": "Adicionar este host Docker",
+      "title": "Adicionar este host Docker",
+      "intro": "Quando o Termdock roda no Docker, ele alcança a máquina que roda o Docker por SSH em host.docker.internal. O Termdock gera uma chave para isso; você adiciona a chave ao usuário nessa máquina.",
+      "username": "Usuário no host Docker",
+      "usernameHelp": "A conta com que as sessões entram, por exemplo o seu próprio usuário nessa máquina.",
+      "submit": "Criar host e chave",
+      "credentialName": "Chave do host Docker",
+      "hostName": "Host Docker",
+      "creates": {
+        "host": "Um host em {hostname}, porta 22",
+        "key": "Uma nova chave ed25519, guardada criptografada",
+        "profile": "Um perfil para esse usuário com a chave"
+      },
+      "done": {
+        "title": "Host e chave criados",
+        "body": "Faltam dois passos no host Docker para que {username}@{hostname} aceite a conexão.",
+        "step1": "1. Adicione a chave para o usuário",
+        "command": "Rode isto como esse usuário no host Docker",
+        "copyCommand": "Copiar comando",
+        "line": "Ou adicione esta linha ao ~/.ssh/authorized_keys",
+        "copyLine": "Copiar linha",
+        "fingerprint": "Impressão digital da chave:",
+        "once": "A chave aparece aqui só uma vez. Copie agora.",
+        "step2": "2. Garanta que o sshd aceite conexões vindas do Docker",
+        "sshd": "O servidor SSH do host Docker precisa escutar em um endereço que os contêineres alcancem (a bridge do Docker, por exemplo 172.17.0.1). O arquivo compose do Termdock aponta host.docker.internal para esse gateway.",
+        "step3": "3. Verifique a chave do host",
+        "verify": "Na página do host, use Buscar e verificar e confie na chave que o host Docker apresentar.",
+        "open": "Abrir o host"
+      },
+      "error": {
+        "username": "Use um nome de usuário com letras, dígitos, pontos, hífens ou sublinhados.",
+        "unavailable": "O serviço de sessões não está respondendo, então nenhuma chave foi criada. Tente de novo daqui a pouco.",
+        "timeout": "O serviço de sessões demorou demais, então nenhuma chave foi criada. Tente de novo.",
+        "notFound": "Sua conta não foi encontrada.",
+        "conflict": "Não foi possível criar a chave. Tente de novo.",
+        "forbidden": "Sua conta não tem permissão para isso.",
+        "limit": "Muitas solicitações. Aguarde um pouco.",
+        "rejected": "O serviço de sessões recusou a solicitação.",
+        "generic": "Não foi possível criar a chave. Tente de novo."
+      }
+    }
+  },
+  "credentials": {
+    "title": "Credenciais",
+    "intro": "Chaves e senhas que o Termdock usa para entrar nos seus hosts. O serviço de sessões as guarda criptografadas; depois de salvo, ninguém consegue ver um segredo de novo.",
+    "kind": {
+      "password": "Senha",
+      "private_key": "Chave SSH"
+    },
+    "notice": {
+      "renamed": "Credencial renomeada.",
+      "deleted": "Credencial excluída."
+    },
+    "list": {
+      "title": "Suas credenciais",
+      "empty": "Nenhuma credencial ainda. Gere uma chave (recomendado) ou adicione uma chave ou senha existente.",
+      "name": "Credencial",
+      "kind": "Tipo",
+      "lastUsed": "Último uso",
+      "actions": "Ações",
+      "usedBy": "{count, plural, =0 {Não usada por nenhum perfil} one {Usada por # perfil} other {Usada por # perfis}}",
+      "never": "Nunca",
+      "rename": "Renomear",
+      "delete": "Excluir…",
+      "deleteQuestion": "Excluir {name}? Os perfis que a usam ficarão sem credencial.",
+      "deleteConfirm": "Excluir credencial"
+    },
+    "create": {
+      "title": "Nova credencial",
+      "intro": "Os segredos vão uma única vez para o serviço de sessões e nunca mais aparecem.",
+      "kind": "Tipo",
+      "kinds": {
+        "generate": "Gerar chave",
+        "private_key": "Colar uma chave",
+        "password": "Senha"
+      },
+      "kindHelp": {
+        "generate": "Nova chave ed25519",
+        "private_key": "OpenSSH ou PEM",
+        "password": "Para o login"
+      },
+      "name": "Nome",
+      "nameHelp": "Para você diferenciar, por exemplo chave de deploy 2026.",
+      "password": "Senha",
+      "passwordHelp": "Guardada criptografada; o Termdock a usa quando o host pedir a senha.",
+      "privateKey": "Chave privada",
+      "privateKeyHelp": "Cole a chave inteira, incluindo as linhas BEGIN e END.",
+      "passphrase": "Frase secreta",
+      "passphraseHelp": "Só se a chave estiver protegida por uma.",
+      "generateNote": "O Termdock cria um par de chaves ed25519. A chave privada nunca sai do serviço de sessões; você recebe a chave pública para instalar nos seus hosts.",
+      "submit": {
+        "generate": "Gerar chave",
+        "private_key": "Salvar chave",
+        "password": "Salvar senha"
+      },
+      "done": {
+        "title": "{name} foi salva",
+        "generated": "Instale a chave pública em cada host, para o usuário que vai entrar com ela.",
+        "stored": "O segredo está guardado criptografado e não será mostrado de novo.",
+        "publicKey": "Chave pública",
+        "copyKey": "Copiar chave pública",
+        "command": "Instale para o usuário atual em um host",
+        "copyCommand": "Copiar comando",
+        "once": "Esta é a única vez em que a chave pública aparece aqui. Copie agora.",
+        "fingerprint": "Impressão digital:",
+        "another": "Adicionar outra credencial"
+      }
+    },
+    "rename": {
+      "label": "Novo nome",
+      "submit": "Salvar nome",
+      "cancel": "Cancelar"
+    },
+    "error": {
+      "nameRequired": "Informe um nome.",
+      "nameLong": "Use no máximo 120 caracteres.",
+      "passwordRequired": "Informe a senha.",
+      "privateKeyRequired": "Cole a chave privada.",
+      "privateKeyLong": "Esta chave é longa demais.",
+      "privateKeyInvalid": "Não foi possível ler esta chave. Confira se a chave foi colada inteira e se a frase secreta está certa.",
+      "inUse": "Uma sessão em execução usa esta credencial. Encerre-a antes de excluir a credencial.",
+      "unavailable": "O serviço de sessões não está respondendo. Nada foi salvo; tente de novo daqui a pouco.",
+      "timeout": "O serviço de sessões demorou demais. Confira a lista antes de tentar de novo.",
+      "notFound": "Esta credencial não existe mais.",
+      "conflict": "Esta credencial está em uso.",
+      "forbidden": "Sua conta não tem permissão para isso.",
+      "limit": "Muitas solicitações. Aguarde um pouco.",
+      "rejected": "O serviço de sessões recusou a solicitação. Confira os campos e tente de novo.",
+      "generic": "Algo deu errado. Tente de novo."
+    }
+  },
+  "activity": {
+    "title": "Atividade",
+    "intro": "O que aconteceu com as suas sessões, das mais recentes para as mais antigas. A entrada e a saída do terminal nunca são gravadas.",
+    "views": "Visões da atividade",
+    "view": {
+      "events": "Eventos",
+      "sessions": "Sessões"
+    },
+    "events": {
+      "caption": "Eventos de sessão",
+      "empty": "Nenhum evento ainda. Eles aparecem quando você inicia uma sessão.",
+      "time": "Horário",
+      "event": "Evento",
+      "session": "Sessão",
+      "detail": "Detalhes"
+    },
+    "sessions": {
+      "caption": "Histórico de sessões",
+      "empty": "Nenhuma sessão ainda.",
+      "session": "Sessão",
+      "status": "Status",
+      "protection": "Proteção",
+      "started": "Início",
+      "ended": "Fim",
+      "running": "Ainda em execução"
+    },
+    "protection": {
+      "tmux-control": "Protegida",
+      "tmux-normal": "Protegida (compatibilidade)",
+      "none": "Desprotegida",
+      "pending": "Não definida"
+    },
+    "type": {
+      "created": "Sessão criada",
+      "state_changed": "Estado alterado",
+      "reopened": "Reaberta",
+      "restore_started": "Restauração iniciada",
+      "restored": "Restaurada",
+      "restore_failed": "Falha na restauração",
+      "connection_lost": "Conexão perdida",
+      "host_key_unknown": "Chave de host desconhecida",
+      "host_key_rejected": "Chave de host recusada",
+      "host_key_mismatch": "Chave de host divergente",
+      "auth_prompt": "Pedido de login",
+      "auth_prompt_expired": "Pedido de login expirado",
+      "protection_selected": "Proteção definida",
+      "protection_degraded": "Proteção reduzida",
+      "remote_rebooted": "Host reiniciado",
+      "desync": "Tela ressincronizada"
+    }
+  },
+  "settings": {
+    "title": "Configurações",
+    "sections": "Seções das configurações",
+    "account": {
+      "tab": "Conta",
+      "password": {
+        "title": "Senha",
+        "intro": "Ao trocá-la, seus outros navegadores são desconectados.",
+        "changed": "Senha alterada. Seus outros navegadores foram desconectados."
+      },
+      "totp": {
+        "title": "Verificação em duas etapas",
+        "intro": "Um código de um app autenticador a cada login.",
+        "on": "Ativada",
+        "off": "Desativada",
+        "requiredNote": "A verificação em duas etapas é obrigatória para a sua conta, por isso não pode ser desativada aqui.",
+        "done": "Concluir",
+        "disabled": "A verificação em duas etapas está desativada.",
+        "password": "Senha",
+        "disableHelp": "Confirme sua senha para desativar a verificação em duas etapas.",
+        "disable": "Desativar verificação em duas etapas",
+        "error": {
+          "password": "A senha está incorreta.",
+          "required": "A verificação em duas etapas é obrigatória para a sua conta.",
+          "generic": "Não foi possível desativar a verificação em duas etapas. Tente de novo."
+        }
+      },
+      "language": {
+        "title": "Idioma",
+        "intro": "Usado na interface e nos avisos escritos nos seus terminais."
+      }
+    },
+    "terminal": {
+      "tab": "Terminal",
+      "title": "Terminal",
+      "intro": "A aparência e o comportamento dos seus terminais em qualquer navegador. O histórico é definido em cada perfil de conexão.",
+      "scheme": "Esquema de cores",
+      "schemes": {
+        "board": "Painel",
+        "slate": "Ardósia",
+        "buff": "Papel",
+        "contrast": "Alto contraste"
+      },
+      "font": "Fonte",
+      "fontHelp": "A JetBrains Mono vem incluída; as outras precisam estar instaladas no seu dispositivo.",
+      "fonts": {
+        "jetbrains-mono": "JetBrains Mono",
+        "system": "Monoespaçada do sistema",
+        "cascadia-code": "Cascadia Code",
+        "fira-code": "Fira Code"
+      },
+      "size": "Tamanho da fonte",
+      "sizeHelp": "De {min} a {max} px.",
+      "cursor": "Cursor",
+      "cursors": {
+        "block": "Bloco",
+        "bar": "Barra",
+        "underline": "Sublinhado"
+      },
+      "blink": "Cursor piscando",
+      "preview": "Prévia",
+      "clipboard": "Área de transferência e links",
+      "copyOnSelect": "Copiar ao selecionar",
+      "copyOnSelectHelp": "O texto selecionado vai direto para a área de transferência.",
+      "rightClickPaste": "Colar com o botão direito",
+      "rightClickPasteHelp": "O botão direito cola em vez de abrir o menu do navegador.",
+      "osc52": "Permitir que programas escrevam na área de transferência (OSC 52)",
+      "osc52Help": "Programas remotos como tmux ou vim passam a poder substituir sua área de transferência sem perguntar. Deixe desligado se não precisar.",
+      "confirmLinks": "Confirmar antes de abrir links",
+      "confirmLinksHelp": "Mostra o endereço completo antes de abrir um link vindo do terminal.",
+      "submit": "Salvar configurações do terminal",
+      "saved": "Configurações do terminal salvas. Os terminais abertos passam a usá-las quando reconectarem.",
+      "error": {
+        "fontSize": "Use um tamanho de fonte de 10 a 24.",
+        "generic": "Não foi possível salvar as configurações. Confira os campos e tente de novo."
+      }
+    }
+  },
+  "admin": {
+    "title": "Administração",
+    "sections": "Seções da administração",
+    "users": {
+      "tab": "Usuários",
+      "list": {
+        "title": "Usuários",
+        "intro": "Cada usuário vê apenas os próprios hosts, credenciais e sessões.",
+        "user": "Usuário",
+        "role": "Papel",
+        "status": "Situação",
+        "totp": "Duas etapas",
+        "lastSignIn": "Último login",
+        "never": "Nunca"
+      },
+      "role": {
+        "title": "Papel",
+        "admin": "Administrador",
+        "user": "Usuário",
+        "label": "Papel",
+        "help": "Administradores gerenciam usuários, configurações da instância e o log de auditoria.",
+        "selfHelp": "Você não pode remover o seu próprio papel de administrador.",
+        "submit": "Alterar papel"
+      },
+      "status": {
+        "active": "Ativa",
+        "disabled": "Desativada",
+        "mustChange": "Senha temporária"
+      },
+      "totp": {
+        "on": "Ativada",
+        "off": "Desativada",
+        "pending": "Obrigatória, não configurada"
+      },
+      "create": {
+        "title": "Novo usuário",
+        "intro": "O usuário entra com uma senha temporária e precisa escolher a própria no primeiro login.",
+        "username": "Nome de usuário",
+        "usernameHelp": "De 3 a 30 letras, números, pontos ou sublinhados. Não pode ser alterado depois.",
+        "email": "E-mail",
+        "name": "Nome de exibição",
+        "nameHelp": "Opcional.",
+        "password": "Senha temporária",
+        "passwordHelp": "Pelo menos 12 caracteres. Compartilhe por um canal seguro.",
+        "role": "Papel",
+        "roles": {
+          "user": "Usuário",
+          "admin": "Administrador"
+        },
+        "totp": "Exigir verificação em duas etapas",
+        "totpHelp": "O usuário a configura no primeiro login.",
+        "submit": "Criar usuário"
+      },
+      "detail": {
+        "back": "Todos os usuários",
+        "title": "Conta",
+        "email": "E-mail",
+        "name": "Nome de exibição",
+        "created": "Criada em",
+        "lastSignIn": "Último login",
+        "sessions": "Sessões em execução",
+        "sessionsCount": "{count, plural, =0 {Nenhuma} one {# sessão} other {# sessões}}"
+      },
+      "ban": {
+        "title": "Acesso",
+        "self": "Você não pode desativar a sua própria conta.",
+        "enableIntro": "A conta está desativada: o usuário não consegue entrar. As sessões de terminal dele ficaram como estavam.",
+        "enable": "Ativar conta",
+        "disableIntro": "Desativar desconecta o usuário de todos os lugares e fecha na hora os terminais abertos dele. As sessões continuam rodando no servidor, a menos que você as encerre.",
+        "disable": "Desativar conta…",
+        "question": "Desativar {username}? A pessoa é desconectada na hora e não consegue entrar até você ativar a conta.",
+        "terminate": "{count, plural, =0 {Nenhuma sessão em execução para encerrar} one {Encerrar também a sessão em execução} other {Encerrar também as # sessões em execução}}",
+        "terminateHelp": "Encerra os shells nos hosts. Não dá para desfazer.",
+        "confirm": "Desativar conta"
+      },
+      "totpReset": {
+        "title": "Verificação em duas etapas",
+        "intro": "Redefinir remove o autenticador e os dispositivos confiáveis do usuário. Se a verificação em duas etapas for obrigatória, ele a configura de novo no próximo login.",
+        "notEnrolled": "O usuário não configurou a verificação em duas etapas.",
+        "label": "Redefinir verificação em duas etapas…",
+        "question": "Redefinir a verificação em duas etapas de {username}? O autenticador e os códigos de backup deixam de funcionar.",
+        "confirm": "Redefinir"
+      },
+      "password": {
+        "title": "Senha",
+        "intro": "Define uma senha temporária. O usuário precisa trocá-la no próximo login e é desconectado de todos os lugares agora.",
+        "label": "Senha temporária",
+        "help": "Pelo menos 12 caracteres. Compartilhe por um canal seguro.",
+        "submit": "Definir senha temporária"
+      },
+      "notice": {
+        "created": "Usuário criado. Compartilhe a senha temporária por um canal seguro.",
+        "totpReset": "Verificação em duas etapas redefinida.",
+        "enabled": "Conta ativada. O usuário pode entrar de novo.",
+        "disabled": "Conta desativada. O usuário foi desconectado e os terminais abertos foram fechados; as sessões continuam rodando.",
+        "disabledTerminated": "Conta desativada. {count, plural, =0 {Nenhuma sessão precisou ser encerrada} one {# sessão foi encerrada} other {# sessões foram encerradas}}.",
+        "connectionsOpen": "Não foi possível alcançar o serviço de sessões, então terminais que o usuário ainda tenha abertos podem continuar conectados por alguns instantes.",
+        "terminateFailed": "Não foi possível alcançar o serviço de sessões, então as sessões do usuário não foram encerradas.",
+        "passwordReset": "Senha temporária definida. O usuário precisa trocá-la no próximo login.",
+        "roleChanged": "Papel alterado."
+      },
+      "error": {
+        "username": "Use de 3 a 30 letras, números, pontos ou sublinhados.",
+        "usernameTaken": "Este nome de usuário já está em uso.",
+        "email": "Informe um e-mail válido.",
+        "emailTaken": "Outra conta já usa este e-mail.",
+        "nameLong": "Use no máximo 100 caracteres.",
+        "passwordShort": "Use pelo menos 12 caracteres.",
+        "passwordLong": "Use no máximo 128 caracteres.",
+        "createFailed": "Não foi possível criar o usuário. Confira os campos e tente de novo.",
+        "self": "Você não pode desativar a sua própria conta.",
+        "selfRole": "Você não pode remover o seu próprio papel de administrador.",
+        "notFound": "Este usuário não existe mais.",
+        "generic": "Algo deu errado. Tente de novo."
+      }
+    },
+    "settings": {
+      "tab": "Configurações da instância",
+      "title": "Configurações da instância",
+      "intro": "Valem para todos os usuários desta instalação. Cada alteração fica registrada no log de auditoria.",
+      "security": "Login",
+      "requireTotp": "Exigir verificação em duas etapas de todos",
+      "requireTotpHelp": "Quem ainda não a tiver, inclusive você, precisa configurá-la antes de continuar.",
+      "sessions": "Sessões",
+      "max": "Máximo de sessões em execução por usuário",
+      "maxHelp": "Novas sessões são recusadas acima deste número. Padrão: 50.",
+      "direct": "Modo direto",
+      "localShell": "Mostrar shells locais (modo direto) aos administradores",
+      "localShellHelp": "Permite que administradores adicionem um host local. Só funciona se o serviço de sessões também rodar com TERMDOCK_ENABLE_LOCAL_SHELL=true.",
+      "localShellWarning": "Shells locais rodam com o usuário do próprio serviço de sessões, que consegue ler a chave mestra e o banco de dados. Ligar esta opção dá aos administradores acesso efetivo a todas as credenciais guardadas.",
+      "submit": "Salvar configurações",
+      "saved": "Configurações salvas.",
+      "unchanged": "Nada foi alterado.",
+      "error": {
+        "max": "Use um número inteiro de 1 a 1000.",
+        "generic": "Não foi possível salvar as configurações. Tente de novo."
+      }
+    },
+    "audit": {
+      "tab": "Log de auditoria",
+      "title": "Log de auditoria",
+      "filters": "Filtrar",
+      "filterType": "Evento",
+      "filterActor": "Autor",
+      "allTypes": "Todos os eventos",
+      "allActors": "Todos",
+      "from": "De",
+      "to": "Até",
+      "apply": "Aplicar",
+      "clear": "Limpar",
+      "utc": "As datas estão em UTC. Os horários na tabela estão no seu fuso horário.",
+      "empty": "Nenhum evento de auditoria ainda.",
+      "emptyFiltered": "Nenhum evento corresponde a estes filtros.",
+      "caption": "Eventos de auditoria ({total})",
+      "time": "Horário",
+      "event": "Evento",
+      "actor": "Autor",
+      "target": "Alvo",
+      "source": "Origem",
+      "detail": "Detalhes",
+      "system": "Sistema",
+      "type": {
+        "auth_login_success": "Login feito",
+        "auth_login_failure": "Falha no login",
+        "auth_lockout": "Login bloqueado",
+        "auth_password_change": "Senha alterada",
+        "auth_password_reset": "Senha redefinida pelo admin",
+        "auth_totp_enable": "Duas etapas ativada",
+        "auth_totp_disable": "Duas etapas desativada",
+        "auth_totp_reset": "Duas etapas redefinida pelo admin",
+        "auth_session_revoke": "Logins revogados",
+        "user_create": "Usuário criado",
+        "user_ban": "Conta desativada",
+        "user_unban": "Conta ativada",
+        "user_role_change": "Papel alterado",
+        "user_sessions_terminate": "Sessões encerradas pelo admin",
+        "admin_setting_change": "Configuração da instância alterada",
+        "credential_create": "Credencial criada",
+        "credential_rename": "Credencial renomeada",
+        "credential_delete": "Credencial excluída",
+        "host_key_pending": "Chave de host vista",
+        "host_key_trust": "Chave de host confiada",
+        "host_key_replace": "Chave de host substituída",
+        "host_key_revoke": "Chave de host revogada",
+        "host_key_mismatch": "Chave de host divergente"
+      }
+    }
   }
 }

@@ -1,0 +1,142 @@
+import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
+import { CreateCredential } from '../../../components/credentials/create-credential.tsx';
+import { RenameCredential } from '../../../components/credentials/rename-credential.tsx';
+import { KeyIcon } from '../../../components/icons/index.tsx';
+import { DoneNotice, param } from '../../../components/manage/done-notice.tsx';
+import { ButtonLink } from '../../../components/ui/button.tsx';
+import { ConfirmAction } from '../../../components/ui/confirm-action.tsx';
+import { LocalTime } from '../../../components/ui/local-time.tsx';
+import { PageHeader, SheetHeading } from '../../../components/ui/page-header.tsx';
+import { Panel, PanelSection } from '../../../components/ui/panel.tsx';
+import { SheetTable, Td, Th, Tr } from '../../../components/ui/sheet-table.tsx';
+import { Tag } from '../../../components/ui/tag.tsx';
+import { deleteCredential } from '../../../lib/actions/credentials.ts';
+import { getAuthRuntime, requireSession } from '../../../lib/auth/server.ts';
+import { listCredentials } from '../../../lib/repo/credentials.ts';
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('meta');
+  return { title: t('credentials') };
+}
+
+/** Credentials (plan §8.1): list with fingerprints, create, rename, delete. */
+export default async function CredentialsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { user } = await requireSession();
+  const t = await getTranslations('credentials');
+  const credentials = listCredentials(getAuthRuntime().db, user.id);
+  const search = await searchParams;
+  const renaming = param(search.rename);
+
+  return (
+    <>
+      <PageHeader title={t('title')} description={t('intro')} />
+      <DoneNotice
+        done={search.done}
+        messages={{ renamed: t('notice.renamed'), deleted: t('notice.deleted') }}
+      />
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,27rem)]">
+        <Panel aria-labelledby="credentials-list-title">
+          <PanelSection>
+            <SheetHeading id="credentials-list-title" title={t('list.title')} />
+          </PanelSection>
+          {credentials.length === 0 ? (
+            <PanelSection ruled>
+              <div className="flex items-start gap-3">
+                <KeyIcon size={24} className="mt-0.5 shrink-0 text-ink-muted" />
+                <p className="max-w-[56ch] text-pretty text-base text-ink-muted">
+                  {t('list.empty')}
+                </p>
+              </div>
+            </PanelSection>
+          ) : (
+            <div className="border-rule border-t">
+              <SheetTable
+                caption={t('list.title')}
+                head={
+                  <>
+                    <Th>{t('list.name')}</Th>
+                    <Th>{t('list.kind')}</Th>
+                    <Th>{t('list.lastUsed')}</Th>
+                    <Th>
+                      <span className="sr-only">{t('list.actions')}</span>
+                    </Th>
+                  </>
+                }
+              >
+                {credentials.map((credential) => (
+                  <Tr key={credential.id}>
+                    <Td primary className="md:w-[45%] md:max-w-0">
+                      {renaming === credential.id ? (
+                        <RenameCredential id={credential.id} name={credential.name} />
+                      ) : (
+                        <span className="flex min-w-0 flex-col gap-0.5">
+                          <span className="break-words font-semibold">{credential.name}</span>
+                          {credential.fingerprint ? (
+                            <code className="break-all font-mono text-ink-muted text-xs">
+                              {credential.fingerprint}
+                            </code>
+                          ) : null}
+                          <span className="text-ink-muted text-sm">
+                            {t('list.usedBy', { count: credential.profileCount })}
+                          </span>
+                        </span>
+                      )}
+                    </Td>
+                    <Td label={t('list.kind')}>
+                      <Tag>{t(`kind.${credential.kind}`)}</Tag>
+                    </Td>
+                    <Td label={t('list.lastUsed')} className="text-ink-muted">
+                      {credential.lastUsedAt ? (
+                        <LocalTime at={credential.lastUsedAt} />
+                      ) : (
+                        t('list.never')
+                      )}
+                    </Td>
+                    <Td className="max-md:pt-2">
+                      <div className="flex flex-wrap items-start justify-end gap-2 max-md:justify-start">
+                        {renaming === credential.id ? null : (
+                          <ButtonLink
+                            href={`/credentials?rename=${encodeURIComponent(credential.id)}`}
+                            variant="secondary"
+                            size="sm"
+                            scroll={false}
+                          >
+                            {t('list.rename')}
+                          </ButtonLink>
+                        )}
+                        <ConfirmAction
+                          label={t('list.delete')}
+                          question={t('list.deleteQuestion', { name: credential.name })}
+                          confirmLabel={t('list.deleteConfirm')}
+                          action={deleteCredential}
+                          hidden={{ id: credential.id }}
+                        />
+                      </div>
+                    </Td>
+                  </Tr>
+                ))}
+              </SheetTable>
+            </div>
+          )}
+        </Panel>
+        <Panel aria-labelledby="credentials-create-title">
+          <PanelSection>
+            <SheetHeading
+              id="credentials-create-title"
+              title={t('create.title')}
+              description={t('create.intro')}
+            />
+          </PanelSection>
+          <PanelSection ruled>
+            <CreateCredential />
+          </PanelSection>
+        </Panel>
+      </div>
+    </>
+  );
+}

@@ -750,6 +750,30 @@
       "description": "Phone terminal keys; sticky Ctrl turns buff while armed.",
       "html": "<div class=\"ds-keys\"><button class=\"ds-key\" type=\"button\">Esc</button><button class=\"ds-key\" type=\"button\">Tab</button><button class=\"ds-key\" type=\"button\" aria-pressed=\"true\">Ctrl</button><button class=\"ds-key\" type=\"button\" aria-label=\"Up arrow\">↑</button></div>",
       "css": ".ds-keys{display:flex;gap:4px;width:300px;padding:6px;background:var(--color-board-2, #223042)} .ds-key{flex:1;height:44px;border:0;border-radius:4px;background:var(--color-board-3, #2b3b50);color:var(--color-board-ink, #e3e9f0);font:600 0.8125rem Archivo,sans-serif;cursor:pointer;transition:background-color 60ms linear} .ds-key:active{background:var(--color-board-rule, #33465e)} .ds-key:focus-visible{outline:2px solid var(--color-focus-board, #8cc8ff);outline-offset:1px} .ds-key[aria-pressed=true]{background:var(--color-stock, #eee2c0);color:var(--color-stock-ink, #241f14)}"
+    },
+    {
+      "name": "Tag",
+      "kind": "badge",
+      "refersTo": "tag",
+      "description": "Sentence-case state of a record that is not a session (host key, account, role). Feedback tints only; the word carries the meaning.",
+      "html": "<span class=\"ds-tag ds-tag-success\">Trusted</span> <span class=\"ds-tag ds-tag-warning\">Pending</span> <span class=\"ds-tag ds-tag-neutral\">SSH</span>",
+      "css": ".ds-tag{display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:3px;font:600 0.75rem/1rem Archivo,ui-sans-serif,system-ui,sans-serif;color:var(--color-stock-ink, #241f14)} .ds-tag-success{background:var(--color-tint-success, #d5e8cf)} .ds-tag-warning{background:var(--color-tint-warning, #f5dfa8)} .ds-tag-neutral{border:1px solid var(--color-stock-rule-strong, #8c7d58);color:var(--color-stock-ink-muted, #5f5440)}"
+    },
+    {
+      "name": "Sheet Table",
+      "kind": "table",
+      "refersTo": "sheet-table",
+      "description": "A ruled log on stock: sentence-case muted column labels, hairline row rules, tabular figures; rows become labelled blocks below 48rem.",
+      "html": "<table class=\"ds-sheet\"><thead><tr><th>Name</th><th>Address</th><th class=\"num\">Profiles</th></tr></thead><tbody><tr><td><a href=\"#\">api-prod</a></td><td>10.0.0.12:22</td><td class=\"num\">2</td></tr><tr><td><a href=\"#\">db-primary</a></td><td>pg-01.internal:22</td><td class=\"num\">1</td></tr></tbody></table>",
+      "css": ".ds-sheet{width:420px;border-collapse:collapse;background:var(--color-stock, #eee2c0);color:var(--color-stock-ink, #241f14);font:400 0.875rem/1.25rem Archivo,sans-serif;font-variant-numeric:tabular-nums} .ds-sheet th{padding:10px 12px;text-align:start;font-weight:600;font-size:0.8125rem;color:var(--color-stock-ink-muted, #5f5440);border-bottom:1px solid var(--color-stock-rule, #cdbd93)} .ds-sheet td{padding:12px;border-top:1px solid var(--color-stock-rule, #cdbd93)} .ds-sheet .num{text-align:end} .ds-sheet a{color:inherit;font-weight:600;text-underline-offset:4px;text-decoration-color:var(--color-stock-rule-strong, #8c7d58)}"
+    },
+    {
+      "name": "Confirm Action",
+      "kind": "button",
+      "refersTo": "button-destructive",
+      "description": "Destructive action behind a native disclosure: the first press opens a danger-tint slip naming the consequence; the button inside submits.",
+      "html": "<details class=\"ds-confirm\" open><summary>Delete host…</summary><div class=\"ds-slip\"><p>Delete api-prod, its connection profiles and its trusted keys? This can't be undone.</p><button type=\"button\">Delete host</button></div></details>",
+      "css": ".ds-confirm{width:360px;font:400 0.875rem/1.25rem Archivo,sans-serif} .ds-confirm summary{display:inline-flex;align-items:center;height:32px;padding:0 10px;border:1px solid var(--color-danger-on-stock, #a3271f);border-radius:4px;color:var(--color-danger-on-stock, #a3271f);list-style:none;cursor:pointer} .ds-slip{margin-top:12px;padding:12px;border-radius:4px;background:var(--color-tint-danger, #f3d2c4);color:var(--color-stock-ink, #241f14)} .ds-slip button{margin-top:12px;height:32px;padding:0 10px;border:1px solid var(--color-danger-on-stock, #a3271f);border-radius:4px;background:transparent;color:var(--color-danger-on-stock, #a3271f);font:500 0.8125rem Archivo,sans-serif}"
     }
   ],
   "narrative": {

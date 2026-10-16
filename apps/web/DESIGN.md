@@ -341,6 +341,18 @@ An 8 px state square beside the status word in the surface ink (Connecting…, R
 ### Wordmark
 A blank strip drawn in SVG (buff, slate edge cell, two cell rules) beside TERMDOCK in lane caps.
 
+### Management pages (hosts, credentials, activity, settings, admin)
+The secondary pages stay on the same board and use the same stock; nothing about them competes with the workspace.
+- **Way in:** the bay footer's username is a native disclosure that opens, inline, the list of secondary pages (never a popover over the strips).
+- **Frame:** a 48 px slate bar whose first control leads back to the workspace, then the section links in muted board ink; the current one is board ink over a 2 px buff rule (the board's "you are here", never a state colour). On phones the links move to a second, sideways-scrolling row. Content sits on `board-0` in a 76rem column.
+- **Page header:** the title in board ink (Title size), one line of context in board ink muted, page actions on the trailing edge (primary in buff, secondary bordered). Sections inside a page use the same 2 px buff rule as tabs (`SubNav`).
+- **Sheet table:** a ruled table on stock, like a printed log: column labels in sentence case, muted, semibold; hairline rules between rows; tabular figures; counts right-aligned. Below 48rem every row becomes a block with each cell carrying its own label, so nothing scrolls sideways. Long machine values (fingerprints, hostnames, audit details) wrap anywhere instead of widening the sheet.
+- **Tag:** a 20 px, 3 px-cornered, sentence-case label for the state of a record that is not a session: host key Trusted / Pending / Revoked / Mismatch, account Active / Disabled, role, profile protection mode. Feedback tints only (success, warning, danger, info) or a bordered neutral; the six state colours stay with sessions, and the word always carries the meaning.
+- **Confirm action:** a destructive action behind a native disclosure. The first press opens a danger-tint slip that names exactly what will happen; the destructive button inside it submits; a server refusal (409 "still in use") shows in the same slip. No modal. It keeps the 2rem isolation beside other actions and drops it (`isolated={false}`) when it stands alone on its row.
+- **Radio:** native, drawn like the checkbox: an empty writing-field ring at rest, the primary material with a field-coloured centre when chosen; disabled is a pale disc (the browser's dark disabled disc reads as "selected" on buff). Choice cards (credential type, colour scheme) are bordered stock rows; the chosen one takes `stock-followed` with an ink border.
+- **Fingerprints and keys:** JetBrains Mono at 12 px so a SHA256 fingerprint fits one line in the 28rem diagnostics column; public keys and install commands sit in writing-field wells with a Copy button beneath.
+- **Success after a redirect:** a success notice slip at the top of the page, from a whitelisted `?done=` key (the query string never injects text).
+
 ## Do's and Don'ts
 
 ### Do:
