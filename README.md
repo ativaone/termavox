@@ -93,10 +93,10 @@ Three ideas carry the design:
 
 | Phase | Scope | Status |
 |---|---|---|
-| 0 | Foundations, canonical contracts, de-risking spikes (emulator fidelity ✅, tmux control protocol ✅, state rebuild / flow control / lifecycle 🚧) | 🚧 |
-| 1 | Data plane core: session runtime, WebSocket protocol, raw SSH driver ✅ · SQLite persistence, credential vault, internal API, daemon boot 🚧 | 🚧 |
-| 2 | Web control plane: login + TOTP, admin, hosts/credentials/profiles, i18n | ⏳ |
-| 3 | tmux control-mode protection end to end | ⏳ |
+| 0 | Foundations, canonical contracts, de-risking spikes: emulator fidelity, tmux control protocol, state rebuild under load, flow control, lifecycle (all GO, see ADRs) | ✅ |
+| 1 | Data plane core: session runtime, WebSocket protocol, raw SSH driver, SQLite persistence, credential vault, internal API, daemon boot, dev CLI | ✅ |
+| 2 | Web control plane: login + TOTP, admin, hosts/credentials/profiles, i18n (auth core in progress) | 🚧 |
+| 3 | tmux control-mode protection end to end (driver done; daemon integration in progress) | 🚧 |
 | 4 | Resilience: reconnect, host-key trust UX, keyboard-interactive flows | ⏳ |
 | 5 | Workspace UI: sidebar, tabs, splits, mobile key bar | ⏳ |
 | 6 | Local modes (Docker host preset, direct mode) | ⏳ |
