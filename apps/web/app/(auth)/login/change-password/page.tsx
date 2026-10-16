@@ -19,7 +19,7 @@ export default async function ChangePasswordPage() {
     <AuthPanel
       title={t('title')}
       intro={t('intro')}
-      footer={<SignOutButton label={tc('signOut')} />}
+      footer={<SignOutButton label={tc('signOut')} className="-ms-2.5" />}
     >
       <ChangePasswordForm />
     </AuthPanel>

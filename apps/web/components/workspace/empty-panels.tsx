@@ -7,6 +7,7 @@ import { ButtonLink } from '../ui/button.tsx';
 import { cx } from '../ui/cx.ts';
 import { EmptyState } from '../ui/empty-state.tsx';
 import { Panel } from '../ui/panel.tsx';
+import { NewSessionButton } from './new-session-button.tsx';
 
 /** First run: no host yet. Teaches the three steps and offers the one action that starts them. */
 export function FirstRunPanel({ hostsHref, className }: { hostsHref: string; className?: string }) {
@@ -43,7 +44,10 @@ export function FirstRunPanel({ hostsHref, className }: { hostsHref: string; cla
   );
 }
 
-/** Hosts exist but nothing is open in this pane: says what the pane is for. */
+/**
+ * Hosts exist but nothing is open in this pane: says what the pane is for. With no session at
+ * all it also offers the one action that starts one (the bay's button keeps the shortcut).
+ */
 export function PickSessionPanel({ hasSessions }: { hasSessions: boolean }) {
   const t = useTranslations('workspace.pane');
   const titleId = useId();
@@ -53,6 +57,7 @@ export function PickSessionPanel({ hasSessions }: { hasSessions: boolean }) {
         titleId={titleId}
         title={hasSessions ? t('emptyTitle') : t('noSessionsTitle')}
         body={hasSessions ? t('emptyBody') : t('noSessionsBody')}
+        action={hasSessions ? undefined : <NewSessionButton shortcut={false} block={false} />}
       />
     </Panel>
   );

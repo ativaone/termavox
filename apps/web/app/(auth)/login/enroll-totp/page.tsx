@@ -32,7 +32,7 @@ export default async function EnrollTotpPage() {
       title={t('title')}
       intro={t('intro')}
       wide
-      footer={<SignOutButton label={tc('signOut')} />}
+      footer={<SignOutButton label={tc('signOut')} className="-ms-2.5" />}
     >
       <EnrollTotp enrolled={gate.user.twoFactorEnabled === true} workspaceHref={ROUTES.workspace} />
     </AuthPanel>

@@ -51,7 +51,7 @@ export function TwoFactorForm() {
       <Button
         variant="quiet"
         size="sm"
-        className="self-start"
+        className="-ms-2.5 self-start"
         onClick={() => setMode(backup ? 'totp' : 'backup')}
       >
         {backup ? t('useTotp') : t('useBackup')}

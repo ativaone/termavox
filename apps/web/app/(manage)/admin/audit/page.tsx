@@ -85,21 +85,61 @@ function dayStart(value: string | undefined): number | undefined {
   return Number.isFinite(ms) ? ms : undefined;
 }
 
-function detailSummary(detail: Record<string, unknown> | null): string {
-  if (!detail) return '';
-  const parts: string[] = [];
-  for (const [key, value] of Object.entries(detail)) {
-    if (value === null || typeof value === 'object') continue;
-    parts.push(`${key}: ${String(value).slice(0, 80)}`);
-  }
-  const text = parts.join(' · ');
-  return text.length > 200 ? `${text.slice(0, 199)}…` : text;
-}
+/** Detail fields with a label in `admin.audit.details.key`. */
+const DETAIL_KEYS = [
+  'stage',
+  'reason',
+  'method',
+  'otherSessionsRevoked',
+  'role',
+  'scope',
+  'terminated',
+  'lockedForS',
+  'unknownUser',
+  'username',
+  'totpRequired',
+  'temporaryPassword',
+  'name',
+  'kind',
+  'keyType',
+  'fingerprint',
+  'previousFingerprint',
+  'source',
+] as const;
+type DetailKey = (typeof DETAIL_KEYS)[number];
+const isDetailKey = (key: string): key is DetailKey =>
+  (DETAIL_KEYS as readonly string[]).includes(key);
 
-/** A readable target: the user, host or credential name, a setting key, or a short id. */
-function targetLabel(row: AuditRow): string {
+/** Enumerated detail values with a word in `admin.audit.details.value.<key>`. */
+const DETAIL_VALUES = {
+  stage: ['password', 'totp', 'backup_code'],
+  method: ['password', 'totp', 'backup_code', 'trusted_device'],
+  reason: ['invalid', 'disabled', 'ban'],
+  scope: ['auth_sessions', 'websockets'],
+  source: ['pending', 'pasted', 'host_test'],
+  role: ['user', 'admin'],
+  kind: ['password', 'private_key', 'generate'],
+} as const;
+type DetailValueKey = {
+  [K in keyof typeof DETAIL_VALUES]: `details.value.${K}.${(typeof DETAIL_VALUES)[K][number]}`;
+}[keyof typeof DETAIL_VALUES];
+const valueKey = (key: string, value: unknown): DetailValueKey | null => {
+  if (!Object.hasOwn(DETAIL_VALUES, key)) return null;
+  const known = DETAIL_VALUES[key as keyof typeof DETAIL_VALUES] as readonly unknown[];
+  return known.includes(value) ? (`details.value.${key}.${value}` as DetailValueKey) : null;
+};
+
+/** Instance setting keys (`admin_setting.change`), mapped to their label in `admin.settings`. */
+const SETTING_LABELS = {
+  require_totp: 'requireTotp',
+  max_running_sessions_per_user: 'max',
+  local_shell_visible: 'localShell',
+} as const;
+
+/** A readable target: the user, host or credential name, a setting's label, or a short id. */
+function targetLabel(row: AuditRow, settingLabel: (key: string) => string): string {
   if (row.targetName) return row.targetName;
-  if (row.targetType === 'setting' && row.targetId) return row.targetId;
+  if (row.targetType === 'setting' && row.targetId) return settingLabel(row.targetId);
   const name = row.detail?.name;
   if (typeof name === 'string') return name;
   if (!row.targetId) return '—';
@@ -114,6 +154,7 @@ export default async function AdminAuditPage({
 }) {
   const { user } = await requireAdminPage();
   const t = await getTranslations('admin.audit');
+  const ts = await getTranslations('admin.settings');
   const tp = await getTranslations('manage.pagination');
   const search = await searchParams;
   const { db } = getAuthRuntime();
@@ -133,6 +174,51 @@ export default async function AdminAuditPage({
   const data = paginate(search.page, (page) => listAuditEvents(db, user, filter, page));
   const label = (value: string) =>
     KNOWN_TYPES.has(value) ? t(`type.${value.replaceAll('.', '_') as AuditTypeKey}`) : value;
+
+  /** A detail value in words: yes/no, on/off, known enum words, seconds; machine values as-is. */
+  const detailValue = (key: string, value: string | number | boolean): string => {
+    if (typeof value === 'boolean') return value ? t('details.yes') : t('details.no');
+    if (key === 'lockedForS' && typeof value === 'number') {
+      return t('details.seconds', { count: value });
+    }
+    const word = valueKey(key, value);
+    return word ? t(word) : String(value).slice(0, 80);
+  };
+  const settingLabel = (key: string): string =>
+    Object.hasOwn(SETTING_LABELS, key)
+      ? ts(SETTING_LABELS[key as keyof typeof SETTING_LABELS])
+      : key;
+  const settingValue = (value: unknown): string =>
+    typeof value === 'boolean'
+      ? value
+        ? t('details.on')
+        : t('details.off')
+      : String(value ?? '—').slice(0, 40);
+  /** The event's details as labelled words; ids are left out (the target column names them). */
+  const detailSummary = (row: AuditRow): string => {
+    const detail = row.detail;
+    if (!detail) return '';
+    if (row.type === 'admin_setting.change' && typeof detail.key === 'string') {
+      return t('details.change', {
+        setting: settingLabel(detail.key),
+        from: settingValue(detail.from),
+        to: settingValue(detail.to),
+      });
+    }
+    const parts: string[] = [];
+    for (const [key, value] of Object.entries(detail)) {
+      if (key.endsWith('Id') || key === 'id') continue;
+      if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') {
+        continue;
+      }
+      const name = isDetailKey(key) ? t(`details.key.${key}`) : key;
+      // A flag that is only present when true reads as its label alone ("Unknown username").
+      if (key === 'unknownUser' && value === true) parts.push(name);
+      else parts.push(`${name}: ${detailValue(key, value)}`);
+    }
+    const text = parts.join(' · ');
+    return text.length > 240 ? `${text.slice(0, 239)}…` : text;
+  };
   const query = (page: number) => {
     const params = new URLSearchParams();
     if (type) params.set('type', type);
@@ -247,7 +333,7 @@ export default async function AdminAuditPage({
                   {auditActorLabel(row, t)}
                 </Td>
                 <Td label={t('target')} className="text-sm [overflow-wrap:anywhere]">
-                  {targetLabel(row)}
+                  {targetLabel(row, settingLabel)}
                 </Td>
                 <Td label={t('source')} className="text-ink-muted text-sm">
                   <span className="flex min-w-0 flex-col">
@@ -260,7 +346,7 @@ export default async function AdminAuditPage({
                   </span>
                 </Td>
                 <Td label={t('detail')} className="text-ink-muted text-sm [overflow-wrap:anywhere]">
-                  {detailSummary(row.detail) || '—'}
+                  {detailSummary(row) || '—'}
                 </Td>
               </Tr>
             ))}

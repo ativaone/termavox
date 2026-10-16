@@ -125,7 +125,6 @@
 }
 
 :root {
-  color-scheme: dark;
   /* Motion: crisp two-step. Step = recolour or press, move = slide. */
   --duration-step: 60ms;
   --duration-move: 120ms;
@@ -137,6 +136,8 @@
 
 .surface-board,
 :root {
+  /* Native controls follow the material: dark on the board and in panes, light on stock. */
+  color-scheme: dark;
   --surface: var(--color-board-1);
   --surface-hover: var(--color-board-3);
   --ink: var(--color-board-ink);
@@ -180,10 +181,13 @@
   --on-disabled: var(--color-stock-ink-faint);
   --selection: #f2c46d;
   --on-selection: var(--color-stock-ink);
+  /* Native pickers, autofill and date-field glyphs drawn for light paper. */
+  color-scheme: light;
   color: var(--ink);
 }
 
 .surface-pane {
+  color-scheme: dark;
   --surface: var(--color-pane);
   --ink: var(--color-board-ink);
   --ink-muted: var(--color-pane-ink-dim);
@@ -243,17 +247,25 @@
   }
 }
 
-/* Strip voice: the same family pulled to its condensed width, set in caps. */
+/*
+ * Strip voice: the same family pulled to its condensed width, set in caps. The width comes from
+ * font-stretch alone, matched against the @font-face range (62%–125%) in app/fonts.ts.
+ * geometricPrecision keeps fractional glyph advances: on FreeType at 1x the hinted path rounds
+ * each condensed advance to whole pixels, which collapses the ~2 px word space and opens gaps
+ * inside words.
+ */
 @utility font-strip {
   font-family: var(--font-sans);
-  font-variation-settings: "wdth" 72;
+  font-stretch: 72%;
+  text-rendering: geometricPrecision;
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
 
 @utility font-strip-wide {
   font-family: var(--font-sans);
-  font-variation-settings: "wdth" 80;
+  font-stretch: 80%;
+  text-rendering: geometricPrecision;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }

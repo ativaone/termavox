@@ -15,6 +15,7 @@ import { PlusIcon } from '../../../../components/icons/index.tsx';
 import { DoneNotice, param } from '../../../../components/manage/done-notice.tsx';
 import { ButtonLink } from '../../../../components/ui/button.tsx';
 import { ConfirmAction } from '../../../../components/ui/confirm-action.tsx';
+import { DisclosureSummary } from '../../../../components/ui/disclosure-summary.tsx';
 import { LocalTime } from '../../../../components/ui/local-time.tsx';
 import { PageHeader, SheetHeading } from '../../../../components/ui/page-header.tsx';
 import { Panel, PanelSection } from '../../../../components/ui/panel.tsx';
@@ -291,10 +292,10 @@ export default async function HostPage({
                         ) : null}
                         {key.status === 'trusted' ? (
                           <div className="flex flex-col gap-3">
-                            <details className="group">
-                              <summary className="cursor-pointer font-medium text-ink text-sm underline decoration-rule-strong underline-offset-4 hover:decoration-ink">
+                            <details className="group/disclosure">
+                              <DisclosureSummary className="font-medium text-ink text-sm">
                                 {td('replace.title')}
-                              </summary>
+                              </DisclosureSummary>
                               <div className="mt-3 rounded-control border border-rule-strong px-4 py-3">
                                 <ReplaceKeyForm
                                   hostId={host.id}
@@ -319,10 +320,10 @@ export default async function HostPage({
                 )}
               </PanelSection>
               <PanelSection ruled>
-                <details className="group">
-                  <summary className="cursor-pointer font-semibold text-ink text-md">
+                <details className="group/disclosure">
+                  <DisclosureSummary className="font-semibold text-ink text-md">
                     {td('pretrust.title')}
-                  </summary>
+                  </DisclosureSummary>
                   <div className="mt-3">
                     <PretrustForm hostId={host.id} />
                   </div>

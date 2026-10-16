@@ -37,7 +37,8 @@ export interface StripProps {
   className?: string;
 }
 
-function ProtectionMark({ protection }: { protection: Protection | null }) {
+/** The protection mark (decorative: the caller carries the `protection.*` words beside it). */
+export function ProtectionMark({ protection }: { protection: Protection | null }) {
   if (protection === 'tmux-control') return <ShieldIcon size={16} />;
   if (protection === 'tmux-normal') return <ShieldOutlineIcon size={16} />;
   if (protection === 'none') return <ShieldOffIcon size={16} className="text-ink-muted" />;
@@ -105,7 +106,7 @@ export function Strip({
           {/* The stamp shares the target's line: the label keeps the full width (ended strips). */}
           <span className="flex min-w-0 items-center gap-1.5 text-ink-muted text-xs">
             {stamp ? (
-              <span className="shrink-0 rounded-[2px] border border-rule-strong px-1 font-bold font-strip-wide text-[0.625rem] leading-3.5">
+              <span className="shrink-0 rounded-[2px] border border-rule-strong px-1 font-bold font-strip-wide text-2xs leading-3.5">
                 {stamp}
               </span>
             ) : null}

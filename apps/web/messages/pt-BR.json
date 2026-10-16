@@ -309,6 +309,7 @@
       "notFound": "O host, o perfil ou a credencial não existe mais.",
       "forbidden": "Sua conta não tem permissão para abrir esta sessão.",
       "localShellDisabled": "Shells locais estão desativados nesta instalação.",
+      "hostKeyMismatch": "O host apresentou uma chave diferente da confiável.",
       "generic": "A conexão falhou e não será tentada de novo automaticamente."
     },
     "endReason": {
@@ -854,7 +855,20 @@
       "remote_rebooted": "Host reiniciado",
       "desync": "Tela ressincronizada",
       "attached": "Navegador conectado",
-      "detached": "Navegador desconectado"
+      "detached": "Navegador desconectado",
+      "host_key_trusted": "Chave de host confiada",
+      "host_key_expired": "Pedido de chave de host expirado"
+    },
+    "detail": {
+      "transition": "{from} → {to}",
+      "state": "Estado: {status}",
+      "prompts": "{count, plural, one {# pergunta} other {# perguntas}}",
+      "protectionWas": "Antes: {protection}",
+      "notice": {
+        "tmuxMissing": "O tmux não está instalado no host",
+        "noUtf8": "O host não tem locale UTF-8",
+        "controlUnavailable": "O modo de controle do tmux não está disponível"
+      }
     }
   },
   "settings": {
@@ -1121,6 +1135,70 @@
         "host_key_replace": "Chave de host substituída",
         "host_key_revoke": "Chave de host revogada",
         "host_key_mismatch": "Chave de host divergente"
+      },
+      "details": {
+        "key": {
+          "stage": "Etapa",
+          "reason": "Motivo",
+          "method": "Método",
+          "otherSessionsRevoked": "Outros logins revogados",
+          "role": "Papel",
+          "scope": "Escopo",
+          "terminated": "Sessões encerradas",
+          "lockedForS": "Bloqueado por",
+          "unknownUser": "Usuário desconhecido",
+          "username": "Usuário",
+          "totpRequired": "Duas etapas obrigatória",
+          "temporaryPassword": "Senha temporária",
+          "name": "Nome",
+          "kind": "Tipo",
+          "keyType": "Tipo de chave",
+          "fingerprint": "Impressão digital",
+          "previousFingerprint": "Impressão digital anterior",
+          "source": "Origem"
+        },
+        "value": {
+          "stage": {
+            "password": "Senha",
+            "totp": "Código do autenticador",
+            "backup_code": "Código de backup"
+          },
+          "method": {
+            "password": "Senha",
+            "totp": "Código do autenticador",
+            "backup_code": "Código de backup",
+            "trusted_device": "Dispositivo confiável"
+          },
+          "reason": {
+            "invalid": "Credenciais incorretas",
+            "disabled": "Conta desativada",
+            "ban": "Conta desativada"
+          },
+          "scope": {
+            "auth_sessions": "Logins",
+            "websockets": "Conexões ao vivo"
+          },
+          "source": {
+            "pending": "Vista ao conectar",
+            "pasted": "Colada manualmente",
+            "host_test": "Buscar e verificar"
+          },
+          "role": {
+            "user": "Usuário",
+            "admin": "Administrador"
+          },
+          "kind": {
+            "password": "Senha",
+            "private_key": "Chave SSH",
+            "generate": "Chave SSH gerada"
+          }
+        },
+        "yes": "Sim",
+        "no": "Não",
+        "on": "Ativado",
+        "off": "Desativado",
+        "seconds": "{count} s",
+        "change": "{setting}: {from} → {to}"
       }
     }
   }

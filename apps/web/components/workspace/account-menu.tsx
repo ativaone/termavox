@@ -2,15 +2,26 @@
 
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
+import type { Locale } from '../../i18n/locales.ts';
 import { ChevronDownIcon } from '../icons/index.tsx';
+import { LocaleSwitcher } from '../locale-switcher.tsx';
 import { cx } from '../ui/cx.ts';
 
 /**
  * The bay footer's way out of the workspace: the username opens a native disclosure with the
  * secondary pages (hosts, credentials, activity, settings, admin). Inline, not a popover, so it
- * never covers a strip and needs no JavaScript.
+ * never covers a strip and needs no JavaScript. On a phone it also holds the language picker,
+ * which the desktop bay keeps in its footer.
  */
-export function AccountMenu({ username, isAdmin }: { username: string; isAdmin: boolean }) {
+export function AccountMenu({
+  username,
+  isAdmin,
+  locale,
+}: {
+  username: string;
+  isAdmin: boolean;
+  locale: Locale;
+}) {
   const t = useTranslations('nav');
   const links = [
     { href: '/hosts', label: t('hosts') },
@@ -56,6 +67,11 @@ export function AccountMenu({ username, isAdmin }: { username: string; isAdmin: 
           ))}
         </ul>
       </nav>
+      <LocaleSwitcher
+        locale={locale}
+        fill
+        className="mt-1 border-board-rule border-t px-1 pt-2 pb-1 md:hidden"
+      />
     </details>
   );
 }

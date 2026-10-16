@@ -98,7 +98,8 @@ export default async function CredentialsPage({
                       )}
                     </Td>
                     <Td className="max-md:pt-2">
-                      <div className="flex flex-wrap items-start justify-end gap-2 max-md:justify-start">
+                      {/* One row: Delete keeps its 2rem isolation beside Rename (no 8 px stack). */}
+                      <div className="flex flex-wrap items-start justify-end gap-x-2 gap-y-8 max-md:justify-start md:flex-nowrap">
                         {renaming === credential.id ? null : (
                           <ButtonLink
                             href={`/credentials?rename=${encodeURIComponent(credential.id)}`}

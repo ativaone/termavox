@@ -47,6 +47,7 @@ import { cx } from '../ui/cx.ts';
 import { Notice } from '../ui/notice.tsx';
 import { Spinner } from '../ui/spinner.tsx';
 import { StatusChip } from '../ui/status-chip.tsx';
+import { ProtectionMark } from '../ui/strip.tsx';
 import { Wordmark } from '../ui/wordmark.tsx';
 import { AccountMenu } from './account-menu.tsx';
 import { Bay } from './bay.tsx';
@@ -560,6 +561,7 @@ export function WorkspaceShell({
     : undefined;
   const phoneStatus = phoneSession?.status;
   const phoneLabel = phoneSession?.label ?? t('pane.loading');
+  const phoneProtectionLabel = t(`protection.${phoneSession?.protection ?? 'pending'}`);
   const viewportHeight = useVisualViewportHeight(!isDesktop && phoneView === 'pane');
   const tab = current?.tab ?? null;
   const paneCount = tab ? leaves(tab.root).length : 0;
@@ -645,10 +647,11 @@ export function WorkspaceShell({
 
           <footer className="flex flex-col gap-2 border-board-rule border-t px-3 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <div className="flex items-start justify-between gap-2">
-              <AccountMenu username={username} isAdmin={isAdmin} />
+              <AccountMenu username={username} isAdmin={isAdmin} locale={locale} />
               <SignOutButton label={tc('signOut')} iconOnly />
             </div>
-            <LocaleSwitcher locale={locale} hideLabel fill />
+            {/* On a phone the picker folds into the account disclosure to keep the switcher tall. */}
+            <LocaleSwitcher locale={locale} hideLabel fill className="max-md:hidden" />
           </footer>
         </aside>
 
@@ -672,6 +675,15 @@ export function WorkspaceShell({
               </Button>
               <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
                 <span className="truncate font-semibold font-strip text-strip">{phoneLabel}</span>
+                {phoneSession ? (
+                  <span
+                    className="flex shrink-0 items-center text-board-ink"
+                    title={phoneProtectionLabel}
+                  >
+                    <ProtectionMark protection={phoneSession.protection} />
+                    <span className="sr-only">{phoneProtectionLabel}</span>
+                  </span>
+                ) : null}
                 {phoneStatus ? (
                   <StatusChip status={phoneStatus} label={t(`status.${phoneStatus}`)} />
                 ) : null}

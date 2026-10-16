@@ -31,7 +31,11 @@ export default async function TwoFactorPage() {
       title={t('title')}
       intro={t('intro')}
       footer={
-        <Link href={ROUTES.login} className={buttonClasses({ variant: 'quiet', size: 'sm' })}>
+        <Link
+          href={ROUTES.login}
+          // Quiet text aligns with the sheet's content edge, not its own padding box.
+          className={`${buttonClasses({ variant: 'quiet', size: 'sm' })} -ms-2.5`}
+        >
           {t('otherAccount')}
         </Link>
       }

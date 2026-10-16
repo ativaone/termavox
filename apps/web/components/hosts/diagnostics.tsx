@@ -11,6 +11,7 @@ import {
 } from '../../lib/actions/hosts.ts';
 import type { ManageState } from '../../lib/manage/forms.ts';
 import { ChevronRightIcon } from '../icons/index.tsx';
+import { DisclosureSummary } from '../ui/disclosure-summary.tsx';
 import { FormMessage, Notice } from '../ui/notice.tsx';
 import { Select } from '../ui/select.tsx';
 import { SubmitButton } from '../ui/submit-button.tsx';
@@ -273,10 +274,10 @@ export function FetchVerify({
             <Notice tone="danger" title={t('result.mismatchTitle')}>
               {t('result.mismatchBody')}
             </Notice>
-            <details className="group rounded-control border border-rule-strong px-4 py-3">
-              <summary className="cursor-pointer font-semibold text-ink text-sm">
+            <details className="group/disclosure rounded-control border border-rule-strong px-4 py-3">
+              <DisclosureSummary className="font-semibold text-ink text-sm">
                 {t('replace.title')}
-              </summary>
+              </DisclosureSummary>
               <div className="mt-3">
                 <ReplaceKeyForm
                   hostId={hostId}

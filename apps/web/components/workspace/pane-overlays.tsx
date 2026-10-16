@@ -4,6 +4,7 @@ import type { SessionStatus } from '@termdock/protocol/client';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { type FormEvent, type ReactNode, useId, useRef, useState } from 'react';
+import { END_KEYS, FAILURE_KEYS, pick } from '../../lib/sessions/reasons.ts';
 import type {
   AuthPromptRequest,
   ChannelState,
@@ -20,7 +21,6 @@ import { Panel } from '../ui/panel.tsx';
 import { PasswordField } from '../ui/password-field.tsx';
 import { Spinner } from '../ui/spinner.tsx';
 import { STATE_FILL } from '../ui/state.ts';
-import { StatusChip } from '../ui/status-chip.tsx';
 import { TextField } from '../ui/text-field.tsx';
 import { useNow } from './hooks.ts';
 import { type SessionActionKind, useWorkspace } from './workspace-context.tsx';
@@ -46,29 +46,6 @@ type Overlay =
   | { kind: 'disconnected'; detail: string | null }
   | { kind: 'ended'; reason: string | null }
   | { kind: 'gone' };
-
-/** Known failure details (`session.status` detail of `failed`), mapped to their message key. */
-const FAILURE_KEYS = {
-  AUTH_REJECTED: 'authRejected',
-  CREDENTIAL_INVALID: 'credentialInvalid',
-  HOST_KEY_REJECTED: 'hostKeyRejected',
-  HOST_UNREACHABLE: 'hostUnreachable',
-  NOT_FOUND: 'notFound',
-  FORBIDDEN: 'forbidden',
-  LOCAL_SHELL_DISABLED: 'localShellDisabled',
-} as const;
-
-const END_KEYS = {
-  user_terminated: 'userTerminated',
-  shell_exited: 'shellExited',
-  connection_lost: 'connectionLost',
-  service_restarted: 'serviceRestarted',
-  error: 'error',
-} as const;
-
-function pick<T extends Record<string, string>>(table: T, key: string | null): T[keyof T] | null {
-  return key !== null && Object.hasOwn(table, key) ? table[key as keyof T] : null;
-}
 
 function chooseOverlay(
   sessionId: string,
@@ -134,22 +111,32 @@ function Head({
   statusLabel: string;
   title: string;
   titleId: string;
-  /** The title already names the state: the swatch sits beside it, without a separate chip. */
+  /** The title already names the state, so the state word is not repeated after it. */
   inline?: boolean;
   children?: ReactNode;
 }) {
+  // The state lives on the title row: its swatch before the title and, when the title does not
+  // name the state, the state word trailing on the same row (never a label stacked above).
   return (
     <div className="flex flex-col gap-1.5">
-      {inline ? null : <StatusChip status={status} label={statusLabel} />}
-      <h2 id={titleId} className="flex items-center gap-2 font-semibold text-ink text-md">
-        {inline ? (
+      {/* A long title wraps under itself; the state word stays on its first line (narrow panes). */}
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <h2 id={titleId} className="flex min-w-0 items-start gap-2 font-semibold text-ink text-md">
           <span
             aria-hidden="true"
-            className={cx('size-2 shrink-0 rounded-[1px]', STATE_FILL[status])}
+            className={cx('mt-2 size-2 shrink-0 rounded-[1px]', STATE_FILL[status])}
           />
-        ) : null}
-        {title}
-      </h2>
+          <span className="min-w-0 break-words">{title}</span>
+        </h2>
+        {inline ? null : (
+          <span
+            className="shrink-0 font-medium text-ink-muted text-xs leading-6"
+            data-status={status}
+          >
+            {statusLabel}
+          </span>
+        )}
+      </div>
       {children ? <div className="text-ink-muted text-base">{children}</div> : null}
     </div>
   );

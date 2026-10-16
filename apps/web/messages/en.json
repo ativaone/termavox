@@ -309,6 +309,7 @@
       "notFound": "The host, profile or credential no longer exists.",
       "forbidden": "Your account isn't allowed to open this session.",
       "localShellDisabled": "Local shells are turned off on this installation.",
+      "hostKeyMismatch": "The host presented a different key than the trusted one.",
       "generic": "The connection failed and won't be retried automatically."
     },
     "endReason": {
@@ -854,7 +855,20 @@
       "remote_rebooted": "Host rebooted",
       "desync": "Screen resynchronized",
       "attached": "Browser attached",
-      "detached": "Browser detached"
+      "detached": "Browser detached",
+      "host_key_trusted": "Host key trusted",
+      "host_key_expired": "Host key prompt expired"
+    },
+    "detail": {
+      "transition": "{from} → {to}",
+      "state": "State: {status}",
+      "prompts": "{count, plural, one {# question} other {# questions}}",
+      "protectionWas": "Previously: {protection}",
+      "notice": {
+        "tmuxMissing": "tmux isn't installed on the host",
+        "noUtf8": "The host has no UTF-8 locale",
+        "controlUnavailable": "tmux control mode isn't available"
+      }
     }
   },
   "settings": {
@@ -1121,6 +1135,70 @@
         "host_key_replace": "Host key replaced",
         "host_key_revoke": "Host key revoked",
         "host_key_mismatch": "Host key mismatch"
+      },
+      "details": {
+        "key": {
+          "stage": "Step",
+          "reason": "Reason",
+          "method": "Method",
+          "otherSessionsRevoked": "Other sign-ins revoked",
+          "role": "Role",
+          "scope": "Scope",
+          "terminated": "Sessions ended",
+          "lockedForS": "Locked for",
+          "unknownUser": "Unknown username",
+          "username": "Username",
+          "totpRequired": "Two-step required",
+          "temporaryPassword": "Temporary password",
+          "name": "Name",
+          "kind": "Kind",
+          "keyType": "Key type",
+          "fingerprint": "Fingerprint",
+          "previousFingerprint": "Previous fingerprint",
+          "source": "Source"
+        },
+        "value": {
+          "stage": {
+            "password": "Password",
+            "totp": "Authenticator code",
+            "backup_code": "Backup code"
+          },
+          "method": {
+            "password": "Password",
+            "totp": "Authenticator code",
+            "backup_code": "Backup code",
+            "trusted_device": "Trusted device"
+          },
+          "reason": {
+            "invalid": "Wrong credentials",
+            "disabled": "Account disabled",
+            "ban": "Account disabled"
+          },
+          "scope": {
+            "auth_sessions": "Sign-ins",
+            "websockets": "Live connections"
+          },
+          "source": {
+            "pending": "Seen on connect",
+            "pasted": "Pasted by hand",
+            "host_test": "Fetch & verify"
+          },
+          "role": {
+            "user": "User",
+            "admin": "Administrator"
+          },
+          "kind": {
+            "password": "Password",
+            "private_key": "SSH key",
+            "generate": "Generated SSH key"
+          }
+        },
+        "yes": "Yes",
+        "no": "No",
+        "on": "On",
+        "off": "Off",
+        "seconds": "{count} s",
+        "change": "{setting}: {from} → {to}"
       }
     }
   }

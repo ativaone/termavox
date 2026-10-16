@@ -2,8 +2,9 @@ import { cx } from './cx.ts';
 
 /**
  * A native radio drawn in the surface's tokens, like Checkbox: an empty writing-field ring at
- * rest, the primary material with a field-coloured centre when chosen. The browser default draws
- * a disabled unchecked radio as a dark disc, which reads as "selected" on buff stock.
+ * rest, the primary material with a field-coloured centre when chosen, a pale disc when disabled.
+ * Drawn rather than left to the browser so it matches the 20 px checkbox and the primary
+ * material on either surface.
  */
 export function radioClasses(size: 'md' | 'sm' = 'md', className?: string): string {
   return cx(
