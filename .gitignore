@@ -19,3 +19,6 @@ secrets/
 
 # impeccable review screenshots (local evidence, not versioned)
 apps/web/.impeccable/review/
+
+# Local Claude Code notes (machine-specific)
+CLAUDE.local.md
