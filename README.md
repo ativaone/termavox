@@ -83,7 +83,7 @@ Three ideas carry the design:
   - Login uses username/password plus optional TOTP, with rate limits.
   - Audit logs record session and security events.
 - 🔑 **SSH authentication** with private keys (with passphrase), passwords, and keyboard-interactive prompts (OTP/2FA) relayed to your browser.
-- 🏠 **Local mode**, for running Termdock on the target machine itself.
+- 🏠 **Local mode** *(planned, Phase 6)*, for running Termdock on the target machine itself.
 - 🌍 **English and Brazilian Portuguese** UI.
 - 🐳 **One-command deployment** with Docker Compose and Caddy (automatic HTTPS).
 
@@ -104,7 +104,7 @@ Three ideas carry the design:
 | 7 | Compatibility fallback for old tmux versions | ⏳ |
 | 8 | Hardening, security review, docs, release v0.1.0 (review and hardening done) | 🚧 |
 
-The full plan, with architecture, protocol, data model, security model and per-phase exit criteria, lives in [`docs/implementation-plan.md`](docs/implementation-plan.md). Spike results are recorded as ADRs in [`docs/adr/`](docs/adr/).
+The full plan, with architecture, protocol, data model, security model and per-phase exit criteria, lives in [`docs/implementation-plan.md`](docs/implementation-plan.md). Spike results are recorded as ADRs in [`docs/adr/`](docs/adr/README.md).
 
 ## Tech stack
 
@@ -157,9 +157,22 @@ packages/
   db/                Drizzle schema and migrations (SQLite)
   terminal-config/   xterm options shared by server and browser, query silencer, mode tracker
   shared/            ids, error codes
+deploy/              Docker Compose stack, Caddyfile, Dockerfiles, secrets/backup/restore scripts
+scripts/             dev CLI and the integration test runner
 test/sshd/           SSH server images used by the integration tests
-docs/                implementation plan and architecture decision records
+docs/                guides, security model, architecture overview, implementation plan, ADRs
 ```
+
+## Documentation
+
+| Document | What it covers |
+|---|---|
+| [Installation guide](docs/guides/install.md) | Running Termdock with Docker Compose: secrets, domains and TLS, backups, upgrades, troubleshooting |
+| [Configuration reference](docs/guides/configuration.md) | Every environment variable, secret file, port, volume and instance setting |
+| [Security model](docs/security.md) | Trust boundaries, threat model, controls and operator recommendations |
+| [Architecture overview](docs/architecture.md) | Components, session lifecycle, protection modes, protocol and persistence, for contributors |
+| [Implementation plan](docs/implementation-plan.md) | The full design, decision log and phased delivery plan |
+| [Architecture decision records](docs/adr/README.md) | Spike outcomes and design decisions |
 
 ## Security
 
@@ -171,7 +184,7 @@ Termdock is designed to be deployed as a **privileged bastion**: whoever control
 - Every request is scoped to its owner.
 - Terminal contents are never logged.
 
-The threat model and controls are described in the [implementation plan](docs/implementation-plan.md#10-security). An internal pre-release security review has been completed and its findings fixed; please still wait for the first release before using Termdock in production.
+The threat model, the controls and what Termdock does *not* protect against are described in the [security model](docs/security.md). An internal pre-release security review has been completed and its findings fixed; please still wait for the first release before using Termdock in production. To report a vulnerability, see [`SECURITY.md`](SECURITY.md).
 
 ## License
 
