@@ -10,9 +10,11 @@ import {
   INTERNAL_API_PREFIX,
   ListSessionsQuery,
   RenameCredentialRequest,
+  RenameSessionRequest,
   ReplaceHostKeyRequest,
   RevokeAuthSessionsRequest,
   RevokeHostKeyRequest,
+  SESSION_LABEL_MAX,
   type SessionSummary,
   TerminateUserSessionsRequest,
   TrustHostKeyRequest,
@@ -20,6 +22,7 @@ import {
 import { ErrorCode, TermdockError } from '@termdock/shared';
 import type { z } from 'zod';
 import { type Logger, silentLogger } from '../config/logger.ts';
+import { sanitizePromptText } from '../core/session-runtime.ts';
 import type { CredentialProvider, OwnershipCheck, SessionRecord } from '../core/types.ts';
 import { isAdmin, requireActingUser } from '../store/access.ts';
 import type { SqliteHostKeyStore } from '../store/host-key-store.ts';
@@ -40,6 +43,8 @@ export interface SessionControl {
   terminate(sessionId: string, actingUserId: string): Promise<void>;
   retry(sessionId: string, actingUserId: string): Promise<void>;
   reopen(sessionId: string, actingUserId: string): Promise<{ sessionId: string }>;
+  /** The stored label changed: update the live runtime and publish it to the owner. */
+  renamed(sessionId: string, userId: string, label: string): Promise<void>;
   listForUser(userId: string): Promise<SessionSummary[]>;
   host(sessionId: string): { readonly attachmentCount: number } | undefined;
   readonly size: number;
@@ -89,6 +94,7 @@ export class HttpError extends Error {
 const STATUS_BY_CODE: Partial<Record<ErrorCode, number>> = {
   [ErrorCode.BadRequest]: 400,
   [ErrorCode.CredentialInvalid]: 400,
+  [ErrorCode.LabelInvalid]: 400,
   [ErrorCode.Unauthenticated]: 401,
   [ErrorCode.Forbidden]: 403,
   [ErrorCode.LocalShellDisabled]: 403,
@@ -291,6 +297,11 @@ export class InternalApi {
       { method: 'POST', pattern: path('/sessions'), handler: (c) => this.#createSession(c) },
       { method: 'GET', pattern: path('/sessions'), handler: (c) => this.#listSessions(c) },
       {
+        method: 'PATCH',
+        pattern: path(`/sessions/${ID}`),
+        handler: (c) => this.#renameSession(c),
+      },
+      {
         method: 'POST',
         pattern: path(`/sessions/${ID}/terminate`),
         handler: (c) => this.#sessionAction(c, 'terminate'),
@@ -353,7 +364,7 @@ export class InternalApi {
     const record = await this.#options.sessions.createFromProfile({
       actingUserId: body.actingUserId,
       profileId: body.profileId,
-      label: body.label,
+      label: body.label === undefined ? undefined : sessionLabel(body.label),
       viewport: body.viewport,
       enableLocalShell: this.#options.enableLocalShell,
     });
@@ -380,6 +391,22 @@ export class InternalApi {
         })),
       },
     };
+  }
+
+  /**
+   * Rename (D-28): `{ actingUserId, label }` → `200 { sessionId, label }` with the label as
+   * stored. Any state, ended included. LABEL_INVALID (400) when the cleaned label is empty or too
+   * long; a foreign session is 404. Every connection of the owner gets a `session.upsert`.
+   */
+  async #renameSession(ctx: RequestContext): Promise<Reply> {
+    const body = parse(RenameSessionRequest, ctx.body);
+    const label = sessionLabel(body.label);
+    const sessionId = ctx.params[0]!;
+    const { previous } = await this.#options.sessions.rename(body.actingUserId, sessionId, label);
+    if (previous !== label) {
+      await this.#options.registry.renamed(sessionId, body.actingUserId, label);
+    }
+    return { status: 200, body: { sessionId, label } };
   }
 
   async #sessionAction(
@@ -555,6 +582,22 @@ export class InternalApi {
       },
     };
   }
+}
+
+/**
+ * A session label as stored: control characters and invisible formatting dropped by the stripper
+ * terminal titles and keyboard-interactive prompts go through (`max` = the input's own length, so
+ * nothing is cut before the check), then trimmed; 1–120 characters, else LABEL_INVALID (400).
+ */
+export function sessionLabel(raw: string): string {
+  const label = sanitizePromptText(raw, raw.length, false).trim();
+  if (label.length === 0 || label.length > SESSION_LABEL_MAX) {
+    throw new TermdockError(
+      ErrorCode.LabelInvalid,
+      `label must be 1 to ${SESSION_LABEL_MAX} characters once control and invisible formatting characters are removed`,
+    );
+  }
+  return label;
 }
 
 /** Validates a body/query; 400 with the offending paths (never the submitted values). */

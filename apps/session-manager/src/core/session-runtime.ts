@@ -237,6 +237,16 @@ export class SessionRuntime implements SessionHost {
     return this.#record.userId;
   }
 
+  /** The session's name as the user last set it (D-28). */
+  get label(): string {
+    return this.#record.label;
+  }
+
+  /** The stored label changed (rename, already persisted): only the in-memory record follows. */
+  setLabel(label: string): void {
+    this.#record.label = label;
+  }
+
   get state(): SessionState {
     return this.#state;
   }

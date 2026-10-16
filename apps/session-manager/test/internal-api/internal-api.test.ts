@@ -60,6 +60,9 @@ class FakeRegistry implements SessionControl {
     this.actions.push(`reopen ${id} ${user}`);
     return { sessionId: id };
   }
+  async renamed(id: string, user: string, label: string) {
+    this.actions.push(`renamed ${id} ${user} ${label}`);
+  }
   listForUser(userId: string): Promise<SessionSummary[]> {
     return this.store.listForUser(userId);
   }
@@ -276,6 +279,103 @@ describe('internal API ownership (foreign resources are 404, like missing ones)'
       status: 429,
       json: { code: 'RATE_LIMITED' },
     });
+  });
+});
+
+describe('internal API session labels (D-28)', () => {
+  const viewport = { cols: 80, rows: 24 };
+  const labelOf = (sessionId: string) =>
+    (
+      fixture.db.$client.prepare('SELECT label FROM sessions WHERE id = ?').get(sessionId) as {
+        label: string;
+      }
+    ).label;
+  const renameAudits = () =>
+    (
+      fixture.db.$client
+        .prepare(
+          "SELECT actor_user_id, target_type, target_id, detail_json FROM audit_events WHERE type = 'session.rename' ORDER BY rowid",
+        )
+        .all() as Array<Record<string, string>>
+    ).map((r) => ({ ...r, detail_json: JSON.parse(r.detail_json!) }));
+
+  it('creates with a cleaned label, or with the profile name when none is given', async () => {
+    const create = async (extra: Record<string, unknown>) =>
+      call('POST', '/sessions', { actingUserId: userA, profileId: profileA, viewport, ...extra });
+    const plain = await create({});
+    expect(plain.status).toBe(201);
+    expect(labelOf(plain.json?.sessionId as string)).toBe('test profile');
+
+    const dirty = await create({ label: '  \u202Edeploy\u200B \x1b[31mlogs\x07\uFEFF  ' });
+    expect(dirty.status).toBe(201);
+    const sessionId = dirty.json?.sessionId as string;
+    expect(labelOf(sessionId)).toBe('deploy [31mlogs');
+    expect(registry.created.at(-1)).toMatchObject({ id: sessionId, label: 'deploy [31mlogs' });
+
+    // Same limits as a rename: nothing left after cleaning, or more than 120 characters.
+    for (const label of ['', '   ', '\u200B\u2066\x07', 'x'.repeat(121)]) {
+      expect(await create({ label })).toMatchObject({
+        status: 400,
+        json: { code: 'LABEL_INVALID' },
+      });
+    }
+    expect(registry.created).toHaveLength(2);
+  });
+
+  it('renames in any state for the owner only, cleaning, auditing and publishing the label', async () => {
+    const created = await call('POST', '/sessions', {
+      actingUserId: userA,
+      profileId: profileA,
+      viewport,
+    });
+    const sessionId = created.json?.sessionId as string;
+    const rename = (label: unknown, actingUserId = userA) =>
+      call('PATCH', `/sessions/${sessionId}`, { actingUserId, label });
+
+    // Control, bidi and zero-width characters are dropped before the length check, then trimmed.
+    const renamed = await rename(` \u202Ebuild\u200D box\x00\u2069 ${'\u200B'.repeat(200)}`);
+    expect(renamed).toEqual({ status: 200, json: { sessionId, label: 'build box' } });
+    expect(labelOf(sessionId)).toBe('build box');
+    expect(registry.actions).toEqual([`renamed ${sessionId} ${userA} build box`]);
+    expect(renameAudits()).toEqual([
+      {
+        actor_user_id: userA,
+        target_type: 'session',
+        target_id: sessionId,
+        detail_json: { previousLabel: 'test profile', label: 'build box' },
+      },
+    ]);
+    // The same label again: nothing to write, audit or publish.
+    expect((await rename('build box')).status).toBe(200);
+    expect(renameAudits()).toHaveLength(1);
+    expect(registry.actions).toHaveLength(1);
+
+    // Empty, whitespace-only, invisible-only and over-long labels: 400 LABEL_INVALID, unchanged.
+    for (const label of ['', '  \t ', '\u200B\u202E\uFEFF', 'y'.repeat(121)]) {
+      expect(await rename(label)).toMatchObject({ status: 400, json: { code: 'LABEL_INVALID' } });
+    }
+    expect(await rename('z'.repeat(120))).toMatchObject({ status: 200 });
+    expect((await rename(42)).json?.code).toBe('BAD_REQUEST');
+
+    // Another user: 404 like a missing session, nothing changed; unknown actors are refused.
+    expect(await rename('mine', userB)).toMatchObject({ status: 404, json: { code: 'NOT_FOUND' } });
+    expect(
+      (await call('PATCH', '/sessions/missing', { actingUserId: userA, label: 'x' })).status,
+    ).toBe(404);
+    expect((await rename('ghost', 'ghost')).status).toBe(403);
+    expect(labelOf(sessionId)).toBe('z'.repeat(120));
+
+    // Ended sessions keep their history and can still be renamed: it is only a name.
+    fixture.db.$client.prepare("UPDATE sessions SET state = 'ended' WHERE id = ?").run(sessionId);
+    expect(await rename('archived')).toEqual({
+      status: 200,
+      json: { sessionId, label: 'archived' },
+    });
+    expect(renameAudits().map((a) => a.detail_json)).toEqual([
+      { previousLabel: 'test profile', label: 'build box' },
+      { previousLabel: 'build box', label: 'z'.repeat(120) },
+      { previousLabel: 'z'.repeat(120), label: 'archived' },
+    ]);
   });
 });
 

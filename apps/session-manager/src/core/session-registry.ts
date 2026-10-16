@@ -193,6 +193,18 @@ export class SessionRegistry {
     return { sessionId };
   }
 
+  /**
+   * The stored label of a session changed (internal API rename; the store checked ownership and
+   * committed it): its loaded runtime, if any, takes the new label, and every connection of the
+   * owner gets a `session.upsert`, so lists and tabs follow without a reload. A session with no
+   * runtime (ended and evicted, or never attached since boot) is only published.
+   */
+  async renamed(sessionId: string, userId: string, label: string): Promise<void> {
+    const runtime = this.#runtimes.get(sessionId);
+    if (runtime?.userId === userId) runtime.setLabel(label);
+    await this.#publish(sessionId, userId, null);
+  }
+
   /** `sessions.list` for one user: stored summaries with the live runtime state on top. */
   async listForUser(userId: string): Promise<SessionSummary[]> {
     const summaries = await this.#options.store.listForUser(userId);
@@ -344,12 +356,21 @@ export class SessionRegistry {
   }
 
   async #publishUpsert(record: SessionRecord): Promise<void> {
+    await this.#publish(record.id, record.userId, () => this.#fallbackSummary(record));
+  }
+
+  /** `session.upsert` of the stored summary (live state on top), or of `fallback` when unlisted. */
+  async #publish(
+    sessionId: string,
+    userId: string,
+    fallback: (() => SessionSummary) | null,
+  ): Promise<void> {
     try {
-      const summaries = await this.listForUser(record.userId);
-      const session = summaries.find((s) => s.id === record.id) ?? this.#fallbackSummary(record);
-      this.#options.notifier.sendToUser(record.userId, { type: 'session.upsert', session });
+      const summaries = await this.listForUser(userId);
+      const session = summaries.find((s) => s.id === sessionId) ?? fallback?.();
+      if (session) this.#options.notifier.sendToUser(userId, { type: 'session.upsert', session });
     } catch (err) {
-      this.#log.warn({ err, sessionId: record.id }, 'session.upsert failed');
+      this.#log.warn({ err, sessionId }, 'session.upsert failed');
     }
   }
 
@@ -357,7 +378,8 @@ export class SessionRegistry {
     const runtime = this.#runtimes.get(record.id);
     return {
       id: record.id,
-      label: record.label,
+      // The runtime's copy follows renames; `record` is the one the runtime was spawned from.
+      label: runtime?.label ?? record.label,
       profileId: null,
       hostId: record.target.hostId,
       hostName: record.target.hostname,

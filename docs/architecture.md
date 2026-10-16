@@ -23,7 +23,7 @@ flowchart LR
 | Component | Responsibilities |
 |---|---|
 | **Caddy** | TLS, the only public listener. `/ws` → session-manager, everything else → web. |
-| **web** (`apps/web`) | UI, sign-in and TOTP (Better Auth), users and admin, hosts, connection profiles, workspace layout, preferences, audit view. Issues WebSocket tickets. Asks the daemon to create, terminate, retry or reopen sessions and to manage credentials and host keys. |
+| **web** (`apps/web`) | UI, sign-in and TOTP (Better Auth), users and admin, hosts, connection profiles, workspace layout, preferences, audit view. Issues WebSocket tickets. Asks the daemon to create, terminate, rename, retry or reopen sessions and to manage credentials and host keys. |
 | **session-manager** (`apps/session-manager`) | Owns every session: SSH connections, drivers, the authoritative server-side emulators, reconnection and restore. Serves the browsers' WebSockets and web's internal API. The only holder of the vault master key. |
 | **SQLite** | One database file shared by both processes. session-manager applies the migrations at boot. |
 
@@ -181,7 +181,7 @@ call carries `actingUserId`, and the daemon re-checks ownership in the database.
 
 | Area | Routes under `/internal/v1` |
 |---|---|
-| Sessions | `POST /sessions`, `GET /sessions`, `POST /sessions/:id/terminate`, `…/retry`, `…/reopen` |
+| Sessions | `POST /sessions`, `GET /sessions`, `PATCH /sessions/:id` (rename), `POST /sessions/:id/terminate`, `…/retry`, `…/reopen` |
 | Credentials | `POST /credentials`, `PATCH /credentials/:id` (rename), `DELETE /credentials/:id` |
 | Hosts | `POST /hosts/:id/test`, `…/trust-key`, `…/replace-key`, `…/revoke-key` |
 | Admin | `POST /users/:id/terminate-sessions`, `POST /auth-sessions/revoke` |
@@ -198,7 +198,7 @@ processes read everything; each table has one writer
 
 | Writer | Tables |
 |---|---|
-| session-manager | `sessions`, `session_events`, `credentials`, `known_host_keys`, the `installation_id` and `vault_key_check` settings, credential and host-key audit events |
+| session-manager | `sessions`, `session_events`, `credentials`, `known_host_keys`, the `installation_id` and `vault_key_check` settings, credential, host-key and session-rename audit events |
 | web | Better Auth tables (`user`, `auth_session`, `account`, `verification`, `two_factor`), `hosts`, `connection_profiles`, `workspace_layouts`, `user_preferences`, the admin instance settings, every other audit event |
 
 SQLite serializes writers globally, so session-manager writes through an async batched writer

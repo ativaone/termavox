@@ -21,6 +21,8 @@ export const ErrorCode = {
   /** The SSH target resolves only to addresses the daemon's target policy denies. */
   TargetNotAllowed: 'TARGET_NOT_ALLOWED',
   SessionEnded: 'SESSION_ENDED',
+  /** A session label is empty or longer than 120 characters once cleaned and trimmed. */
+  LabelInvalid: 'LABEL_INVALID',
   Internal: 'INTERNAL',
 } as const;
 

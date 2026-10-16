@@ -11,13 +11,30 @@ export const Viewport = z.object({
   rows: z.number().int().min(5).max(200),
 });
 
+/** Longest session label, counted after the daemon cleaned it (see `SessionLabelInput`). */
+export const SESSION_LABEL_MAX = 120;
+
+/**
+ * A session label as the user typed it. The daemon drops control characters and invisible
+ * formatting (bidi controls, zero-width characters) with the stripper it uses for terminal titles
+ * and keyboard-interactive prompts, trims the rest, and then requires 1–`SESSION_LABEL_MAX`
+ * characters, else `400 LABEL_INVALID`. The cap here only bounds the raw text.
+ */
+export const SessionLabelInput = z.string().max(1024);
+
 export const CreateSessionRequest = z.object({
   actingUserId,
   profileId: id,
-  label: z.string().trim().min(1).max(120).optional(),
+  /** Absent: the profile's name, as before. */
+  label: SessionLabelInput.optional(),
   viewport: Viewport,
 });
 export const CreateSessionResponse = z.object({ sessionId: id });
+
+/** Renames a session of the acting user, in any state (ended included): it is only a name. */
+export const RenameSessionRequest = z.object({ actingUserId, label: SessionLabelInput });
+/** The label as stored (cleaned and trimmed). */
+export const RenameSessionResponse = z.object({ sessionId: id, label: z.string() });
 
 /** Body of terminate / retry / reopen, and of credential deletion. */
 export const ActingUserRequest = z.object({ actingUserId });

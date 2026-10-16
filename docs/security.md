@@ -379,7 +379,7 @@ From [`deploy/compose.yaml`](../deploy/compose.yaml) and the Dockerfiles:
     `user.role_change`, `user.sessions_terminate`, `admin_setting.change`;
   - written by session-manager: `credential.create`, `credential.rename`, `credential.delete`,
     `host_key.pending`, `host_key.trust`, `host_key.replace`, `host_key.revoke`,
-    `host_key.mismatch`, `host_key.revoked_presented`.
+    `host_key.mismatch`, `host_key.revoked_presented`, `session.rename`.
 - `session_events`, shown to each user at `/activity`: creation, state changes, attach and
   detach (with client IP and user agent), connection loss, protection selected or degraded,
   restore and reopen, host-key and prompt events.

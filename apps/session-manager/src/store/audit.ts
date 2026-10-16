@@ -11,14 +11,15 @@ export type DaemonAuditType =
   | 'host_key.replace'
   | 'host_key.revoke'
   | 'host_key.mismatch'
-  | 'host_key.revoked_presented';
+  | 'host_key.revoked_presented'
+  | 'session.rename';
 
 export interface AuditInput {
   type: DaemonAuditType;
   actorUserId: string | null;
-  targetType: 'credential' | 'host';
+  targetType: 'credential' | 'host' | 'session';
   targetId: string;
-  /** Public data only (ids, key types, fingerprints, names); never secret material. */
+  /** Public data only (ids, key types, fingerprints, names, labels); never secret material. */
   detail?: Record<string, unknown>;
   at?: number;
 }

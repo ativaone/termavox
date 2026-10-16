@@ -18,6 +18,7 @@ import type {
   SessionStore,
 } from '../core/types.ts';
 import { isAdmin, requireActingUser } from './access.ts';
+import { insertAudit } from './audit.ts';
 import type { BatchedWriter } from './batched-writer.ts';
 import { maxRunningSessions } from './settings.ts';
 import { allRows, execute, getRow, parseJson, type Sqlite } from './sqlite.ts';
@@ -398,6 +399,39 @@ export class SqliteSessionStore implements SessionStore {
         now,
       );
       return record;
+    });
+  }
+
+  /**
+   * Internal API `PATCH sessions/:id` (D-28): renames a session of the acting user in any state
+   * (ended included: it is only a name), with a `session.rename` audit row in the same
+   * transaction. A missing or foreign session is NOT_FOUND. Renaming to the current label writes
+   * nothing. `label` is already cleaned and checked (internal-api `sessionLabel`). Resolves with
+   * the label it replaced once committed.
+   */
+  rename(actingUserId: string, sessionId: string, label: string): Promise<{ previous: string }> {
+    return this.#writer.run('session.rename', (sqlite) => {
+      const now = this.#now();
+      requireActingUser(sqlite, actingUserId, now);
+      const row = getRow<{ label: string }>(
+        sqlite,
+        'SELECT label FROM sessions WHERE id = ? AND user_id = ?',
+        sessionId,
+        actingUserId,
+      );
+      if (!row) throw new TermdockError(ErrorCode.NotFound, 'session not found');
+      if (row.label !== label) {
+        execute(sqlite, 'UPDATE sessions SET label = ? WHERE id = ?', label, sessionId);
+        insertAudit(sqlite, {
+          type: 'session.rename',
+          actorUserId: actingUserId,
+          targetType: 'session',
+          targetId: sessionId,
+          detail: { previousLabel: row.label, label },
+          at: now,
+        });
+      }
+      return { previous: row.label };
     });
   }
 
