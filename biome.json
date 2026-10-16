@@ -49,5 +49,30 @@
         "organizeImports": "on"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": [
+        "apps/web/**",
+        "!apps/web/lib/repo/**",
+        "!apps/web/lib/auth/**",
+        "!apps/web/test/**",
+        "!apps/web/next.config.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "@termdock/db": "Only the user-scoped repository layer (apps/web/lib/repo) and the auth core may access the database."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }
