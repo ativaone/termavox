@@ -315,3 +315,63 @@ export function SearchIcon(props: IconProps) {
     </Icon>
   );
 }
+
+/** Collapse or expand the session sidebar (a panel with its left column). */
+export function PanelLeftIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+      <path d="M9.5 4.5v15" />
+    </Icon>
+  );
+}
+
+/** Settings (a gear). */
+export function SettingsIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M6 18l1.4-1.4M16.6 7.4 18 6" />
+    </Icon>
+  );
+}
+
+/** Activity (a pulse line). */
+export function ActivityIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3.5 12h3.6l2.4-6 4 12 2.4-6h4.6" />
+    </Icon>
+  );
+}
+
+/** Administration (people). */
+export function UsersIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="9.5" cy="8.5" r="3.25" />
+      <path d="M3.75 19.5a5.75 5.75 0 0 1 11.5 0" />
+      <path d="M16 5.6a3.25 3.25 0 0 1 0 5.8M17.5 14.2a5.75 5.75 0 0 1 2.75 5.3" />
+    </Icon>
+  );
+}
+
+/** Account (a person). */
+export function UserIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="8.5" r="3.5" />
+      <path d="M5.5 19.75a6.5 6.5 0 0 1 13 0" />
+    </Icon>
+  );
+}
+
+/** Languages (two overlapping speech marks). */
+export function LanguageIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 6h9M8.5 4v2M11.5 6c-.6 3.6-3 6.6-6.5 8.5M6.5 9.5c1 2.2 2.8 4 5 5.2" />
+      <path d="m13 20 3.5-8 3.5 8M14.3 17h4.4" />
+    </Icon>
+  );
+}

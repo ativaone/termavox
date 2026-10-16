@@ -88,7 +88,7 @@ function EnvEditor({
                 autoComplete="off"
                 autoCapitalize="characters"
                 spellCheck={false}
-                className="h-11 min-w-0 rounded-control border border-rule-strong bg-field px-3 font-mono text-ink text-md placeholder:text-ink-muted focus-visible:border-focus focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-1"
+                className="h-11 min-w-0 rounded-control border border-line-strong bg-field px-3 font-mono text-ink text-md placeholder:text-ink-muted focus-visible:border-focus focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-1"
               />
               <input
                 name="envValue"
@@ -97,7 +97,7 @@ function EnvEditor({
                 defaultValue={row.value}
                 autoComplete="off"
                 spellCheck={false}
-                className="h-11 min-w-0 rounded-control border border-rule-strong bg-field px-3 font-mono text-ink text-md placeholder:text-ink-muted focus-visible:border-focus focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-1"
+                className="h-11 min-w-0 rounded-control border border-line-strong bg-field px-3 font-mono text-ink text-md placeholder:text-ink-muted focus-visible:border-focus focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-1"
               />
               <Button
                 variant="quiet"
@@ -201,14 +201,14 @@ export function ProfileForm({
           {credentials.length === 0 ? t('credentialEmpty') : t('credentialHelp')}{' '}
           <Link
             href="/credentials"
-            className="font-medium text-ink underline decoration-rule-strong underline-offset-4 hover:decoration-ink"
+            className="font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink"
           >
             {t('credentialManage')}
           </Link>
         </p>
       </div>
 
-      <fieldset className="flex flex-col gap-2.5 border-rule border-t pt-5">
+      <fieldset className="flex flex-col gap-2.5 border-line border-t pt-5">
         <legend className="float-left mb-2 w-full font-semibold text-ink text-sm">
           {t('protection')}
         </legend>
@@ -242,7 +242,7 @@ export function ProfileForm({
         </label>
       </fieldset>
 
-      <div className="flex flex-col gap-5 border-rule border-t pt-5">
+      <div className="flex flex-col gap-5 border-line border-t pt-5">
         <TextField
           name="startupCommand"
           label={t('startup')}
@@ -264,7 +264,7 @@ export function ProfileForm({
         />
       </div>
 
-      <div className="grid gap-5 border-rule border-t pt-5 sm:grid-cols-2">
+      <div className="grid gap-5 border-line border-t pt-5 sm:grid-cols-2">
         <TextField
           name="keepaliveIntervalS"
           label={t('keepalive')}
@@ -296,7 +296,7 @@ export function ProfileForm({
         />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 border-rule border-t pt-5">
+      <div className="flex flex-wrap items-center gap-2 border-line border-t pt-5">
         <SubmitButton size="lg">{initial.id ? t('save') : t('create')}</SubmitButton>
         <ButtonLink href={cancelHref} variant="quiet" size="lg" scroll={false}>
           {t('cancel')}

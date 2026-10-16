@@ -59,8 +59,8 @@ export function PasswordField({
           aria-controls={id}
           disabled={input.disabled}
           className={cx(
-            'absolute inset-y-1 end-1 inline-flex w-10 items-center justify-center rounded-[3px] text-ink-muted',
-            'transition-colors duration-(--duration-step) ease-linear hover:bg-quiet-hover hover:text-ink',
+            'absolute inset-y-1 end-1 inline-flex w-10 items-center justify-center rounded-sm text-ink-muted',
+            'transition-colors duration-(--duration-step) ease-(--ease-out) hover:bg-surface-raised hover:text-ink',
             'focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-focus',
             'disabled:cursor-not-allowed disabled:text-ink-faint disabled:hover:bg-transparent',
           )}

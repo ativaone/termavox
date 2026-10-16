@@ -17,9 +17,11 @@ export function Kbd({
   return (
     <kbd
       className={cx(
-        'inline-flex h-5 min-w-5 items-center justify-center rounded-[3px] border px-1',
+        'inline-flex h-5 min-w-5 items-center justify-center rounded-xs border px-1',
         'font-sans font-semibold text-2xs tabular-nums',
-        tone === 'muted' ? 'border-rule text-ink-muted' : 'border-current/30 text-current/75',
+        tone === 'muted'
+          ? 'border-line-strong/60 bg-surface-raised text-ink-muted'
+          : 'border-current/30 text-current/80',
         className,
       )}
     >

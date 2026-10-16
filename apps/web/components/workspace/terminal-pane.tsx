@@ -254,15 +254,15 @@ export function TerminalPane({
     >
       <div
         className={cx(
-          'absolute inset-y-1 start-2 end-0 overflow-hidden transition-[filter] duration-(--duration-step) ease-linear',
-          dim && 'brightness-[0.72] saturate-[0.85]',
+          'absolute inset-y-1 start-2 end-0 overflow-hidden transition-[filter] duration-(--duration-step) ease-(--ease-out)',
+          dim && 'brightness-[0.78] saturate-[0.85]',
         )}
       >
         <div ref={containerRef} data-terminal="" className="absolute inset-0 overflow-hidden" />
       </div>
       {error ? (
         <div className="absolute inset-0 flex items-center justify-center p-4">
-          <p className="max-w-[28rem] text-center text-pane-ink-dim text-sm">{t('tooMany')}</p>
+          <p className="max-w-[28rem] text-center text-ink-muted text-sm">{t('tooMany')}</p>
         </div>
       ) : (
         <PaneOverlays

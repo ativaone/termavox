@@ -9,9 +9,9 @@ release notes or the delivery report.
 2. **Real phone.** On an actual phone (not emulation), sign in, open a session, type with the
    on-screen keyboard and the extra-key bar (Esc, Tab, Ctrl, arrows, paste), rotate the
    screen, lock the phone for a minute and come back: the session is still there.
-3. **Both locales.** Switch en ↔ pt-BR with the locale switcher; walk sign-in, the workspace,
-   hosts and admin pages in each; no untranslated or truncated text; the choice persists after
-   signing out and in.
+3. **Both locales.** Switch en ↔ pt-BR (the corner control on the sign-in page; account menu →
+   Language… once signed in); walk sign-in, the workspace, hosts and admin pages in each; no
+   untranslated or truncated text; the choice persists after signing out and in.
 4. **Host-key mismatch.** Change the host key of a trusted test host (or point a host at
    another sshd): the session fails with the red mismatch alert and offers no in-flow accept;
    "Replace trusted key" on the host page asks for the host name and then connects.

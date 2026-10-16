@@ -21,13 +21,13 @@ interface ButtonStyle {
 }
 
 const BASE =
-  'inline-flex shrink-0 select-none items-center justify-center gap-2 whitespace-nowrap rounded-control font-medium ' +
-  'transition-[background-color,border-color,color] duration-(--duration-step) ease-linear ' +
+  'inline-flex shrink-0 select-none items-center justify-center gap-2 whitespace-nowrap rounded-control font-semibold ' +
+  'transition-[background-color,border-color,color,filter] duration-(--duration-step) ease-(--ease-out) ' +
   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ' +
   'disabled:cursor-not-allowed aria-disabled:cursor-not-allowed';
 
 const SIZE: Record<ButtonSize, string> = {
-  sm: 'h-8 px-2.5 text-sm',
+  sm: 'h-8 px-3 text-sm',
   md: 'h-9 px-3.5 text-base',
   lg: 'h-11 px-4 text-md',
 };
@@ -39,22 +39,22 @@ const ICON_SIZE: Record<ButtonSize, string> = {
 };
 
 /*
- * Primary is the opposite stock of its surface: buff on the board, slate on buff.
- * Destructive is isolated by deliberate space (margin) from the actions beside it.
+ * Primary is the accent: the one filled control on a screen. Secondary and quiet are translucent
+ * light fills. Destructive is isolated by deliberate space (margin) from the actions beside it.
  */
 const VARIANT: Record<ButtonVariant, string> = {
   primary:
-    'bg-primary text-on-primary hover:bg-primary-hover active:bg-primary-pressed ' +
-    'disabled:bg-disabled disabled:text-on-disabled',
+    'bg-accent text-on-accent hover:brightness-110 active:bg-accent-strong active:brightness-100 ' +
+    'disabled:bg-surface-raised disabled:text-ink-faint disabled:brightness-100',
   secondary:
-    'border border-rule-strong bg-transparent text-ink hover:bg-quiet-hover active:bg-quiet-pressed ' +
-    'disabled:border-rule disabled:bg-transparent disabled:text-ink-faint',
+    'bg-surface-raised text-ink hover:bg-surface-pressed active:bg-surface-pressed ' +
+    'disabled:bg-surface disabled:text-ink-faint',
   quiet:
-    'bg-transparent text-ink-muted hover:bg-quiet-hover hover:text-ink active:bg-quiet-pressed ' +
+    'bg-transparent text-ink-muted hover:bg-surface-raised hover:text-ink active:bg-surface-pressed ' +
     'disabled:bg-transparent disabled:text-ink-faint',
   destructive:
-    'border border-danger bg-transparent text-danger hover:border-danger-fill hover:bg-danger-fill ' +
-    'hover:text-white active:bg-danger-on-stock disabled:border-rule disabled:bg-transparent disabled:text-ink-faint',
+    'border border-danger/55 bg-transparent text-danger hover:border-danger-fill hover:bg-danger-fill ' +
+    'hover:text-white active:bg-danger-fill active:brightness-90 disabled:border-line disabled:bg-transparent disabled:text-ink-faint',
 };
 
 export function buttonClasses({

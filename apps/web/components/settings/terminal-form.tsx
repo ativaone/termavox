@@ -51,7 +51,7 @@ function Preview({
       <figcaption className="font-semibold text-ink text-sm">{label}</figcaption>
       <div
         aria-hidden="true"
-        className="overflow-x-auto rounded-[3px] px-3 py-2.5"
+        className="overflow-x-auto rounded-xs px-3 py-2.5"
         style={{
           background: theme.background,
           color: theme.foreground,
@@ -111,11 +111,11 @@ export function TerminalForm({ initial }: { initial: TerminalPreferences }) {
                     key={value}
                     className={cx(
                       'flex cursor-pointer flex-col gap-2 rounded-control border p-2',
-                      'transition-colors duration-(--duration-step) ease-linear',
+                      'transition-colors duration-(--duration-step) ease-(--ease-out)',
                       'has-focus-visible:outline-2 has-focus-visible:outline-focus has-focus-visible:outline-offset-2',
                       scheme === value
-                        ? 'border-ink bg-stock-followed'
-                        : 'border-rule-strong hover:bg-quiet-hover',
+                        ? 'border-accent-ring bg-accent-soft'
+                        : 'border-line hover:bg-surface-raised',
                     )}
                   >
                     <input
@@ -128,7 +128,7 @@ export function TerminalForm({ initial }: { initial: TerminalPreferences }) {
                     />
                     <span
                       aria-hidden="true"
-                      className="flex h-9 items-end gap-0.5 rounded-[2px] p-1.5"
+                      className="flex h-9 items-end gap-0.5 rounded-xs p-1.5"
                       style={{ background: theme.background }}
                     >
                       {[theme.foreground, theme.green, theme.yellow, theme.blue, theme.red].map(
@@ -206,7 +206,7 @@ export function TerminalForm({ initial }: { initial: TerminalPreferences }) {
         />
       </div>
 
-      <fieldset className="flex flex-col gap-4 border-rule border-t pt-5">
+      <fieldset className="flex flex-col gap-4 border-line border-t pt-5">
         <legend className="float-left mb-1 w-full font-semibold text-ink text-md">
           {t('clipboard')}
         </legend>
@@ -236,7 +236,7 @@ export function TerminalForm({ initial }: { initial: TerminalPreferences }) {
         />
       </fieldset>
 
-      <div className="border-rule border-t pt-5">
+      <div className="border-line border-t pt-5">
         <SubmitButton size="lg">{t('submit')}</SubmitButton>
       </div>
     </form>

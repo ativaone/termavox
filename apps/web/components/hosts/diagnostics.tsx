@@ -163,13 +163,13 @@ function ProbeReport({ result }: { result: NonNullable<DiagnosticsState['result'
   return (
     <div className="flex flex-col gap-3">
       <h4 className="font-semibold text-ink text-sm">{t('title')}</h4>
-      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 border-rule border-y text-base">
+      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 border-line border-y text-base">
         {rows.map(([label, value]) => (
           <div key={label} className="contents">
-            <dt className="border-rule border-t py-2 text-ink-muted text-sm first:border-t-0">
+            <dt className="border-line border-t py-2 text-ink-muted text-sm first:border-t-0">
               {label}
             </dt>
-            <dd className="break-words border-rule border-t py-2 text-ink">{value}</dd>
+            <dd className="break-words border-line border-t py-2 text-ink">{value}</dd>
           </div>
         ))}
       </dl>
@@ -281,7 +281,7 @@ export function FetchVerify({
             >
               {revoked ? t('result.revokedBody') : t('result.mismatchBody')}
             </Notice>
-            <details className="group/disclosure rounded-control border border-rule-strong px-4 py-3">
+            <details className="group/disclosure rounded-control border border-line-strong px-4 py-3">
               <DisclosureSummary className="font-semibold text-ink text-sm">
                 {t('replace.title')}
               </DisclosureSummary>

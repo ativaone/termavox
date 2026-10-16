@@ -4,7 +4,7 @@ import { type ReactNode, useActionState, useId } from 'react';
 import type { ManageState } from '../../lib/manage/forms.ts';
 import { buttonClasses } from './button.tsx';
 import { cx } from './cx.ts';
-import { FormMessage, Notice } from './notice.tsx';
+import { DANGER_SLIP_CLASSES, FormMessage, Notice } from './notice.tsx';
 import { SubmitButton } from './submit-button.tsx';
 
 /**
@@ -50,10 +50,7 @@ export function ConfirmAction({
       >
         {label}
       </summary>
-      <div
-        id={slipId}
-        className="mt-3 flex max-w-[34rem] flex-col gap-3 rounded-control bg-tint-danger px-3 py-3 text-base text-stock-ink"
-      >
+      <div id={slipId} className={cx(DANGER_SLIP_CLASSES, 'mt-3 max-w-[34rem]')}>
         <p className="text-pretty">{question}</p>
         <form action={formAction} className="flex flex-col gap-3">
           {Object.entries(hidden).map(([name, value]) => (

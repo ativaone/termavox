@@ -221,7 +221,7 @@
     "pane": {
       "label": "Painéis de terminal",
       "emptyTitle": "Escolha uma sessão",
-      "emptyBody": "Escolha uma tira no quadro para abri-la aqui. Fechar uma aba só desanexa; a sessão continua rodando no servidor.",
+      "emptyBody": "Escolha uma sessão na lista para abri-la aqui. Fechar uma aba só desanexa; a sessão continua rodando no servidor.",
       "firstRunTitle": "Adicione seu primeiro host",
       "firstRunBody": "O Termdock mantém as sessões SSH abertas no servidor, então você pode fechar o navegador e voltar para a mesma tela.",
       "firstRunStep1": "Adicione um host e a credencial que dá acesso a ele.",
@@ -258,7 +258,16 @@
     },
     "account": {
       "label": "Conta",
-      "signedInAs": "Conectado como {username}"
+      "signedInAs": "Conectado como {username}",
+      "menu": "Menu da conta",
+      "accountSettings": "Configurações da conta",
+      "terminalSettings": "Configurações do terminal",
+      "language": "Idioma…",
+      "cancel": "Cancelar"
+    },
+    "sidebar": {
+      "collapse": "Recolher a lista de sessões",
+      "expand": "Expandir a lista de sessões"
     },
     "overlay": {
       "offline": "Sem conexão com o Termdock agora. Tente de novo quando a conexão voltar.",
@@ -415,7 +424,8 @@
       "rejected": "O serviço de sessões recusou a solicitação.",
       "generic": "Algo deu errado. Tente de novo.",
       "localShellDisabled": "Shells locais ainda não estão disponíveis: o modo direto chega em uma versão futura.",
-      "reopenConflict": "Só sessões encerradas ou desprotegidas podem ser reabertas."
+      "reopenConflict": "Só sessões encerradas ou desprotegidas podem ser reabertas.",
+      "labelInvalid": "O nome da sessão precisa ter de 1 a 120 caracteres visíveis."
     }
   },
   "hosts": {
@@ -471,7 +481,7 @@
     },
     "form": {
       "name": "Nome",
-      "nameHelp": "Aparece no painel e nos rótulos das sessões, por exemplo api-prod.",
+      "nameHelp": "Aparece na lista de sessões e nos rótulos das sessões, por exemplo api-prod.",
       "kind": "Tipo",
       "kindSsh": "Servidor SSH",
       "kindSshHelp": "O Termdock se conecta por SSH e confere a chave do host.",
@@ -932,9 +942,9 @@
       "intro": "A aparência e o comportamento dos seus terminais em qualquer navegador. O histórico é definido em cada perfil de conexão.",
       "scheme": "Esquema de cores",
       "schemes": {
-        "board": "Painel",
-        "slate": "Ardósia",
-        "buff": "Papel",
+        "board": "Noite",
+        "slate": "Violeta",
+        "buff": "Papel claro",
         "contrast": "Alto contraste"
       },
       "font": "Fonte",

@@ -104,7 +104,7 @@ export function EnrollTotp({
           inputMode="numeric"
           maxLength={7}
           spellCheck={false}
-          fieldClassName="border-rule border-t pt-5"
+          fieldClassName="border-line border-t pt-5"
         />
         <SubmitButton block size="lg">
           {t('verify')}

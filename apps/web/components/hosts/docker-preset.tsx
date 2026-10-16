@@ -72,11 +72,11 @@ export function DockerPreset() {
             ) : null}
             <p className="text-pretty text-ink-muted text-sm">{t('done.once')}</p>
           </li>
-          <li className="flex flex-col gap-2 border-rule border-t pt-5">
+          <li className="flex flex-col gap-2 border-line border-t pt-5">
             <h3 className="font-semibold text-ink text-md">{t('done.step2')}</h3>
             <p className="max-w-[60ch] text-pretty text-base text-ink-muted">{t('done.sshd')}</p>
           </li>
-          <li className="flex flex-col items-start gap-3 border-rule border-t pt-5">
+          <li className="flex flex-col items-start gap-3 border-line border-t pt-5">
             <h3 className="font-semibold text-ink text-md">{t('done.step3')}</h3>
             <p className="max-w-[60ch] text-pretty text-base text-ink-muted">{t('done.verify')}</p>
             <Link
@@ -108,7 +108,7 @@ export function DockerPreset() {
         spellCheck={false}
         maxLength={32}
       />
-      <ul className="flex flex-col gap-1.5 border-rule border-y py-3 text-base text-ink">
+      <ul className="flex flex-col gap-1.5 border-line border-y py-3 text-base text-ink">
         <li>{t('creates.host', { hostname: DOCKER_HOSTNAME })}</li>
         <li>{t('creates.key')}</li>
         <li>{t('creates.profile')}</li>

@@ -34,9 +34,9 @@ export function Spinner({ size = 16, className }: { size?: number; className?: s
   );
 }
 
-/** Static placeholder block in the surface's hover tone; no shimmer (state, not decoration). */
+/** Static placeholder block in the raised surface tone; no shimmer (state, not decoration). */
 export function Skeleton({ className }: { className?: string }) {
   return (
-    <span aria-hidden="true" className={cx('block rounded-strip bg-surface-hover', className)} />
+    <span aria-hidden="true" className={cx('block rounded-sm bg-surface-raised', className)} />
   );
 }

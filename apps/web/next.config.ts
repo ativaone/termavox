@@ -34,6 +34,8 @@ const config: NextConfig = {
   serverExternalPackages: ['better-sqlite3'],
   poweredByHeader: false,
   reactStrictMode: true,
+  // `next dev` would otherwise write an AGENTS.md into apps/web when it detects a coding agent.
+  agentRules: false,
   async headers() {
     return [
       { source: '/:path*', headers: SECURITY_HEADERS },

@@ -1,28 +1,38 @@
 'use server';
 
-import { Viewport } from '@termdock/protocol';
+import { SessionLabelInput, Viewport } from '@termdock/protocol';
 import { getTranslations } from 'next-intl/server';
 import { z } from 'zod';
 import { requireSession } from '../auth/server.ts';
 import { getInternalApi, isInternalApiError } from '../internal-api.ts';
 import { serviceErrorKey } from '../manage/service-errors.ts';
-import type { SessionActionResult } from '../sessions/action-result.ts';
+import type {
+  RenameSessionResult,
+  SessionActionFailure,
+  SessionActionResult,
+} from '../sessions/action-result.ts';
 
 /**
- * Session lifecycle Server Actions (plan §8.2): create, terminate, retry and reopen go to the
- * daemon's internal API as the signed-in user (`actingUserId`), which re-validates ownership.
+ * Session lifecycle Server Actions (plan §8.2): create, rename, terminate, retry and reopen go to
+ * the daemon's internal API as the signed-in user (`actingUserId`), which re-validates ownership.
  * The UI then follows the session through `session.upsert` / `session.status` on the WebSocket.
  * Called programmatically by the workspace (palette, sidebar menu, pane overlays).
+ *
+ * Every action resolves (never throws for a refusal) with `{ ok: true, … }` or
+ * `{ ok: false, code, message }`: `code` is the daemon's error code (`NOT_FOUND`, `FORBIDDEN`,
+ * `RATE_LIMITED`, `CONFLICT`, `LABEL_INVALID`, `BAD_REQUEST`, …) or `UNAVAILABLE` / `TIMEOUT` /
+ * `BAD_RESPONSE` when the daemon did not answer usefully; `message` is localized
+ * (`manage.sessionError.*`). Not signed in: `requireSession` redirects to the login page.
  */
 
 const SessionId = z.string().min(1).max(64);
 const CreateInput = z.object({
   profileId: z.string().min(1).max(64),
-  label: z.string().trim().max(120).optional(),
+  label: SessionLabelInput.optional(),
   viewport: Viewport,
 });
 
-async function failure(err: unknown): Promise<SessionActionResult> {
+async function failure(err: unknown): Promise<SessionActionFailure> {
   if (!isInternalApiError(err)) throw err;
   const t = await getTranslations('manage.sessionError');
   const key = serviceErrorKey(err);
@@ -30,17 +40,32 @@ async function failure(err: unknown): Promise<SessionActionResult> {
   const message =
     err.code === 'LOCAL_SHELL_DISABLED'
       ? t('localShellDisabled')
-      : key === 'conflict'
-        ? t('reopenConflict')
-        : t(key);
+      : err.code === 'LABEL_INVALID'
+        ? t('labelInvalid')
+        : key === 'conflict'
+          ? t('reopenConflict')
+          : t(key);
   return { ok: false, code: err.code, message };
 }
 
-async function invalid(): Promise<SessionActionResult> {
+async function invalid(): Promise<SessionActionFailure> {
   const t = await getTranslations('manage.sessionError');
   return { ok: false, code: 'BAD_REQUEST', message: t('rejected') };
 }
 
+/**
+ * Opens a session from one of the user's connection profiles.
+ *
+ * @param input.profileId The profile to connect with (snapshotted at creation, plan §9).
+ * @param input.label Optional name (D-28). Blank or absent: the profile's name, as before.
+ *   Otherwise the daemon drops control and invisible formatting characters, trims, and needs
+ *   1–120 characters left (`LABEL_INVALID` otherwise); raw input above 1024 characters is
+ *   `BAD_REQUEST`.
+ * @param input.viewport The first pane's grid (20–500 × 5–200).
+ * @returns `{ ok: true, sessionId }`, or a failure: `LABEL_INVALID`, `NOT_FOUND` (profile, host or
+ *   credential gone), `RATE_LIMITED` (running-session cap), `LOCAL_SHELL_DISABLED`, `FORBIDDEN`,
+ *   `BAD_REQUEST`, `UNAVAILABLE` / `TIMEOUT` / `BAD_RESPONSE`.
+ */
 export async function createSession(input: {
   profileId: string;
   label?: string;
@@ -54,10 +79,41 @@ export async function createSession(input: {
     const { sessionId } = await getInternalApi().createSession({
       actingUserId: user.id,
       profileId,
-      ...(label ? { label } : {}),
+      ...(label?.trim() ? { label } : {}),
       viewport,
     });
     return { ok: true, sessionId };
+  } catch (err) {
+    return failure(err);
+  }
+}
+
+/**
+ * Renames a session of the signed-in user (D-28), in any state, ended included. Every browser of
+ * the user, this one too, then gets the new label through `session.upsert` on its WebSocket;
+ * `useRenameSession` (components/workspace/hooks.ts) also applies the result at once in the
+ * renaming tab.
+ *
+ * @param sessionId The session to rename.
+ * @param label The new name as typed. The daemon drops control characters and invisible formatting
+ *   (bidi controls, zero-width characters), trims, and needs 1–120 characters left.
+ * @returns `{ ok: true, sessionId, label }` with the label as stored (cleaned and trimmed), or a
+ *   failure: `LABEL_INVALID` (nothing left, or over 120 characters; message
+ *   `manage.sessionError.labelInvalid`), `NOT_FOUND` (missing or another user's session),
+ *   `FORBIDDEN` (acting user disabled), `BAD_REQUEST` (malformed id, non-string label or raw
+ *   label above 1024 characters), `UNAVAILABLE` / `TIMEOUT` / `BAD_RESPONSE`.
+ */
+export async function renameSession(
+  sessionId: string,
+  label: string,
+): Promise<RenameSessionResult> {
+  const { user } = await requireSession();
+  if (!SessionId.safeParse(sessionId).success || !SessionLabelInput.safeParse(label).success) {
+    return invalid();
+  }
+  try {
+    const renamed = await getInternalApi().renameSession(sessionId, user.id, label);
+    return { ok: true, sessionId: renamed.sessionId, label: renamed.label };
   } catch (err) {
     return failure(err);
   }

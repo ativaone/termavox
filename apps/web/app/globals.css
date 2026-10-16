@@ -1,11 +1,11 @@
 @import "tailwindcss";
 
 /*
- * Termdock tokens: the strip board.
- * A slate board (bay, tab bar, pane frames), buff strip stock for sessions and panels, a
- * near-black terminal pane, and state colours that only ever mean state.
- * Raw palette lives in @theme (static utilities); surface roles live in .surface-* contexts so
- * one component reads correctly on the board, on stock, or in a pane.
+ * Termdock tokens: the night cabin.
+ * One dark world: a deep violet-navy ground with a static glow at two frame edges, translucent
+ * cards drawn with a faint light fill and a 1 px light line, one sky-cyan accent that owns
+ * actions, selection, focus and the followed session, magenta for attention, small state lamps
+ * beside their words, and near-black terminal panes. Dark only (plan D-26).
  */
 
 @theme static {
@@ -15,55 +15,60 @@
   --radius-*: initial;
   --shadow-*: initial;
 
-  /* Board: slate blue, darkest first. */
-  --color-board-0: #111923;
-  --color-board-1: #1a2431;
-  --color-board-2: #223042;
-  --color-board-3: #2b3b50;
-  --color-board-rule: #33465e;
-  --color-board-rule-strong: #6b819e;
-  --color-board-ink: #e3e9f0;
-  --color-board-ink-muted: #9aabbf;
-  --color-board-ink-faint: #6a7c92;
+  /* Ground and surfaces. */
+  --color-ground: #171431;
+  --color-ground-deep: #110f24;
+  --color-pane: #0c0b16;
+  --color-surface: rgb(255 255 255 / 0.045);
+  --color-surface-raised: rgb(255 255 255 / 0.08);
+  --color-surface-pressed: rgb(255 255 255 / 0.12);
+  --color-surface-solid: #221e42;
+  --color-field: rgb(12 10 24 / 0.55);
+  --color-line: rgb(255 255 255 / 0.09);
+  --color-line-strong: rgb(255 255 255 / 0.36);
 
-  /* Stock: warm buff strip paper. */
-  --color-stock: #eee2c0;
-  --color-stock-hover: #f4ead0;
-  --color-stock-pressed: #e2d3ab;
-  --color-stock-followed: #fbf4df;
-  --color-stock-ended: #d8d2c2;
-  --color-stock-field: #fbf6e6;
-  --color-stock-rule: #cdbd93;
-  --color-stock-rule-strong: #8c7d58;
-  --color-stock-ink: #241f14;
-  --color-stock-ink-muted: #5f5440;
-  --color-stock-ink-faint: #8a7d62;
+  /* Ink levels. Faint is for disabled text only (it does not reach 4.5:1 on tinted cards). */
+  --color-ink: #f2f0fb;
+  --color-ink-muted: #aba7cb;
+  --color-ink-faint: #7a76a0;
 
-  /* Terminal pane. */
-  --color-pane: #0c1015;
-  --color-pane-ink-dim: #7d8a99;
+  /* The accent: sky cyan. Primary actions, selection, focus, the followed session. */
+  --color-accent: #4cc9ff;
+  --color-accent-strong: #22b5f2;
+  --color-accent-soft: rgb(76 201 255 / 0.14);
+  --color-accent-ring: rgb(76 201 255 / 0.55);
+  --color-on-accent: #0a1226;
 
-  /* State: used for session state and nothing else. */
-  --color-state-connected: #34a266;
-  --color-state-progress: #4c8fd6;
-  --color-state-reconnecting: #e0a526;
-  --color-state-action: #f2681f;
-  --color-state-disconnected: #d9473f;
-  --color-state-ended: #7c8899;
+  /* Attention: magenta. Action required and bells, never decoration. */
+  --color-attention: #ff5fae;
+  --color-attention-soft: rgb(255 95 174 / 0.18);
 
-  /* Feedback tints on stock (text on them stays stock ink). */
-  --color-tint-danger: #f3d2c4;
-  --color-tint-warning: #f5dfa8;
-  --color-tint-info: #dce5ee;
-  --color-tint-success: #d5e8cf;
-  --color-danger-on-stock: #a3271f;
-  --color-danger-on-board: #ff8a80;
-  --color-danger-fill: #b3332a;
+  /* State lamps: session state and nothing else. */
+  --color-state-connected: #3ddc97;
+  --color-state-progress: #5aa8ff;
+  --color-state-reconnecting: #f5b84a;
+  --color-state-action: #ff5fae;
+  --color-state-disconnected: #ff6b7d;
+  --color-state-ended: #8984b0;
+
+  /* Feedback: text and strokes, and the soft fills of notices. */
+  --color-danger: #ff8a98;
+  --color-danger-fill: #c9304b;
+  --color-danger-soft: rgb(255 107 125 / 0.16);
+  --color-warning-soft: rgb(245 184 74 / 0.16);
+  --color-info-soft: rgb(76 201 255 / 0.14);
+  --color-success-soft: rgb(61 220 151 / 0.14);
+
+  --color-focus: #7fd9ff;
+  --color-selection: rgb(76 201 255 / 0.32);
+  /* The two static edge glows of the ground (magenta top-right, violet bottom-left). */
+  --color-glow-magenta: rgb(255 79 163 / 0.24);
+  --color-glow-violet: rgb(124 92 255 / 0.24);
   --color-white: #ffffff;
   --color-transparent: transparent;
 
-  /* Type: one family (Archivo) in two widths, mono only for codes and keys. */
-  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  /* Type: one geometric sans in sentence case; mono only for codes and keys. */
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, "SFMono-Regular", monospace;
 
   /* Fixed rem scale, ~1.15 ratio. */
@@ -83,127 +88,42 @@
   --text-xl--line-height: 1.75rem;
   --text-2xl: 1.75rem;
   --text-2xl--line-height: 2.125rem;
-  --text-strip: 0.9375rem;
-  --text-strip--line-height: 1.125rem;
 
-  --radius-strip: 2px;
-  --radius-control: 4px;
-  --radius-panel: 6px;
+  /* Shapes: generous, consistent corners. */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-control: 10px;
+  --radius-row: 12px;
+  --radius-card: 16px;
+  --radius-pill: 999px;
 
-  /* Paper on a board: short offset, soft blur. Elevation is shadow only, never border + shadow. */
-  --shadow-strip: 0 1px 0 rgb(5 9 14 / 0.45), 0 3px 8px -3px rgb(5 9 14 / 0.55);
-  --shadow-strip-followed: 0 1px 0 rgb(5 9 14 / 0.45), 0 6px 14px -4px rgb(5 9 14 / 0.65);
-  --shadow-panel: 0 2px 0 rgb(5 9 14 / 0.4), 0 18px 40px -16px rgb(5 9 14 / 0.75);
-  /* The tab bar's edge where tabs are scrolled under it: the strip shadow's colour, cast
-     sideways over the tabs it covers (start edge casts right, end edge casts left). */
-  --shadow-edge-start: 8px 0 12px -5px rgb(5 9 14 / 0.7);
-  --shadow-edge-end: -8px 0 12px -5px rgb(5 9 14 / 0.7);
+  /* Depth: floating things cast a soft, offset shadow; resting cards use their line alone. */
+  --shadow-float: 0 12px 32px -8px rgb(6 4 20 / 0.7), 0 2px 6px -2px rgb(6 4 20 / 0.5);
+  --shadow-card: 0 18px 48px -16px rgb(6 4 20 / 0.75), 0 2px 8px -4px rgb(6 4 20 / 0.5);
+  --shadow-light: 0 0 0 1px rgb(76 201 255 / 0.55), 0 0 22px -6px rgb(76 201 255 / 0.55);
+  /* The tab row's own edge where tabs are scrolled under it, cast sideways over them. */
+  --shadow-edge-start: 8px 0 12px -5px rgb(6 4 20 / 0.7);
+  --shadow-edge-end: -8px 0 12px -5px rgb(6 4 20 / 0.7);
 
   /* Exponential ease-out for every move. */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-
-  --color-focus-board: #8cc8ff;
-  --color-focus-stock: #1d5fb4;
-}
-
-/* Context roles. Components read these, never the raw palette, for text, rules and controls. */
-@theme inline {
-  --color-surface: var(--surface);
-  --color-surface-hover: var(--surface-hover);
-  --color-ink: var(--ink);
-  --color-ink-muted: var(--ink-muted);
-  --color-ink-faint: var(--ink-faint);
-  --color-rule: var(--rule);
-  --color-rule-strong: var(--rule-strong);
-  --color-field: var(--field);
-  --color-primary: var(--primary);
-  --color-primary-hover: var(--primary-hover);
-  --color-primary-pressed: var(--primary-pressed);
-  --color-on-primary: var(--on-primary);
-  --color-quiet-hover: var(--quiet-hover);
-  --color-quiet-pressed: var(--quiet-pressed);
-  --color-danger: var(--danger);
-  --color-focus: var(--focus);
-  --color-disabled: var(--disabled);
-  --color-on-disabled: var(--on-disabled);
 }
 
 :root {
-  /* Motion: crisp two-step. Step = recolour or press, move = slide. */
-  --duration-step: 60ms;
-  --duration-move: 120ms;
-  --bay-width: 20rem;
-  --tabbar-height: 2.5rem;
+  color-scheme: dark;
+  /* Motion: step = recolour or press, move = slide. */
+  --duration-step: 120ms;
+  --duration-move: 180ms;
+  --sidebar-width: 18rem;
+  --rail-width: 3.5rem;
+  --tabbar-height: 2.75rem;
   --keybar-height: 3rem;
-  --strip-offset: 0.75rem;
-}
-
-.surface-board,
-:root {
-  /* Native controls follow the material: dark on the board and in panes, light on stock. */
-  color-scheme: dark;
-  --surface: var(--color-board-1);
-  --surface-hover: var(--color-board-3);
-  --ink: var(--color-board-ink);
-  --ink-muted: var(--color-board-ink-muted);
-  --ink-faint: var(--color-board-ink-faint);
-  --rule: var(--color-board-rule);
-  --rule-strong: var(--color-board-rule-strong);
-  --field: var(--color-board-0);
-  --primary: var(--color-stock);
-  --primary-hover: var(--color-stock-hover);
-  --primary-pressed: var(--color-stock-pressed);
-  --on-primary: var(--color-stock-ink);
-  --quiet-hover: var(--color-board-3);
-  --quiet-pressed: var(--color-board-2);
-  --danger: var(--color-danger-on-board);
-  --focus: var(--color-focus-board);
-  --disabled: var(--color-board-2);
-  --on-disabled: var(--color-board-ink-faint);
-  --selection: #3b5b86;
-  --on-selection: #ffffff;
-}
-
-.surface-stock {
-  --surface: var(--color-stock);
-  --surface-hover: var(--color-stock-hover);
-  --ink: var(--color-stock-ink);
-  --ink-muted: var(--color-stock-ink-muted);
-  --ink-faint: var(--color-stock-ink-faint);
-  --rule: var(--color-stock-rule);
-  --rule-strong: var(--color-stock-rule-strong);
-  --field: var(--color-stock-field);
-  --primary: var(--color-board-1);
-  --primary-hover: var(--color-board-2);
-  --primary-pressed: var(--color-board-0);
-  --on-primary: var(--color-stock-hover);
-  --quiet-hover: var(--color-stock-pressed);
-  --quiet-pressed: #d7c79d;
-  --danger: var(--color-danger-on-stock);
-  --focus: var(--color-focus-stock);
-  --disabled: var(--color-stock-pressed);
-  --on-disabled: var(--color-stock-ink-faint);
-  --selection: #f2c46d;
-  --on-selection: var(--color-stock-ink);
-  /* Native pickers, autofill and date-field glyphs drawn for light paper. */
-  color-scheme: light;
-  color: var(--ink);
-}
-
-.surface-pane {
-  color-scheme: dark;
-  --surface: var(--color-pane);
-  --ink: var(--color-board-ink);
-  --ink-muted: var(--color-pane-ink-dim);
-  --ink-faint: var(--color-board-ink-faint);
-  --rule: var(--color-board-rule);
-  color: var(--ink);
 }
 
 @layer base {
   html {
-    background-color: var(--color-board-0);
-    color: var(--color-board-ink);
+    background-color: var(--color-ground);
+    color: var(--color-ink);
     font-family: var(--font-sans);
     font-size: 100%;
     -webkit-font-smoothing: antialiased;
@@ -214,23 +134,23 @@
 
   body {
     min-height: 100dvh;
-    background-color: var(--color-board-0);
+    background-color: var(--color-ground);
     font-size: var(--text-base);
     line-height: var(--text-base--line-height);
   }
 
   ::selection {
-    background-color: var(--selection);
-    color: var(--on-selection);
+    background-color: var(--color-selection);
+    color: var(--color-ink);
   }
 
   input,
   textarea {
-    caret-color: var(--focus);
+    caret-color: var(--color-accent);
   }
 
   :focus-visible {
-    outline: 2px solid var(--focus);
+    outline: 2px solid var(--color-focus);
     outline-offset: 2px;
   }
 
@@ -241,7 +161,7 @@
 
   * {
     scrollbar-width: thin;
-    scrollbar-color: var(--color-board-rule) transparent;
+    scrollbar-color: rgb(255 255 255 / 0.18) transparent;
   }
 
   h1,
@@ -251,69 +171,78 @@
   }
 }
 
-/*
- * Strip voice: the same family pulled to its condensed width, set in caps. The width comes from
- * font-stretch alone, matched against the @font-face range (62%–125%) in app/fonts.ts.
- * geometricPrecision keeps fractional glyph advances: on FreeType at 1x the hinted path rounds
- * each condensed advance to whole pixels, which collapses the ~2 px word space and opens gaps
- * inside words.
- */
-@utility font-strip {
-  font-family: var(--font-sans);
-  font-stretch: 72%;
-  text-rendering: geometricPrecision;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+/* The ground with its two static edge glows (magenta top-right, violet bottom-left). Only shell
+   roots use it; terminal panes are opaque, so no gradient ever sits under a live terminal. */
+@utility ground-glow {
+  background-color: var(--color-ground);
+  background-image:
+    radial-gradient(70rem 42rem at 100% -10%, var(--color-glow-magenta), transparent 62%),
+    radial-gradient(56rem 38rem at -8% 108%, var(--color-glow-violet), transparent 60%);
+  background-repeat: no-repeat;
 }
 
-@utility font-strip-wide {
-  font-family: var(--font-sans);
-  font-stretch: 80%;
-  text-rendering: geometricPrecision;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+/* A translucent card: faint light fill, 1 px light line, 16 px corners. */
+@utility card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+}
+
+/* The same material made opaque, for anything that floats over a live terminal. */
+@utility card-solid {
+  background-color: var(--color-surface-solid);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
 }
 
 /*
- * Signature move: a state change slides the strip to its new lane in two steps. The new
- * edge colour is shown at once (no cross-fade), then the strip moves.
+ * Signature move, "the reading light": the followed session's cyan light travels to the row you
+ * follow (globals: followed-light), and a state change moves a row to its new group in one crisp
+ * step (the lamp recolours at once, then the row slides). Nothing cross-fades.
  */
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;
 }
 
-::view-transition-group(*.strip) {
+::view-transition-group(*.session-row) {
   animation-duration: var(--duration-move);
   animation-timing-function: var(--ease-out);
 }
 
-::view-transition-old(*.strip) {
+::view-transition-old(*.session-row) {
   animation: none;
   opacity: 0;
 }
 
-::view-transition-new(*.strip) {
+::view-transition-new(*.session-row) {
   animation: none;
 }
 
-/*
- * The slide stays inside the lanes. Strips are captured above the page, out of reach of the
- * lanes' overflow clip, so the bay's head (wordmark, New session) and its account footer are
- * captured too and drawn above them: a strip passing under either stays under it, as it does
- * outside a transition. Both are opaque on the bay colour and do not animate.
- */
-::view-transition-group(bay-head),
-::view-transition-group(bay-foot) {
+::view-transition-group(followed-light) {
+  animation-duration: var(--duration-move);
+  animation-timing-function: var(--ease-out);
+}
+
+::view-transition-old(followed-light),
+::view-transition-new(followed-light) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* Rows are captured above the page, out of the list's overflow clip, so the sidebar's head and
+   foot are captured too and drawn above them: a row passing under either stays under it. */
+::view-transition-group(sidebar-head),
+::view-transition-group(sidebar-foot) {
   z-index: 1;
 }
 
-::view-transition-group(bay-head),
-::view-transition-group(bay-foot),
-::view-transition-old(bay-head),
-::view-transition-new(bay-head),
-::view-transition-old(bay-foot),
-::view-transition-new(bay-foot) {
+::view-transition-group(sidebar-head),
+::view-transition-group(sidebar-foot),
+::view-transition-old(sidebar-head),
+::view-transition-new(sidebar-head),
+::view-transition-old(sidebar-foot),
+::view-transition-new(sidebar-foot) {
   animation: none;
 }
 
@@ -324,7 +253,8 @@
     --duration-move: 0ms;
   }
 
-  ::view-transition-group(*.strip) {
+  ::view-transition-group(*.session-row),
+  ::view-transition-group(followed-light) {
     animation: none;
   }
 }

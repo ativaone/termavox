@@ -33,6 +33,14 @@ beforeAll(async () => {
         return send(409, { code: 'CONFLICT', message: 'credential is used by a session' });
       }
       if (path.endsWith('/credentials/ok')) return send(204);
+      if (req.method === 'PATCH' && path.includes('/sessions/')) {
+        const { label } = JSON.parse(body) as { label: string };
+        if (!label.trim()) return send(400, { code: 'LABEL_INVALID', message: 'label must be …' });
+        return send(200, {
+          sessionId: decodeURIComponent(path.split('/').at(-1)!),
+          label: label.trim(),
+        });
+      }
       if (path.endsWith('/credentials')) return send(201, { credentialId: 42 });
       if (path.endsWith('/health')) {
         return setTimeout(
@@ -80,6 +88,18 @@ describe('internal API client error mapping', () => {
       auth: `Bearer ${TOKEN}`,
     });
     expect(JSON.parse(last.body)).toEqual({ actingUserId: 'user-1' });
+  });
+
+  it('renames a session with PATCH and returns the stored label; LABEL_INVALID stays a 400 code', async () => {
+    await expect(client().renameSession('s/1', 'user-1', ' build box ')).resolves.toEqual({
+      sessionId: 's/1',
+      label: 'build box',
+    });
+    const last = seen.at(-1)!;
+    expect(last).toMatchObject({ method: 'PATCH', url: '/internal/v1/sessions/s%2F1' });
+    expect(JSON.parse(last.body)).toEqual({ actingUserId: 'user-1', label: ' build box ' });
+    const blank = await failure(client().renameSession('s-1', 'user-1', '   '));
+    expect(blank).toMatchObject({ kind: 'bad_request', status: 400, code: 'LABEL_INVALID' });
   });
 
   it('rejects malformed answers, unreachable and slow services, without echoing secrets', async () => {

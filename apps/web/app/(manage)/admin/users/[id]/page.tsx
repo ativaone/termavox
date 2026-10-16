@@ -12,7 +12,7 @@ import { DoneNotice } from '../../../../../components/manage/done-notice.tsx';
 import { ButtonLink } from '../../../../../components/ui/button.tsx';
 import { ConfirmAction } from '../../../../../components/ui/confirm-action.tsx';
 import { LocalTime } from '../../../../../components/ui/local-time.tsx';
-import { SheetHeading } from '../../../../../components/ui/page-header.tsx';
+import { SectionHeading } from '../../../../../components/ui/page-header.tsx';
 import { Panel, PanelSection } from '../../../../../components/ui/panel.tsx';
 import { Tag } from '../../../../../components/ui/tag.tsx';
 import { resetUserTotp } from '../../../../../lib/actions/admin.ts';
@@ -70,7 +70,7 @@ export default async function AdminUserPage({
           {t('detail.back')}
         </ButtonLink>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h2 className="break-all font-semibold text-board-ink text-xl">{target.username}</h2>
+          <h2 className="break-all font-semibold text-ink text-xl">{target.username}</h2>
           <Tag tone={target.banned ? 'danger' : 'success'}>
             {target.banned ? t('status.disabled') : t('status.active')}
           </Tag>
@@ -87,16 +87,16 @@ export default async function AdminUserPage({
         <div className="flex flex-col gap-6">
           <Panel aria-labelledby="account-title">
             <PanelSection>
-              <SheetHeading id="account-title" title={t('detail.title')} />
+              <SectionHeading id="account-title" title={t('detail.title')} />
             </PanelSection>
             <PanelSection ruled>
               <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 text-base">
                 {facts.map(([label, value]) => (
                   <div key={label} className="contents">
-                    <dt className="border-rule border-t py-2 text-ink-muted text-sm first:border-t-0">
+                    <dt className="border-line border-t py-2 text-ink-muted text-sm first:border-t-0">
                       {label}
                     </dt>
-                    <dd className="break-words border-rule border-t py-2 text-ink tabular-nums">
+                    <dd className="break-words border-line border-t py-2 text-ink tabular-nums">
                       {value}
                     </dd>
                   </div>
@@ -106,7 +106,7 @@ export default async function AdminUserPage({
           </Panel>
           <Panel aria-labelledby="ban-title">
             <PanelSection>
-              <SheetHeading id="ban-title" title={t('ban.title')} />
+              <SectionHeading id="ban-title" title={t('ban.title')} />
             </PanelSection>
             <PanelSection ruled>
               {self ? (
@@ -125,7 +125,7 @@ export default async function AdminUserPage({
         <div className="flex flex-col gap-6">
           <Panel aria-labelledby="totp-title">
             <PanelSection>
-              <SheetHeading
+              <SectionHeading
                 id="totp-title"
                 title={t('totpReset.title')}
                 action={
@@ -157,7 +157,7 @@ export default async function AdminUserPage({
           </Panel>
           <Panel aria-labelledby="password-title">
             <PanelSection>
-              <SheetHeading
+              <SectionHeading
                 id="password-title"
                 title={t('password.title')}
                 description={t('password.intro')}
@@ -169,7 +169,7 @@ export default async function AdminUserPage({
           </Panel>
           <Panel aria-labelledby="role-title">
             <PanelSection>
-              <SheetHeading id="role-title" title={t('role.title')} />
+              <SectionHeading id="role-title" title={t('role.title')} />
             </PanelSection>
             <PanelSection ruled>
               <RoleForm

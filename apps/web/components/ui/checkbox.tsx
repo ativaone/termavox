@@ -10,7 +10,7 @@ export interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement
   errorPrefix?: string;
 }
 
-/** Native checkbox (keyboard and forms for free) drawn in the surface's own tokens. */
+/** Native checkbox (keyboard and forms for free) drawn in the world's tokens: a well that fills with the accent. */
 export function Checkbox({
   id: idProp,
   label,
@@ -32,18 +32,18 @@ export function Checkbox({
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy}
           className={cx(
-            'peer size-5 cursor-pointer appearance-none rounded-[3px] border border-rule-strong bg-field',
-            'transition-[background-color,border-color] duration-(--duration-step) ease-linear',
-            'hover:border-ink-muted checked:border-primary checked:bg-primary checked:hover:bg-primary-hover',
+            'peer size-5 cursor-pointer appearance-none rounded-xs border border-line-strong bg-field',
+            'transition-[background-color,border-color] duration-(--duration-step) ease-(--ease-out)',
+            'hover:border-white/50 checked:border-accent checked:bg-accent',
             'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
-            'aria-invalid:border-danger disabled:cursor-not-allowed disabled:border-rule disabled:bg-disabled',
+            'aria-invalid:border-danger disabled:cursor-not-allowed disabled:border-line disabled:bg-surface',
           )}
           {...input}
         />
         <CheckIcon
           size={16}
           strokeWidth={2.5}
-          className="pointer-events-none invisible absolute inset-0.5 text-on-primary peer-checked:visible"
+          className="pointer-events-none invisible absolute inset-0.5 text-on-accent peer-checked:visible"
         />
       </span>
       <div className="flex flex-col gap-1">

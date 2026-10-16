@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { cx } from './cx.ts';
 
-/** Heading of a management page on the board: title, one line of context, page actions. */
+/** Heading of a management page: title, one line of context, page actions on the trailing edge. */
 export function PageHeader({
   title,
   description,
@@ -25,11 +25,13 @@ export function PageHeader({
     >
       <div className="flex min-w-0 flex-col gap-1">
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-          <h1 className="min-w-0 break-words font-semibold text-board-ink text-xl">{title}</h1>
+          <h1 className="min-w-0 break-words font-semibold text-ink text-xl tracking-[-0.01em]">
+            {title}
+          </h1>
           {meta}
         </div>
         {description ? (
-          <p className="max-w-[65ch] text-pretty text-base text-board-ink-muted">{description}</p>
+          <p className="max-w-[65ch] text-pretty text-base text-ink-muted">{description}</p>
         ) : null}
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
@@ -37,8 +39,8 @@ export function PageHeader({
   );
 }
 
-/** A section heading inside a stock sheet (h2), with an optional trailing action. */
-export function SheetHeading({
+/** A section heading inside a card (h2), with an optional trailing action. */
+export function SectionHeading({
   id,
   title,
   description,

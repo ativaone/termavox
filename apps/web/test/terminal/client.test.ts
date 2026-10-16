@@ -288,6 +288,33 @@ describe('TermdockConnection', () => {
     expect(entry('failed')).toMatchObject({ detail: 'remote_rebooted', remoteRebooted: true });
   });
 
+  it('takes a rename from session.upsert, and the renaming tab’s own result unless newer', async () => {
+    const server = new FakeServer();
+    server.sessions = [summary('a'), summary('b')];
+    const { connection } = setup(server);
+    connection.connect();
+    await until(() => connection.getSnapshot().sessionsLoaded);
+    const label = (id: string) => connection.getSnapshot().sessions.find((e) => e.id === id)?.label;
+    const upsert = (id: string, name: string) =>
+      server.last.deliver(
+        JSON.stringify({ type: 'session.upsert', session: summary(id, { label: name }) }),
+      );
+    // Another browser renamed `a`: the daemon's upsert arrives on the socket already open.
+    upsert('a', 'deploy');
+    expect(label('a')).toBe('deploy');
+    expect(connection.getSnapshot().sessions.map((e) => e.id)).toEqual(['a', 'b']);
+    // This tab renamed `b`: shown at once, before the upsert.
+    connection.applyRename('b', 'logs', 'session b');
+    expect(label('b')).toBe('logs');
+    // A late result never overwrites a newer name that already arrived from elsewhere.
+    upsert('a', 'newer');
+    connection.applyRename('a', 'older', 'deploy');
+    expect(label('a')).toBe('newer');
+    const before = connection.getSnapshot().sessions;
+    connection.applyRename('unknown', 'x', 'session unknown');
+    expect(connection.getSnapshot().sessions).toBe(before);
+  });
+
   it('4401 surfaces as unauthenticated and does not reconnect', async () => {
     const server = new FakeServer();
     const { connection, ticketCalls } = setup(server);

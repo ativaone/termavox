@@ -11,6 +11,8 @@ import {
   INTERNAL_API_PREFIX,
   ListSessionsResponse,
   RenameCredentialRequest,
+  RenameSessionRequest,
+  RenameSessionResponse,
   ReplaceHostKeyRequest,
   RevokeAuthSessionsRequest,
   RevokeHostKeyRequest,
@@ -128,6 +130,16 @@ export class InternalApiClient {
   async reopenSession(sessionId: string, actingUserId: string): Promise<{ sessionId: string }> {
     const body = request(ActingUserRequest, { actingUserId });
     return this.#call('POST', `/sessions/${seg(sessionId)}/reopen`, body, CreateSessionResponse);
+  }
+
+  /** Renames a session (any state); resolves with the label as stored (cleaned and trimmed). */
+  async renameSession(
+    sessionId: string,
+    actingUserId: string,
+    label: string,
+  ): Promise<{ sessionId: string; label: string }> {
+    const body = request(RenameSessionRequest, { actingUserId, label });
+    return this.#call('PATCH', `/sessions/${seg(sessionId)}`, body, RenameSessionResponse);
   }
 
   async listSessions(actingUserId: string): Promise<LiveSessions> {

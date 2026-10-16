@@ -6,7 +6,7 @@ import { LocaleSwitcher } from '../../../../components/locale-switcher.tsx';
 import { DoneNotice } from '../../../../components/manage/done-notice.tsx';
 import { DisableTotp } from '../../../../components/settings/disable-totp.tsx';
 import { Notice } from '../../../../components/ui/notice.tsx';
-import { SheetHeading } from '../../../../components/ui/page-header.tsx';
+import { SectionHeading } from '../../../../components/ui/page-header.tsx';
 import { Panel, PanelSection } from '../../../../components/ui/panel.tsx';
 import { Tag } from '../../../../components/ui/tag.tsx';
 import { isLocale } from '../../../../i18n/locales.ts';
@@ -38,7 +38,7 @@ export default async function AccountSettingsPage({
       <div className="grid items-start gap-6 lg:grid-cols-2">
         <Panel aria-labelledby="password-title">
           <PanelSection>
-            <SheetHeading
+            <SectionHeading
               id="password-title"
               title={t('password.title')}
               description={t('password.intro')}
@@ -51,7 +51,7 @@ export default async function AccountSettingsPage({
         <div className="flex flex-col gap-6">
           <Panel aria-labelledby="totp-title">
             <PanelSection>
-              <SheetHeading
+              <SectionHeading
                 id="totp-title"
                 title={t('totp.title')}
                 description={t('totp.intro')}
@@ -80,7 +80,7 @@ export default async function AccountSettingsPage({
           </Panel>
           <Panel aria-labelledby="language-title">
             <PanelSection>
-              <SheetHeading
+              <SectionHeading
                 id="language-title"
                 title={t('language.title')}
                 description={t('language.intro')}

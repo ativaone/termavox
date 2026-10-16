@@ -15,10 +15,10 @@ export function FirstRunPanel({ hostsHref, className }: { hostsHref: string; cla
   const titleId = useId();
   const steps = [t('firstRunStep1'), t('firstRunStep2'), t('firstRunStep3')];
   return (
-    <Panel aria-labelledby={titleId} className={cx('w-full max-w-[30rem] p-6', className)}>
+    <Panel aria-labelledby={titleId} className={cx('w-full max-w-[30rem] p-6 sm:p-7', className)}>
       <EmptyState
         titleId={titleId}
-        icon={<HostIcon size={28} />}
+        icon={<HostIcon size={22} />}
         title={t('firstRunTitle')}
         body={t('firstRunBody')}
         action={
@@ -28,13 +28,15 @@ export function FirstRunPanel({ hostsHref, className }: { hostsHref: string; cla
           </ButtonLink>
         }
       >
-        <ol className="flex w-full flex-col border-rule border-y">
+        <ol className="flex w-full flex-col border-line border-y">
           {steps.map((step, index) => (
             <li
               key={step}
-              className="grid grid-cols-[2rem_1fr] items-baseline border-rule border-t py-2.5 text-base text-ink first:border-t-0"
+              className="grid grid-cols-[1.5rem_1fr] items-center gap-3 border-line border-t py-2.5 text-base text-ink first:border-t-0"
             >
-              <span className="font-semibold text-ink-muted text-sm tabular-nums">{index + 1}</span>
+              <span className="inline-flex size-6 items-center justify-center rounded-pill bg-surface-raised font-semibold text-ink-muted text-xs tabular-nums">
+                {index + 1}
+              </span>
               <span>{step}</span>
             </li>
           ))}
@@ -46,13 +48,13 @@ export function FirstRunPanel({ hostsHref, className }: { hostsHref: string; cla
 
 /**
  * Hosts exist but nothing is open in this pane: says what the pane is for. With no session at
- * all it also offers the one action that starts one (the bay's button keeps the shortcut).
+ * all it also offers the one action that starts one (the sidebar's button keeps the shortcut).
  */
 export function PickSessionPanel({ hasSessions }: { hasSessions: boolean }) {
   const t = useTranslations('workspace.pane');
   const titleId = useId();
   return (
-    <Panel aria-labelledby={titleId} className="w-full max-w-[26rem] p-6">
+    <Panel aria-labelledby={titleId} className="w-full max-w-[26rem] p-6 sm:p-7">
       <EmptyState
         titleId={titleId}
         title={hasSessions ? t('emptyTitle') : t('noSessionsTitle')}

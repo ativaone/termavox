@@ -277,6 +277,18 @@ export class TermdockConnection {
     return true;
   }
 
+  /**
+   * Shows a rename this tab just made (the action's stored label) without waiting for the
+   * daemon's `session.upsert`, which carries the same label to every tab. Skipped unless the entry
+   * still shows `previous` (its label when the rename started): a newer name that arrived
+   * meanwhile, from another browser, stands.
+   */
+  applyRename(sessionId: string, label: string, previous: string): void {
+    this.#patchSession(sessionId, (entry) =>
+      entry.label === previous && entry.label !== label ? { ...entry, label } : entry,
+    );
+  }
+
   /** Clears the latched "remote host restarted" notice of a session. */
   acknowledgeRemoteReboot(sessionId: string): void {
     this.#patchSession(sessionId, (entry) =>

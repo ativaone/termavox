@@ -1,15 +1,24 @@
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 import type { ReactNode } from 'react';
-import { SignOutButton } from '../auth/sign-out-button.tsx';
-import { ChevronLeftIcon } from '../icons/index.tsx';
+import { isLocale } from '../../i18n/locales.ts';
+import {
+  ActivityIcon,
+  HostIcon,
+  KeyIcon,
+  SettingsIcon,
+  TerminalIcon,
+  UsersIcon,
+} from '../icons/index.tsx';
 import { SkipLink } from '../skip-link.tsx';
-import { ButtonLink } from '../ui/button.tsx';
-import { ManageNav, type NavItem } from './manage-nav.tsx';
+import { Wordmark } from '../ui/wordmark.tsx';
+import { AccountMenu } from '../workspace/account-menu.tsx';
+import { ManageNav, ManageNavRow, type NavItem } from './manage-nav.tsx';
 
 /**
- * Frame of the secondary pages (hosts, credentials, activity, settings, admin): a slim slate bar
- * that leads back to the workspace first (the terminal comes first), the section links, and the
- * account. Content sits on the board ground in stock sheets.
+ * Frame of the secondary pages (hosts, credentials, activity, settings, admin): the same
+ * sidebar vocabulary as the workspace, with the workspace first (the terminal comes first), the
+ * section rows, and the account menu at the foot. On a phone the sidebar folds into a top bar
+ * with a sideways row of links. Content sits on the ground in cards.
  */
 export async function ManageShell({
   username,
@@ -22,45 +31,60 @@ export async function ManageShell({
 }) {
   const t = await getTranslations('nav');
   const tc = await getTranslations('common');
+  const locale = await getLocale();
+  const current = isLocale(locale) ? locale : 'en';
   const items: NavItem[] = [
-    { href: '/hosts', label: t('hosts') },
-    { href: '/credentials', label: t('credentials') },
-    { href: '/activity', label: t('activity') },
-    { href: '/settings/account', label: t('settings'), match: '/settings' },
-    ...(isAdmin ? [{ href: '/admin/users', label: t('admin'), match: '/admin' }] : []),
+    { href: '/workspace', label: t('workspace'), icon: <TerminalIcon size={16} /> },
+    { href: '/hosts', label: t('hosts'), icon: <HostIcon size={16} /> },
+    { href: '/credentials', label: t('credentials'), icon: <KeyIcon size={16} /> },
+    { href: '/activity', label: t('activity'), icon: <ActivityIcon size={16} /> },
+    {
+      href: '/settings/account',
+      label: t('settings'),
+      icon: <SettingsIcon size={16} />,
+      match: '/settings',
+    },
+    ...(isAdmin
+      ? [
+          {
+            href: '/admin/users',
+            label: t('admin'),
+            icon: <UsersIcon size={16} />,
+            match: '/admin',
+          },
+        ]
+      : []),
   ];
   return (
-    <div className="surface-board flex min-h-dvh flex-col bg-board-0 text-board-ink">
+    <div className="ground-glow flex min-h-dvh flex-col text-ink md:flex-row">
       <SkipLink label={tc('skipToContent')} />
-      <header className="border-board-rule border-b bg-board-1">
-        <div className="mx-auto flex h-12 w-full max-w-[76rem] items-stretch gap-2 px-2 sm:px-4">
-          <div className="flex items-center">
-            <ButtonLink
-              href="/workspace"
-              variant="quiet"
-              size="sm"
-              icon={<ChevronLeftIcon size={18} />}
-            >
-              {t('workspace')}
-            </ButtonLink>
-          </div>
-          <span aria-hidden="true" className="my-3.5 w-px bg-board-rule max-md:hidden" />
-          <ManageNav items={items} label={t('label')} className="max-md:hidden" />
-          <div className="ms-auto flex min-w-0 items-center gap-1">
-            <p className="min-w-0 truncate px-1 font-medium text-board-ink text-sm">
-              <span className="sr-only">{t('signedInAs', { username })}</span>
-              <span aria-hidden="true">{username}</span>
-            </p>
-            <SignOutButton label={tc('signOut')} iconOnly />
+      <aside className="flex shrink-0 flex-col md:sticky md:top-0 md:h-dvh md:w-(--sidebar-width)">
+        <div className="flex h-14 items-center justify-between gap-2 px-4 md:h-16">
+          <Wordmark />
+          <span className="md:hidden">
+            <AccountMenu
+              username={username}
+              isAdmin={isAdmin}
+              locale={current}
+              compact
+              placement="below"
+            />
+          </span>
+        </div>
+        <div className="md:hidden">
+          <ManageNavRow items={items} label={t('label')} />
+        </div>
+        <div className="hidden min-h-0 flex-1 flex-col px-3 pb-2 md:flex">
+          <ManageNav items={items} label={t('label')} />
+          <span className="flex-1" />
+          <div className="border-line border-t pt-2">
+            <AccountMenu username={username} isAdmin={isAdmin} locale={current} />
           </div>
         </div>
-        <div className="overflow-x-auto px-2 md:hidden">
-          <ManageNav items={items} label={t('label')} className="h-10" />
-        </div>
-      </header>
+      </aside>
       <main
         id="main"
-        className="mx-auto flex w-full max-w-[76rem] flex-1 flex-col gap-6 px-4 pt-6 pb-12 md:pt-8"
+        className="mx-auto flex w-full min-w-0 max-w-[76rem] flex-1 flex-col gap-6 px-4 pt-4 pb-12 md:px-8 md:pt-8"
       >
         {children}
       </main>

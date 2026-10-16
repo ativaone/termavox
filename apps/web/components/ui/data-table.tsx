@@ -2,11 +2,11 @@ import type { ReactNode, TdHTMLAttributes, ThHTMLAttributes } from 'react';
 import { cx } from './cx.ts';
 
 /**
- * A ruled table on stock, like a printed log: hairline rules between rows, sentence-case column
- * labels in muted ink, tabular figures. Below 48rem every row becomes a block and each cell
- * shows its own label, so nothing scrolls sideways on a phone.
+ * A table inside a card: column labels small and muted, a hairline between rows, tabular
+ * figures. Below 48rem every row becomes a block and each cell shows its own label, so nothing
+ * scrolls sideways on a phone.
  */
-export function SheetTable({
+export function DataTable({
   caption,
   head,
   children,
@@ -22,7 +22,7 @@ export function SheetTable({
     <table className={cx('w-full border-collapse text-base text-ink tabular-nums', className)}>
       <caption className="sr-only">{caption}</caption>
       <thead className="max-md:sr-only">
-        <tr className="border-rule border-b">{head}</tr>
+        <tr className="border-line border-b">{head}</tr>
       </thead>
       <tbody>{children}</tbody>
     </table>
@@ -39,7 +39,7 @@ export function Th({
     <th
       scope="col"
       className={cx(
-        'px-3 py-2.5 align-bottom font-semibold text-ink-muted text-sm first:ps-5 last:pe-5 sm:first:ps-6 sm:last:pe-6',
+        'px-3 py-2.5 align-bottom font-semibold text-ink-muted text-xs first:ps-5 last:pe-5 sm:first:ps-6 sm:last:pe-6',
         numeric ? 'text-end' : 'text-start',
         className,
       )}
@@ -54,7 +54,8 @@ export function Tr({ className, children }: { className?: string; children: Reac
   return (
     <tr
       className={cx(
-        'border-rule border-t first:border-t-0 max-md:block max-md:px-5 max-md:py-3',
+        'border-line border-t first:border-t-0 max-md:block max-md:px-5 max-md:py-3',
+        'transition-colors duration-(--duration-step) ease-(--ease-out) md:hover:bg-surface',
         className,
       )}
     >

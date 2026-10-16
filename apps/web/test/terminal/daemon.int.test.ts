@@ -225,4 +225,22 @@ describe('browser terminal client against the real daemon (no-tmux)', () => {
     await expectMirrored();
     expect(channel.getSnapshot().size).toEqual(VIEWPORT);
   });
+
+  it('a rename reaches the client store and the other connection live (D-28)', async () => {
+    const renamed = await fixture.api(daemon, 'PATCH', `/sessions/${sessionId}`, {
+      actingUserId: userId,
+      label: ' web\u202E box\u200B ',
+    });
+    expect(renamed).toEqual({ status: 200, json: { sessionId, label: 'web box' } });
+    const label = () => connection.getSnapshot().sessions.find((s) => s.id === sessionId)?.label;
+    await until(() => label() === 'web box', 5_000, 'renamed in the client store');
+    await second.next(
+      (m) =>
+        m.type === 'session.upsert' &&
+        (m as { session?: { id: string; label: string } }).session?.label === 'web box',
+    );
+    // Same socket, still attached and live: a rename touches nothing but the name.
+    expect(connection.getSnapshot().status).toBe('open');
+    expect(channel.getSnapshot().phase).toBe('live');
+  });
 });

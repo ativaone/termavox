@@ -23,8 +23,7 @@ import { CloseIcon, PlusIcon, TerminalIcon } from '../icons/index.tsx';
 import { Button } from '../ui/button.tsx';
 import { cx } from '../ui/cx.ts';
 import { Panel } from '../ui/panel.tsx';
-import { STATE_FILL } from '../ui/state.ts';
-import { StatusChip } from '../ui/status-chip.tsx';
+import { StateLamp, StatusChip } from '../ui/status-chip.tsx';
 import { TerminalPane } from './terminal-pane.tsx';
 import { type PaneMeta, type PanePlace, useWorkspace } from './workspace-context.tsx';
 
@@ -125,15 +124,15 @@ function Divider({
       onKeyDown={onKeyDown}
       className={cx(
         'group/divider relative z-10 flex shrink-0 touch-none items-center justify-center',
-        'focus-visible:outline-2 focus-visible:outline-focus-board focus-visible:-outline-offset-1',
-        row ? 'w-1.5 cursor-col-resize flex-col' : 'h-1.5 cursor-row-resize',
+        'focus-visible:outline-2 focus-visible:outline-focus focus-visible:-outline-offset-1',
+        row ? 'w-2 cursor-col-resize flex-col' : 'h-2 cursor-row-resize',
       )}
     >
       <span
         aria-hidden="true"
         className={cx(
-          'rounded-full bg-transparent transition-colors duration-(--duration-step) ease-linear',
-          'group-hover/divider:bg-board-rule-strong group-active/divider:bg-stock group-focus-visible/divider:bg-stock',
+          'rounded-pill bg-transparent transition-colors duration-(--duration-step) ease-(--ease-out)',
+          'group-hover/divider:bg-line-strong group-active/divider:bg-accent group-focus-visible/divider:bg-accent',
           row ? 'h-10 w-0.5' : 'h-0.5 w-10',
         )}
       />
@@ -201,31 +200,26 @@ function PaneCaption({
   return (
     <div
       className={cx(
-        'surface-board flex h-7 shrink-0 items-center gap-2 ps-2 pe-0.5',
-        active ? 'bg-board-1' : 'bg-board-1/70',
+        'flex h-7 shrink-0 items-center gap-2 border-line border-b ps-2.5 pe-0.5',
+        active ? 'bg-surface' : 'bg-transparent',
       )}
     >
-      {session ? (
-        <span
-          aria-hidden="true"
-          className={cx('h-3 w-1 shrink-0 rounded-[1px]', STATE_FILL[session.status])}
-        />
-      ) : null}
+      {session ? <StateLamp status={session.status} /> : null}
       <span
         className={cx(
-          'min-w-0 shrink truncate font-semibold font-strip text-[0.8125rem] leading-4',
-          active ? 'text-board-ink' : 'text-board-ink-muted',
+          'min-w-0 shrink truncate font-semibold text-xs leading-4',
+          active ? 'text-ink' : 'text-ink-muted',
         )}
       >
         {label}
       </span>
       {session ? (
-        <span className="shrink-0 text-board-ink-muted text-xs max-lg:sr-only">
+        <span className="shrink-0 text-ink-muted text-xs max-lg:sr-only">
           {t(`status.${session.status}`)}
         </span>
       ) : null}
       {meta?.title ? (
-        <span className="min-w-0 flex-1 truncate text-board-ink-muted text-xs">{meta.title}</span>
+        <span className="min-w-0 flex-1 truncate text-ink-muted text-xs">{meta.title}</span>
       ) : (
         <span className="flex-1" />
       )}
@@ -235,9 +229,9 @@ function PaneCaption({
         aria-label={t('pane.closeLabel', { label })}
         title={t('pane.close')}
         className={cx(
-          'flex size-6 shrink-0 items-center justify-center rounded-[3px] text-board-ink-muted',
-          'transition-colors duration-(--duration-step) ease-linear hover:bg-board-3 hover:text-board-ink',
-          'focus-visible:outline-2 focus-visible:outline-focus-board focus-visible:-outline-offset-2',
+          'flex size-6 shrink-0 items-center justify-center rounded-sm text-ink-muted',
+          'transition-colors duration-(--duration-step) ease-(--ease-out) hover:bg-surface-raised hover:text-ink',
+          'focus-visible:outline-2 focus-visible:outline-focus focus-visible:-outline-offset-2',
         )}
       >
         <CloseIcon size={14} />
@@ -272,7 +266,7 @@ function EmptyPane({ place, tab }: { place: PanePlace; tab: Tab }) {
     .slice(0, 6);
   return (
     <div className="absolute inset-0 flex items-center justify-center overflow-y-auto p-4">
-      <Panel aria-labelledby={titleId} className="w-full max-w-[24rem]">
+      <Panel aria-labelledby={titleId} floating className="w-full max-w-[24rem]">
         <div ref={panelRef} className="flex flex-col gap-3 px-5 py-4">
           <div className="flex items-center gap-2">
             <TerminalIcon size={20} className="text-ink-muted" />
@@ -282,21 +276,21 @@ function EmptyPane({ place, tab }: { place: PanePlace; tab: Tab }) {
           </div>
           <p className="text-ink-muted text-base">{t('pane.emptyPaneBody')}</p>
           {candidates.length > 0 ? (
-            <ul className="flex flex-col border-rule border-y">
+            <ul className="flex flex-col gap-0.5">
               {candidates.map((session) => (
-                <li key={session.id} className="border-rule border-t first:border-t-0">
+                <li key={session.id}>
                   <button
                     type="button"
                     onClick={() => bindPane(place, session.id)}
                     className={cx(
-                      'grid h-11 w-full grid-cols-[4px_minmax(0,1fr)_auto] items-center gap-2.5 pe-1 text-start',
-                      'transition-colors duration-(--duration-step) ease-linear hover:bg-quiet-hover',
+                      'grid h-11 w-full grid-cols-[0.5rem_minmax(0,1fr)_auto] items-center gap-2.5 rounded-control ps-2.5 pe-2.5 text-start',
+                      'transition-colors duration-(--duration-step) ease-(--ease-out) hover:bg-surface-raised',
                       'focus-visible:outline-2 focus-visible:outline-focus focus-visible:-outline-offset-2',
                     )}
                   >
-                    <span aria-hidden="true" className={cx('h-7', STATE_FILL[session.status])} />
+                    <StateLamp status={session.status} />
                     <span className="flex min-w-0 flex-col">
-                      <span className="truncate font-semibold font-strip text-strip text-ink">
+                      <span className="truncate font-semibold text-ink text-sm">
                         {session.label}
                       </span>
                       <span className="truncate text-ink-muted text-xs">
@@ -339,8 +333,8 @@ function LeafView({ node, tab, paneCount, paneMeta }: TreeProps & { node: LeafNo
     <div
       data-pane={node.id}
       className={cx(
-        'flex h-full w-full min-h-0 min-w-0 flex-col overflow-hidden rounded-b-[3px] border-t-2 bg-pane',
-        active ? 'border-stock-followed' : 'border-transparent',
+        'flex h-full w-full min-h-0 min-w-0 flex-col overflow-hidden rounded-row border border-line bg-pane',
+        multi && (active ? 'border-t-2 border-t-accent' : 'border-t-2'),
       )}
     >
       {multi ? (

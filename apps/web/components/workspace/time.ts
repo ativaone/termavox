@@ -28,7 +28,7 @@ export function formatDuration(ms: number, t: DurationTranslator): string {
   return t('underMinute');
 }
 
-/** Compact age for a strip's time cell, one unit: "35m ago", "2h ago", "3d ago". */
+/** Compact age for a session row's time cell, one unit: "35m ago", "2h ago", "3d ago". */
 export function formatAgoShort(at: number, now: number, t: DurationTranslator): string {
   const minutes = Math.max(0, Math.floor((now - at) / 60_000));
   if (minutes < 1) return t('agoNow');

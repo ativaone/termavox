@@ -74,17 +74,17 @@ export function FieldError({
   );
 }
 
-/** Shared look of text inputs and selects on any surface (size comes separately). */
+/** Shared look of text inputs and selects: a dark well with a light line, lit by the accent on focus. */
 export const CONTROL_BASE =
-  'w-full min-w-0 rounded-control border border-rule-strong bg-field text-ink ' +
-  'transition-[border-color,box-shadow] duration-(--duration-step) ease-linear ' +
-  'placeholder:text-ink-muted hover:border-ink-muted ' +
-  'focus-visible:border-focus focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus ' +
-  'aria-invalid:border-danger aria-invalid:shadow-[inset_0_0_0_1px_var(--danger)] ' +
-  'disabled:cursor-not-allowed disabled:border-rule disabled:text-ink-faint';
+  'w-full min-w-0 rounded-control border border-line-strong bg-field text-ink ' +
+  'transition-[border-color,box-shadow,background-color] duration-(--duration-step) ease-(--ease-out) ' +
+  'placeholder:text-ink-muted hover:border-white/50 ' +
+  'focus-visible:border-accent focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus ' +
+  'aria-invalid:border-danger aria-invalid:shadow-[inset_0_0_0_1px_var(--color-danger)] ' +
+  'disabled:cursor-not-allowed disabled:border-line disabled:text-ink-faint';
 
 /** Form size: 44 px tall, 16 px text (no zoom-on-focus on phones). */
-export const CONTROL_SIZE = 'h-11 px-3 text-md';
+export const CONTROL_SIZE = 'h-11 px-3.5 text-md';
 /** Compact size for toolbars and footers. */
 export const CONTROL_SIZE_COMPACT = 'h-8 px-2.5 text-sm';
 

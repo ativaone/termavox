@@ -24,7 +24,7 @@ import {
 } from '../icons/index.tsx';
 import { Button } from '../ui/button.tsx';
 import { cx } from '../ui/cx.ts';
-import { STATE_FILL } from '../ui/state.ts';
+import { StateLamp } from '../ui/status-chip.tsx';
 import type { PaneMeta } from './workspace-context.tsx';
 
 /** Room kept beside a revealed tab: the edge cue (20 px) plus a peek of its neighbour. */
@@ -92,13 +92,13 @@ function fullyVisible(strip: HTMLElement, item: HTMLElement): boolean {
 }
 
 /**
- * The slate tab bar: one tab per split tree, labelled by its focused pane's session (label, OSC
- * title, bell). The active tab is the buff one, joined to its pane by the pane's buff rule;
- * closing a tab only detaches. The tabs scroll sideways in their own strip; the split controls
- * and the connection state sit beside it on the trailing edge, never over it. The active tab is
- * scrolled into view whenever it changes or is followed again, and kept there when the strip or
- * the tabs change size (a status appearing beside it, labels arriving); an edge that has tabs
- * scrolled under it shows a chevron rail whose shadow falls on them.
+ * The tab row: one tab per split tree, labelled by its focused pane's session (lamp, label, OSC
+ * title, bell). The active tab is a lit segment with the cyan underline, the reading light's
+ * second stop; closing a tab only detaches. The tabs scroll sideways in their own strip; the
+ * split controls and the connection state sit beside it on the trailing edge, never over it.
+ * The active tab is scrolled into view whenever it changes or is followed again, and kept
+ * there when the strip or the tabs change size; an edge that has tabs scrolled under it shows a
+ * chevron cue whose shadow falls on them.
  */
 export function TabBar({
   layout,
@@ -193,7 +193,7 @@ export function TabBar({
   }, [onResize]);
 
   // The active tab comes into view when it changes, when tabs open or close, and when it is
-  // followed again (from the bay, the palette, a new tab); instantly on the first paint.
+  // followed again (from the sidebar, the palette, a new tab); instantly on the first paint.
   const activeTabId = layout.activeTabId;
   const tabCount = layout.tabs.length;
   const painted = useRef(false);
@@ -227,25 +227,25 @@ export function TabBar({
     }
   };
 
-  // A 20 px slate rail over the clipped end of the strip: a muted chevron on the tab row points
-  // at the hidden tabs, and its shadow falls on the tabs that slide under it.
+  // A 20 px fade over the clipped end of the strip: a muted chevron points at the hidden tabs,
+  // and its shadow falls on the tabs that slide under it.
   const edgeClass = cx(
-    'pointer-events-none absolute inset-y-0 flex w-5 items-end justify-center bg-board-2 pb-[9px] text-board-ink-muted',
-    'transition-opacity duration-(--duration-step) ease-linear',
+    'pointer-events-none absolute inset-y-0 flex w-5 items-center justify-center text-ink-muted',
+    'transition-opacity duration-(--duration-step) ease-(--ease-out)',
   );
 
   return (
-    <div className="flex h-(--tabbar-height) shrink-0 items-end gap-3 ps-1.5 pe-2">
+    <div className="flex h-(--tabbar-height) shrink-0 items-center gap-3 ps-2 pe-2">
       <nav aria-label={t('tabs.label')} className="relative flex min-w-0 flex-1 self-stretch">
         {views.length === 0 ? (
-          <p className="self-center px-2 text-board-ink-muted text-xs">{t('tabs.empty')}</p>
+          <p className="self-center px-2 text-ink-muted text-xs">{t('tabs.empty')}</p>
         ) : (
           <>
             <ul
               ref={setStrip}
               onScroll={onStripScroll}
               onWheel={onWheel}
-              className="relative flex min-w-0 flex-1 items-end gap-1 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              className="relative flex min-w-0 flex-1 items-center gap-1 overflow-x-auto overscroll-x-contain py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
               {views.map((view, index) => {
                 const active = view.tab.id === layout.activeTabId;
@@ -270,17 +270,13 @@ export function TabBar({
                       if (strip) reveal(strip, event.currentTarget, smoothUnlessReduced());
                     }}
                     className={cx(
-                      'flex h-8 min-w-28 max-w-60 shrink-0 items-stretch overflow-hidden rounded-t-[3px]',
-                      'transition-colors duration-(--duration-step) ease-linear',
+                      'relative flex h-8 min-w-28 max-w-60 shrink-0 items-stretch overflow-hidden rounded-control',
+                      'transition-colors duration-(--duration-step) ease-(--ease-out)',
                       active
-                        ? 'surface-stock bg-stock-followed text-ink'
-                        : 'surface-board bg-board-3/55 text-board-ink-muted hover:bg-board-3 hover:text-board-ink',
+                        ? 'bg-surface-raised text-ink after:absolute after:inset-x-2.5 after:bottom-0 after:h-0.5 after:rounded-pill after:bg-accent'
+                        : 'text-ink-muted hover:bg-surface hover:text-ink',
                     )}
                   >
-                    <span
-                      aria-hidden="true"
-                      className={cx('w-1 shrink-0', status ? STATE_FILL[status] : 'bg-board-rule')}
-                    />
                     <button
                       ref={(element) => {
                         if (element) refs.current.set(view.tab.id, element);
@@ -289,18 +285,19 @@ export function TabBar({
                       type="button"
                       aria-current={active ? 'true' : undefined}
                       onClick={() => onSelect(view.tab.id)}
-                      className="flex min-w-0 flex-1 items-center gap-2 ps-2.5 pe-1.5 text-start focus-visible:outline-2 focus-visible:outline-focus focus-visible:-outline-offset-2"
+                      className="flex min-w-0 flex-1 items-center gap-2 ps-2.5 pe-1 text-start focus-visible:outline-2 focus-visible:outline-focus focus-visible:-outline-offset-2"
                     >
-                      <span className="min-w-0 truncate font-semibold font-strip text-strip">
-                        {view.label}
-                      </span>
-                      {view.title ? (
+                      {status ? (
+                        <StateLamp status={status} />
+                      ) : (
                         <span
-                          className={cx(
-                            'min-w-0 flex-1 truncate text-xs',
-                            active ? 'text-ink-muted' : 'text-board-ink-muted',
-                          )}
-                        >
+                          aria-hidden="true"
+                          className="size-2 shrink-0 rounded-pill bg-line-strong"
+                        />
+                      )}
+                      <span className="min-w-0 truncate font-semibold text-sm">{view.label}</span>
+                      {view.title ? (
+                        <span className="min-w-0 flex-1 truncate text-ink-muted text-xs">
                           {view.title}
                         </span>
                       ) : (
@@ -309,17 +306,14 @@ export function TabBar({
                       {view.panes > 1 ? (
                         <span
                           aria-hidden="true"
-                          className={cx(
-                            'shrink-0 rounded-[3px] px-1 font-semibold text-2xs tabular-nums',
-                            active
-                              ? 'bg-stock-pressed text-ink-muted'
-                              : 'bg-board-1 text-board-ink-muted',
-                          )}
+                          className="shrink-0 rounded-pill bg-surface-raised px-1.5 font-semibold text-2xs text-ink-muted tabular-nums"
                         >
                           {view.panes}
                         </span>
                       ) : null}
-                      {view.bell ? <BellIcon size={14} className="shrink-0" /> : null}
+                      {view.bell ? (
+                        <BellIcon size={14} className="shrink-0 text-attention" />
+                      ) : null}
                       <span className="sr-only">
                         {status ? `, ${t(`status.${status}`)}` : ''}
                         {view.panes > 1 ? `, ${t('tabs.panes', { count: view.panes })}` : ''}
@@ -332,11 +326,9 @@ export function TabBar({
                       aria-label={t('tabs.closeLabel', { label: view.label })}
                       title={t('tabs.close')}
                       className={cx(
-                        'flex w-7 shrink-0 items-center justify-center transition-colors duration-(--duration-step) ease-linear',
+                        'my-1 me-1 flex w-6 shrink-0 items-center justify-center rounded-sm text-ink-muted',
+                        'transition-colors duration-(--duration-step) ease-(--ease-out) hover:bg-surface-pressed hover:text-ink',
                         'focus-visible:outline-2 focus-visible:outline-focus focus-visible:-outline-offset-2',
-                        active
-                          ? 'text-ink-muted hover:bg-quiet-hover hover:text-ink'
-                          : 'text-board-ink-muted hover:bg-board-rule hover:text-board-ink',
                       )}
                     >
                       <CloseIcon size={14} />
@@ -345,13 +337,13 @@ export function TabBar({
                 );
               })}
             </ul>
-            {/* Overflow cues: the bar's own edge, casting a shadow over the tabs under it. */}
+            {/* Overflow cues: the row's own edge, casting a shadow over the tabs under it. */}
             <span
               aria-hidden="true"
               data-edge="start"
               className={cx(
                 edgeClass,
-                'start-0 shadow-edge-start',
+                'start-0 bg-[linear-gradient(to_right,var(--color-ground),transparent)] shadow-edge-start',
                 edges.start ? 'opacity-100' : 'opacity-0',
               )}
             >
@@ -362,7 +354,7 @@ export function TabBar({
               data-edge="end"
               className={cx(
                 edgeClass,
-                'end-0 shadow-edge-end',
+                'end-0 bg-[linear-gradient(to_left,var(--color-ground),transparent)] shadow-edge-end',
                 edges.end ? 'opacity-100' : 'opacity-0',
               )}
             >

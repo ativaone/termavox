@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale } from 'next-intl/server';
 import type { ReactNode } from 'react';
-import { archivo, jetbrainsMono } from './fonts.ts';
+import { jakarta, jetbrainsMono } from './fonts.ts';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#111923',
+  themeColor: '#171431',
   colorScheme: 'dark',
   width: 'device-width',
   initialScale: 1,
@@ -22,7 +22,7 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const locale = await getLocale();
   return (
-    <html lang={locale} className={`${archivo.variable} ${jetbrainsMono.variable}`}>
+    <html lang={locale} className={`${jakarta.variable} ${jetbrainsMono.variable}`}>
       <body>
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
       </body>

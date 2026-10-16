@@ -1,12 +1,16 @@
 'use client';
 
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { renameSession } from '../../lib/actions/sessions.ts';
 import {
   TERMINAL_FONT_STACKS,
   TERMINAL_THEMES,
   type TerminalPreferences,
 } from '../../lib/preferences/terminal.ts';
+import type { RenameSessionResult } from '../../lib/sessions/action-result.ts';
 import type { TerminalAppearance } from '../../lib/terminal/xterm.ts';
+import { useWorkspace } from './workspace-context.tsx';
 
 const noopSubscribe = (): (() => void) => () => {};
 
@@ -173,4 +177,32 @@ export function clampCreateViewport(viewport: { cols: number; rows: number }): {
     cols: Math.min(500, Math.max(20, Math.floor(viewport.cols))),
     rows: Math.min(200, Math.max(5, Math.floor(viewport.rows))),
   };
+}
+
+/**
+ * Renames a session from anywhere inside the workspace (D-28): calls the `renameSession` Server
+ * Action (see its contract) and resolves with its result. On success this tab shows the stored
+ * label at once, in the session list, tabs and captions alike; every other browser of the user,
+ * and this one a moment later, gets it through the daemon's `session.upsert`. Before the live
+ * session list has arrived (or while the WebSocket cannot connect), the server-rendered summaries
+ * are refreshed instead.
+ */
+export function useRenameSession(): (
+  sessionId: string,
+  label: string,
+) => Promise<RenameSessionResult> {
+  const { connection } = useWorkspace();
+  const router = useRouter();
+  return useCallback(
+    async (sessionId: string, label: string) => {
+      const previous = connection.getSnapshot().sessions.find((s) => s.id === sessionId)?.label;
+      const result = await renameSession(sessionId, label);
+      if (result.ok) {
+        if (previous !== undefined) connection.applyRename(sessionId, result.label, previous);
+        else router.refresh();
+      }
+      return result;
+    },
+    [connection, router],
+  );
 }

@@ -11,8 +11,7 @@ import { cx } from '../ui/cx.ts';
 import { Kbd } from '../ui/kbd.tsx';
 import { Notice } from '../ui/notice.tsx';
 import { Spinner } from '../ui/spinner.tsx';
-import { STATE_FILL } from '../ui/state.ts';
-import { StatusChip } from '../ui/status-chip.tsx';
+import { StateLamp, StatusChip } from '../ui/status-chip.tsx';
 
 export interface PaletteSession {
   id: string;
@@ -36,7 +35,8 @@ type Option =
  * The command palette (Ctrl/⌘K outside terminals, Ctrl+Shift+K inside): one search over open
  * sessions (jump to it) and connection profiles (start a session there). A combobox with a
  * grouped listbox, driven from the keyboard; it floats over the workspace without blocking it
- * (Escape or a click outside closes it, and the focus returns where it was).
+ * (Escape or a click outside closes it, and the focus returns where it was). Opaque: it may
+ * sit over a live terminal.
  */
 export function CommandPalette({
   sessions,
@@ -157,18 +157,19 @@ export function CommandPalette({
       onClick: () => void choose(option),
     };
     const rowClass = cx(
-      'grid min-h-11 cursor-pointer grid-cols-[4px_minmax(0,1fr)_auto] items-center gap-3 pe-3',
-      selected ? 'bg-stock-followed' : 'bg-transparent',
+      'mx-1.5 grid min-h-11 cursor-pointer grid-cols-[0.5rem_minmax(0,1fr)_auto] items-center gap-3 rounded-control ps-2.5 pe-3',
+      'transition-colors duration-(--duration-step) ease-(--ease-out)',
+      selected
+        ? 'bg-accent-soft shadow-[inset_0_0_0_1px_var(--color-accent-ring)]'
+        : 'bg-transparent',
     );
     if (option.kind === 'session') {
       const { session } = option;
       return (
         <li key={option.key} {...common} className={rowClass}>
-          <span aria-hidden="true" className={cx('h-7', STATE_FILL[session.status])} />
+          <StateLamp status={session.status} />
           <span className="flex min-w-0 flex-col py-1">
-            <span className="truncate font-semibold font-strip text-strip text-ink">
-              {session.label}
-            </span>
+            <span className="truncate font-semibold text-ink text-sm">{session.label}</span>
             <span className="truncate text-ink-muted text-xs">{session.target}</span>
           </span>
           <StatusChip status={session.status} label={ts(session.status)} />
@@ -178,14 +179,13 @@ export function CommandPalette({
     const { profile } = option;
     return (
       <li key={option.key} {...common} className={rowClass}>
-        <span aria-hidden="true" />
-        <span className="flex min-w-0 items-center gap-2.5 py-1">
-          <PlusIcon size={16} className="shrink-0 text-ink-muted" />
-          <span className="flex min-w-0 flex-col">
-            <span className="truncate font-medium text-base text-ink">{profile.name}</span>
-            <span className="truncate text-ink-muted text-xs">
-              {profile.username}@{profile.hostName}
-            </span>
+        <span aria-hidden="true" className="flex justify-center text-accent">
+          <PlusIcon size={14} strokeWidth={2.25} />
+        </span>
+        <span className="flex min-w-0 flex-col py-1">
+          <span className="truncate font-medium text-ink text-sm">{profile.name}</span>
+          <span className="truncate text-ink-muted text-xs">
+            {profile.username}@{profile.hostName}
           </span>
         </span>
         {busy === option.key ? (
@@ -201,15 +201,15 @@ export function CommandPalette({
   };
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-50 flex justify-center px-4 pt-[10vh] md:ps-[calc(var(--bay-width)+1rem)]">
+    <div className="pointer-events-none fixed inset-0 z-50 flex justify-center px-4 pt-[10vh] md:ps-[calc(var(--sidebar-current,var(--sidebar-width))+1rem)]">
       <div
         ref={panelRef}
         role="dialog"
         aria-label={t('label')}
-        className="surface-stock pointer-events-auto flex h-fit max-h-[80vh] w-full max-w-[36rem] flex-col overflow-hidden rounded-panel bg-stock text-ink shadow-panel"
+        className="card-solid pointer-events-auto flex h-fit max-h-[80vh] w-full max-w-[36rem] flex-col overflow-hidden shadow-card"
       >
-        <div className="flex h-12 shrink-0 items-center gap-2.5 border-rule border-b px-3.5">
-          <SearchIcon size={18} className="shrink-0 text-ink-muted" />
+        <div className="flex h-13 shrink-0 items-center gap-2.5 border-line border-b px-4">
+          <SearchIcon size={18} className="shrink-0 text-accent" />
           <label htmlFor={inputId} className="sr-only">
             {t('label')}
           </label>
@@ -233,7 +233,7 @@ export function CommandPalette({
               setError(null);
             }}
             onKeyDown={onKeyDown}
-            className="h-full min-w-0 flex-1 bg-transparent text-md text-ink outline-none placeholder:text-ink-muted"
+            className="h-full min-w-0 flex-1 bg-transparent text-ink text-md outline-none placeholder:text-ink-muted"
           />
           <Kbd>Esc</Kbd>
         </div>
@@ -245,7 +245,7 @@ export function CommandPalette({
                 <li
                   role="presentation"
                   id={sessionsHeading}
-                  className="px-3.5 pt-1.5 pb-1 font-semibold text-ink-muted text-sm"
+                  className="px-4 pt-1.5 pb-1 font-semibold text-ink-muted text-xs"
                 >
                   {t('sessions')}
                 </li>
@@ -257,12 +257,12 @@ export function CommandPalette({
               <ul
                 role="group"
                 aria-labelledby={profilesHeading}
-                className={cx(matchedSessions.length > 0 && 'mt-1.5 border-rule border-t pt-1.5')}
+                className={cx(matchedSessions.length > 0 && 'mt-1.5 border-line border-t pt-1.5')}
               >
                 <li
                   role="presentation"
                   id={profilesHeading}
-                  className="px-3.5 pt-1.5 pb-1 font-semibold text-ink-muted text-sm"
+                  className="px-4 pt-1.5 pb-1 font-semibold text-ink-muted text-xs"
                 >
                   {t('newSession')}
                 </li>
@@ -271,15 +271,18 @@ export function CommandPalette({
             ) : null}
           </div>
           {options.length === 0 ? (
-            <p className="px-3.5 py-3 text-ink-muted text-base">
+            <p className="px-4 py-3 text-base text-ink-muted">
               {query.trim() ? t('noMatch', { query: query.trim() }) : t('nothing')}
             </p>
           ) : null}
           {profiles.length === 0 ? (
-            <p className="border-rule border-t px-3.5 pt-3 pb-2 text-ink-muted text-sm">
+            <p className="border-line border-t px-4 pt-3 pb-2 text-ink-muted text-sm">
               {t.rich('noProfiles', {
                 link: (chunks) => (
-                  <Link href={hostsHref} className="font-medium text-focus-stock underline">
+                  <Link
+                    href={hostsHref}
+                    className="font-medium text-accent underline decoration-accent/50 underline-offset-4 hover:decoration-accent"
+                  >
                     {chunks}
                   </Link>
                 ),
@@ -292,7 +295,7 @@ export function CommandPalette({
             <Notice tone="danger">{error}</Notice>
           </div>
         ) : null}
-        <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-rule border-t px-3.5 py-2 text-ink-muted text-xs max-md:hidden">
+        <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-line border-t px-4 py-2 text-ink-muted text-xs max-md:hidden">
           <span className="flex items-center gap-1">
             <Kbd>
               <ArrowUpIcon size={12} />

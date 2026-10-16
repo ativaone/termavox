@@ -6,10 +6,10 @@ import { KeyIcon } from '../../../components/icons/index.tsx';
 import { DoneNotice, param } from '../../../components/manage/done-notice.tsx';
 import { ButtonLink } from '../../../components/ui/button.tsx';
 import { ConfirmAction } from '../../../components/ui/confirm-action.tsx';
+import { DataTable, Td, Th, Tr } from '../../../components/ui/data-table.tsx';
 import { LocalTime } from '../../../components/ui/local-time.tsx';
-import { PageHeader, SheetHeading } from '../../../components/ui/page-header.tsx';
+import { PageHeader, SectionHeading } from '../../../components/ui/page-header.tsx';
 import { Panel, PanelSection } from '../../../components/ui/panel.tsx';
-import { SheetTable, Td, Th, Tr } from '../../../components/ui/sheet-table.tsx';
 import { Tag } from '../../../components/ui/tag.tsx';
 import { deleteCredential } from '../../../lib/actions/credentials.ts';
 import { getAuthRuntime, requireSession } from '../../../lib/auth/server.ts';
@@ -42,7 +42,7 @@ export default async function CredentialsPage({
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,27rem)]">
         <Panel aria-labelledby="credentials-list-title">
           <PanelSection>
-            <SheetHeading id="credentials-list-title" title={t('list.title')} />
+            <SectionHeading id="credentials-list-title" title={t('list.title')} />
           </PanelSection>
           {credentials.length === 0 ? (
             <PanelSection ruled>
@@ -54,8 +54,8 @@ export default async function CredentialsPage({
               </div>
             </PanelSection>
           ) : (
-            <div className="border-rule border-t">
-              <SheetTable
+            <div className="border-line border-t">
+              <DataTable
                 caption={t('list.title')}
                 head={
                   <>
@@ -122,13 +122,13 @@ export default async function CredentialsPage({
                     </Td>
                   </Tr>
                 ))}
-              </SheetTable>
+              </DataTable>
             </div>
           )}
         </Panel>
         <Panel aria-labelledby="credentials-create-title">
           <PanelSection>
-            <SheetHeading
+            <SectionHeading
               id="credentials-create-title"
               title={t('create.title')}
               description={t('create.intro')}

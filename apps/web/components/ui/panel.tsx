@@ -2,16 +2,22 @@ import type { ReactNode } from 'react';
 import { cx } from './cx.ts';
 
 /**
- * A sheet of buff stock on the board (forms, in-pane overlays, empty states). Elevation is the
- * panel shadow alone; sections inside are divided by hairline cell rules, like a strip.
+ * A card: the translucent light fill with its 1 px line and 16 px corners (forms, in-pane
+ * overlays, empty states, tables). `floating` adds the card shadow for a card that sits over
+ * something else (an overlay inside a pane); `solid` makes it opaque, for anything that floats
+ * over a live terminal.
  */
 export function Panel({
   as: Tag = 'section',
+  floating = false,
+  solid = false,
   className,
   children,
   ...props
 }: {
   as?: 'section' | 'div' | 'article';
+  floating?: boolean;
+  solid?: boolean;
   className?: string;
   children: ReactNode;
   'aria-labelledby'?: string;
@@ -19,7 +25,12 @@ export function Panel({
 }) {
   return (
     <Tag
-      className={cx('surface-stock rounded-panel bg-surface text-ink shadow-panel', className)}
+      className={cx(
+        solid ? 'card-solid' : 'card',
+        'text-ink',
+        floating && 'shadow-card',
+        className,
+      )}
       {...props}
     >
       {children}
@@ -34,11 +45,11 @@ export function PanelSection({
 }: {
   className?: string;
   children: ReactNode;
-  /** Draws the hairline cell rule above this section. */
+  /** Draws the hairline above this section. */
   ruled?: boolean;
 }) {
   return (
-    <div className={cx('px-5 py-5 sm:px-6', ruled && 'border-rule border-t', className)}>
+    <div className={cx('px-5 py-5 sm:px-6', ruled && 'border-line border-t', className)}>
       {children}
     </div>
   );

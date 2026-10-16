@@ -5,18 +5,18 @@ import { type MouseEvent, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { groupIntoLanes, laneChanged } from '../../lib/sessions/lanes.ts';
 import type { BayData, BaySession } from '../../lib/sessions/types.ts';
-import { Lane } from '../ui/lane.tsx';
-import { Strip } from '../ui/strip.tsx';
-import { StripMenu, type StripMenuActions } from './strip-menu.tsx';
+import { SessionGroup } from '../ui/session-group.tsx';
+import { SessionRow, SessionTile } from '../ui/session-row.tsx';
+import { SessionMenu, type SessionMenuActions } from './session-menu.tsx';
 import { formatAgo, formatAgoShort, formatDuration } from './time.ts';
 
 /**
- * Holds the strips on screen and, when fresh data moves a strip to another lane, commits the
- * change inside a view transition: the new edge colour shows at once, then the strip slides to
- * its lane (globals.css, `.strip` transition class). Without the API or under reduced motion,
- * the change simply applies.
+ * Holds the rows on screen and, when fresh data moves a session to another group, commits the
+ * change inside a view transition: the lamp recolours at once, then the row slides to its group
+ * (globals.css, `.session-row` transition class). Without the API or under reduced motion, the
+ * change simply applies.
  */
-function useLaneTransitions(sessions: BaySession[]): BaySession[] {
+function useGroupTransitions(sessions: BaySession[]): BaySession[] {
   const [shown, setShown] = useState(sessions);
   const current = useRef(sessions);
   useEffect(() => {
@@ -56,61 +56,64 @@ function isPlainClick(event: MouseEvent): boolean {
   return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
 }
 
-export function Bay({
-  data,
-  followedId,
-  renderedAt,
-  stripHref,
-  onFollow,
-  menuActions,
-  desktop = true,
-}: {
+export interface SessionListProps {
   data: BayData;
   followedId: string | null;
   renderedAt: number;
-  stripHref: (id: string) => string;
+  sessionHref: (id: string) => string;
   /** Follows a session in place instead of navigating. */
   onFollow?: (sessionId: string) => void;
-  /** The actions of a strip's menu; no menu without it. */
-  menuActions?: (session: BaySession) => StripMenuActions;
+  /** The actions of a row's menu; no menu without it. */
+  menuActions?: (session: BaySession) => SessionMenuActions;
   /** Desktop menus also open tabs and splits. */
   desktop?: boolean;
-}) {
+}
+
+/** The sessions grouped by state, most urgent first; the Ended group is collapsed. */
+export function SessionList({
+  data,
+  followedId,
+  renderedAt,
+  sessionHref,
+  onFollow,
+  menuActions,
+  desktop = true,
+}: SessionListProps) {
   const t = useTranslations('workspace');
   const td = useTranslations('workspace.duration');
   const locale = useLocale();
   const now = useNow(renderedAt);
-  const lanes = groupIntoLanes(useLaneTransitions(data.sessions));
-  // Right-click on a strip opens its actions menu.
+  const groups = groupIntoLanes(useGroupTransitions(data.sessions));
+  // Right-click on a row opens its actions menu.
   const [menuSignal, setMenuSignal] = useState<{ id: string; n: number } | null>(null);
 
   return (
-    <div className="flex flex-col gap-4">
-      {lanes.map((lane) => {
-        const ended = lane.status === 'ended';
-        const count = ended ? data.endedTotal : lane.sessions.length;
+    <div className="flex flex-col gap-3">
+      {groups.map((group) => {
+        const ended = group.status === 'ended';
+        const count = ended ? data.endedTotal : group.sessions.length;
         return (
-          <Lane
-            key={lane.status}
-            status={lane.status}
-            title={t(`lane.${lane.status}`)}
+          <SessionGroup
+            key={group.status}
+            status={group.status}
+            title={t(`lane.${group.status}`)}
             count={count}
             countLabel={t('lane.count', { count })}
             collapsible={ended}
-            defaultOpen={ended && lane.sessions.some((s) => s.id === followedId)}
+            defaultOpen={ended && group.sessions.some((s) => s.id === followedId)}
             note={
-              ended && data.endedTotal > lane.sessions.length
-                ? t('lane.endedShown', { shown: lane.sessions.length, total: data.endedTotal })
+              ended && data.endedTotal > group.sessions.length
+                ? t('lane.endedShown', { shown: group.sessions.length, total: data.endedTotal })
                 : undefined
             }
           >
-            {lane.sessions.map((session) => {
+            {group.sessions.map((session) => {
               const endedAt = session.endedAt ?? session.createdAt;
               const uptime = formatDuration(now - session.createdAt, td);
               return (
                 <li key={session.id}>
-                  <Strip
-                    href={stripHref(session.id)}
+                  <SessionRow
+                    href={sessionHref(session.id)}
                     label={session.label}
                     target={`${session.user}@${session.host}`}
                     status={session.status}
@@ -124,7 +127,7 @@ export function Bay({
                     }
                     stamp={ended ? t('strip.stamp') : undefined}
                     followed={session.id === followedId}
-                    transitionName={`strip-${session.id}`}
+                    transitionName={`session-${session.id}`}
                     onClick={
                       onFollow
                         ? (event) => {
@@ -144,7 +147,7 @@ export function Bay({
                     }
                     menu={
                       menuActions ? (
-                        <StripMenu
+                        <SessionMenu
                           session={session}
                           desktop={desktop}
                           actions={menuActions(session)}
@@ -156,9 +159,60 @@ export function Bay({
                 </li>
               );
             })}
-          </Lane>
+          </SessionGroup>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * The rail: one compact tile per session, grouped in the same order with a hairline between
+ * groups; ended sessions stay out of the rail (they are history, reached from the full list).
+ */
+export function SessionRail({
+  data,
+  followedId,
+  sessionHref,
+  onFollow,
+}: Pick<SessionListProps, 'data' | 'followedId' | 'sessionHref' | 'onFollow'>) {
+  const t = useTranslations('workspace');
+  const groups = groupIntoLanes(data.sessions).filter((group) => group.status !== 'ended');
+  return (
+    <div className="flex flex-col items-center gap-2">
+      {groups.map((group, index) => (
+        <ul
+          key={group.status}
+          aria-label={t(`lane.${group.status}`)}
+          className={
+            index > 0
+              ? 'flex flex-col items-center gap-1 border-line border-t pt-2'
+              : 'flex flex-col items-center gap-1'
+          }
+        >
+          {group.sessions.map((session) => (
+            <li key={session.id}>
+              <SessionTile
+                href={sessionHref(session.id)}
+                label={session.label}
+                target={`${session.user}@${session.host}`}
+                status={session.status}
+                statusLabel={t(`status.${session.status}`)}
+                followed={session.id === followedId}
+                onClick={
+                  onFollow
+                    ? (event) => {
+                        if (!isPlainClick(event)) return;
+                        event.preventDefault();
+                        onFollow(session.id);
+                      }
+                    : undefined
+                }
+              />
+            </li>
+          ))}
+        </ul>
+      ))}
     </div>
   );
 }

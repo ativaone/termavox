@@ -47,17 +47,18 @@ export interface TerminalTheme {
 }
 
 /**
- * Colour schemes drawn from the strip board: the pane's near-black under board ink with a buff
- * cursor (default), the bay's slate, a light buff-paper sheet, and a plain high-contrast scheme.
+ * Colour schemes. The default (`board`, the scheme id is stored per user and kept) is the
+ * near-black pane of the night cabin under plain ink, with the accent as the cursor and
+ * selection; then a lighter violet-navy, a light paper sheet, and a plain high-contrast scheme.
  */
 export const TERMINAL_THEMES: Record<TerminalScheme, TerminalTheme> = {
   board: {
-    background: '#0c1015',
-    foreground: '#e3e9f0',
-    cursor: '#eee2c0',
-    cursorAccent: '#0c1015',
-    selectionBackground: '#3b5b86',
-    black: '#1a2431',
+    background: '#0c0b16',
+    foreground: '#ebe9f5',
+    cursor: '#4cc9ff',
+    cursorAccent: '#0c0b16',
+    selectionBackground: '#274a66',
+    black: '#1c1936',
     red: '#e5736a',
     green: '#73c08e',
     yellow: '#e2c074',
@@ -75,12 +76,12 @@ export const TERMINAL_THEMES: Record<TerminalScheme, TerminalTheme> = {
     brightWhite: '#f4f7fa',
   },
   slate: {
-    background: '#1a2431',
-    foreground: '#e3e9f0',
-    cursor: '#eee2c0',
-    cursorAccent: '#1a2431',
-    selectionBackground: '#40618d',
-    black: '#111923',
+    background: '#171431',
+    foreground: '#ebe9f5',
+    cursor: '#4cc9ff',
+    cursorAccent: '#171431',
+    selectionBackground: '#2d4f6e',
+    black: '#110f24',
     red: '#ec7f76',
     green: '#7dc796',
     yellow: '#e6c57d',

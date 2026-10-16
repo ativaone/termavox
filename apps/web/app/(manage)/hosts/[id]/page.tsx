@@ -15,11 +15,11 @@ import { PlusIcon } from '../../../../components/icons/index.tsx';
 import { DoneNotice, param } from '../../../../components/manage/done-notice.tsx';
 import { ButtonLink } from '../../../../components/ui/button.tsx';
 import { ConfirmAction } from '../../../../components/ui/confirm-action.tsx';
+import { DataTable, Td, Th, Tr } from '../../../../components/ui/data-table.tsx';
 import { DisclosureSummary } from '../../../../components/ui/disclosure-summary.tsx';
 import { LocalTime } from '../../../../components/ui/local-time.tsx';
-import { PageHeader, SheetHeading } from '../../../../components/ui/page-header.tsx';
+import { PageHeader, SectionHeading } from '../../../../components/ui/page-header.tsx';
 import { Panel, PanelSection } from '../../../../components/ui/panel.tsx';
-import { SheetTable, Td, Th, Tr } from '../../../../components/ui/sheet-table.tsx';
 import { Tag } from '../../../../components/ui/tag.tsx';
 import { deleteHost, deleteProfile, revokeHostKey } from '../../../../lib/actions/hosts.ts';
 import { getAuthRuntime, requireSession } from '../../../../lib/auth/server.ts';
@@ -120,7 +120,7 @@ export default async function HostPage({
         <Panel aria-labelledby="profiles-title" className="scroll-mt-6 lg:col-start-1">
           <span id="profiles" className="sr-only" />
           <PanelSection>
-            <SheetHeading
+            <SectionHeading
               id="profiles-title"
               title={tp('title')}
               description={tp('intro')}
@@ -169,8 +169,8 @@ export default async function HostPage({
             </PanelSection>
           ) : null}
           {profiles.length > 0 ? (
-            <div className="border-rule border-t">
-              <SheetTable
+            <div className="border-line border-t">
+              <DataTable
                 caption={tp('title')}
                 head={
                   <>
@@ -226,7 +226,7 @@ export default async function HostPage({
                     </Td>
                   </Tr>
                 ))}
-              </SheetTable>
+              </DataTable>
             </div>
           ) : null}
         </Panel>
@@ -237,7 +237,7 @@ export default async function HostPage({
         >
           <span id="diagnostics" className="sr-only" />
           <PanelSection>
-            <SheetHeading id="diagnostics-title" title={td('title')} description={td('intro')} />
+            <SectionHeading id="diagnostics-title" title={td('title')} description={td('intro')} />
           </PanelSection>
           {ssh ? (
             <>
@@ -257,11 +257,11 @@ export default async function HostPage({
                 {keys.length === 0 ? (
                   <p className="text-pretty text-base text-ink-muted">{td('keys.empty')}</p>
                 ) : (
-                  <ul className="flex flex-col border-rule border-y">
+                  <ul className="flex flex-col border-line border-y">
                     {keys.map((key) => (
                       <li
                         key={key.id}
-                        className="flex flex-col gap-2 border-rule border-t py-3 first:border-t-0"
+                        className="flex flex-col gap-2 border-line border-t py-3 first:border-t-0"
                       >
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-medium text-ink text-sm">{key.keyType}</span>
@@ -296,7 +296,7 @@ export default async function HostPage({
                               <DisclosureSummary className="font-medium text-ink text-sm">
                                 {td('replace.title')}
                               </DisclosureSummary>
-                              <div className="mt-3 rounded-control border border-rule-strong px-4 py-3">
+                              <div className="mt-3 rounded-control border border-line-strong px-4 py-3">
                                 <ReplaceKeyForm
                                   hostId={host.id}
                                   hostName={host.name}
@@ -339,7 +339,7 @@ export default async function HostPage({
 
         <Panel aria-labelledby="host-settings-title" className="lg:col-start-1">
           <PanelSection>
-            <SheetHeading
+            <SectionHeading
               id="host-settings-title"
               title={t('settings.title')}
               description={t('settings.intro')}
@@ -368,7 +368,7 @@ export default async function HostPage({
               {host.liveSessionCount > 0 ? (
                 <Link
                   href="/workspace"
-                  className="font-medium text-ink underline decoration-rule-strong underline-offset-4 hover:decoration-ink"
+                  className="font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink"
                 >
                   {t('delete.toWorkspace')}
                 </Link>

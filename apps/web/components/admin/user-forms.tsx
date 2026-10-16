@@ -142,7 +142,7 @@ export function BanControl({
             </summary>
             <form
               action={action}
-              className="mt-3 flex max-w-[34rem] flex-col gap-3 rounded-control bg-tint-danger px-3 py-3 text-base text-stock-ink"
+              className="mt-3 flex max-w-[34rem] flex-col gap-3 rounded-control bg-danger-soft px-3 py-3 text-base text-ink"
             >
               <input type="hidden" name="userId" value={userId} />
               <input type="hidden" name="banned" value="1" />

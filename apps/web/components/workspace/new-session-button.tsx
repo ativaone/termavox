@@ -6,7 +6,7 @@ import { PlusIcon } from '../icons/index.tsx';
 import { Button } from '../ui/button.tsx';
 import { Kbd } from '../ui/kbd.tsx';
 
-/** Window event the session palette (next workstream) listens for. */
+/** Window event the session palette listens for. */
 export const NEW_SESSION_EVENT = 'termdock:new-session';
 
 const noSubscribe = () => () => {};
@@ -19,17 +19,20 @@ function requestNewSession() {
 /**
  * "New session" with its Ctrl/⌘K hint. Publishes the request as a window event; Ctrl/⌘K does
  * the same unless focus is inside a terminal (`[data-terminal]`), which owns every key.
- * Only the bay's instance listens for the shortcut; others (an empty pane's) pass
- * `shortcut={false}` so one key press never opens the palette twice.
+ * Only the sidebar's instance listens for the shortcut; others (an empty pane's) pass
+ * `shortcut={false}` so one key press never opens the palette twice. `compact` is the rail's
+ * round icon button, named by its tooltip and accessible name.
  */
 export function NewSessionButton({
   disabled = false,
   shortcut = true,
   block = true,
+  compact = false,
 }: {
   disabled?: boolean;
   shortcut?: boolean;
   block?: boolean;
+  compact?: boolean;
 }) {
   const t = useTranslations('workspace.bay');
   const apple = useSyncExternalStore(noSubscribe, isApplePlatform, () => false);
@@ -47,14 +50,33 @@ export function NewSessionButton({
     return () => window.removeEventListener('keydown', onKey);
   }, [disabled, shortcut]);
 
+  const keys = apple ? 'Meta+K' : 'Control+K';
+  if (compact) {
+    return (
+      <Button
+        variant="primary"
+        iconOnly
+        disabled={disabled}
+        onClick={requestNewSession}
+        aria-label={t('newSession')}
+        title={`${t('newSession')} (${apple ? '⌘K' : 'Ctrl+K'})`}
+        aria-keyshortcuts={keys}
+        icon={<PlusIcon size={18} />}
+        className="rounded-pill"
+      />
+    );
+  }
+
   return (
     <Button
       variant="primary"
+      size="lg"
       block={block}
       disabled={disabled}
       onClick={requestNewSession}
       icon={<PlusIcon size={16} />}
-      aria-keyshortcuts={apple ? 'Meta+K' : 'Control+K'}
+      aria-keyshortcuts={keys}
+      className="h-10"
     >
       <span className={block ? 'flex-1 text-start' : undefined}>{t('newSession')}</span>
       <span

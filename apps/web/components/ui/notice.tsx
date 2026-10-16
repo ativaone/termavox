@@ -4,11 +4,11 @@ import { cx } from './cx.ts';
 
 export type NoticeTone = 'danger' | 'warning' | 'info' | 'success';
 
-const TONE: Record<NoticeTone, { slip: string; icon: string }> = {
-  danger: { slip: 'bg-tint-danger', icon: 'text-danger-on-stock' },
-  warning: { slip: 'bg-tint-warning', icon: 'text-stock-ink' },
-  info: { slip: 'bg-tint-info', icon: 'text-focus-stock' },
-  success: { slip: 'bg-tint-success', icon: 'text-stock-ink' },
+const TONE: Record<NoticeTone, { fill: string; icon: string }> = {
+  danger: { fill: 'bg-danger-soft', icon: 'text-danger' },
+  warning: { fill: 'bg-warning-soft', icon: 'text-state-reconnecting' },
+  info: { fill: 'bg-info-soft', icon: 'text-accent' },
+  success: { fill: 'bg-success-soft', icon: 'text-state-connected' },
 };
 
 export interface NoticeProps {
@@ -20,8 +20,8 @@ export interface NoticeProps {
 }
 
 /**
- * An inline slip of tinted stock: the app's notice and form message. Danger is announced
- * assertively (role=alert), everything else politely (role=status). Text stays stock ink.
+ * An inline notice: a soft tinted fill with a toned icon, the text in plain ink. Danger is
+ * announced assertively (role=alert), everything else politely (role=status).
  */
 export function Notice({ tone = 'info', title, children, id, className }: NoticeProps) {
   const style = TONE[tone];
@@ -31,8 +31,8 @@ export function Notice({ tone = 'info', title, children, id, className }: Notice
       id={id}
       role={tone === 'danger' ? 'alert' : 'status'}
       className={cx(
-        'flex items-start gap-2.5 rounded-control px-3 py-2.5 text-base text-stock-ink',
-        style.slip,
+        'flex items-start gap-2.5 rounded-control px-3.5 py-3 text-base text-ink',
+        style.fill,
         className,
       )}
     >
@@ -50,3 +50,7 @@ export function FormMessage({ message, tone = 'danger' }: { message?: string; to
   if (!message) return null;
   return <Notice tone={tone}>{message}</Notice>;
 }
+
+/** The fill of a confirmation slip (a destructive action's question and its button). */
+export const DANGER_SLIP_CLASSES =
+  'flex flex-col gap-3 rounded-control bg-danger-soft px-3.5 py-3 text-base text-ink';

@@ -90,11 +90,11 @@ export function CreateCredential() {
               key={value}
               className={cx(
                 'flex cursor-pointer items-center gap-3 rounded-control border px-3 py-2.5',
-                'transition-colors duration-(--duration-step) ease-linear',
+                'transition-colors duration-(--duration-step) ease-(--ease-out)',
                 'has-focus-visible:outline-2 has-focus-visible:outline-focus has-focus-visible:outline-offset-2',
                 kind === value
-                  ? 'border-ink bg-stock-followed'
-                  : 'border-rule-strong hover:bg-quiet-hover',
+                  ? 'border-accent-ring bg-accent-soft'
+                  : 'border-line hover:bg-surface-raised',
               )}
             >
               <input

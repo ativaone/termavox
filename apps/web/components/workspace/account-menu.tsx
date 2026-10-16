@@ -2,80 +2,140 @@
 
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
+import { useRef } from 'react';
 import type { Locale } from '../../i18n/locales.ts';
-import { ChevronDownIcon } from '../icons/index.tsx';
-import { LocaleSwitcher } from '../locale-switcher.tsx';
+import { signOut } from '../../lib/actions/auth.ts';
+import {
+  GlobeIcon,
+  SettingsIcon,
+  SignOutIcon,
+  TerminalIcon,
+  UserIcon,
+  UsersIcon,
+} from '../icons/index.tsx';
+import { Avatar } from '../ui/avatar.tsx';
 import { cx } from '../ui/cx.ts';
+import {
+  MENU_ITEM_CLASSES,
+  MenuItem,
+  MenuLabel,
+  MenuLink,
+  MenuPopover,
+  MenuSeparator,
+  usePopoverMenu,
+} from '../ui/menu.tsx';
+import { LanguageDialog } from './language-dialog.tsx';
+
+const MENU_WIDTH = 248;
 
 /**
- * The bay footer's way out of the workspace: the username opens a native disclosure with the
- * secondary pages (hosts, credentials, activity, settings, admin). Inline, not a popover, so it
- * never covers a strip and needs no JavaScript. On a phone it also holds the language picker,
- * which the desktop bay keeps in its footer.
+ * The account menu (plan D-28): the user's name with a gear opens settings (account, terminal,
+ * and "Language…", which opens the language dialog), Admin for administrators, and Sign out. A
+ * native popover, placed above or below its control; sign-out stays a form post. `compact` shows
+ * the avatar alone (the rail, the phone header).
  */
 export function AccountMenu({
   username,
   isAdmin,
   locale,
+  compact = false,
+  placement = 'above',
+  className,
 }: {
   username: string;
   isAdmin: boolean;
   locale: Locale;
+  compact?: boolean;
+  /** Preferred side; the menu flips when there is no room. */
+  placement?: 'above' | 'below';
+  className?: string;
 }) {
-  const t = useTranslations('nav');
-  const links = [
-    { href: '/hosts', label: t('hosts') },
-    { href: '/credentials', label: t('credentials') },
-    { href: '/activity', label: t('activity') },
-    { href: '/settings/account', label: t('settings') },
-    ...(isAdmin ? [{ href: '/admin/users', label: t('admin') }] : []),
-  ];
+  const t = useTranslations('workspace.account');
+  const tn = useTranslations('nav');
+  const tc = useTranslations('common');
+  const menu = usePopoverMenu({ width: MENU_WIDTH, align: compact ? 'start' : 'end' });
+  const languageRef = useRef<HTMLDialogElement>(null);
+
+  const openLanguage = () => {
+    menu.hide();
+    // The anchor takes the focus first, so closing the dialog gives it back there.
+    menu.anchorRef.current?.focus();
+    languageRef.current?.showModal();
+  };
+
   return (
-    <details className="group min-w-0 flex-1">
-      <summary
+    <>
+      <button
+        ref={menu.anchorRef}
+        id={menu.buttonId}
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={menu.open}
+        aria-controls={menu.menuId}
+        aria-label={compact ? `${t('menu')}. ${t('signedInAs', { username })}` : undefined}
+        title={compact ? username : undefined}
+        onClick={menu.toggle}
+        data-placement={placement}
         className={cx(
-          'flex h-8 cursor-pointer list-none items-center gap-1.5 rounded-control px-1 [&::-webkit-details-marker]:hidden',
-          'transition-colors duration-(--duration-step) ease-linear hover:bg-quiet-hover',
-          'focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2',
+          'flex items-center gap-2.5 rounded-control text-start',
+          'transition-colors duration-(--duration-step) ease-(--ease-out) hover:bg-surface-raised',
+          'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus',
+          compact ? 'size-9 justify-center' : 'h-11 w-full ps-2 pe-2',
+          menu.open && 'bg-surface-raised',
+          className,
         )}
       >
-        <span className="sr-only">{t('menu')}, </span>
-        <span className="sr-only">{t('signedInAs', { username })}</span>
-        <span aria-hidden="true" className="min-w-0 truncate font-medium text-board-ink text-sm">
-          {username}
-        </span>
-        <ChevronDownIcon
-          size={14}
-          className="shrink-0 text-board-ink-muted transition-transform duration-(--duration-step) group-open:rotate-180"
-        />
-      </summary>
-      {/* On a phone the body also spans the sign-out column (2rem + the row's 0.5rem gap), so the
-          rule and the language picker end on the footer's gutter like the strips above. */}
-      <div className="max-md:-me-10">
-        <nav aria-label={t('label')} className="pt-1 pb-1">
-          <ul className="flex flex-col">
-            {links.map((link) => (
-              <li key={link.href}>
-                <Link
-                  href={link.href}
-                  className={cx(
-                    'flex h-8 items-center rounded-control px-2 text-board-ink-muted text-sm',
-                    'transition-colors duration-(--duration-step) ease-linear hover:bg-quiet-hover hover:text-board-ink',
-                    'focus-visible:outline-2 focus-visible:outline-focus focus-visible:-outline-offset-2',
-                  )}
-                >
-                  {link.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
-        <LocaleSwitcher
-          locale={locale}
-          fill
-          className="mx-1 mt-1 border-board-rule border-t pt-2 pb-1 md:hidden"
-        />
-      </div>
-    </details>
+        <Avatar name={username} />
+        {compact ? null : (
+          <>
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="sr-only">{t('menu')}, </span>
+              <span className="sr-only">{t('signedInAs', { username })}</span>
+              <span aria-hidden="true" className="truncate font-semibold text-ink text-sm">
+                {username}
+              </span>
+            </span>
+            <SettingsIcon size={16} className="shrink-0 text-ink-muted" />
+          </>
+        )}
+      </button>
+      <MenuPopover menu={menu} width={MENU_WIDTH}>
+        <div role="menu" aria-labelledby={menu.buttonId} onKeyDown={menu.onKeyDown} className="p-1">
+          <div className="flex items-center gap-2.5 px-2 pt-1.5 pb-2">
+            <Avatar name={username} />
+            <span className="min-w-0 truncate font-semibold text-ink text-sm">{username}</span>
+          </div>
+          <MenuSeparator />
+          <MenuLabel>{tn('settings')}</MenuLabel>
+          <MenuLink Component={Link} href="/settings/account" icon={<UserIcon size={16} />}>
+            {t('accountSettings')}
+          </MenuLink>
+          <MenuLink Component={Link} href="/settings/terminal" icon={<TerminalIcon size={16} />}>
+            {t('terminalSettings')}
+          </MenuLink>
+          <MenuItem icon={<GlobeIcon size={16} />} onClick={openLanguage}>
+            {t('language')}
+          </MenuItem>
+          {isAdmin ? (
+            <>
+              <MenuSeparator />
+              <MenuLink Component={Link} href="/admin/users" icon={<UsersIcon size={16} />}>
+                {tn('admin')}
+              </MenuLink>
+            </>
+          ) : null}
+          <MenuSeparator spaced />
+          <form action={signOut} className="contents">
+            <button type="submit" role="menuitem" tabIndex={-1} className={MENU_ITEM_CLASSES}>
+              <span className="flex w-4 shrink-0 justify-center text-ink-muted">
+                <SignOutIcon size={16} />
+              </span>
+              <span className="min-w-0 flex-1 truncate">{tc('signOut')}</span>
+            </button>
+          </form>
+        </div>
+      </MenuPopover>
+      <LanguageDialog dialogRef={languageRef} locale={locale} />
+    </>
   );
 }

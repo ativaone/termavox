@@ -14,8 +14,8 @@ import { cx } from '../ui/cx.ts';
 
 const KEY_CLASSES =
   'inline-flex h-11 min-w-9 flex-1 select-none items-center justify-center gap-1.5 rounded-control px-1 ' +
-  'bg-board-3 font-semibold text-board-ink text-sm transition-colors duration-(--duration-step) ease-linear ' +
-  'active:bg-board-rule focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus-board';
+  'bg-surface-raised font-semibold text-ink text-sm transition-colors duration-(--duration-step) ease-(--ease-out) ' +
+  'active:bg-surface-pressed focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus';
 
 function Key({
   label,
@@ -37,7 +37,7 @@ function Key({
       onPointerDown={(event) => event.preventDefault()}
       onMouseDown={(event) => event.preventDefault()}
       onClick={onPress}
-      className={cx(KEY_CLASSES, pressed && 'bg-stock text-stock-ink active:bg-stock-pressed')}
+      className={cx(KEY_CLASSES, pressed && 'bg-accent text-on-accent active:bg-accent-strong')}
     >
       {children}
     </button>
@@ -47,7 +47,7 @@ function Key({
 /**
  * Phone extra-key bar (plan §11.2): Esc, Tab, sticky Ctrl, arrows, pipe and paste. Ctrl is
  * owned by the workspace (`ctrl` / `onCtrlChange`) because it also applies to the next key typed
- * on the soft keyboard. Keys never take the focus from the terminal.
+ * on the soft keyboard. Keys never take the focus from the terminal; armed Ctrl lights cyan.
  */
 export function KeyBar({
   ctrl,
@@ -70,7 +70,7 @@ export function KeyBar({
   return (
     <fieldset
       className={cx(
-        'm-0 flex min-w-0 shrink-0 items-center gap-1 overflow-x-auto border-0 bg-board-2 px-1.5 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]',
+        'm-0 flex min-w-0 shrink-0 items-center gap-1 overflow-x-auto border-line border-0 border-t bg-ground-deep px-1.5 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]',
         className,
       )}
     >

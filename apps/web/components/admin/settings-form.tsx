@@ -28,7 +28,7 @@ export function InstanceSettingsForm({ initial }: { initial: InstanceSettings })
           defaultChecked={initial.requireTotp}
         />
       </section>
-      <section className="flex flex-col gap-3 border-rule border-t pt-5">
+      <section className="flex flex-col gap-3 border-line border-t pt-5">
         <h3 className="font-semibold text-ink text-md">{t('sessions')}</h3>
         <TextField
           name="maxRunningSessionsPerUser"
@@ -42,7 +42,7 @@ export function InstanceSettingsForm({ initial }: { initial: InstanceSettings })
           className="tabular-nums"
         />
       </section>
-      <section className="flex flex-col gap-3 border-rule border-t pt-5">
+      <section className="flex flex-col gap-3 border-line border-t pt-5">
         <h3 className="font-semibold text-ink text-md">{t('direct')}</h3>
         <Checkbox
           name="localShellVisible"
@@ -52,7 +52,7 @@ export function InstanceSettingsForm({ initial }: { initial: InstanceSettings })
         />
         <Notice tone="warning">{t('localShellWarning')}</Notice>
       </section>
-      <div className="border-rule border-t pt-5">
+      <div className="border-line border-t pt-5">
         <SubmitButton size="lg">{t('submit')}</SubmitButton>
       </div>
     </form>

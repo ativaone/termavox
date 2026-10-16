@@ -221,7 +221,7 @@
     "pane": {
       "label": "Terminal panes",
       "emptyTitle": "Pick a session",
-      "emptyBody": "Choose a strip in the bay to open it here. Closing a tab only detaches; the session keeps running on the server.",
+      "emptyBody": "Choose a session in the list to open it here. Closing a tab only detaches; the session keeps running on the server.",
       "firstRunTitle": "Add your first host",
       "firstRunBody": "Termdock holds SSH sessions open on the server, so you can close the browser and come back to the same screen.",
       "firstRunStep1": "Add a host and the credential that reaches it.",
@@ -258,7 +258,16 @@
     },
     "account": {
       "label": "Account",
-      "signedInAs": "Signed in as {username}"
+      "signedInAs": "Signed in as {username}",
+      "menu": "Account menu",
+      "accountSettings": "Account settings",
+      "terminalSettings": "Terminal settings",
+      "language": "Language…",
+      "cancel": "Cancel"
+    },
+    "sidebar": {
+      "collapse": "Collapse the session list",
+      "expand": "Expand the session list"
     },
     "overlay": {
       "offline": "Not connected to Termdock right now. Try again when the connection is back.",
@@ -415,7 +424,8 @@
       "rejected": "The session service rejected the request.",
       "generic": "Something went wrong. Try again.",
       "localShellDisabled": "Local shells aren't available yet: direct mode arrives in a later version.",
-      "reopenConflict": "Only ended or unprotected sessions can be reopened."
+      "reopenConflict": "Only ended or unprotected sessions can be reopened.",
+      "labelInvalid": "Session names need 1 to 120 visible characters."
     }
   },
   "hosts": {
@@ -471,7 +481,7 @@
     },
     "form": {
       "name": "Name",
-      "nameHelp": "Shown in the bay and in session labels, e.g. api-prod.",
+      "nameHelp": "Shown in the session list and in session labels, e.g. api-prod.",
       "kind": "Kind",
       "kindSsh": "SSH server",
       "kindSshHelp": "Termdock connects over SSH and checks the host key.",
@@ -932,9 +942,9 @@
       "intro": "How your terminals look and behave in every browser. Scrollback is set per connection profile.",
       "scheme": "Color scheme",
       "schemes": {
-        "board": "Board",
-        "slate": "Slate",
-        "buff": "Buff paper",
+        "board": "Night",
+        "slate": "Violet",
+        "buff": "Light paper",
         "contrast": "High contrast"
       },
       "font": "Font",

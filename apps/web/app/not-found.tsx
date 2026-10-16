@@ -33,7 +33,7 @@ function NotFoundPanel({ title, body, home }: { title: string; body: string; hom
 export default async function NotFound() {
   const t = await getTranslations('notFound');
   return (
-    <div className="surface-board flex min-h-dvh flex-col items-center gap-8 bg-board-0 px-4 pt-10 sm:pt-16">
+    <div className="ground-glow flex min-h-dvh flex-col items-center gap-8 px-4 pt-10 sm:pt-16">
       <Wordmark />
       <main className="flex w-full justify-center">
         <NotFoundPanel title={t('title')} body={t('body')} home={t('home')} />

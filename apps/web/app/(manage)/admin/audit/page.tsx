@@ -2,12 +2,12 @@ import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
 import { param } from '../../../../components/manage/done-notice.tsx';
 import { ButtonLink, buttonClasses } from '../../../../components/ui/button.tsx';
+import { DataTable, Td, Th, Tr } from '../../../../components/ui/data-table.tsx';
 import { CONTROL_BASE, CONTROL_SIZE_COMPACT } from '../../../../components/ui/field.tsx';
 import { LocalTime } from '../../../../components/ui/local-time.tsx';
 import { Pagination, paginate } from '../../../../components/ui/pagination.tsx';
 import { Panel, PanelSection } from '../../../../components/ui/panel.tsx';
 import { NativeSelect } from '../../../../components/ui/select.tsx';
-import { SheetTable, Td, Th, Tr } from '../../../../components/ui/sheet-table.tsx';
 import { auditActorLabel } from '../../../../lib/admin/audit-actor.ts';
 import { requireAdminPage } from '../../../../lib/admin/page-guard.ts';
 import { getAuthRuntime } from '../../../../lib/auth/server.ts';
@@ -309,8 +309,8 @@ export default async function AdminAuditPage({
           </p>
         </PanelSection>
       ) : (
-        <div className="border-rule border-t">
-          <SheetTable
+        <div className="border-line border-t">
+          <DataTable
             caption={t('caption', { total: data.total })}
             head={
               <>
@@ -352,7 +352,7 @@ export default async function AdminAuditPage({
                 </Td>
               </Tr>
             ))}
-          </SheetTable>
+          </DataTable>
         </div>
       )}
       {data.pageCount > 1 ? (

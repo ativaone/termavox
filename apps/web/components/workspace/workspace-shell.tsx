@@ -40,19 +40,14 @@ import {
   leaves,
   newId,
 } from '../../lib/workspace/tree.ts';
-import { SignOutButton } from '../auth/sign-out-button.tsx';
 import { ChevronLeftIcon, RetryIcon } from '../icons/index.tsx';
-import { LocaleSwitcher } from '../locale-switcher.tsx';
 import { SkipLink } from '../skip-link.tsx';
 import { Button } from '../ui/button.tsx';
 import { cx } from '../ui/cx.ts';
 import { Notice } from '../ui/notice.tsx';
+import { ProtectionMark } from '../ui/session-row.tsx';
 import { Spinner } from '../ui/spinner.tsx';
 import { StatusChip } from '../ui/status-chip.tsx';
-import { ProtectionMark } from '../ui/strip.tsx';
-import { Wordmark } from '../ui/wordmark.tsx';
-import { AccountMenu } from './account-menu.tsx';
-import { Bay } from './bay.tsx';
 import { FirstRunPanel, PickSessionPanel } from './empty-panels.tsx';
 import {
   clampCreateViewport,
@@ -66,11 +61,14 @@ import {
   useVisualViewportHeight,
 } from './hooks.ts';
 import { KeyBar } from './key-bar.tsx';
-import { NEW_SESSION_EVENT, NewSessionButton } from './new-session-button.tsx';
+import { NEW_SESSION_EVENT } from './new-session-button.tsx';
 import { CommandPalette, type PaletteProfile, type PaletteSession } from './palette.tsx';
 import { PaneTree } from './pane-tree.tsx';
+import { SESSION_LIST_ID, Sidebar } from './sidebar.tsx';
+import { useSidebarMode } from './sidebar-preference.ts';
 import { TabBar } from './tab-bar.tsx';
 import { isPaletteShortcut, TerminalPane } from './terminal-pane.tsx';
+import { withViewTransition } from './transitions.ts';
 import {
   type PaneHandle,
   type PaneMeta,
@@ -108,7 +106,7 @@ function ConnectionChip({ connection }: { connection: TermdockConnection }) {
   const now = useNow(1_000, state.status === 'reconnecting');
   if (state.shuttingDown && state.status !== 'open') {
     return (
-      <span role="status" className="flex items-center gap-1.5 text-board-ink-muted text-xs">
+      <span role="status" className="flex items-center gap-1.5 text-ink-muted text-xs">
         <Spinner size={13} />
         {t('restarting')}
       </span>
@@ -117,7 +115,7 @@ function ConnectionChip({ connection }: { connection: TermdockConnection }) {
   if (state.status !== 'reconnecting') return null;
   const seconds = state.retryAt ? Math.max(0, Math.ceil((state.retryAt - now) / 1_000)) : 0;
   return (
-    <span role="status" className="flex items-center gap-2 text-board-ink-muted text-xs">
+    <span role="status" className="flex items-center gap-2 text-ink-muted text-xs">
       <span className="tabular-nums">
         {seconds > 0 ? t('offlineIn', { seconds }) : t('offline')}
       </span>
@@ -139,7 +137,7 @@ function ConnectionFailure({ connection }: { connection: TermdockConnection }) {
   const { error } = useConnectionState(connection);
   if (!error || error.kind === 'unauthenticated') return null;
   return (
-    <div className="px-1.5 pb-1.5 max-md:px-2 max-md:pt-2">
+    <div className="px-2 pb-2 max-md:pt-2">
       <Notice
         tone="danger"
         title={t(error.kind === 'forbidden' ? 'forbiddenTitle' : 'outdatedTitle')}
@@ -168,7 +166,7 @@ function ConnectionLimit({ connection }: { connection: TermdockConnection }) {
   const { status, closeCode, error } = useConnectionState(connection);
   if (status === 'open' || error || closeCode !== CloseCode.RateLimited) return null;
   return (
-    <div className="px-1.5 pb-1.5 max-md:px-2 max-md:pt-2">
+    <div className="px-2 pb-2 max-md:pt-2">
       <Notice tone="warning">
         <span className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
           <span>{t('tooManyWindows')}</span>
@@ -186,11 +184,11 @@ function ConnectionLimit({ connection }: { connection: TermdockConnection }) {
 }
 
 /**
- * The live workspace: the bay of state lanes (left), the slate tab bar over the split panes
- * (right), one WebSocket for the whole browser tab. On a phone the bay is the switcher and a
- * session opens alone, full screen, with the extra-key bar, without touching the desktop
- * layout. First paint comes from the server (bay rows, saved layout); the live store takes over
- * once the session list arrives.
+ * The live workspace: the session sidebar (left), the tab row over the split panes (right), one
+ * WebSocket for the whole browser tab. On a phone the sidebar is the switcher and a session
+ * opens alone, full screen, with the extra-key bar, without touching the desktop layout. First
+ * paint comes from the server (session rows, saved layout); the live store takes over once the
+ * session list arrives.
  */
 export function WorkspaceShell({
   bay: serverBay,
@@ -316,16 +314,24 @@ export function WorkspaceShell({
 
   const dispatch = useCallback((action: LayoutAction) => sync.dispatch(action), [sync]);
 
+  // Following moves the reading light to the new row inside a view transition (signature move);
+  // the deep link on load applies it directly.
   const follow = useCallback(
-    (sessionId: string) => {
+    (sessionId: string, animate = true) => {
       if (!desktopRef.current) {
         phoneOpen(sessionId);
         return;
       }
-      const next = sync.dispatch({ type: 'follow', sessionId, tabId: newId(), paneId: newId() });
-      const leaf = activeLeaf(next)?.leaf;
-      if (leaf?.sessionId === sessionId) requestFocus(leaf.id);
-      else setNotice(t('notice.tabLimit'));
+      // Everything that reads the new layout runs inside the callback: a view transition
+      // applies it asynchronously, after the old state is captured.
+      const apply = () => {
+        const next = sync.dispatch({ type: 'follow', sessionId, tabId: newId(), paneId: newId() });
+        const leaf = activeLeaf(next)?.leaf;
+        if (leaf?.sessionId === sessionId) requestFocus(leaf.id);
+        else setNotice(t('notice.tabLimit'));
+      };
+      if (animate) withViewTransition(apply);
+      else apply();
     },
     [sync, phoneOpen, requestFocus, t],
   );
@@ -513,7 +519,7 @@ export function WorkspaceShell({
     if (!hydrated || !isDesktop || handledUrl.current) return;
     handledUrl.current = true;
     if (urlSession && serverBay.sessions.some((s) => s.id === urlSession)) {
-      follow(urlSession);
+      follow(urlSession, false);
       window.history.replaceState(null, '', workspaceHref);
     }
   }, [hydrated, isDesktop, urlSession, serverBay.sessions, follow, workspaceHref]);
@@ -601,6 +607,8 @@ export function WorkspaceShell({
   );
 
   // ── view ───────────────────────────────────────────────────────────────────
+  const [sidebarMode, setSidebarMode] = useSidebarMode();
+  const rail = isDesktop && sidebarMode === 'rail';
   const phoneSessionId = urlSession;
   const phoneView = phoneSessionId ? 'pane' : 'bay';
   const followedId = isDesktop ? (current?.leaf.sessionId ?? null) : phoneSessionId;
@@ -625,11 +633,11 @@ export function WorkspaceShell({
         dispatch={dispatch}
       />
     ) : (
-      <div className="h-full w-full rounded-[3px] bg-pane" />
+      <div className="h-full w-full rounded-row border border-line bg-pane" />
     );
   } else {
     desktopPanes = (
-      <div className="surface-pane flex h-full w-full flex-col items-center justify-center gap-3 overflow-auto rounded-[3px] bg-pane p-4">
+      <div className="flex h-full w-full flex-col items-center justify-center gap-3 overflow-auto rounded-row border border-line bg-pane p-4">
         {firstRun ? (
           <FirstRunPanel hostsHref={hostsHref} />
         ) : (
@@ -648,70 +656,36 @@ export function WorkspaceShell({
   return (
     <WorkspaceProvider value={context}>
       <div
-        className="flex h-dvh overflow-hidden bg-board-0 text-board-ink"
-        style={viewportHeight ? { height: viewportHeight } : undefined}
+        className="ground-glow flex h-dvh overflow-hidden text-ink"
+        style={{
+          ...(viewportHeight ? { height: viewportHeight } : {}),
+          ['--sidebar-current' as string]: rail ? 'var(--rail-width)' : 'var(--sidebar-width)',
+        }}
       >
-        <SkipLink label={tc('skipToContent')} target={followedId ? 'main' : 'bay-lanes'} />
+        <SkipLink label={tc('skipToContent')} target={followedId ? 'main' : SESSION_LIST_ID} />
 
-        <aside
-          aria-label={t('bay.label')}
-          className={cx(
-            'surface-board flex w-full min-w-0 flex-col bg-board-1 md:w-(--bay-width) md:shrink-0',
-            phoneView === 'pane' && 'max-md:hidden',
-          )}
-        >
-          {/* The head and the footer ride above a sliding strip (globals.css, bay-head/bay-foot):
-              opaque on the bay colour, so a strip scrolled under them stays under them. */}
-          <div className="flex flex-col gap-3 bg-board-1 px-3 pt-4 pb-3 [view-transition-name:bay-head]">
-            <div className="flex h-7 items-center px-1">
-              <Wordmark />
-            </div>
-            <NewSessionButton disabled={hostCount === 0} />
-          </div>
-
-          <div id="bay-lanes" className="min-h-0 flex-1 overflow-y-auto ps-3 pe-4 pt-1 pb-4">
-            {hostCount === 0 ? (
-              <>
-                <p className="px-1 text-board-ink-muted text-sm max-md:hidden">
-                  {t('bay.noHosts')}
-                </p>
-                <FirstRunPanel hostsHref={hostsHref} className="md:hidden" />
-              </>
-            ) : bay.sessions.length === 0 ? (
-              <div className="flex flex-col gap-1 px-1">
-                <p className="font-semibold text-board-ink text-sm">{t('bay.emptyTitle')}</p>
-                <p className="text-board-ink-muted text-sm">{t('bay.emptyBody')}</p>
-              </div>
-            ) : (
-              <Bay
-                data={bay}
-                followedId={followedId}
-                renderedAt={renderedAt}
-                stripHref={stripHref}
-                onFollow={follow}
-                menuActions={menuActions}
-                desktop={isDesktop}
-              />
-            )}
-          </div>
-
-          <footer className="flex flex-col gap-2 border-board-rule border-t bg-board-1 px-3 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] [view-transition-name:bay-foot]">
-            <div className="flex items-start justify-between gap-2">
-              <AccountMenu username={username} isAdmin={isAdmin} locale={locale} />
-              <SignOutButton label={tc('signOut')} iconOnly />
-            </div>
-            {/* On a phone the picker folds into the account disclosure to keep the switcher tall. */}
-            <LocaleSwitcher locale={locale} hideLabel fill className="max-md:hidden" />
-          </footer>
-        </aside>
+        <Sidebar
+          username={username}
+          isAdmin={isAdmin}
+          locale={locale}
+          hostCount={hostCount}
+          hostsHref={hostsHref}
+          data={bay}
+          followedId={followedId}
+          renderedAt={renderedAt}
+          sessionHref={stripHref}
+          onFollow={follow}
+          menuActions={menuActions}
+          desktop={isDesktop}
+          mode={sidebarMode}
+          onModeChange={setSidebarMode}
+          hidden={phoneView === 'pane'}
+        />
 
         <main
           id="main"
           aria-label={t('pane.label')}
-          className={cx(
-            'flex min-w-0 flex-1 flex-col bg-board-2',
-            phoneView === 'bay' && 'max-md:hidden',
-          )}
+          className={cx('flex min-w-0 flex-1 flex-col', phoneView === 'bay' && 'max-md:hidden')}
         >
           {phoneSessionId ? (
             <div className="flex h-12 shrink-0 items-center gap-2 ps-1 pe-3 md:hidden">
@@ -724,10 +698,10 @@ export function WorkspaceShell({
                 {t('phone.back')}
               </Button>
               <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
-                <span className="truncate font-semibold font-strip text-strip">{phoneLabel}</span>
+                <span className="truncate font-semibold text-ink text-sm">{phoneLabel}</span>
                 {phoneSession ? (
                   <span
-                    className="flex shrink-0 items-center text-board-ink"
+                    className="flex shrink-0 items-center text-ink"
                     title={phoneProtectionLabel}
                   >
                     <ProtectionMark protection={phoneSession.protection} />
@@ -758,15 +732,12 @@ export function WorkspaceShell({
           <ConnectionFailure connection={connection} />
           <ConnectionLimit connection={connection} />
           {notice ? (
-            <div className="px-1.5 pb-1.5">
+            <div className="px-2 pb-2">
               <Notice tone="warning">{notice}</Notice>
             </div>
           ) : null}
 
-          <div
-            ref={paneAreaRef}
-            className="relative flex min-h-0 flex-1 flex-col md:px-1.5 md:pb-1.5"
-          >
+          <div ref={paneAreaRef} className="relative flex min-h-0 flex-1 flex-col md:px-2 md:pb-2">
             {isDesktop ? (
               desktopPanes
             ) : phoneSessionId && hydrated ? (
@@ -787,7 +758,7 @@ export function WorkspaceShell({
           {!isDesktop && phoneSessionId ? (
             <>
               {phoneNotice ? (
-                <div className="px-1.5 pt-1.5">
+                <div className="px-2 pt-2">
                   <Notice tone="warning">
                     <span className="flex flex-wrap items-baseline justify-between gap-x-3">
                       <span>{phoneNotice}</span>
@@ -806,18 +777,18 @@ export function WorkspaceShell({
             </>
           ) : null}
         </main>
-      </div>
 
-      {palette ? (
-        <CommandPalette
-          sessions={paletteSessions}
-          profiles={profiles}
-          hostsHref={hostsHref}
-          onJump={(sessionId) => jumpTo(sessionId, palette.target)}
-          onCreate={createFromProfile}
-          onClose={closePalette}
-        />
-      ) : null}
+        {palette ? (
+          <CommandPalette
+            sessions={paletteSessions}
+            profiles={profiles}
+            hostsHref={hostsHref}
+            onJump={(sessionId) => jumpTo(sessionId, palette.target)}
+            onCreate={createFromProfile}
+            onClose={closePalette}
+          />
+        ) : null}
+      </div>
     </WorkspaceProvider>
   );
 }

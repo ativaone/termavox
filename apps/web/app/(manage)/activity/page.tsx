@@ -4,11 +4,11 @@ import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 import { param } from '../../../components/manage/done-notice.tsx';
 import { cx } from '../../../components/ui/cx.ts';
+import { DataTable, Td, Th, Tr } from '../../../components/ui/data-table.tsx';
 import { LocalTime } from '../../../components/ui/local-time.tsx';
 import { PageHeader } from '../../../components/ui/page-header.tsx';
 import { Pagination, paginate } from '../../../components/ui/pagination.tsx';
 import { Panel, PanelSection } from '../../../components/ui/panel.tsx';
-import { SheetTable, Td, Th, Tr } from '../../../components/ui/sheet-table.tsx';
 import { StatusChip } from '../../../components/ui/status-chip.tsx';
 import { getAuthRuntime, requireSession } from '../../../lib/auth/server.ts';
 import { listSessionEvents, listSessionHistory } from '../../../lib/repo/activity.ts';
@@ -173,7 +173,7 @@ export default async function ActivityPage({
     `/activity?${new URLSearchParams({ ...(v === 'sessions' ? { view: v } : {}), ...(page > 1 ? { page: String(page) } : {}) })}`;
 
   const tabs = (
-    <nav aria-label={t('views')} className="border-board-rule border-b">
+    <nav aria-label={t('views')} className="border-line border-b">
       <ul className="-mb-px flex gap-1">
         {(['events', 'sessions'] as const).map((v) => (
           <li key={v} className="flex">
@@ -182,8 +182,8 @@ export default async function ActivityPage({
               aria-current={view === v ? 'page' : undefined}
               className={cx(
                 'flex h-10 items-center border-transparent border-b-2 px-3 font-medium text-base',
-                'text-board-ink-muted transition-colors duration-(--duration-step) ease-linear hover:text-board-ink',
-                view === v && 'border-b-stock text-board-ink',
+                'text-ink-muted transition-colors duration-(--duration-step) ease-(--ease-out) hover:text-ink',
+                view === v && 'border-b-accent text-ink',
               )}
             >
               {t(`view.${v}`)}
@@ -213,7 +213,7 @@ export default async function ActivityPage({
               <p className="text-pretty text-base text-ink-muted">{t('sessions.empty')}</p>
             </PanelSection>
           ) : (
-            <SheetTable
+            <DataTable
               caption={t('sessions.caption')}
               head={
                 <>
@@ -260,7 +260,7 @@ export default async function ActivityPage({
                   </Td>
                 </Tr>
               ))}
-            </SheetTable>
+            </DataTable>
           )}
           {data.pageCount > 1 ? (
             <PanelSection ruled className="py-3 sm:py-3">
@@ -293,7 +293,7 @@ export default async function ActivityPage({
             <p className="text-pretty text-base text-ink-muted">{t('events.empty')}</p>
           </PanelSection>
         ) : (
-          <SheetTable
+          <DataTable
             caption={t('events.caption')}
             head={
               <>
@@ -315,7 +315,7 @@ export default async function ActivityPage({
                       {isKnownEvent(row.type) ? t(`type.${row.type}`) : row.type}
                     </span>
                     {count > 1 ? (
-                      <span className="rounded-[3px] bg-stock-pressed px-1 font-semibold text-2xs text-ink-muted tabular-nums">
+                      <span className="rounded-xs bg-surface-raised px-1 font-semibold text-2xs text-ink-muted tabular-nums">
                         <span aria-hidden="true">×{count}</span>
                         <span className="sr-only">{t('events.repeated', { count })}</span>
                       </span>
@@ -336,7 +336,7 @@ export default async function ActivityPage({
                 </Td>
               </Tr>
             ))}
-          </SheetTable>
+          </DataTable>
         )}
         {data.pageCount > 1 ? (
           <PanelSection ruled className="py-3 sm:py-3">

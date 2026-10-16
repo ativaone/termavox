@@ -1,94 +1,91 @@
 ---
 name: Termdock
-description: Persistent terminal sessions read as flight progress strips on a slate board, beside near-black terminal panes.
+description: A night cabin for persistent terminals: deep violet ground, translucent cards, one cyan reading light on the session you follow, small state lamps beside their words.
 colors:
-  board-0: "#111923"
-  board-1: "#1a2431"
-  board-2: "#223042"
-  board-3: "#2b3b50"
-  board-rule: "#33465e"
-  board-rule-strong: "#6b819e"
-  board-ink: "#e3e9f0"
-  board-ink-muted: "#9aabbf"
-  board-ink-faint: "#6a7c92"
-  stock: "#eee2c0"
-  stock-hover: "#f4ead0"
-  stock-pressed: "#e2d3ab"
-  stock-followed: "#fbf4df"
-  stock-ended: "#d8d2c2"
-  stock-field: "#fbf6e6"
-  stock-rule: "#cdbd93"
-  stock-rule-strong: "#8c7d58"
-  stock-ink: "#241f14"
-  stock-ink-muted: "#5f5440"
-  stock-ink-faint: "#8a7d62"
-  pane: "#0c1015"
-  pane-ink-dim: "#7d8a99"
-  state-connected: "#34a266"
-  state-progress: "#4c8fd6"
-  state-reconnecting: "#e0a526"
-  state-action: "#f2681f"
-  state-disconnected: "#d9473f"
-  state-ended: "#7c8899"
-  tint-danger: "#f3d2c4"
-  tint-warning: "#f5dfa8"
-  tint-info: "#dce5ee"
-  tint-success: "#d5e8cf"
-  danger-on-stock: "#a3271f"
-  danger-on-board: "#ff8a80"
-  danger-fill: "#b3332a"
-  focus-board: "#8cc8ff"
-  focus-stock: "#1d5fb4"
+  ground: "#171431"
+  ground-deep: "#110f24"
+  pane: "#0c0b16"
+  surface: "rgb(255 255 255 / 0.045)"
+  surface-raised: "rgb(255 255 255 / 0.08)"
+  surface-pressed: "rgb(255 255 255 / 0.12)"
+  surface-solid: "#221e42"
+  field: "rgb(12 10 24 / 0.55)"
+  line: "rgb(255 255 255 / 0.09)"
+  line-strong: "rgb(255 255 255 / 0.36)"
+  ink: "#f2f0fb"
+  ink-muted: "#aba7cb"
+  ink-faint: "#7a76a0"
+  accent: "#4cc9ff"
+  accent-strong: "#22b5f2"
+  accent-soft: "rgb(76 201 255 / 0.14)"
+  accent-ring: "rgb(76 201 255 / 0.55)"
+  on-accent: "#0a1226"
+  attention: "#ff5fae"
+  attention-soft: "rgb(255 95 174 / 0.18)"
+  state-connected: "#3ddc97"
+  state-progress: "#5aa8ff"
+  state-reconnecting: "#f5b84a"
+  state-action: "#ff5fae"
+  state-disconnected: "#ff6b7d"
+  state-ended: "#8984b0"
+  danger: "#ff8a98"
+  danger-fill: "#c9304b"
+  danger-soft: "rgb(255 107 125 / 0.16)"
+  warning-soft: "rgb(245 184 74 / 0.16)"
+  info-soft: "rgb(76 201 255 / 0.14)"
+  success-soft: "rgb(61 220 151 / 0.14)"
+  focus: "#7fd9ff"
+  selection: "rgb(76 201 255 / 0.32)"
+  glow-magenta: "rgb(255 79 163 / 0.24)"
+  glow-violet: "rgb(124 92 255 / 0.24)"
+  white: "#ffffff"
 typography:
   title:
-    fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, sans-serif"
     fontSize: "1.375rem"
     fontWeight: 600
     lineHeight: "1.75rem"
+    letterSpacing: "-0.01em"
   subtitle:
-    fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, sans-serif"
     fontSize: "1rem"
     fontWeight: 600
     lineHeight: "1.5rem"
   body:
-    fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 400
     lineHeight: "1.25rem"
   body-form:
-    fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, sans-serif"
     fontSize: "1rem"
     fontWeight: 400
     lineHeight: "1.5rem"
   label:
-    fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.8125rem"
     fontWeight: 600
     lineHeight: "1.125rem"
   help:
-    fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.8125rem"
     fontWeight: 400
     lineHeight: "1.125rem"
-  strip-label:
-    fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "0.9375rem"
-    fontWeight: 600
-    lineHeight: "1.125rem"
-    letterSpacing: "0.02em"
-    fontVariation: "'wdth' 72"
-  lane-label:
-    fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "0.6875rem"
-    fontWeight: 700
-    lineHeight: "1rem"
-    letterSpacing: "0.08em"
-    fontVariation: "'wdth' 80"
-  data:
-    fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
+  row-label:
+    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.8125rem"
+    fontWeight: 600
+    lineHeight: "1rem"
+  group-label:
+    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "0.75rem"
+    fontWeight: 600
+    lineHeight: "1rem"
+  data:
+    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "0.75rem"
     fontWeight: 500
-    lineHeight: "1.125rem"
+    lineHeight: "1rem"
     fontFeature: "'tnum'"
   code:
     fontFamily: "JetBrains Mono, ui-monospace, monospace"
@@ -96,10 +93,12 @@ typography:
     fontWeight: 400
     lineHeight: "1.25rem"
 rounded:
-  strip: "2px"
-  key: "3px"
-  control: "4px"
-  panel: "6px"
+  xs: "6px"
+  sm: "8px"
+  control: "10px"
+  row: "12px"
+  card: "16px"
+  pill: "999px"
 spacing:
   xs: "4px"
   sm: "8px"
@@ -110,275 +109,301 @@ spacing:
   3xl: "32px"
 components:
   button-primary:
-    backgroundColor: "{colors.stock}"
-    textColor: "{colors.stock-ink}"
+    backgroundColor: "{colors.accent}"
+    textColor: "{colors.on-accent}"
     rounded: "{rounded.control}"
     padding: "0 14px"
     height: "36px"
-  button-primary-hover:
-    backgroundColor: "{colors.stock-hover}"
-    textColor: "{colors.stock-ink}"
-  button-primary-on-stock:
-    backgroundColor: "{colors.board-1}"
-    textColor: "{colors.stock-hover}"
-    rounded: "{rounded.control}"
-    padding: "0 16px"
-    height: "44px"
-  button-primary-on-stock-hover:
-    backgroundColor: "{colors.board-2}"
-    textColor: "{colors.stock-hover}"
+  button-primary-active:
+    backgroundColor: "{colors.accent-strong}"
+    textColor: "{colors.on-accent}"
   button-secondary:
-    backgroundColor: "transparent"
-    textColor: "{colors.stock-ink}"
+    backgroundColor: "{colors.surface-raised}"
+    textColor: "{colors.ink}"
     rounded: "{rounded.control}"
-    padding: "0 10px"
-    height: "32px"
+    padding: "0 14px"
+    height: "36px"
+  button-secondary-hover:
+    backgroundColor: "{colors.surface-pressed}"
+    textColor: "{colors.ink}"
   button-quiet:
     backgroundColor: "transparent"
-    textColor: "{colors.stock-ink-muted}"
+    textColor: "{colors.ink-muted}"
     rounded: "{rounded.control}"
-    padding: "0 10px"
+    padding: "0 12px"
     height: "32px"
+  button-quiet-hover:
+    backgroundColor: "{colors.surface-raised}"
+    textColor: "{colors.ink}"
   button-destructive:
     backgroundColor: "transparent"
-    textColor: "{colors.danger-on-stock}"
+    textColor: "{colors.danger}"
     rounded: "{rounded.control}"
     padding: "0 14px"
     height: "36px"
   button-destructive-hover:
     backgroundColor: "{colors.danger-fill}"
-    textColor: "#ffffff"
+    textColor: "{colors.white}"
   input:
-    backgroundColor: "{colors.stock-field}"
-    textColor: "{colors.stock-ink}"
+    backgroundColor: "{colors.field}"
+    textColor: "{colors.ink}"
     typography: "{typography.body-form}"
     rounded: "{rounded.control}"
-    padding: "0 12px"
+    padding: "0 14px"
     height: "44px"
   input-compact:
-    backgroundColor: "{colors.board-0}"
-    textColor: "{colors.board-ink}"
+    backgroundColor: "{colors.field}"
+    textColor: "{colors.ink}"
     rounded: "{rounded.control}"
     padding: "0 10px"
     height: "32px"
-  strip:
-    backgroundColor: "{colors.stock}"
-    textColor: "{colors.stock-ink}"
-    typography: "{typography.strip-label}"
-    rounded: "{rounded.strip}"
-    height: "48px"
-  strip-hover:
-    backgroundColor: "{colors.stock-hover}"
-  strip-followed:
-    backgroundColor: "{colors.stock-followed}"
-  strip-ended:
-    backgroundColor: "{colors.stock-ended}"
-  lane-count:
-    backgroundColor: "{colors.board-0}"
-    textColor: "{colors.board-ink-muted}"
-    rounded: "{rounded.key}"
-    padding: "0 6px"
-    height: "20px"
-  status-chip:
-    textColor: "{colors.board-ink}"
-    typography: "{typography.help}"
-  panel:
-    backgroundColor: "{colors.stock}"
-    textColor: "{colors.stock-ink}"
-    rounded: "{rounded.panel}"
+  card:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.card}"
     padding: "20px 24px"
+  card-solid:
+    backgroundColor: "{colors.surface-solid}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.card}"
+    padding: "16px 20px"
+  session-row:
+    backgroundColor: "transparent"
+    textColor: "{colors.ink}"
+    typography: "{typography.row-label}"
+    rounded: "{rounded.row}"
+    height: "48px"
+  session-row-hover:
+    backgroundColor: "{colors.surface-raised}"
+  session-row-followed:
+    backgroundColor: "{colors.accent-soft}"
+    textColor: "{colors.ink}"
+  session-tile:
+    backgroundColor: "transparent"
+    textColor: "{colors.ink-muted}"
+    rounded: "{rounded.control}"
+    size: "36px"
+  group-count:
+    backgroundColor: "{colors.surface-raised}"
+    textColor: "{colors.ink-muted}"
+    rounded: "{rounded.pill}"
+    padding: "0 6px"
+    height: "18px"
   tab:
-    backgroundColor: "{colors.stock-followed}"
-    textColor: "{colors.stock-ink}"
-    typography: "{typography.strip-label}"
+    backgroundColor: "transparent"
+    textColor: "{colors.ink-muted}"
+    typography: "{typography.row-label}"
+    rounded: "{rounded.control}"
     height: "32px"
+  tab-active:
+    backgroundColor: "{colors.surface-raised}"
+    textColor: "{colors.ink}"
+  tag:
+    backgroundColor: "{colors.surface-raised}"
+    textColor: "{colors.ink-muted}"
+    rounded: "{rounded.pill}"
+    padding: "0 8px"
+    height: "20px"
+  notice:
+    backgroundColor: "{colors.info-soft}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.control}"
+    padding: "12px 14px"
+  nav-row:
+    backgroundColor: "transparent"
+    textColor: "{colors.ink-muted}"
+    rounded: "{rounded.control}"
+    padding: "0 8px 0 10px"
+    height: "36px"
+  nav-row-current:
+    backgroundColor: "{colors.surface-raised}"
+    textColor: "{colors.ink}"
+  menu-item:
+    backgroundColor: "transparent"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.sm}"
+    padding: "0 10px"
+    height: "36px"
   key:
-    backgroundColor: "{colors.board-3}"
-    textColor: "{colors.board-ink}"
+    backgroundColor: "{colors.surface-raised}"
+    textColor: "{colors.ink}"
     rounded: "{rounded.control}"
     height: "44px"
-  key-sticky:
-    backgroundColor: "{colors.stock}"
-    textColor: "{colors.stock-ink}"
+  key-armed:
+    backgroundColor: "{colors.accent}"
+    textColor: "{colors.on-accent}"
+  kbd:
+    backgroundColor: "{colors.surface-raised}"
+    textColor: "{colors.ink-muted}"
+    rounded: "{rounded.xs}"
+    height: "20px"
 ---
 
 # Design System: Termdock
 
 ## Overview
 
-**Creative North Star: "The Strip Board"**
+**Creative North Star: "The Night Cabin"**
 
-Every terminal session is a flight progress strip racked in a bay: a compact, state-coded record of buff stock that an operator reads in one glance and returns to exactly as it was left. The shell is the board the strips sit on (slate blue, darkest at the edges), the strips and every sheet the user reads or fills in are the same warm buff stock, and the terminal itself is a near-black pane framed by the slate. The system refuses both the neon hacker console and the white SaaS card dashboard: there is no glow, no gradient, no card grid, and no colour that is not doing a job.
+Termdock is used in dim rooms, at night, next to near-black terminals. The interface is a cabin at cruise: the room is dimmed to a deep violet-navy with a faint magenta and violet glow at two frame edges, every working surface is a translucent card lit from within (a faint white fill and a 1 px light line), and one cyan reading light marks the seat you are in: the session you follow. Everything else that carries meaning is a small lamp beside its word: green, blue, amber, magenta, red or slate for session state, never for decoration.
 
-The physical scene decides the scheme: operators keep long sessions open on laptops in dim rooms and check them from a phone at night during an incident, always next to near-black terminal panes, so the board is dark and the reading surfaces are light paper on it. The board and the panes declare `color-scheme: dark` and every `.surface-stock` declares `color-scheme: light`, so scrollbars, pickers, date-field glyphs and autofill match the material they sit on; nothing flips on `prefers-color-scheme: light`: the dark-board / light-stock contrast is the information structure, not a theme, and the buff stock already gives a light reading surface for every form and strip. All colour is reached through surface roles (`.surface-board`, `.surface-stock`, `.surface-pane`), so a day board can later be added as a remap of the board roles alone when the account theme setting arrives.
+The system refuses two category defaults. It is not the neon hacker console (near-black, glowing edges, monospace as a costume): the terminal keeps its own near-black pane and the chrome around it is calm, sentence-case and proportional. It is not the white SaaS dashboard either (grey ground, blue buttons, a card for everything): there is one ground, one accent, and cards hold forms, tables and overlays, never the page's structure.
 
-Density is operator density: 48 px strips, 6 px between strips, condensed caps for labels, tabular figures for every live value. Motion is two crisp steps (about 60 ms to recolour or press, 120 ms to move), never a fade.
+Density is operator density on a compact fixed scale: 48 px session rows, 36 px navigation rows, 32 px tabs, one or two type sizes per component with hierarchy carried by weight and ink level. Motion is two crisp steps on an exponential ease-out (120 ms to recolour or press, 180 ms to move) and stills completely under reduced motion. Dark only (plan D-26).
 
 **Key Characteristics:**
-- Slate board shell, buff strip stock, near-black panes: three materials, nothing else.
-- A 4 px state edge on every session strip and tab; state colours appear nowhere else.
-- One family (Archivo) in two widths: workhorse UI and condensed strip caps.
-- Hairline cell rules divide strips and sheets the way a printed strip is ruled.
-- The followed session is "cocked": slid out of its row in the bay, buff in the tab bar, ruled into its pane.
-- State changes slide the strip to its new lane, the edge recolouring first.
+- One ground (#171431) with two static edge glows; opaque near-black panes (#0c0b16) for terminals.
+- Translucent cards: white at 4.5 % with a 1 px white line at 9 % and 16 px corners.
+- One accent, sky cyan (#4cc9ff): primary actions, selection, focus and the followed session.
+- Magenta (#ff5fae) means attention: Action required and bells, nothing else.
+- Plus Jakarta Sans, sentence case, 400 / 500 / 600; JetBrains Mono only for codes, keys and fingerprints.
+- The reading light: the followed session's fill and cyan ring travel with it from row to tab to pane.
 
 ## Colors
 
-A restrained three-material palette (board, stock, pane) carrying a six-colour state vocabulary that is used for state and nothing else.
+A dark restrained palette: violet-tinted neutrals, one cyan accent, magenta for attention, and six state lamps.
 
 ### Primary
-- **Strip Buff** (`stock`): the paper of the world. Session strips, auth sheets, empty-state and in-pane panels, the active tab, and the primary button on the board. Its hover (`stock-hover`), pressed (`stock-pressed`), followed (`stock-followed`, the brightest: the strip you follow) and ended (`stock-ended`, greyed: history) variants are the only fills strips ever take.
-- **Writing Field** (`stock-field`): inputs, the QR plate and code wells on stock; a lighter sheet you write on.
+- **Sky Cyan** (`accent` #4cc9ff): the one filled control on a screen (primary buttons, the armed Ctrl key), links, the search mark, the active tab's underline, the focused pane's top rule and the followed session's ring (`accent-ring`) and fill (`accent-soft`, 14 %). Pressed is `accent-strong` (#22b5f2); text on it is `on-accent` (#0a1226, 9.9:1).
 
 ### Secondary
-- **Slate Board** (`board-0` to `board-3`): the shell. `board-0` is the ground and pane frame, `board-1` the bay and the primary button on stock, `board-2` the tab bar and pane surround, `board-3` hover and key caps.
-- **Board Rules** (`board-rule`, `board-rule-strong`): hairlines on the board, and control borders on the board (3.9:1 against the bay).
+- **Attention Magenta** (`attention` #ff5fae): the Action required lamp and group count, the bell mark. It is also the top-right edge glow at 24 % (`glow-magenta`), where it sits behind nothing that must be read.
+- **Violet Glow** (`glow-violet`, rgb(124 92 255 / 0.24)): the bottom-left edge glow of the ground.
 
 ### Tertiary
-- **State colours**, fills only, always beside a word: Connected (`state-connected`, green), Connecting and Restoring (`state-progress`, blue), Reconnecting (`state-reconnecting`, amber), Action required (`state-action`, signal orange), Disconnected (`state-disconnected`, red), Ended (`state-ended`, slate).
-- **Feedback tints** on stock (`tint-danger`, `tint-warning`, `tint-info`, `tint-success`): notice slips; their text stays stock ink. `danger-on-stock`, `danger-on-board` and `danger-fill` carry error text, destructive strokes and the destructive hover.
+- **State lamps**, 8 px dots and nothing else, always beside their word: Connected (`state-connected` #3ddc97), Connecting and Restoring (`state-progress` #5aa8ff), Reconnecting (`state-reconnecting` #f5b84a), Action required (`state-action`, the attention magenta), Disconnected (`state-disconnected` #ff6b7d), Ended (`state-ended` #8984b0). Every lamp reads at 3:1 or better on every surface it sits on.
+- **Feedback**: `danger` (#ff8a98) for error text and destructive strokes, `danger-fill` (#c9304b, white text 5.2:1) for the destructive hover; soft fills `danger-soft`, `warning-soft`, `info-soft`, `success-soft` for notices and tags, whose text stays plain ink or the matching lamp colour.
 
 ### Neutral
-- **Board Ink** (`board-ink` 12.8:1 on the bay, `board-ink-muted` 6.7:1, `board-ink-faint` for disabled only).
-- **Stock Ink** (`stock-ink` 12.7:1 on buff, `stock-ink-muted` 5.8:1, `stock-ink-faint` for disabled only).
-- **Stock Rules** (`stock-rule` hairlines, `stock-rule-strong` control borders, 3.1:1 or better).
-- **Terminal Pane** (`pane`, with `pane-ink-dim` 5.4:1 for pane captions).
-- **Focus** (`focus-board` on slate, `focus-stock` on buff): a 2 px outline 2 px off the element; each surface sets its own, and strips (stock objects outlined on the board) always use `focus-board`.
+- **Ground** (`ground` #171431): the page, the sidebar and the tab row. `ground-deep` (#110f24) is the phone key bar. `pane` (#0c0b16) is the terminal.
+- **Surfaces**: `surface` (white 4.5 %) is a resting card, `surface-raised` (8 %) a hover or a lit control, `surface-pressed` (12 %) a press; `surface-solid` (#221e42, the card composited on the ground) is for anything that floats over a live terminal (menus, the palette, in-pane overlays), because nothing translucent may sit over a terminal. `field` (rgb(12 10 24 / 0.55)) is the dark well of an input.
+- **Lines**: `line` (white 9 %) for hairlines and card edges; `line-strong` (white 36 %, 3.3:1 on a card) for control borders.
+- **Ink**: `ink` (#f2f0fb, 14:1 on a card), `ink-muted` (#aba7cb, 6.9:1 on a card and 4.9:1 on the brightest notice), `ink-faint` (#7a76a0) for disabled text only.
+- **Focus** (`focus` #7fd9ff): a 2 px outline 2 px off the element, everywhere.
 
 ### Named Rules
-**The State-Only Rule.** The six state colours mean session state. Never use them for brand, emphasis, links or decoration; the wordmark's strip has a slate edge for that reason.
+**The Reading Light Rule.** The accent owns selection: the followed session, the active tab, the focused pane, the highlighted palette row and the chosen choice card all use `accent-soft` and `accent-ring`. Nothing else is cyan but primary actions, links and focus.
 
-**The Opposite Stock Rule.** A primary action is drawn in the opposite material of its surface: buff on the board, slate on buff. Nothing else on a surface uses that fill.
+**The Lamp Beside the Word Rule.** A state colour appears only as a lamp (or the ring of a group count) and always with its state word in reach: in the group header, the chip, the tab's screen-reader text or the tile's accessible name.
 
-**The Word Beside the Colour Rule.** A state swatch or edge is always accompanied by the state word (lane header, chip, or screen-reader text).
+**The Opaque Over Terminals Rule.** Anything drawn over a live terminal (overlay cards, the progress chip, the palette) is `surface-solid` with no `backdrop-filter`; the scrim is a flat alpha of the pane colour.
 
 ## Typography
 
-**Body Font:** Archivo (variable, width 62 to 125), self-hosted through `next/font`, with `ui-sans-serif, system-ui` fallback.
-**Label Font:** the same Archivo at width 72 (strip labels) and 80 (lane labels), uppercase. The width is set with `font-stretch` alone (72 % / 80 %), matched against the face's declared 62–125 % range, and the strip utilities add `text-rendering: geometricPrecision` so condensed advances stay fractional: on FreeType at 1× the hinted path rounds each advance to whole pixels, which swallows the 2 px word space.
-**Mono Font:** JetBrains Mono, only for codes, keys and secrets (TOTP key, backup codes).
+**Body Font:** Plus Jakarta Sans (variable, 200–800), self-hosted through `next/font`, with `ui-sans-serif, system-ui` fallback. The latin subset covers every Portuguese diacritic.
+**Mono Font:** JetBrains Mono, only for codes, keys, fingerprints and the terminal (the terminal font is a user preference).
 
-**Character:** one technical grotesk does all the talking; pulling its width axis gives the printed-strip voice without a second family.
+**Character:** one geometric sans in sentence case, regular for reading, medium for values, semibold for names and controls. No condensed or uppercase voice, no display face.
 
 ### Hierarchy
-- **Title** (600, 1.375rem / 1.75rem): auth sheet headings, empty-state headings.
-- **Subtitle** (600, 1rem / 1.5rem): steps inside a sheet ("Scan the code"), fieldset legends.
-- **Body** (400, 0.875rem / 1.25rem): UI copy, intros, notices; prose capped at 52ch.
+- **Title** (600, 1.375rem / 1.75rem, -0.01em): page titles, auth card headings, empty-state headings.
+- **Subtitle** (600, 1rem / 1.5rem): card section headings, overlay titles.
+- **Body** (400, 0.875rem / 1.25rem): UI copy, intros, notices, table cells; prose capped at 65ch.
 - **Body form** (400, 1rem / 1.5rem): typed values in inputs (16 px: no zoom-on-focus on phones).
 - **Label** (600, 0.8125rem): field labels. **Help** (400, 0.8125rem): help and error text.
-- **Strip label** (600, 0.9375rem, width 72, caps, 0.02em): session labels in strips, tabs and the phone header.
-- **Lane label** (700, 0.6875rem, width 80, caps, 0.08em): lane headers and the wordmark.
-- **Data** (500, 0.8125rem, tabular figures): uptimes, ages, counts.
+- **Row label** (600, 0.8125rem / 1rem): session labels in rows, tabs, the palette and pane captions, with `user@host` beneath in Data.
+- **Group label** (600, 0.75rem, `ink-muted`): group headers, column labels, menu group labels.
+- **Data** (500, 0.75rem, tabular figures): uptimes, ages, counts, status words.
 
 ### Named Rules
 **The Tabular Rule.** Every live value (uptime, age, count, code) is set in tabular figures so changing digits never shift.
 
-**The Caps Belong to Strips Rule.** Uppercase is only for strip labels, lane labels and the wordmark. Headings, buttons and body copy stay in sentence case; no kicker or eyebrow above a heading.
+**The Two Sizes Rule.** A row, tab or chip uses at most two sizes; rank comes from weight and ink level (`ink` over `ink-muted`), never from a third size.
 
 ## Layout
 
-The type scale is fixed rem; spacing runs on a 4 px base (4, 6, 8, 12, 16, 20, 24, 32).
+The type scale is fixed rem; spacing runs on a 4 px base (4, 8, 12, 16, 20, 24, 32).
 
-- **Workspace (≥ 48rem):** the bay is a 20rem slate column on the left (wordmark, full-width New session with its Ctrl/⌘K hint, scrolling lanes, account footer with the language picker; on phones the picker folds into the account disclosure). The right side is a 2.5rem slate tab bar over the pane area; panes sit inset 6 px in the slate with 3 px bottom corners, the top edge square under the 2 px rule that joins the tab. Lanes stack 16 px apart, strips 6 px apart, in urgency order (Action required, Disconnected, Reconnecting, Restoring, Connecting, Connected, Ended collapsed with the latest 20). Only non-empty lanes render.
-- **Phone (< 48rem):** the bay is the whole screen and acts as the switcher. Following a session swaps to a full-screen pane with a 48 px header (back to Sessions, label, protection mark, status chip) and the extra-key bar at the bottom, nine keys sharing the width, padded for the safe area.
-- **Auth:** one buff sheet centred on the board ground under the wordmark, 25rem wide (30rem for setup and enrollment), language picker in the page footer. Sheets divide heading, form and footer with hairline rules; fields stack 20 px apart.
-- **Empty states** live inside the pane as buff panels, never as a bare message on the board; with no session at all the panel carries the New session primary and its Ctrl/⌘K hint (the bay's button owns the shortcut).
+- **Workspace (≥ 48rem):** an 18 rem sidebar on the ground (toggle and mark, New session, the session groups, the management rows, the account row), then the main column: a 2.75 rem tab row over the pane area, panes inset 8 px with 12 px corners. The sidebar collapses to a 3.5 rem rail (mark, toggle, round New session, one 36 px tile per live session, the management icons, the avatar); the choice persists per browser. Groups stack 12 px apart, rows 2 px apart, in urgency order (Action required, Disconnected, Reconnecting, Restoring, Connecting, Connected, Ended collapsed with the latest 20). Only non-empty groups render.
+- **Phone (< 48rem):** the sidebar is the whole screen and acts as the switcher, with the account menu's avatar in its first row. Following a session swaps to a full-screen pane under a 48 px header (back to Sessions, label, protection mark, status chip) with the extra-key bar at the bottom, nine keys sharing the width, padded for the safe area.
+- **Manage:** the same 18 rem sidebar (Workspace first, then Hosts, Credentials, Activity, Settings, Admin, the account row at the foot); on phones a 56 px top bar (mark, avatar) over a sideways row of pill links. Content sits in a 76rem column of cards, 24 px apart.
+- **Auth:** one card centred on the ground under the mark, 25rem wide (30rem for setup and enrollment), a discreet language control in the top-right corner. Cards divide heading and form by spacing alone; fields stack 20 px apart.
+- **Empty states** live inside the pane as cards, never as a bare message on the ground; with no session at all the card carries the New session primary (the sidebar's button owns the shortcut). The first-run steps are plain numbered rows divided by hairlines, never cards inside the card.
 
 ## Elevation & Depth
 
-Paper on a board: depth is the short shadow a strip casts on the board, and nothing is raised by a border. Inside a strip or sheet, structure comes from hairline cell rules, not from nested containers.
+Tonal layering with one shadow for what floats. Resting cards are a translucent fill inside a 1 px line and cast nothing; a card that floats over something else (menus, the palette, in-pane overlays, auth cards) keeps its line and adds a soft offset shadow. The followed session is lit, not lifted: its ring and a faint cyan halo are its depth.
 
 ### Shadow Vocabulary
-- **Strip** (`0 1px 0 rgb(5 9 14 / 0.45), 0 3px 8px -3px rgb(5 9 14 / 0.55)`): every strip at rest.
-- **Strip followed** (`0 1px 0 rgb(5 9 14 / 0.45), 0 6px 14px -4px rgb(5 9 14 / 0.65)`): the cocked strip, lifted slightly.
-- **Panel** (`0 2px 0 rgb(5 9 14 / 0.4), 0 18px 40px -16px rgb(5 9 14 / 0.75)`): auth sheets and in-pane panels.
-- **Edge** (`±8px 0 12px -5px rgb(5 9 14 / 0.7)`, `--shadow-edge-start` / `--shadow-edge-end`): the tab bar's own edge where tabs are scrolled under it, cast sideways over the tabs it covers.
+- **Float** (`0 12px 32px -8px rgb(6 4 20 / 0.7), 0 2px 6px -2px rgb(6 4 20 / 0.5)`): menus, chips, docked notices.
+- **Card** (`0 18px 48px -16px rgb(6 4 20 / 0.75), 0 2px 8px -4px rgb(6 4 20 / 0.5)`): the palette, overlay cards, auth cards.
+- **Light** (`0 0 0 1px rgb(76 201 255 / 0.55), 0 0 22px -6px rgb(76 201 255 / 0.55)`): the followed session's ring and halo, on the row and the rail tile only.
+- **Edge** (`±8px 0 12px -5px rgb(6 4 20 / 0.7)`): the tab row's own edge where tabs are scrolled under it.
 
 ### Named Rules
-**The One Elevation Rule.** An element is lifted by its shadow or bounded by a border, never both.
+**The Float Earns Its Shadow Rule.** A card at rest has a line and no shadow; only what floats over other content gets Float or Card. Never a shadow for emphasis.
 
 ## Shapes
 
-Crisp, printed geometry. Strips have 2 px corners, key caps and tabs 3 px, controls 4 px, sheets 6 px; there are no pills and no large radii. Swatches are squares (8 px in chips, 6 px in lane headers). The strip's state edge is a 4 px grid cell flush with its left side, and its cells are divided by 1 px rules. The QR plate keeps the standard four-module quiet zone and crisp-edge rendering.
+Generous, consistent corners: 6 px (`xs`) for key caps and small marks, 8 px (`sm`) for menu items and inner tiles, 10 px (`control`) for buttons, inputs, tabs, navigation rows and rail tiles, 12 px (`row`) for session rows and the terminal frame, 16 px (`card`) for cards, and pills for tags, counts, lamps and chips. Lamps are circles, 8 px (6 px in group headers and tile corners). Borders are 1 px; the only 2 px rule is the focused pane's cyan top edge in a split and the active tab's underline. The brand tile is an 8 px-cornered 28 px square lit from cyan to violet with the prompt glyph.
 
 ## Components
 
 ### Buttons
-- **Shape:** gently squared (4 px), 32 / 36 / 44 px tall (sm / md / lg), medium weight.
-- **Primary:** opposite stock (buff on the board, slate on buff); hover one step lighter, pressed one step deeper; disabled falls to the surface's disabled fill.
-- **Secondary:** transparent with a `rule-strong` border; hover and press tint the surface (`quiet-hover`, `quiet-pressed`).
-- **Quiet:** text only in muted ink; hover tints and darkens the ink. Used for "Sign out", "Use a backup code instead", the phone back button. Where it stands alone in a sheet's footer or under a form, it is outdented by its 10 px padding so its text sits on the content edge.
-- **Destructive:** danger stroke and text, filled red on hover with white text; it carries 2rem of leading margin so it always stands apart from neighbouring actions.
-- **States:** focus is the surface's 2 px outline; loading swaps the icon for a spinner, keeps the label, sets `aria-busy` and blocks repeat submits (`SubmitButton` reads the form status).
+- **Shape:** 10 px corners, 32 / 36 / 44 px tall (sm / md / lg), semibold.
+- **Primary:** cyan fill with dark text; hover brightens 10 %, pressed is `accent-strong`; disabled is `surface-raised` with `ink-faint`.
+- **Secondary:** `surface-raised` fill, ink text; hover and press step up to `surface-pressed`.
+- **Quiet:** text only in `ink-muted`; hover fills `surface-raised` and brightens the ink. Used for Cancel, "Use a backup code instead", Retry now, the phone back button.
+- **Destructive:** `danger` stroke and text, filled `danger-fill` with white text on hover; it carries 2rem of leading margin so it always stands apart from neighbouring actions.
+- **States:** focus is the 2 px outline; loading swaps the icon for a spinner, keeps the label, sets `aria-busy` and blocks repeat submits (`SubmitButton` reads the form status).
 
 ### Inputs / Fields
-- **Style:** writing-field fill, `rule-strong` 1 px border, 4 px corners, 44 px tall, 16 px text; label above (semibold 0.8125rem), then the error, then help.
-- **Focus:** border and 2 px outline in the surface's focus colour.
-- **Error:** `aria-invalid` turns the border danger with a 1 px inner stroke; the message sits under the control with an alert icon and a screen-reader "Error:" prefix, linked by `aria-describedby`.
-- **Password field:** a reveal toggle inside the field (`aria-pressed`, labelled Show/Hide password). **Select:** the native select restyled with a drawn chevron; compact 32 px variant in footers. **Checkbox:** native input drawn as a 20 px square, filled with the primary material and a check when on.
+- **Style:** `field` well, `line-strong` 1 px border, 10 px corners, 44 px tall, 16 px text; label above (semibold 0.8125rem), then the error, then help.
+- **Focus:** the border turns `accent` under the 2 px focus outline.
+- **Error:** `aria-invalid` turns the border `danger` with a 1 px inner stroke; the message sits under the control with an alert icon and a screen-reader "Error:" prefix, linked by `aria-describedby`.
+- **Password field:** a reveal toggle inside the field (`aria-pressed`, labelled Show/Hide password). **Select:** the native select restyled with a drawn chevron; compact 32 px variant in footers and the discreet corner control. **Checkbox / Radio:** native inputs drawn as 20 px wells that fill with the accent (the radio keeps a ground-coloured centre); choice cards are lined rows that take `accent-soft` inside `accent-ring` when chosen.
 
 ### Notices
-Inline slips of tinted stock with an icon; danger announces as `role=alert`, the rest as `role=status`. Form-level messages from Server Actions use the same slip. There are no toasts.
+Inline cards of a soft tinted fill (`danger-soft`, `warning-soft`, `info-soft`, `success-soft`) with a toned icon and plain ink text; danger announces as `role=alert`, the rest as `role=status`. Form-level messages from Server Actions use the same notice. There are no toasts. A notice docked over a pane becomes `surface-solid` with the Float shadow.
 
 ### Cards / Containers
-- **Panel:** buff sheet, 6 px corners, panel shadow, sections 20 to 24 px padded and divided by hairline rules. Empty states and in-pane overlays use it inside the near-black pane.
+- **Card:** `surface` fill, `line` edge, 16 px corners, sections 20 to 24 px padded and divided by hairlines. Empty states, forms and tables live in cards; in-pane overlays and the palette use the solid card with the Card shadow.
 
-### Session strip (signature component)
-A 48 px grid: 4 px state edge | label in strip caps over `user@host` in muted ink | protection cell (filled shield protected, outline shield compatibility mode, dashed slashed shield not protected, dashed shield not yet decided) | time cell (uptime, or "2h ago" for ended), cells divided by hairlines. The whole strip is one link with the protection explanation and the full time sentence as screen-reader text. Hover lightens the stock, press nudges it down 1 px, focus draws the board focus outline. The followed strip is cocked 12 px out of the row in the brightest stock; ended strips are grey stock with a bordered ENDED stamp (lane caps, 2xs) at the start of the second line beside `user@host`, so the label keeps the full width.
+### Session row (signature component)
+A 48 px, 12 px-cornered row that is one link: an 8 px state lamp | label (row label) over `user@host` (data, muted) | protection mark (filled shield protected, outline shield compatibility mode, slashed dashed shield not protected, dashed shield not yet decided) | time (data, tabular) | a 28 px actions cell. Hover fills `surface-raised`. The followed row carries the reading light: `accent-soft` fill inside the `accent-ring` ring with its halo, **in exactly the place and size of its siblings** (plan D-28: never shifted). Ended rows dim the label to `ink-muted` and carry a small "Ended" pill before `user@host`. The rail tile is the same session as a 36 px, 10 px-cornered square: two initials, the lamp in its corner, the light when followed, the label, target and status word as its accessible name.
 
-**Signature move:** when fresh data moves a session to another lane, the bay commits the change inside a view transition: the new edge colour shows at once (no cross-fade), then the strip slides to its lane in 120 ms on an exponential ease-out. The slide stays inside the lanes: the bay's head and account footer stay above a strip that passes under them. Reduced motion, or a browser without view transitions, applies the change instantly.
+**Signature move, "the reading light":** following a session moves the light to its row in a 180 ms view transition (`followed-light`), and the cyan continues to that session's tab (the underline) and pane (the top rule in a split). A state change moves a row to its new group inside a view transition too: the lamp recolours at once, then the row slides (`session-row`). Reduced motion, or a browser without view transitions, applies both changes instantly.
 
-### Lane
-A header row with a 6 px state swatch, the lane name in lane caps and a tabular count well, then its strips. The Ended lane is a native disclosure with a rotating chevron, closed by default and opened when it holds the followed session; when more than 20 have ended it notes "Latest 20 of N".
+### Session group
+A 32 px header with a 6 px lamp, the state word in group label and a pill count (`surface-raised`; `attention` for Action required), then its rows. The Ended group is a native disclosure with a rotating chevron, closed by default and opened when it holds the followed session; when more than 20 have ended it notes "Latest 20 of N".
 
 ### Status chip
-An 8 px state square beside the status word in the surface ink (Connecting…, Restoring…, Connected, Action required, Reconnecting…, Disconnected, Ended).
+An 8 px lamp beside the status word in data size and `ink-muted` (Connecting…, Restoring…, Connected, Action required, Reconnecting…, Disconnected, Ended).
 
 ### Navigation
-- **Tab:** a 32 px buff tab with the 4 px state edge, the label in strip caps and a close control that only detaches. The followed pane carries a 2 px buff rule along its top edge on desktop, joining tab and pane.
-- **Phone extra-key bar:** Esc, Tab, sticky Ctrl, four arrows, pipe and paste as 44 px slate key caps; sticky Ctrl turns buff while armed.
-- **Kbd:** 20 px key caps with a 1 px border, muted on surfaces and inheriting the colour inside a primary button.
+- **Sidebar rows:** 36 px, 10 px corners, icon and label in `ink-muted`; hover fills `surface-raised`; the current row is lit (`surface-raised`, ink text, the icon in the accent) and carries no stripe. The rail shows the icon alone, named by its tooltip and accessible name.
+- **Collapse toggle:** a panel-with-left-column glyph at the sidebar's start (never an arrow that reads as "back"); `aria-expanded` and `aria-controls` point at the session list.
+- **Account menu:** the avatar (a cyan-to-violet pill with the user's initial), the name and a gear open a 248 px solid card: Settings (Account settings, Terminal settings, and Language…, which opens a small modal dialog with the languages as choice cards and Apply), Admin for administrators, and Sign out (a form post). The language is a rare setting: it never gets its own group or inline choices in the menu. The rail and the phone header show the avatar alone.
+- **Tabs:** 32 px, 10 px-cornered segments with the lamp, the label, the OSC title in muted ink, a pane-count pill and a magenta bell when a hidden pane rang; the active tab is `surface-raised` with ink text and a 2 px cyan underline. Tabs scroll in their own strip; the split controls and the connection state sit outside it, and an edge with tabs under it shows a chevron cue with the Edge shadow.
+- **Section tabs** (Settings, Admin, Activity views): 40 px links under the page heading with the cyan underline on the current one.
+- **Phone extra-key bar:** Esc, Tab, sticky Ctrl, four arrows, pipe and paste as 44 px `surface-raised` keys on `ground-deep`; armed Ctrl turns cyan.
+- **Kbd:** 20 px key caps with a faint line and `surface-raised` fill, muted on surfaces and inheriting the colour inside a primary button.
 
-### Wordmark
-A blank strip drawn in SVG (buff, slate edge cell, two cell rules) beside TERMDOCK in lane caps.
-
-### Live workspace (tabs, splits, in-pane states, palette)
-- **Tabs, more than one:** the active tab is the buff one described above; the others are slate key caps (`board-3` at 55 %, muted board ink, full `board-3` on hover) that keep their 4 px state edge. A tab is labelled by its focused pane's session, then the terminal's OSC title in muted ink, a tabular pane-count well when it holds a split, and a bell mark when a pane rang out of sight. The split controls (right, down) are quiet icon buttons on the tab bar's trailing edge; the WebSocket's own state (offline countdown with Retry now, restarting) sits beside them in muted board ink.
-- **Many tabs:** the tabs scroll sideways in their own strip (wheel, trackpad, keyboard focus); the split controls and the connection state sit outside it, 12 px clear, and never cover a tab. The active tab is scrolled into view whenever it is activated or followed (bay, palette, a new tab, restore), keeping 36 px beside it so a neighbour peeks, and it stays in view when the strip narrows (a status appearing beside it, labels arriving) unless the user scrolled it away; a tab that takes keyboard focus is brought out from under an edge too. An edge with tabs scrolled under it shows the overflow cue: a 20 px slate rail with a muted chevron on the tab row pointing at the hidden tabs, casting the edge shadow over them. The cue appears in one step (`--duration-step`) and the reveal scrolls smoothly; both are instant under reduced motion.
-- **Connection limits:** too many Termdock windows for one user (close code 4429) is a warning slip under the tab bar while the connection retries on a backoff of at least 10 s (Retry now beside the countdown); a pane refused because too many terminals are attached is a warning slip at the top of that pane with Retry, and its progress chip stands down.
-- **Split panes:** dividers are the 6 px slate gap itself; hovering draws a 2 px `board-rule-strong` grip, dragging or focusing turns it buff. They take pointer and keyboard (arrows, Shift for large steps, Home/End). A pane of a split carries a 28 px slate caption (state mark, label in strip caps, state word, OSC title, close); the focused pane keeps the 2 px buff top rule and full strength, the others dim slightly (`brightness .72`), never fade.
-- **In-pane states** never replace the terminal's last screen. Progress (Connecting…, Restoring…) is a slate chip with a spinner in the pane's top corner; Reconnecting is a slip docked at the top (countdown, Retry now); Disconnected and Ended are slips docked at the bottom (reason, Retry or Reopen) so the last output stays readable; a decision (host key, keyboard-interactive sign-in, a link to open) is a centred buff panel over a pane-local scrim. Every slip and decision panel carries its state on the title row: the state swatch before the title and, when the title does not name the state (host key, mismatch, sign-in, waiting), the state word trailing on the same row; never a chip stacked above the heading. Fingerprints use the 12 px mono of the diagnostics page.
-- **Strip actions:** a 32 px menu cell at the end of every strip (and right-click on the strip) opens a native popover menu on stock: open in a new tab, split right or down, retry, reopen, then terminate, set apart by a rule and space. Terminate swaps the menu for a danger-tint confirmation slip; no modal.
-- **Command palette:** a buff sheet floating near the top of the pane area (Ctrl/⌘K outside terminals, Ctrl+Shift+K inside), a borderless search field over a grouped list: open sessions as mini strips (state edge, strip caps, `user@host`, status chip), then profiles as sentence-case rows with a plus mark. The highlighted row takes `stock-followed`; key hints sit in a ruled footer. It never blocks the workspace: Escape or a click outside closes it and the focus returns where it was.
-- **Phone pane:** one session full screen under the 48 px header, never touching the desktop layout; the key bar's keys keep the focus in the terminal so the soft keyboard stays up, and a refused clipboard read becomes a warning slip above the bar.
+### Live workspace (panes, overlays, palette)
+- **Panes:** a 12 px-cornered, lined, near-black frame. In a split, each pane carries a 28 px caption (lamp, label, state word, OSC title, close); the focused pane gets the 2 px cyan top rule and full strength, the others dim slightly (`brightness .78`), never fade. Dividers are the 8 px gap; hovering draws a `line-strong` grip, dragging or focusing turns it cyan.
+- **In-pane states** never replace the terminal's last screen. Progress (Connecting…, Restoring…) is a solid pill chip with a cyan spinner in the pane's top corner; Reconnecting is a solid card docked at the top (countdown, Retry now); Disconnected and Ended are docked at the bottom (reason, Retry or Reopen) so the last output stays readable; a decision (host key, keyboard-interactive sign-in, a link to open) is a centred solid card over a flat scrim. Every card's title row carries the lamp before the title and, when the title does not name the state, the state word trailing on the same row. Fingerprints use 12 px mono.
+- **Row actions:** the 28 px menu cell at the end of every row (and right-click on the row) opens a solid 240 px menu: open in a new tab, split right or down, retry, reopen, then terminate, set apart by a spaced separator. Terminate swaps the menu for a danger slip with the question and the destructive button; no modal.
+- **Command palette:** a solid 36rem card floating near the top of the pane area (Ctrl/⌘K outside terminals, Ctrl+Shift+K inside): a cyan search mark and a borderless field over a grouped list of open sessions (lamp, label, target, status chip) and profiles (a cyan plus, name, target); the highlighted row takes `accent-soft` inside `accent-ring`; key hints sit in a lined footer. It never blocks the workspace: Escape or a click outside closes it and the focus returns where it was.
 
 ### Management pages (hosts, credentials, activity, settings, admin)
-The secondary pages stay on the same board and use the same stock; nothing about them competes with the workspace.
-- **Way in:** the bay footer's username is a native disclosure that opens, inline, the list of secondary pages (never a popover over the strips); on phones it also holds the language picker, and its body spans the sign-out column so the rule and the picker end on the strips' 16 px gutter.
-- **Frame:** a 48 px slate bar whose first control leads back to the workspace, then the section links in muted board ink; the current one is board ink over a 2 px buff rule (the board's "you are here", never a state colour). On phones the links move to a second, sideways-scrolling row. Content sits on `board-0` in a 76rem column.
-- **Page header:** the title in board ink (Title size), one line of context in board ink muted, page actions on the trailing edge (primary in buff, secondary bordered). Sections inside a page use the same 2 px buff rule as tabs (`SubNav`).
-- **Sheet table:** a ruled table on stock, like a printed log: column labels in sentence case, muted, semibold; hairline rules between rows; tabular figures; counts right-aligned. Below 48rem every row becomes a block with each cell carrying its own label, so nothing scrolls sideways. Long machine values (fingerprints, hostnames, audit details) wrap anywhere instead of widening the sheet.
-- **Tag:** a 20 px, 3 px-cornered, sentence-case label for the state of a record that is not a session: host key Trusted / Pending / Revoked / Mismatch, account Active / Disabled, role, profile protection mode. Feedback tints only (success, warning, danger, info) or a bordered neutral; the six state colours stay with sessions, and the word always carries the meaning.
-- **Confirm action:** a destructive action behind a native disclosure. The first press opens a danger-tint slip that names exactly what will happen; the destructive button inside it submits; a server refusal (409 "still in use") shows in the same slip. No modal. It keeps the 2rem isolation beside other actions and drops it (`isolated={false}`) when it stands alone on its row.
-- **Radio:** native, drawn like the checkbox: an empty writing-field ring at rest, the primary material with a field-coloured centre when chosen; disabled is a pale disc. Choice cards (credential type, colour scheme) are bordered stock rows; the chosen one takes `stock-followed` with an ink border.
-- **Disclosures** (replace a host key, pre-trust a key) hide the browser marker and use the lane's drawn chevron, turning a quarter when open.
-- **Log details:** activity and audit rows describe details in the UI's words (status words, reasons, labelled fields, yes/no); raw codes appear only for event types nobody has mapped yet. A state change names the public status first, then the step it reached ("Connecting… · Signing in"; a move between statuses reads "Reconnecting… → Connecting… · Checking the host key"). Repeats in a row (same session, event and words) read as one row with the newest time and a quiet count well beside the event name (`×3`: `stock-pressed`, muted ink, tabular figures, the tab's pane-count well); the merge is display-only, so pages still count stored rows.
-- **Fingerprints and keys:** JetBrains Mono at 12 px so a SHA256 fingerprint fits one line in the 28rem diagnostics column; public keys and install commands sit in writing-field wells with a Copy button beneath.
-- **Success after a redirect:** a success notice slip at the top of the page, from a whitelisted `?done=` key (the query string never injects text).
+- **Page header:** the title in Title size, one line of context in `ink-muted`, page actions on the trailing edge (primary cyan, secondary raised).
+- **Table:** inside a card: column labels in group label, a hairline between rows, a faint `surface` hover, tabular figures, counts right-aligned, machine values (addresses, fingerprints) in 13 px mono and muted. Below 48rem every row becomes a block with each cell carrying its own label, so nothing scrolls sideways.
+- **Tag:** a 20 px pill in sentence case for the state of a record that is not a session: `success-soft`, `warning-soft`, `danger-soft`, `info-soft` with the matching lamp or accent text, or `surface-raised` with muted text; the word always carries the meaning.
+- **Confirm action:** a destructive action behind a native disclosure; the first press opens a `danger-soft` slip that names exactly what will happen, the destructive button inside it submits, and a server refusal shows in the same slip.
+- **Success after a redirect:** a success notice at the top of the page, from a whitelisted `?done=` key.
 
 ## Do's and Don'ts
 
 ### Do:
-- **Do** read every colour through the surface roles (`ink`, `ink-muted`, `rule`, `primary`, `focus`); put new reading surfaces in `.surface-stock` and new shell areas in `.surface-board`.
-- **Do** give every session a strip with its 4 px state edge and its state word nearby, and every live value tabular figures.
-- **Do** keep transitions at the two tokens (`--duration-step` 60 ms, `--duration-move` 120 ms) on `cubic-bezier(0.16, 1, 0.3, 1)`; both drop to 0 under reduced motion.
+- **Do** read every colour through the tokens (`ink`, `ink-muted`, `line`, `surface`, `accent`, the lamps); new chrome goes on the ground, new reading surfaces in a `card`.
+- **Do** give every session its lamp with the state word in reach, and every live value tabular figures.
+- **Do** keep transitions at the two tokens (`--duration-step` 120 ms, `--duration-move` 180 ms) on `cubic-bezier(0.16, 1, 0.3, 1)`; both drop to 0 under reduced motion.
 - **Do** draw icons from `components/icons` (24-unit grid, 1.75 stroke, round caps) and keep them decorative with the name on the control.
-- **Do** put empty states and in-pane prompts on a buff panel inside the pane.
+- **Do** make anything over a live terminal `surface-solid`, with no blur and no gradient.
 
 ### Don't:
-- **Don't** use a state colour for anything but session state, or show a state colour without its word.
-- **Don't** fade between states: recolour first, then move.
-- **Don't** add a second sans family, a display face, or monospace outside codes, keys and secrets.
-- **Don't** combine a border with a shadow, nest panels, or round anything past 6 px.
-- **Don't** put a coloured side edge on panels, notices or list items; the 4 px edge belongs to strips and tabs, where it carries state.
-- **Don't** set uppercase anywhere except strip labels, lane labels and the wordmark.
+- **Don't** use a state colour for anything but session state, or magenta for anything but attention.
+- **Don't** move the followed row, tile or tab; it lights, it never shifts.
+- **Don't** add a second sans family, a display face, uppercase labels, or monospace outside codes, keys, fingerprints and the terminal.
+- **Don't** give a resting card a shadow, or a floating one a border heavier than `line`.
+- **Don't** put `backdrop-filter`, an animated gradient or a glow behind or over a terminal pane.

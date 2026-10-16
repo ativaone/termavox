@@ -2,10 +2,10 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 import { CreateUserForm } from '../../../../components/admin/user-forms.tsx';
+import { DataTable, Td, Th, Tr } from '../../../../components/ui/data-table.tsx';
 import { LocalTime } from '../../../../components/ui/local-time.tsx';
-import { SheetHeading } from '../../../../components/ui/page-header.tsx';
+import { SectionHeading } from '../../../../components/ui/page-header.tsx';
 import { Panel, PanelSection } from '../../../../components/ui/panel.tsx';
-import { SheetTable, Td, Th, Tr } from '../../../../components/ui/sheet-table.tsx';
 import { Tag } from '../../../../components/ui/tag.tsx';
 import { isAdminRole } from '../../../../lib/admin/core.ts';
 import { requireAdminPage } from '../../../../lib/admin/page-guard.ts';
@@ -30,10 +30,10 @@ export default async function AdminUsersPage() {
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,25rem)]">
       <Panel aria-labelledby="users-title">
         <PanelSection>
-          <SheetHeading id="users-title" title={t('list.title')} description={t('list.intro')} />
+          <SectionHeading id="users-title" title={t('list.title')} description={t('list.intro')} />
         </PanelSection>
-        <div className="border-rule border-t">
-          <SheetTable
+        <div className="border-line border-t">
+          <DataTable
             caption={t('list.title')}
             head={
               <>
@@ -53,7 +53,7 @@ export default async function AdminUsersPage() {
                     <span className="flex min-w-0 flex-col">
                       <Link
                         href={`/admin/users/${encodeURIComponent(row.id)}`}
-                        className="break-all font-semibold text-ink underline decoration-rule-strong underline-offset-4 hover:decoration-ink"
+                        className="break-all font-semibold text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink"
                       >
                         {row.username}
                       </Link>
@@ -88,12 +88,12 @@ export default async function AdminUsersPage() {
                 </Tr>
               );
             })}
-          </SheetTable>
+          </DataTable>
         </div>
       </Panel>
       <Panel aria-labelledby="create-user-title">
         <PanelSection>
-          <SheetHeading
+          <SectionHeading
             id="create-user-title"
             title={t('create.title')}
             description={t('create.intro')}

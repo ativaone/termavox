@@ -20,16 +20,16 @@ import { Notice } from '../ui/notice.tsx';
 import { Panel } from '../ui/panel.tsx';
 import { PasswordField } from '../ui/password-field.tsx';
 import { Spinner } from '../ui/spinner.tsx';
-import { STATE_FILL } from '../ui/state.ts';
+import { StateLamp } from '../ui/status-chip.tsx';
 import { TextField } from '../ui/text-field.tsx';
 import { useNow } from './hooks.ts';
 import { type SessionActionKind, useWorkspace } from './workspace-context.tsx';
 
 /**
  * Everything a pane says about its session, drawn over the terminal's last screen and never in
- * place of it (plan §5.6, §11.1): a quiet chip while connecting or restoring, a docked slip when
- * the session is reconnecting, disconnected or ended, and a centred buff panel when the user has
- * to decide (host key, keyboard-interactive sign-in). No modals: each panel belongs to its pane.
+ * place of it (plan §5.6, §11.1): a quiet chip while connecting or restoring, a docked card when
+ * the session is reconnecting, disconnected or ended, and a centred card when the user has to
+ * decide (host key, keyboard-interactive sign-in). No modals: each card belongs to its pane.
  */
 
 export interface LinkPrompt {
@@ -122,10 +122,7 @@ function Head({
       {/* A long title wraps under itself; the state word stays on its first line (narrow panes). */}
       <div className="flex min-w-0 items-start justify-between gap-3">
         <h2 id={titleId} className="flex min-w-0 items-start gap-2 font-semibold text-ink text-md">
-          <span
-            aria-hidden="true"
-            className={cx('mt-2 size-2 shrink-0 rounded-[1px]', STATE_FILL[status])}
-          />
+          <StateLamp status={status} className="mt-2" />
           <span className="min-w-0 break-words">{title}</span>
         </h2>
         {inline ? null : (
@@ -151,7 +148,7 @@ function Docked({
 }) {
   if (placement === 'center') {
     return (
-      <div className="absolute inset-0 z-20 flex items-center justify-center overflow-y-auto bg-pane/70 p-3">
+      <div className="absolute inset-0 z-20 flex items-center justify-center overflow-y-auto bg-pane/75 p-3">
         {children}
       </div>
     );
@@ -185,7 +182,7 @@ function HostKeyPanel({
     setOffline(!connection.hostKeyDecision(entry.id, prompt.fingerprint, accept));
   };
   return (
-    <Panel aria-labelledby={titleId} className="w-full max-w-[30rem]">
+    <Panel aria-labelledby={titleId} solid floating className="w-full max-w-[30rem]">
       <div className="flex flex-col gap-4 px-5 py-4">
         <Head
           status="action_required"
@@ -195,7 +192,7 @@ function HostKeyPanel({
         >
           {t('hostKey.body', { host: entry.hostName })}
         </Head>
-        <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 border-rule border-y py-3 text-base">
+        <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 border-line border-y py-3 text-base">
           <dt className="font-semibold text-ink-muted text-sm">{t('hostKey.target')}</dt>
           <dd className="break-all text-ink">
             {entry.username}@{entry.hostname}
@@ -225,7 +222,7 @@ function MismatchPanel({ entry, prompt }: { entry: SessionEntry; prompt: HostKey
   const { hostHref } = useWorkspace();
   const titleId = useId();
   return (
-    <Panel aria-labelledby={titleId} className="w-full max-w-[30rem]">
+    <Panel aria-labelledby={titleId} solid floating className="w-full max-w-[30rem]">
       <div className="flex flex-col gap-4 px-5 py-4">
         <Head
           status="disconnected"
@@ -250,7 +247,7 @@ function MismatchPanel({ entry, prompt }: { entry: SessionEntry; prompt: HostKey
           <div>
             <Link
               href={hostHref(entry.hostId)}
-              className="font-medium text-focus-stock text-base underline"
+              className="font-medium text-accent text-base underline decoration-accent/50 underline-offset-4 hover:decoration-accent"
             >
               {t('mismatch.review')}
             </Link>
@@ -288,7 +285,7 @@ function AuthPanel({
     if (sent) form.reset();
   };
   return (
-    <Panel aria-labelledby={titleId} className="w-full max-w-[28rem]">
+    <Panel aria-labelledby={titleId} solid floating className="w-full max-w-[28rem]">
       <form onSubmit={submit} className="flex flex-col gap-4 px-5 py-4" autoComplete="off">
         {/* Termdock's own title and framing line, always: the host's name and instructions are
             quoted beneath as host content, never shown as the panel's own words (§5.10). */}
@@ -365,7 +362,7 @@ function ActionPanel({
 }) {
   const t = useTranslations('workspace');
   return (
-    <Panel aria-labelledby={titleId} className="w-full">
+    <Panel aria-labelledby={titleId} solid floating className="w-full">
       <div className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-end sm:justify-between">
         <Head
           status={status}
@@ -546,7 +543,7 @@ function LinkPanel({ prompt }: { prompt: LinkPrompt }) {
     if (event.key === 'Escape') prompt.resolve(false);
   };
   return (
-    <Panel aria-labelledby={titleId} className="w-full max-w-[30rem]">
+    <Panel aria-labelledby={titleId} solid floating className="w-full max-w-[30rem]">
       <div className="flex flex-col gap-3 px-5 py-4">
         <h2 id={titleId} className="font-semibold text-ink text-md">
           {t('title')}
@@ -582,9 +579,9 @@ function Chip({ children, busy = false }: { children: ReactNode; busy?: boolean 
   return (
     <span
       role="status"
-      className="surface-board inline-flex h-7 items-center gap-1.5 rounded-control bg-board-1/90 px-2.5 font-medium text-board-ink text-xs shadow-strip"
+      className="inline-flex h-7 items-center gap-1.5 rounded-pill border border-line bg-surface-solid px-2.5 font-medium text-ink text-xs shadow-float"
     >
-      {busy ? <Spinner size={13} className="text-board-ink-muted" /> : null}
+      {busy ? <Spinner size={13} className="text-accent" /> : null}
       {children}
     </span>
   );
@@ -802,7 +799,9 @@ export function PaneOverlays({
       ) : null}
       {notices.length > 0 ? (
         <div className="absolute inset-x-0 top-0 z-30 flex justify-center p-2.5">
-          <div className="flex w-full max-w-[32rem] flex-col gap-2 shadow-panel">{notices}</div>
+          <div className="flex w-full max-w-[32rem] flex-col gap-2 [&>*]:border [&>*]:border-line [&>*]:bg-surface-solid [&>*]:shadow-float">
+            {notices}
+          </div>
         </div>
       ) : null}
       {progress ? (

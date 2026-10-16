@@ -19,14 +19,8 @@ export function QrCode({ qr, label, size = 176 }: { qr: QrData; label: string; s
       className="shrink-0 rounded-control"
     >
       <title>{label}</title>
-      <rect
-        x={-QUIET_ZONE}
-        y={-QUIET_ZONE}
-        width={span}
-        height={span}
-        fill="var(--color-stock-field)"
-      />
-      <path d={qr.d} fill="var(--color-stock-ink)" />
+      <rect x={-QUIET_ZONE} y={-QUIET_ZONE} width={span} height={span} fill="#f6f4ff" />
+      <path d={qr.d} fill="#0f0d1f" />
     </svg>
   );
 }

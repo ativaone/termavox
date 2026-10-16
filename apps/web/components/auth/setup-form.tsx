@@ -29,7 +29,7 @@ export function SetupForm() {
         required
         className="font-mono"
       />
-      <fieldset className="flex flex-col gap-5 border-rule border-t pt-5">
+      <fieldset className="flex flex-col gap-5 border-line border-t pt-5">
         <legend className="float-left mb-1 w-full font-semibold text-ink text-md">
           {t('admin')}
         </legend>

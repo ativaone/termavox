@@ -24,9 +24,13 @@ export function EmptyState({
 }) {
   return (
     <div className={cx('flex flex-col items-start gap-4', className)}>
-      {icon ? <span className="text-ink-muted">{icon}</span> : null}
+      {icon ? (
+        <span className="inline-flex size-11 items-center justify-center rounded-row bg-accent-soft text-accent">
+          {icon}
+        </span>
+      ) : null}
       <div className="flex flex-col gap-1.5">
-        <h2 id={titleId} className="font-semibold text-ink text-xl">
+        <h2 id={titleId} className="font-semibold text-ink text-xl tracking-[-0.01em]">
           {title}
         </h2>
         {body ? <p className="max-w-[52ch] text-pretty text-base text-ink-muted">{body}</p> : null}
