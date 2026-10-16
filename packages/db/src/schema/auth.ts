@@ -78,11 +78,19 @@ export const verification = sqliteTable('verification', {
   ...timestamps,
 });
 
-export const twoFactor = sqliteTable('two_factor', {
-  id: text('id').primaryKey(),
-  secret: text('secret').notNull(),
-  backupCodes: text('backup_codes').notNull(),
-  userId: text('user_id')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
-});
+export const twoFactor = sqliteTable(
+  'two_factor',
+  {
+    id: text('id').primaryKey(),
+    secret: text('secret').notNull(),
+    backupCodes: text('backup_codes').notNull(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    // false while a TOTP enrollment is pending; the counters drive Better Auth's TOTP lockout.
+    verified: integer('verified', { mode: 'boolean' }).notNull().default(true),
+    failedVerificationCount: integer('failed_verification_count').notNull().default(0),
+    lockedUntil: integer('locked_until', { mode: 'timestamp_ms' }),
+  },
+  (t) => [index('two_factor_user_idx').on(t.userId)],
+);
