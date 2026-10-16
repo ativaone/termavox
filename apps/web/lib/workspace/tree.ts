@@ -47,7 +47,12 @@ export type LayoutAction =
    * Shows a session: focuses the pane that already holds it (active tab first), else binds the
    * active pane when it is empty, else opens it in a new tab (`tabId` / `paneId`).
    */
-  | { type: 'follow'; sessionId: string; tabId: string; paneId: string };
+  | { type: 'follow'; sessionId: string; tabId: string; paneId: string }
+  /**
+   * "Open in a new tab": switches to the tab (and pane) that already holds the session, alone
+   * or in a split, else opens it in a new tab. Never a second tab for the same session.
+   */
+  | { type: 'showInTab'; sessionId: string; tabId: string; paneId: string };
 
 /** A short random id (96 bits, hex). `crypto.randomUUID` needs a secure context; this does not. */
 export function newId(): string {
@@ -371,6 +376,12 @@ export function layoutReducer(layout: WorkspaceLayout, action: LayoutAction): Wo
         });
       }
       return openTab(layout, action.tabId, action.paneId, action.sessionId);
+    }
+    case 'showInTab': {
+      const found = findSession(layout, action.sessionId);
+      return found
+        ? focusPane(layout, found.tabId, found.paneId)
+        : openTab(layout, action.tabId, action.paneId, action.sessionId);
     }
   }
 }

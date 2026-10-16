@@ -617,6 +617,16 @@
         "name": "panel",
         "value": "0 2px 0 rgb(5 9 14 / 0.4), 0 18px 40px -16px rgb(5 9 14 / 0.75)",
         "purpose": "Auth sheets and in-pane panels."
+      },
+      {
+        "name": "edge-start",
+        "value": "8px 0 12px -5px rgb(5 9 14 / 0.7)",
+        "purpose": "The tab bar's start edge when tabs are scrolled under it: the strip shadow's colour cast sideways over the tabs it covers."
+      },
+      {
+        "name": "edge-end",
+        "value": "-8px 0 12px -5px rgb(5 9 14 / 0.7)",
+        "purpose": "The same at the end edge, cast the other way."
       }
     ],
     "motion": [
@@ -732,7 +742,7 @@
       "kind": "chip",
       "refersTo": "status-chip",
       "description": "State square beside the status word, in the surface ink.",
-      "html": "<div class=\"ds-chips\"><span class=\"ds-chip\"><span class=\"ds-sq\" style=\"background:var(--color-state-connected,#34a266)\"></span>Connected</span><span class=\"ds-chip\"><span class=\"ds-sq\" style=\"background:var(--color-state-progress,#4c8fd6)\"></span>Restoring…</span><span class=\"ds-chip\"><span class=\"ds-sq\" style=\"background:var(--color-state-action,#f2681f)\"></span>Action required</span></div>",
+      "html": "<div class=\"ds-chips\"><span class=\"ds-chip\"><span class=\"ds-sq\" style=\"background:var(--color-state-connected,#34a266)\"></span>Connected</span><span class=\"ds-chip\"><span class=\"ds-sq\" style=\"background:var(--color-state-progress,#4c8fd6)\"></span>Restoring\u2026</span><span class=\"ds-chip\"><span class=\"ds-sq\" style=\"background:var(--color-state-action,#f2681f)\"></span>Action required</span></div>",
       "css": ".ds-chips{display:flex;gap:16px;padding:12px;background:var(--color-pane, #0c1015)} .ds-chip{display:inline-flex;align-items:center;gap:6px;font:500 0.75rem/1rem Archivo,sans-serif;color:var(--color-board-ink, #e3e9f0)} .ds-sq{width:8px;height:8px;border-radius:1px}"
     },
     {
@@ -740,7 +750,7 @@
       "kind": "nav",
       "refersTo": "tab",
       "description": "The followed session in the tab bar: buff, state edge, close only detaches.",
-      "html": "<div class=\"ds-tabbar\"><div class=\"ds-tab\"><span class=\"ds-tab-edge\"></span><a class=\"ds-tab-label\" href=\"#\" aria-current=\"page\">api-1</a><a class=\"ds-tab-close\" href=\"#\" aria-label=\"Close tab. The session keeps running.\">×</a></div></div><div class=\"ds-pane\"></div>",
+      "html": "<div class=\"ds-tabbar\"><div class=\"ds-tab\"><span class=\"ds-tab-edge\"></span><a class=\"ds-tab-label\" href=\"#\" aria-current=\"page\">api-1</a><a class=\"ds-tab-close\" href=\"#\" aria-label=\"Close tab. The session keeps running.\">\u00d7</a></div></div><div class=\"ds-pane\"></div>",
       "css": ".ds-tabbar{display:flex;align-items:flex-end;height:40px;padding:0 6px;background:var(--color-board-2, #223042)} .ds-tab{display:flex;height:32px;overflow:hidden;border-radius:3px 3px 0 0;background:var(--color-stock-followed, #fbf4df);color:var(--color-stock-ink, #241f14)} .ds-tab-edge{width:4px;background:var(--color-state-connected, #34a266)} .ds-tab-label{display:flex;align-items:center;padding:0 6px 0 10px;color:inherit;text-decoration:none;font:600 0.9375rem/1.125rem Archivo,sans-serif;font-stretch:72%;text-rendering:geometricPrecision;text-transform:uppercase} .ds-tab-close{display:flex;align-items:center;justify-content:center;width:28px;color:var(--color-stock-ink-muted, #5f5440);text-decoration:none} .ds-tab-close:hover{background:var(--color-stock-pressed, #e2d3ab);color:var(--color-stock-ink, #241f14)} .ds-tab a:focus-visible{outline:2px solid var(--color-focus-stock, #1d5fb4);outline-offset:-2px} .ds-pane{height:60px;margin:0 6px 6px;border-top:2px solid var(--color-stock-followed, #fbf4df);border-radius:0 0 3px 3px;background:var(--color-pane, #0c1015)}"
     },
     {
@@ -748,7 +758,7 @@
       "kind": "button",
       "refersTo": "key",
       "description": "Phone terminal keys; sticky Ctrl turns buff while armed.",
-      "html": "<div class=\"ds-keys\"><button class=\"ds-key\" type=\"button\">Esc</button><button class=\"ds-key\" type=\"button\">Tab</button><button class=\"ds-key\" type=\"button\" aria-pressed=\"true\">Ctrl</button><button class=\"ds-key\" type=\"button\" aria-label=\"Up arrow\">↑</button></div>",
+      "html": "<div class=\"ds-keys\"><button class=\"ds-key\" type=\"button\">Esc</button><button class=\"ds-key\" type=\"button\">Tab</button><button class=\"ds-key\" type=\"button\" aria-pressed=\"true\">Ctrl</button><button class=\"ds-key\" type=\"button\" aria-label=\"Up arrow\">\u2191</button></div>",
       "css": ".ds-keys{display:flex;gap:4px;width:300px;padding:6px;background:var(--color-board-2, #223042)} .ds-key{flex:1;height:44px;border:0;border-radius:4px;background:var(--color-board-3, #2b3b50);color:var(--color-board-ink, #e3e9f0);font:600 0.8125rem Archivo,sans-serif;cursor:pointer;transition:background-color 60ms linear} .ds-key:active{background:var(--color-board-rule, #33465e)} .ds-key:focus-visible{outline:2px solid var(--color-focus-board, #8cc8ff);outline-offset:1px} .ds-key[aria-pressed=true]{background:var(--color-stock, #eee2c0);color:var(--color-stock-ink, #241f14)}"
     },
     {
@@ -763,7 +773,7 @@
       "name": "Sheet Table",
       "kind": "table",
       "refersTo": "sheet-table",
-      "description": "A ruled log on stock: sentence-case muted column labels, hairline row rules, tabular figures; rows become labelled blocks below 48rem.",
+      "description": "A ruled log on stock: sentence-case muted column labels, hairline row rules, tabular figures; rows become labelled blocks below 48rem. In the activity log, repeats in a row (same session, event and words) read as one row with the newest time and a quiet count well (\u00d73) beside the event name.",
       "html": "<table class=\"ds-sheet\"><thead><tr><th>Name</th><th>Address</th><th class=\"num\">Profiles</th></tr></thead><tbody><tr><td><a href=\"#\">api-prod</a></td><td>10.0.0.12:22</td><td class=\"num\">2</td></tr><tr><td><a href=\"#\">db-primary</a></td><td>pg-01.internal:22</td><td class=\"num\">1</td></tr></tbody></table>",
       "css": ".ds-sheet{width:420px;border-collapse:collapse;background:var(--color-stock, #eee2c0);color:var(--color-stock-ink, #241f14);font:400 0.875rem/1.25rem Archivo,sans-serif;font-variant-numeric:tabular-nums} .ds-sheet th{padding:10px 12px;text-align:start;font-weight:600;font-size:0.8125rem;color:var(--color-stock-ink-muted, #5f5440);border-bottom:1px solid var(--color-stock-rule, #cdbd93)} .ds-sheet td{padding:12px;border-top:1px solid var(--color-stock-rule, #cdbd93)} .ds-sheet .num{text-align:end} .ds-sheet a{color:inherit;font-weight:600;text-underline-offset:4px;text-decoration-color:var(--color-stock-rule-strong, #8c7d58)}"
     },
@@ -772,16 +782,16 @@
       "kind": "button",
       "refersTo": "button-destructive",
       "description": "Destructive action behind a native disclosure: the first press opens a danger-tint slip naming the consequence; the button inside submits.",
-      "html": "<details class=\"ds-confirm\" open><summary>Delete host…</summary><div class=\"ds-slip\"><p>Delete api-prod, its connection profiles and its trusted keys? This can't be undone.</p><button type=\"button\">Delete host</button></div></details>",
+      "html": "<details class=\"ds-confirm\" open><summary>Delete host\u2026</summary><div class=\"ds-slip\"><p>Delete api-prod, its connection profiles and its trusted keys? This can't be undone.</p><button type=\"button\">Delete host</button></div></details>",
       "css": ".ds-confirm{width:360px;font:400 0.875rem/1.25rem Archivo,sans-serif} .ds-confirm summary{display:inline-flex;align-items:center;height:32px;padding:0 10px;border:1px solid var(--color-danger-on-stock, #a3271f);border-radius:4px;color:var(--color-danger-on-stock, #a3271f);list-style:none;cursor:pointer} .ds-slip{margin-top:12px;padding:12px;border-radius:4px;background:var(--color-tint-danger, #f3d2c4);color:var(--color-stock-ink, #241f14)} .ds-slip button{margin-top:12px;height:32px;padding:0 10px;border:1px solid var(--color-danger-on-stock, #a3271f);border-radius:4px;background:transparent;color:var(--color-danger-on-stock, #a3271f);font:500 0.8125rem Archivo,sans-serif}"
     },
     {
       "name": "Workspace Tabs",
       "kind": "navigation",
       "refersTo": "tab",
-      "description": "The active tab is buff with its 4 px state edge; inactive tabs are slate key caps that keep the edge; a pane-count well marks a split.",
-      "html": "<div class=\"ds-tabs\"><span class=\"ds-tab is-active\"><i class=\"ok\"></i>API-PROD<b>2</b></span><span class=\"ds-tab\"><i class=\"warn\"></i>STAGING</span></div>",
-      "css": ".ds-tabs{display:flex;gap:4px;align-items:flex-end;padding:8px 6px 0;background:var(--color-board-2, #223042);font:600 0.9375rem/1.125rem Archivo,sans-serif;font-stretch:72%;text-rendering:geometricPrecision;text-transform:uppercase;letter-spacing:0.02em} .ds-tab{display:flex;align-items:center;gap:8px;height:32px;padding-right:12px;border-radius:3px 3px 0 0;background:rgb(43 59 80 / 0.55);color:var(--color-board-ink-muted, #9aabbf);overflow:hidden} .ds-tab.is-active{background:var(--color-stock-followed, #fbf4df);color:var(--color-stock-ink, #241f14)} .ds-tab i{width:4px;align-self:stretch} .ds-tab i.ok{background:var(--color-state-connected, #34a266)} .ds-tab i.warn{background:var(--color-state-reconnecting, #e0a526)} .ds-tab b{font:600 0.6875rem/1rem Archivo,sans-serif;padding:0 4px;border-radius:3px;background:var(--color-stock-pressed, #e2d3ab);color:var(--color-stock-ink-muted, #5f5440)}"
+      "description": "The active tab is buff with its 4 px state edge; inactive tabs are slate key caps that keep the edge; a pane-count well marks a split. The tabs scroll sideways in their own strip, never under the split controls or the connection state; the active tab is scrolled into view whenever it is activated or followed and kept there when the strip narrows. An edge with tabs scrolled under it shows a 20 px slate rail with a muted chevron whose edge shadow falls on the hidden tabs.",
+      "html": "<div class=\"ds-tabs\"><span class=\"ds-cue\" aria-hidden=\"true\">&lsaquo;</span><span class=\"ds-tab\"><i class=\"warn\"></i>STAGING</span><span class=\"ds-tab is-active\"><i class=\"ok\"></i>API-PROD<b>2</b></span><span class=\"ds-tab\"><i class=\"ok\"></i>DB-PRIMARY</span><span class=\"ds-cue end\" aria-hidden=\"true\">&rsaquo;</span></div>",
+      "css": ".ds-tabs{display:flex;gap:4px;align-items:flex-end;padding:8px 6px 0;background:var(--color-board-2, #223042);font:600 0.9375rem/1.125rem Archivo,sans-serif;font-stretch:72%;text-rendering:geometricPrecision;text-transform:uppercase;letter-spacing:0.02em} .ds-tab{display:flex;align-items:center;gap:8px;height:32px;padding-right:12px;border-radius:3px 3px 0 0;background:rgb(43 59 80 / 0.55);color:var(--color-board-ink-muted, #9aabbf);overflow:hidden} .ds-tab.is-active{background:var(--color-stock-followed, #fbf4df);color:var(--color-stock-ink, #241f14)} .ds-tab i{width:4px;align-self:stretch} .ds-tab i.ok{background:var(--color-state-connected, #34a266)} .ds-tab i.warn{background:var(--color-state-reconnecting, #e0a526)} .ds-tab b{font:600 0.6875rem/1rem Archivo,sans-serif;padding:0 4px;border-radius:3px;background:var(--color-stock-pressed, #e2d3ab);color:var(--color-stock-ink-muted, #5f5440)} .ds-tabs{position:relative;overflow:hidden;max-width:420px} .ds-cue{position:absolute;top:0;bottom:0;left:0;width:20px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:7px;background:var(--color-board-2, #223042);color:var(--color-board-ink-muted, #9aabbf);box-shadow:8px 0 12px -5px rgb(5 9 14 / 0.7);font:400 1rem/1 Archivo,sans-serif} .ds-cue.end{left:auto;right:0;box-shadow:-8px 0 12px -5px rgb(5 9 14 / 0.7)}"
     },
     {
       "name": "In-pane Slip",

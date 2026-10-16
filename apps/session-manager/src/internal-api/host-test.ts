@@ -40,8 +40,9 @@ export interface HostTestInput {
  * Internal API `hosts/:id/test` ("Fetch & verify", plan §5.9): connects to the host and reports
  * the presented host key. An unknown key is recorded as `pending` (then trusted via
  * `trust-key`); a mismatch, or a key the owner revoked, is audited and reported as
- * HOST_KEY_MISMATCH. Only with a profile and an already trusted key does the
- * test authenticate (profile user + credential) and run the capability probe. Without a profile
+ * HOST_KEY_MISMATCH, a revoked one also with `revoked: true`. Only with a profile and an
+ * already trusted key does the test authenticate (profile user + credential) and run the
+ * capability probe. Without a profile
  * the handshake is aborted right after the host key, so no failed login reaches the host.
  * Host-key verification is never bypassed: the transport only proceeds on a trusted key.
  */
@@ -139,6 +140,7 @@ export async function testHost(
         : null,
     hostKey: { type: key.type, fingerprint: key.fingerprint, trusted: isTrusted },
     probe: probe ? storableProbe(probe.raw) : null,
+    ...(decision === 'revoked' ? { revoked: true as const } : {}),
   };
 }
 

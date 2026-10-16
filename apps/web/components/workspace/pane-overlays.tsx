@@ -600,6 +600,7 @@ export function PaneOverlays({
   linkPrompt,
   notice,
   onDismissNotice,
+  onRetryAttach,
   onClose,
 }: {
   sessionId: string;
@@ -611,6 +612,8 @@ export function PaneOverlays({
   /** A pane-local message (clipboard refused…). */
   notice: string | null;
   onDismissNotice(): void;
+  /** Attaches this pane again (after the server refused the attach). */
+  onRetryAttach: (() => void) | null;
   onClose: (() => void) | null;
 }) {
   const t = useTranslations('workspace');
@@ -624,6 +627,9 @@ export function PaneOverlays({
     channelState?.phase === 'failed' &&
     channelState.error?.code === 'NOT_FOUND';
   const overlay = chooseOverlay(sessionId, entry, gone, { hostKey, auth });
+  // The user has too many terminals attached across their windows: this pane was refused.
+  const attachLimited =
+    channelState?.phase === 'failed' && channelState.error?.code === 'RATE_LIMITED';
 
   // A refused decision (e.g. an expired host-key prompt) arrives as a connection-level error.
   const lastError: ServerError | null =
@@ -638,6 +644,7 @@ export function PaneOverlays({
   const progress =
     !overlay &&
     !gone &&
+    !attachLimited &&
     (status === 'connecting' ||
       status === 'restoring' ||
       (status === 'connected' && !channelLive) ||
@@ -726,6 +733,24 @@ export function PaneOverlays({
           >
             {t('overlay.acknowledge')}
           </button>
+        </span>
+      </Notice>,
+    );
+  }
+  if (attachLimited) {
+    notices.push(
+      <Notice key="attach-limit" tone="warning">
+        <span className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <span>{t('pane.tooManyTerminals')}</span>
+          {onRetryAttach ? (
+            <button
+              type="button"
+              className="font-semibold underline underline-offset-2"
+              onClick={onRetryAttach}
+            >
+              {t('overlay.retry')}
+            </button>
+          ) : null}
         </span>
       </Notice>,
     );

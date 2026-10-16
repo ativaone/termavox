@@ -134,3 +134,42 @@ describe('SessionRegistry.reopen', () => {
     await registry.shutdown();
   });
 });
+
+describe('SessionRegistry.reopen and the running-session cap', () => {
+  it("refuses past the cap with create's code and message, leaving the session as it was", async () => {
+    const { store, factory, registry } = registryWith();
+    store.runningCap = 1;
+    registry.create(store.add(makeRecord({ id: 's1' })));
+    const first = registry.host('s1')!;
+    await until(() => first.state === 'ready');
+    // An unprotected running session is not counted against its own reopen.
+    expect(first.protection).toBe('none');
+    await registry.reopen('s1', 'user-1');
+    const second = registry.host('s1')!;
+    await until(() => second.state === 'ready');
+    factory.last.pty.finish({ code: 0, signal: null });
+    await until(() => second.state === 'ended');
+
+    // Another session of the same user now runs: the user is at the cap.
+    store.add(makeRecord({ id: 's2' }));
+    const reopens = () => store.events.filter((e) => e.type === 'reopened').length;
+    const before = reopens();
+    const error = await registry.reopen('s1', 'user-1').catch((err: unknown) => err);
+    expect(error).toBeInstanceOf(TermdockError);
+    expect(error).toMatchObject({
+      code: ErrorCode.RateLimited,
+      message: 'running session limit reached (1)',
+    });
+    expect(registry.host('s1')).toBe(second);
+    expect(second.state).toBe('ended');
+    expect(reopens()).toBe(before);
+
+    // Another user's sessions do not count; once the other one stops, the reopen goes through.
+    store.add(makeRecord({ id: 'other', userId: 'user-2' }));
+    store.update('s2', { desiredState: 'terminated' });
+    await registry.reopen('s1', 'user-1');
+    await until(() => registry.host('s1')?.state === 'ready');
+    expect(reopens()).toBe(before + 1);
+    await registry.shutdown();
+  });
+});

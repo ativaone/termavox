@@ -26,7 +26,7 @@ import { type ProbeResult, runProbe, storableProbe } from '../probe/index.ts';
 import type { KeyboardInteractiveRequest } from '../transport/ssh/index.ts';
 import { backoffDelay } from './backoff.ts';
 import { type DriverFactory, tmuxSocketName } from './driver-factory.ts';
-import { selectProtection } from './protection.ts';
+import { type ProtectionChoice, selectProtection } from './protection.ts';
 import type { TransportFactory, TransportHooks } from './transport-factory.ts';
 import {
   type AttachmentClient,
@@ -752,21 +752,24 @@ export class SessionRuntime implements SessionHost {
     const wantsTmux = fixed === null || fixed === 'tmux-control';
     // An existing protected session keeps its protection even if the profile now says off.
     const mode = fixed === null ? this.#record.policies.protectionMode : 'auto';
-    let { protection, notice } = wantsTmux
+    let { protection, notice, code }: ProtectionChoice = wantsTmux
       ? selectProtection(mode, probe)
-      : { protection: 'none' as Protection, notice: null as string | null };
+      : { protection: 'none', notice: null, code: null };
     if (protection === 'tmux-control' && !this.#drivers.tmuxControl) {
       protection = 'none';
       notice = 'tmux control mode is not available: session not protected';
+      code = 'control_unavailable';
     }
+    // `notice` stays for older readers; `noticeCode` is what the web maps to its own words.
+    const reason = { ...(notice ? { notice } : {}), ...(code ? { noticeCode: code } : {}) };
     if (fixed === null) {
       this.#setProtection(protection);
-      this.#event('protection_selected', { protection, ...(notice ? { notice } : {}) });
+      this.#event('protection_selected', { protection, ...reason });
       return { protection, notice, degraded: false };
     }
     if (fixed !== 'none' && protection === 'none') {
       this.#setProtection('none');
-      this.#event('protection_degraded', { from: fixed, ...(notice ? { notice } : {}) });
+      this.#event('protection_degraded', { from: fixed, ...reason });
       return { protection: 'none', notice, degraded: true };
     }
     return {

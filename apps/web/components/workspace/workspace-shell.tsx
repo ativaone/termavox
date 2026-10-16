@@ -1,5 +1,6 @@
 'use client';
 
+import { CloseCode } from '@termdock/protocol/client';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import {
@@ -34,6 +35,7 @@ import {
   activeLeaf,
   canOpenTab,
   canSplit,
+  findSession,
   type LayoutAction,
   leaves,
   newId,
@@ -150,6 +152,32 @@ function ConnectionFailure({ connection }: { connection: TermdockConnection }) {
             onClick={() => window.location.reload()}
           >
             {t('reload')}
+          </button>
+        </span>
+      </Notice>
+    </div>
+  );
+}
+
+/**
+ * 4429: this user already has too many Termdock windows connected. The connection keeps
+ * retrying on a long backoff (the countdown and Retry now sit in the tab bar on desktop).
+ */
+function ConnectionLimit({ connection }: { connection: TermdockConnection }) {
+  const t = useTranslations('workspace.connection');
+  const { status, closeCode, error } = useConnectionState(connection);
+  if (status === 'open' || error || closeCode !== CloseCode.RateLimited) return null;
+  return (
+    <div className="px-1.5 pb-1.5 max-md:px-2 max-md:pt-2">
+      <Notice tone="warning">
+        <span className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <span>{t('tooManyWindows')}</span>
+          <button
+            type="button"
+            className="font-semibold underline underline-offset-2 md:hidden"
+            onClick={() => connection.retryNow()}
+          >
+            {t('retryNow')}
           </button>
         </span>
       </Notice>
@@ -297,15 +325,24 @@ export function WorkspaceShell({
     [sync, phoneOpen, requestFocus, t],
   );
 
+  // A session that already has a tab (alone or in a split) is switched to, never opened twice.
   const openInNewTab = useCallback(
     (sessionId: string | null) => {
-      if (!canOpenTab(sync.getSnapshot())) {
+      const before = sync.getSnapshot();
+      const shown = sessionId !== null && findSession(before, sessionId) !== null;
+      if (!shown && !canOpenTab(before)) {
         setNotice(t('notice.tabLimit'));
         return;
       }
+      const tabId = newId();
       const paneId = newId();
-      sync.dispatch({ type: 'openTab', tabId: newId(), paneId, sessionId });
-      requestFocus(paneId);
+      const next = sync.dispatch(
+        sessionId === null
+          ? { type: 'openTab', tabId, paneId, sessionId }
+          : { type: 'showInTab', sessionId, tabId, paneId },
+      );
+      const leaf = activeLeaf(next)?.leaf;
+      if (leaf) requestFocus(leaf.id);
     },
     [sync, requestFocus, t],
   );
@@ -443,10 +480,14 @@ export function WorkspaceShell({
     [bay.sessions],
   );
 
+  // A session the layout already shows is switched to (follow), not bound into a second pane.
   const jumpTo = (sessionId: string, target: PanePlace | null) => {
     setPalette(null);
-    if (target && desktopRef.current) bindPane(target, sessionId);
-    else follow(sessionId);
+    if (target && desktopRef.current && !findSession(sync.getSnapshot(), sessionId)) {
+      bindPane(target, sessionId);
+    } else {
+      follow(sessionId);
+    }
   };
 
   const createFromProfile = async (profileId: string): Promise<SessionActionResult> => {
@@ -700,11 +741,13 @@ export function WorkspaceShell({
               onClose={(tabId) => dispatch({ type: 'closeTab', tabId })}
               onSplit={(direction) => splitActive(direction, null)}
               canSplit={current !== null}
+              revealKey={focusRequest?.seq ?? 0}
               trailing={<ConnectionChip connection={connection} />}
             />
           </div>
 
           <ConnectionFailure connection={connection} />
+          <ConnectionLimit connection={connection} />
           {notice ? (
             <div className="px-1.5 pb-1.5">
               <Notice tone="warning">{notice}</Notice>

@@ -90,7 +90,8 @@ export default async function CredentialsPage({
                     <Td label={t('list.kind')}>
                       <Tag>{t(`kind.${credential.kind}`)}</Tag>
                     </Td>
-                    <Td label={t('list.lastUsed')} className="text-ink-muted">
+                    {/* One line on wide screens: the actions row must not squeeze it to three. */}
+                    <Td label={t('list.lastUsed')} className="text-ink-muted md:whitespace-nowrap">
                       {credential.lastUsedAt ? (
                         <LocalTime at={credential.lastUsedAt} />
                       ) : (

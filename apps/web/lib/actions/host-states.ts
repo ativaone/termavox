@@ -16,6 +16,8 @@ export interface DiagnosticsState {
     error: string | null;
     hostKey: HostTestResult['hostKey'];
     probe: ProbeSummary | null;
+    /** The presented key is one the owner revoked for this host (error: HOST_KEY_MISMATCH). */
+    revoked?: boolean;
   };
 }
 

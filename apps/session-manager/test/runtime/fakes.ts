@@ -1,5 +1,6 @@
 /** In-memory fakes for the runtime boundaries (stores, transport, attachments). */
 import type { ServerMessage, SessionState, SessionSummary } from '@termdock/protocol';
+import { ErrorCode, TermdockError } from '@termdock/shared';
 import { bindToChannel } from '../../src/attachments/wire.ts';
 import {
   createDriverFactory,
@@ -135,6 +136,21 @@ export class MemorySessionStore implements SessionStore {
 
   appendEvent(sessionId: string, event: SessionEventInput): void {
     this.events.push({ sessionId, ...event });
+  }
+
+  /** `max_running_sessions_per_user` of the SQLite store. */
+  runningCap = Number.POSITIVE_INFINITY;
+
+  async assertRunningCapacity(userId: string, sessionId: string): Promise<void> {
+    const running = [...this.records.values()].filter(
+      (r) => r.userId === userId && r.desiredState === 'running' && r.id !== sessionId,
+    ).length;
+    if (running >= this.runningCap) {
+      throw new TermdockError(
+        ErrorCode.RateLimited,
+        `running session limit reached (${this.runningCap})`,
+      );
+    }
   }
 
   /** Persisted state/status pairs, in order. */

@@ -116,15 +116,39 @@ export interface CreateSessionInput {
 }
 
 /**
+ * The per-user running-session cap (`max_running_sessions_per_user`), shared by create and reopen
+ * so both refuse with the same code and message. `exceptSessionId` is left out of the count.
+ */
+function assertRunningCapacity(
+  sqlite: Sqlite,
+  userId: string,
+  exceptSessionId: string | null,
+): void {
+  const cap = maxRunningSessions(sqlite);
+  const running =
+    getRow<{ n: number }>(
+      sqlite,
+      `SELECT COUNT(*) AS n FROM sessions
+        WHERE user_id = ? AND desired_state = 'running' AND (? IS NULL OR id != ?)`,
+      userId,
+      exceptSessionId,
+      exceptSessionId,
+    )?.n ?? 0;
+  if (running >= cap) {
+    throw new TermdockError(ErrorCode.RateLimited, `running session limit reached (${cap})`);
+  }
+}
+
+/**
  * `SessionStore` over SQLite. Reads go straight to the DB (WAL readers never wait); every write
  * goes through the batched writer.
  *
  * Restore rule: `state = 'failed'` is only ever persisted for non-retryable causes (the runtime
  * parks on AUTH_REJECTED, CREDENTIAL_INVALID, HOST_KEY_MISMATCH/REJECTED, LOCAL_SHELL_DISABLED,
- * NOT_FOUND, FORBIDDEN and non-retryable transport errors; retryable problems persist as
- * `reconnecting`). The specific code is in `session_events` (`state_changed`, `detail`). So
- * `listRestorable()` = `desired_state = 'running' AND state <> 'failed'`; those sessions wait for
- * the user's Retry (plan §5.8).
+ * TARGET_NOT_ALLOWED, BAD_LAUNCH_PARAMS, NOT_FOUND, FORBIDDEN and non-retryable transport errors;
+ * retryable problems persist as `reconnecting`). The specific code is in `session_events`
+ * (`state_changed`, `detail`). So `listRestorable()` = `desired_state = 'running' AND state <>
+ * 'failed'`; those sessions wait for the user's Retry (plan §5.8).
  */
 export class SqliteSessionStore implements SessionStore {
   readonly #sqlite: Sqlite;
@@ -227,6 +251,17 @@ export class SqliteSessionStore implements SessionStore {
     });
   }
 
+  /**
+   * Reopen (plan §5.7) honours the same per-user running-session cap as create, not counting the
+   * session being reopened (an unprotected running one already counts). Queued behind every
+   * earlier write, so a terminate just requested is already reflected.
+   */
+  assertRunningCapacity(userId: string, sessionId: string): Promise<void> {
+    return this.#writer.run('session.capacity', (sqlite) =>
+      assertRunningCapacity(sqlite, userId, sessionId),
+    );
+  }
+
   appendEvent(sessionId: string, event: SessionEventInput): void {
     const at = this.#now();
     const id = uuidv7(at);
@@ -291,16 +326,7 @@ export class SqliteSessionStore implements SessionStore {
         );
         if (!credential) throw new TermdockError(ErrorCode.NotFound, 'credential not found');
       }
-      const cap = maxRunningSessions(sqlite);
-      const running =
-        getRow<{ n: number }>(
-          sqlite,
-          "SELECT COUNT(*) AS n FROM sessions WHERE user_id = ? AND desired_state = 'running'",
-          user.id,
-        )?.n ?? 0;
-      if (running >= cap) {
-        throw new TermdockError(ErrorCode.RateLimited, `running session limit reached (${cap})`);
-      }
+      assertRunningCapacity(sqlite, user.id, null);
 
       const record: SessionRecord = {
         id: uuidv7(now),

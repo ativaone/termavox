@@ -238,7 +238,8 @@
       "close": "Close pane. The session keeps running.",
       "closeLabel": "Close pane {label}. The session keeps running.",
       "clipboardDenied": "The browser didn't allow reading the clipboard. Long-press the terminal to paste instead.",
-      "tooMany": "Too many terminals are open in this browser tab. Close a pane or a tab to open this one."
+      "tooMany": "Too many terminals are open in this browser tab. Close a pane or a tab to open this one.",
+      "tooManyTerminals": "Too many terminals are open at once. Close a few tabs."
     },
     "phone": {
       "back": "Sessions"
@@ -368,6 +369,7 @@
       "offlineIn": "Offline, retrying in {seconds, plural, one {# second} other {# seconds}}",
       "retryNow": "Retry now",
       "restarting": "Termdock is restarting…",
+      "tooManyWindows": "Too many Termdock windows are open. Close some and try again.",
       "forbiddenTitle": "Termdock refused the connection",
       "forbiddenBody": "This page can't open terminals right now. Reload it to sign in again.",
       "outdatedTitle": "Termdock was updated",
@@ -594,6 +596,8 @@
         "compare": "Compare the fingerprint with the one the server's administrator gives you before you trust it.",
         "mismatchTitle": "The host presented a different key",
         "mismatchBody": "This is not the key you trusted. If the server was reinstalled or its key rotated, replace the trusted key. Otherwise, do not connect: someone may be intercepting the connection.",
+        "revokedTitle": "The host presented a key you revoked",
+        "revokedBody": "You revoked this key for the host, so Termdock refuses it. If you revoked it by mistake, replace the trusted key with it. Otherwise, do not connect: the server may be using an old or stolen key.",
         "loginFailed": "The host key is trusted, but the login failed",
         "noProbe": "The host key is trusted. The probe did not run.",
         "pickProfile": "The host key is trusted. Choose a profile above to check tmux and logind too."
@@ -828,7 +832,8 @@
       "time": "Time",
       "event": "Event",
       "session": "Session",
-      "detail": "Details"
+      "detail": "Details",
+      "repeated": "{count, plural, one {# time} other {# times in a row}}"
     },
     "sessions": {
       "caption": "Session history",
@@ -874,8 +879,16 @@
       "state": "State: {status}",
       "prompts": "{count, plural, one {# question} other {# questions}}",
       "protectionWas": "Previously: {protection}",
+      "phase": {
+        "checkingHostKey": "Checking the host key",
+        "signingIn": "Signing in",
+        "checkingHost": "Checking the host",
+        "startingShell": "Starting the shell",
+        "syncingScreen": "Syncing the screen"
+      },
       "notice": {
         "tmuxMissing": "tmux isn't installed on the host",
+        "tmuxTooOld": "tmux on the host is older than 3.2",
         "noUtf8": "The host has no UTF-8 locale",
         "controlUnavailable": "tmux control mode isn't available"
       }

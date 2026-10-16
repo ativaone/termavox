@@ -70,6 +70,11 @@ export const HostTestResponse = z.object({
   error: z.string().nullable(),
   hostKey: z.object({ type: z.string(), fingerprint: z.string(), trusted: z.boolean() }).nullable(),
   probe: z.record(z.string(), z.string()).nullable(),
+  /**
+   * The presented key is one the owner revoked for this host (`error` stays HOST_KEY_MISMATCH
+   * for older readers). Absent otherwise.
+   */
+  revoked: z.literal(true).optional(),
 });
 
 /** OpenSSH-style fingerprint: `SHA256:` + 43 chars of unpadded base64. */

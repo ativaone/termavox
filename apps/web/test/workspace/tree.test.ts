@@ -304,6 +304,34 @@ describe('workspace layout reducer', () => {
     expect(bound.tabs).toHaveLength(2);
     expect(activeLeaf(bound)?.leaf).toEqual({ type: 'leaf', id: 'p10', sessionId: 's7' });
 
+    // "Open in a new tab" for a session that already has one switches to it, alone or in a split.
+    const shownAlone = layoutReducer(bound, {
+      type: 'showInTab',
+      sessionId: 's9',
+      tabId: 'dup',
+      paneId: 'dup-p',
+    });
+    expect(shownAlone.tabs).toHaveLength(2);
+    expect(activeLeaf(shownAlone)?.leaf).toEqual({ type: 'leaf', id: 'p9', sessionId: 's9' });
+    const shownInSplit = layoutReducer(shownAlone, {
+      type: 'showInTab',
+      sessionId: 's2',
+      tabId: 'dup',
+      paneId: 'dup-p',
+    });
+    expect(shownInSplit.tabs).toHaveLength(2);
+    expect(shownInSplit.activeTabId).toBe('t1');
+    expect(activeLeaf(shownInSplit)?.leaf.id).toBe('p2');
+    // A session without a tab gets a new one, even when the active pane is empty.
+    const fresh = layoutReducer(empty, {
+      type: 'showInTab',
+      sessionId: 's8',
+      tabId: 't8',
+      paneId: 'p8',
+    });
+    expect(fresh.tabs).toHaveLength(3);
+    expect(activeLeaf(fresh)?.leaf).toEqual({ type: 'leaf', id: 'p8', sessionId: 's8' });
+
     // Closing the active tab activates its right neighbour, else the left one.
     const tabs = apply(
       [

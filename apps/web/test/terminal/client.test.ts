@@ -4,6 +4,7 @@ import { XTERM_VERSION } from '@termdock/terminal-config';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   ChannelLimitError,
+  RATE_LIMITED_RETRY_MS,
   TermdockConnection,
   type TerminalChannel,
 } from '../../lib/terminal/index.ts';
@@ -301,6 +302,78 @@ describe('TermdockConnection', () => {
     });
     expect(ticketCalls()).toBe(1);
     expect(server.sockets).toHaveLength(1);
+  });
+
+  it('4429 (too many windows) is remembered and backs off at least 10 s: no hot loop', async () => {
+    const server = new FakeServer();
+    const { connection, ticketCalls } = setup(server); // backoff 5–20 ms
+    connection.connect();
+    await until(() => connection.getSnapshot().status === 'open');
+    const closedAt = Date.now();
+    server.last.serverClose(4429, 'too many connections');
+    await sleep(80); // many ordinary backoff periods
+    const state = connection.getSnapshot();
+    expect(state).toMatchObject({ status: 'reconnecting', closeCode: 4429, error: null });
+    expect(state.retryAt! - closedAt).toBeGreaterThanOrEqual(RATE_LIMITED_RETRY_MS);
+    expect(ticketCalls()).toBe(1);
+    expect(server.sockets).toHaveLength(1);
+
+    // "Retry now" after closing another window: accepted, and the remembered code clears.
+    connection.retryNow();
+    await until(() => connection.getSnapshot().status === 'open');
+    expect(connection.getSnapshot().closeCode).toBeNull();
+    expect(ticketCalls()).toBe(2);
+
+    // Any other abnormal close keeps the ordinary backoff.
+    server.last.serverClose(1006);
+    expect(connection.getSnapshot().closeCode).toBe(1006);
+    await until(() => connection.getSnapshot().status === 'open' && server.sockets.length === 3);
+  });
+
+  it('an attach refused with RATE_LIMITED fails the pane until attached again', async () => {
+    const server = new FakeServer();
+    let refuse = true;
+    server.onAttach = (sock, message) => {
+      if (refuse) {
+        sock.deliver(
+          JSON.stringify({
+            type: 'error',
+            code: 'RATE_LIMITED',
+            message: 'too many attached terminals',
+            channel: message.channel,
+            sessionId: message.sessionId,
+          }),
+        );
+        return;
+      }
+      sock.deliver(
+        JSON.stringify({
+          type: 'session.attached',
+          channel: message.channel,
+          sessionId: message.sessionId,
+          cols: 100,
+          rows: 30,
+          scrollbackLines: 0,
+        }),
+      );
+    };
+    const { connection } = setup(server);
+    connection.connect();
+    const { channel } = attachedChannel(connection);
+    await until(() => channel.getSnapshot().phase === 'failed');
+    expect(channel.getSnapshot().error).toEqual({
+      code: 'RATE_LIMITED',
+      message: 'too many attached terminals',
+    });
+    // A reconnect does not retry a refused attach on its own…
+    server.last.serverClose(1006);
+    await until(() => connection.getSnapshot().status === 'open' && server.sockets.length === 2);
+    expect(server.last.control.filter((m) => m.type === 'session.attach')).toHaveLength(0);
+    // …the pane's "Try again" does.
+    refuse = false;
+    channel.attach(SESSION, VIEWPORT);
+    await until(() => channel.getSnapshot().phase === 'syncing');
+    expect(channel.getSnapshot().error).toBeNull();
   });
 
   it('allocates at most 32 channels per connection', () => {

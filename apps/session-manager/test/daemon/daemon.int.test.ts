@@ -120,7 +120,11 @@ describe('daemon (SQLite + vault + internal API + WS) against no-tmux', () => {
     await first.writer.flush();
     expect(events(first, sessionId)).toContainEqual({
       type: 'protection_selected',
-      detail: { protection: 'none', notice: 'tmux not found on the host: session not protected' },
+      detail: {
+        protection: 'none',
+        notice: 'tmux not found on the host: session not protected',
+        noticeCode: 'tmux_missing',
+      },
     });
 
     const client = await fixture.attach(first, userId, asid, sessionId);

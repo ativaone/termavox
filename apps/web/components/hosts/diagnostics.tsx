@@ -210,6 +210,8 @@ export function FetchVerify({
   const result = state.result;
   const key = result?.hostKey ?? null;
   const mismatch = result?.error === 'HOST_KEY_MISMATCH';
+  // A key the owner revoked is refused like a mismatch, but says what it is.
+  const revoked = mismatch && result?.revoked === true;
 
   return (
     <div className="flex flex-col gap-4">
@@ -249,9 +251,11 @@ export function FetchVerify({
               <Tag tone={key.trusted ? 'success' : mismatch ? 'danger' : 'warning'}>
                 {key.trusted
                   ? t('status.trusted')
-                  : mismatch
-                    ? t('status.mismatch')
-                    : t('status.pending')}
+                  : revoked
+                    ? t('status.revoked')
+                    : mismatch
+                      ? t('status.mismatch')
+                      : t('status.pending')}
               </Tag>
             </div>
             <p className="text-ink-muted text-sm">{key.type}</p>
@@ -271,8 +275,11 @@ export function FetchVerify({
         ) : null}
         {mismatch && key ? (
           <>
-            <Notice tone="danger" title={t('result.mismatchTitle')}>
-              {t('result.mismatchBody')}
+            <Notice
+              tone="danger"
+              title={revoked ? t('result.revokedTitle') : t('result.mismatchTitle')}
+            >
+              {revoked ? t('result.revokedBody') : t('result.mismatchBody')}
             </Notice>
             <details className="group/disclosure rounded-control border border-rule-strong px-4 py-3">
               <DisclosureSummary className="font-semibold text-ink text-sm">

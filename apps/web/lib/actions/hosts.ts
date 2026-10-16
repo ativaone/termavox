@@ -140,6 +140,7 @@ export async function fetchHostKey(
         error: result.error,
         hostKey: result.hostKey,
         probe: result.probe ? summarizeProbe(result.probe, profile?.protectionMode) : null,
+        ...(result.revoked ? { revoked: true } : {}),
       },
     };
   } catch (err) {

@@ -49,29 +49,33 @@ export function AccountMenu({
           className="shrink-0 text-board-ink-muted transition-transform duration-(--duration-step) group-open:rotate-180"
         />
       </summary>
-      <nav aria-label={t('label')} className="pt-1 pb-1">
-        <ul className="flex flex-col">
-          {links.map((link) => (
-            <li key={link.href}>
-              <Link
-                href={link.href}
-                className={cx(
-                  'flex h-8 items-center rounded-control px-2 text-board-ink-muted text-sm',
-                  'transition-colors duration-(--duration-step) ease-linear hover:bg-quiet-hover hover:text-board-ink',
-                  'focus-visible:outline-2 focus-visible:outline-focus focus-visible:-outline-offset-2',
-                )}
-              >
-                {link.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </nav>
-      <LocaleSwitcher
-        locale={locale}
-        fill
-        className="mt-1 border-board-rule border-t px-1 pt-2 pb-1 md:hidden"
-      />
+      {/* On a phone the body also spans the sign-out column (2rem + the row's 0.5rem gap), so the
+          rule and the language picker end on the footer's gutter like the strips above. */}
+      <div className="max-md:-me-10">
+        <nav aria-label={t('label')} className="pt-1 pb-1">
+          <ul className="flex flex-col">
+            {links.map((link) => (
+              <li key={link.href}>
+                <Link
+                  href={link.href}
+                  className={cx(
+                    'flex h-8 items-center rounded-control px-2 text-board-ink-muted text-sm',
+                    'transition-colors duration-(--duration-step) ease-linear hover:bg-quiet-hover hover:text-board-ink',
+                    'focus-visible:outline-2 focus-visible:outline-focus focus-visible:-outline-offset-2',
+                  )}
+                >
+                  {link.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <LocaleSwitcher
+          locale={locale}
+          fill
+          className="mx-1 mt-1 border-board-rule border-t pt-2 pb-1 md:hidden"
+        />
+      </div>
     </details>
   );
 }

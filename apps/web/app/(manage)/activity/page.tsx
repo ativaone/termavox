@@ -1,4 +1,4 @@
-import { SessionState, type SessionStatus, toSessionStatus } from '@termdock/protocol/client';
+import { ProtectionNotice } from '@termdock/protocol/client';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
@@ -12,6 +12,7 @@ import { SheetTable, Td, Th, Tr } from '../../../components/ui/sheet-table.tsx';
 import { StatusChip } from '../../../components/ui/status-chip.tsx';
 import { getAuthRuntime, requireSession } from '../../../lib/auth/server.ts';
 import { listSessionEvents, listSessionHistory } from '../../../lib/repo/activity.ts';
+import { collapseRuns, describeStateChange, statusOf } from '../../../lib/sessions/activity.ts';
 import { END_KEYS, FAILURE_KEYS, pick } from '../../../lib/sessions/reasons.ts';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -46,23 +47,33 @@ type KnownEvent = (typeof KNOWN_EVENTS)[number];
 const isKnownEvent = (type: string): type is KnownEvent =>
   (KNOWN_EVENTS as readonly string[]).includes(type);
 
-/** Daemon protection notices (English sentences), mapped to their message key. */
+/** Daemon protection notices by `noticeCode`, mapped to their message key. */
+const NOTICE_CODE_KEYS = {
+  tmux_missing: 'tmuxMissing',
+  tmux_too_old: 'tmuxTooOld',
+  no_utf8: 'noUtf8',
+  control_unavailable: 'controlUnavailable',
+} as const satisfies Record<ProtectionNotice, string>;
+
+/** Rows written before `noticeCode` existed carry only the English sentence. */
 const NOTICE_KEYS = {
   'tmux not found on the host: session not protected': 'tmuxMissing',
   'no UTF-8 locale on the host: session not protected': 'noUtf8',
   'tmux control mode is not available: session not protected': 'controlUnavailable',
 } as const;
 
+function noticeKey(code: unknown, notice: unknown) {
+  const parsed = ProtectionNotice.safeParse(code);
+  if (parsed.success) return NOTICE_CODE_KEYS[parsed.data];
+  if (typeof notice !== 'string') return null;
+  // "tmux too old (tmux 3.0a): session not protected" names the version it found.
+  if (notice.startsWith('tmux too old (')) return 'tmuxTooOld';
+  return pick(NOTICE_KEYS, notice);
+}
+
 const PROTECTIONS = ['tmux-control', 'tmux-normal', 'none'] as const;
 const isProtection = (value: unknown): value is (typeof PROTECTIONS)[number] =>
   (PROTECTIONS as readonly unknown[]).includes(value);
-
-/** An internal state (`verifying_host`, `ready`…) as the user-facing status it maps to. */
-function statusOf(state: unknown): SessionStatus | null {
-  const parsed = SessionState.safeParse(state);
-  // The log does not say whether the session had been ready before; "Connecting…" it is.
-  return parsed.success ? toSessionStatus(parsed.data, false) : null;
-}
 
 /** Public detail fields of an event type nobody mapped yet; ids and anything long are left out. */
 function rawSummary(detail: Record<string, unknown>): string {
@@ -101,8 +112,8 @@ export default async function ActivityPage({
     const end = pick(END_KEYS, typeof code === 'string' ? code : null);
     return end ? tw(`endReason.${end}`) : null;
   };
-  const noticeText = (notice: unknown) => {
-    const key = pick(NOTICE_KEYS, typeof notice === 'string' ? notice : null);
+  const noticeText = (detail: Record<string, unknown>) => {
+    const key = noticeKey(detail.noticeCode, detail.notice);
     return key ? t(`detail.notice.${key}`) : null;
   };
   /** The event's details in the user's words: status words, reasons, counts; never raw codes. */
@@ -110,13 +121,13 @@ export default async function ActivityPage({
     if (!detail) return '';
     const join = (...parts: Array<string | null>) => parts.filter(Boolean).join(' · ');
     switch (type) {
-      case 'state_changed': {
-        const from = statusWord(detail.from);
-        const to = statusWord(detail.to);
-        if (!to) return '';
-        const move = from && from !== to ? t('detail.transition', { from, to }) : to;
-        return join(move, reasonText(detail.detail));
-      }
+      case 'state_changed':
+        return describeStateChange(detail, {
+          status: (status) => tw(`status.${status}`),
+          phase: (phase) => t(`detail.phase.${phase}`),
+          transition: (from, to) => t('detail.transition', { from, to }),
+          reason: reasonText,
+        });
       case 'restore_failed': {
         const status = statusWord(detail.state);
         return status ? t('detail.state', { status }) : '';
@@ -140,14 +151,14 @@ export default async function ActivityPage({
       case 'protection_selected':
         return join(
           isProtection(detail.protection) ? t(`protection.${detail.protection}`) : null,
-          noticeText(detail.notice),
+          noticeText(detail),
         );
       case 'protection_degraded':
         return join(
           isProtection(detail.from)
             ? t('detail.protectionWas', { protection: t(`protection.${detail.from}`) })
             : null,
-          noticeText(detail.notice),
+          noticeText(detail),
         );
       // Ids only (created) or diagnostics for the operator log (desync): nothing to show.
       case 'created':
@@ -267,6 +278,11 @@ export default async function ActivityPage({
   }
 
   const data = paginate(search.page, (page) => listSessionEvents(db, user.id, page));
+  // Repeats in a row (same session, event and words) read as one row with a count.
+  const runs = collapseRuns(
+    data.rows.map((row) => ({ ...row, summary: detailSummary(row.type, row.detail) })),
+    (row) => JSON.stringify([row.sessionId, row.type, row.summary]),
+  );
   return (
     <>
       <PageHeader title={t('title')} description={t('intro')} />
@@ -288,14 +304,22 @@ export default async function ActivityPage({
               </>
             }
           >
-            {data.rows.map((row) => (
+            {runs.map(({ row, count }) => (
               <Tr key={row.id}>
                 <Td label={t('events.time')} className="text-sm">
                   <LocalTime at={row.createdAt} withSeconds />
                 </Td>
                 <Td primary>
-                  <span className="font-semibold">
-                    {isKnownEvent(row.type) ? t(`type.${row.type}`) : row.type}
+                  <span className="flex flex-wrap items-baseline gap-x-2">
+                    <span className="font-semibold">
+                      {isKnownEvent(row.type) ? t(`type.${row.type}`) : row.type}
+                    </span>
+                    {count > 1 ? (
+                      <span className="rounded-[3px] bg-stock-pressed px-1 font-semibold text-2xs text-ink-muted tabular-nums">
+                        <span aria-hidden="true">×{count}</span>
+                        <span className="sr-only">{t('events.repeated', { count })}</span>
+                      </span>
+                    ) : null}
                   </span>
                 </Td>
                 <Td label={t('events.session')}>
@@ -308,7 +332,7 @@ export default async function ActivityPage({
                   label={t('events.detail')}
                   className="text-ink-muted text-sm [overflow-wrap:anywhere]"
                 >
-                  {detailSummary(row.type, row.detail) || '—'}
+                  {row.summary || '—'}
                 </Td>
               </Tr>
             ))}

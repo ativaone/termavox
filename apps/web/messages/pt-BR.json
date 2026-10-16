@@ -238,7 +238,8 @@
       "close": "Fechar o painel. A sessão continua rodando.",
       "closeLabel": "Fechar o painel {label}. A sessão continua rodando.",
       "clipboardDenied": "O navegador não permitiu ler a área de transferência. Toque e segure o terminal para colar.",
-      "tooMany": "Há terminais demais abertos nesta aba do navegador. Feche um painel ou uma aba para abrir este."
+      "tooMany": "Há terminais demais abertos nesta aba do navegador. Feche um painel ou uma aba para abrir este.",
+      "tooManyTerminals": "Há terminais demais abertos ao mesmo tempo. Feche algumas abas."
     },
     "phone": {
       "back": "Sessões"
@@ -368,6 +369,7 @@
       "offlineIn": "Sem conexão, tentando de novo em {seconds, plural, one {# segundo} other {# segundos}}",
       "retryNow": "Tentar agora",
       "restarting": "O Termdock está reiniciando…",
+      "tooManyWindows": "Há janelas do Termdock demais abertas. Feche algumas e tente de novo.",
       "forbiddenTitle": "O Termdock recusou a conexão",
       "forbiddenBody": "Esta página não pode abrir terminais agora. Recarregue para entrar de novo.",
       "outdatedTitle": "O Termdock foi atualizado",
@@ -594,6 +596,8 @@
         "compare": "Compare a impressão digital com a que o administrador do servidor passar antes de confiar.",
         "mismatchTitle": "O host apresentou outra chave",
         "mismatchBody": "Esta não é a chave em que você confiou. Se o servidor foi reinstalado ou trocou de chave, substitua a chave confiada. Caso contrário, não conecte: alguém pode estar interceptando a conexão.",
+        "revokedTitle": "O host apresentou uma chave que você revogou",
+        "revokedBody": "Você revogou esta chave para o host, então o Termdock a recusa. Se revogou por engano, substitua a chave confiada por ela. Caso contrário, não conecte: o servidor pode estar usando uma chave antiga ou roubada.",
         "loginFailed": "A chave do host é confiada, mas o login falhou",
         "noProbe": "A chave do host é confiada. A sondagem não rodou.",
         "pickProfile": "A chave do host é confiada. Escolha um perfil acima para verificar também o tmux e o logind."
@@ -828,7 +832,8 @@
       "time": "Horário",
       "event": "Evento",
       "session": "Sessão",
-      "detail": "Detalhes"
+      "detail": "Detalhes",
+      "repeated": "{count, plural, one {# vez} other {# vezes seguidas}}"
     },
     "sessions": {
       "caption": "Histórico de sessões",
@@ -874,8 +879,16 @@
       "state": "Estado: {status}",
       "prompts": "{count, plural, one {# pergunta} other {# perguntas}}",
       "protectionWas": "Antes: {protection}",
+      "phase": {
+        "checkingHostKey": "Verificando a chave do host",
+        "signingIn": "Entrando",
+        "checkingHost": "Verificando o host",
+        "startingShell": "Iniciando o shell",
+        "syncingScreen": "Sincronizando a tela"
+      },
       "notice": {
         "tmuxMissing": "O tmux não está instalado no host",
+        "tmuxTooOld": "O tmux do host é anterior à versão 3.2",
         "noUtf8": "O host não tem locale UTF-8",
         "controlUnavailable": "O modo de controle do tmux não está disponível"
       }

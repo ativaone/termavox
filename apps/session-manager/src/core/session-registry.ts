@@ -170,6 +170,8 @@ export class SessionRegistry {
     }
     const record = await this.#options.store.get(sessionId);
     if (!record) throw new TermdockError(ErrorCode.NotFound, 'session not found');
+    // Same cap as create; checked before anything changes, so a refusal leaves the session as is.
+    await this.#options.store.assertRunningCapacity(record.userId, sessionId);
     await old.shutdown();
     const { attachments, activeId, seq } = old.handoff();
     old.dispose();

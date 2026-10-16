@@ -296,6 +296,11 @@ export interface SessionStore {
   listForUser(userId: string): Promise<SessionSummary[]>;
   update(sessionId: string, patch: SessionRecordPatch): void;
   appendEvent(sessionId: string, event: SessionEventInput): void;
+  /**
+   * Rejects with RATE_LIMITED (the create path's code and message) when the user already runs
+   * the maximum number of sessions, not counting `sessionId`.
+   */
+  assertRunningCapacity(userId: string, sessionId: string): Promise<void>;
 }
 
 /** A host key as presented by the server (same shape as transport/ssh HostKeyInfo). */

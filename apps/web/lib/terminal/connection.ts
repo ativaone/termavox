@@ -26,6 +26,11 @@ export interface BackoffOptions {
 }
 
 export const DEFAULT_BACKOFF: BackoffOptions = { initialMs: 1_000, maxMs: 30_000, jitter: 0.2 };
+/**
+ * Shortest wait after a 4429 close (too many connections for this user): the next attempt is
+ * refused the same way until the user closes another window, so it never retries sooner.
+ */
+export const RATE_LIMITED_RETRY_MS = 10_000;
 
 /** Delay before reconnect attempt `attempt` (1-based): 1 s, 2 s, 4 s … capped, with jitter. */
 export function backoffDelay(
@@ -72,6 +77,11 @@ export interface ConnectionState {
   readonly attempt: number;
   /** When the next attempt starts (epoch ms) while `reconnecting`. */
   readonly retryAt: number | null;
+  /**
+   * Close code of the socket that dropped last (4429: too many Termdock windows for this user);
+   * null once a connection is accepted again (`hello.ok`) or after `close()`.
+   */
+  readonly closeCode: number | null;
   readonly userId: string | null;
   /** True once a `sessions.list` arrived (stays true across reconnects). */
   readonly sessionsLoaded: boolean;
@@ -118,6 +128,7 @@ const INITIAL_STATE: ConnectionState = {
   error: null,
   attempt: 0,
   retryAt: null,
+  closeCode: null,
   userId: null,
   sessionsLoaded: false,
   sessions: [],
@@ -222,7 +233,7 @@ export class TermdockConnection {
     this.#attemptToken++;
     this.#clearRetryTimer();
     this.#dropSocket(1000, 'client closed');
-    this.#store.update({ status: 'closed', retryAt: null, error: null });
+    this.#store.update({ status: 'closed', retryAt: null, error: null, closeCode: null });
   }
 
   /** A new pane on this connection. Throws ChannelLimitError beyond 32 open channels. */
@@ -321,14 +332,16 @@ export class TermdockConnection {
 
   #onClose(code: number): void {
     this.#dropSocket();
+    this.#store.update({ closeCode: code });
     const fatal = FATAL_CLOSE.get(code);
     if (fatal) this.#fail({ kind: fatal, code });
-    else this.#scheduleRetry();
+    else this.#scheduleRetry(code === CloseCode.RateLimited ? RATE_LIMITED_RETRY_MS : 0);
   }
 
-  #scheduleRetry(): void {
+  /** Backoff (1 s, 2 s, 4 s … 30 s, jittered), never shorter than `minDelayMs`. */
+  #scheduleRetry(minDelayMs = 0): void {
     const attempt = this.#store.getSnapshot().attempt + 1;
-    const delay = backoffDelay(attempt, this.#backoff, this.#random);
+    const delay = Math.max(minDelayMs, backoffDelay(attempt, this.#backoff, this.#random));
     this.#clearRetryTimer();
     this.#retryTimer = setTimeout(() => {
       this.#retryTimer = null;
@@ -441,6 +454,7 @@ export class TermdockConnection {
           error: null,
           attempt: 0,
           retryAt: null,
+          closeCode: null,
           userId: message.userId,
           shuttingDown: null,
         });

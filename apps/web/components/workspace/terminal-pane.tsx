@@ -10,6 +10,9 @@ import { cx } from '../ui/cx.ts';
 import { type LinkPrompt, PaneOverlays } from './pane-overlays.tsx';
 import { type PanePlace, useWorkspace } from './workspace-context.tsx';
 
+/** Viewport for a re-attach before the pane was measured (corrected by the next report). */
+const FALLBACK_VIEWPORT = { cols: 80, rows: 24 };
+
 /** Ctrl+Shift+K (⌘⇧K): the palette from inside a terminal, where Ctrl/⌘K belongs to the shell. */
 export function isPaletteShortcut(event: KeyboardEvent): boolean {
   return (
@@ -270,6 +273,11 @@ export function TerminalPane({
           linkPrompt={linkPrompt}
           notice={notice}
           onDismissNotice={() => setNotice(null)}
+          onRetryAttach={
+            channel
+              ? () => channel.attach(sessionId, layoutRef.current?.viewport ?? FALLBACK_VIEWPORT)
+              : null
+          }
           onClose={onClose}
         />
       )}

@@ -34,6 +34,18 @@ export type SessionStatus = z.infer<typeof SessionStatus>;
 export const Protection = z.enum(['tmux-control', 'tmux-normal', 'none']);
 export type Protection = z.infer<typeof Protection>;
 
+/**
+ * Why the daemon left a session unprotected: `noticeCode` in the details of the
+ * `protection_selected` / `protection_degraded` session events (next to the English `notice`).
+ */
+export const ProtectionNotice = z.enum([
+  'tmux_missing',
+  'tmux_too_old',
+  'no_utf8',
+  'control_unavailable',
+]);
+export type ProtectionNotice = z.infer<typeof ProtectionNotice>;
+
 export const ProfileProtection = z.enum(['auto', 'off']);
 export type ProfileProtection = z.infer<typeof ProfileProtection>;
 
