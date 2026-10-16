@@ -18,6 +18,8 @@ export interface TmuxControlDriverOptions {
 export interface RawPtyDriverOptions {
   term: string;
   env: Record<string, string>;
+  /** Typed into the new shell once it opens (followed by Enter); null for none. */
+  startupCommand: string | null;
 }
 
 /** Builds drivers for the runtime. tmux-control is wired by the boot code (main.ts). */

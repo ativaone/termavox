@@ -1,9 +1,11 @@
 export { SshExecChannel, SshPtyChannel } from './channel.ts';
 export {
+  DEFAULT_HOST_KEY_ALGORITHMS,
   describeHostKey,
   fingerprintOf,
   type HostKeyDecision,
   type HostKeyInfo,
+  hostKeyAlgorithms,
   normalizeFingerprint,
   parsePublicKeyLine,
 } from './host-key.ts';

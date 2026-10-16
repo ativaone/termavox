@@ -1,6 +1,14 @@
 import { ErrorCode, TermdockError } from '@termdock/shared';
 import { describe, expect, it } from 'vitest';
-import { FakeAttachment, harness, TEST_KEY, until } from './fakes.ts';
+import {
+  encode,
+  FakeAttachment,
+  fakeTmuxDrivers,
+  harness,
+  TEST_KEY,
+  TMUX_PROBE,
+  until,
+} from './fakes.ts';
 
 const SID = 'session-1';
 
@@ -191,6 +199,78 @@ describe('SessionRuntime state machine', () => {
     });
     expect(terminated.factory.last.pty.ended).toBe(true);
     expect(terminated.factory.last.closed).toBe(true);
+  });
+});
+
+describe('SessionRuntime integration with the drivers', () => {
+  const protectedRecord = {
+    protection: 'tmux-control' as const,
+    remoteIdentity: { sessionCreated: 1, panePid: 10 },
+    lastReadyAt: 1,
+  };
+
+  it('tmux-control remote reboot: no banner in the mirrored screen; event + ready status detail', async () => {
+    const h = harness({
+      record: protectedRecord,
+      behavior: () => ({ probe: TMUX_PROBE }),
+      drivers: fakeTmuxDrivers(async (ctx, opts) => {
+        expect(opts.previousIdentity).toEqual(protectedRecord.remoteIdentity);
+        opts.onIdentity({ sessionCreated: 2, panePid: 20 }, true);
+        await ctx.replaceState((fresh) => fresh.write(encode('td@host:~$ ')));
+      }),
+    });
+    const rt = h.runtime();
+    await rt.start();
+    expect(rt.state).toBe('ready');
+    await rt.emulator.flush();
+    expect(screenText(rt).trim()).toBe('td@host:~$');
+    expect(h.store.events.map((e) => e.type)).toContain('remote_rebooted');
+    expect(h.notifier.ofType('session.status').at(-1)).toEqual({
+      type: 'session.status',
+      sessionId: SID,
+      status: 'connected',
+      state: 'ready',
+      detail: 'remote_rebooted',
+    });
+    expect(h.store.records.get(SID)?.remoteIdentity).toEqual({ sessionCreated: 2, panePid: 20 });
+    await rt.shutdown();
+  });
+
+  it('start() rejecting after a confirmed shell exit has one outcome: ended (shell_exited)', async () => {
+    const h = harness({
+      record: protectedRecord,
+      behavior: () => ({ probe: TMUX_PROBE }),
+      drivers: fakeTmuxDrivers(async (ctx) => {
+        ctx.onShellExit({ code: null }); // has-session: the session is gone
+        throw new Error('tmux control client exited');
+      }),
+    });
+    const rt = h.runtime();
+    await rt.start();
+    await until(() => rt.state === 'ended');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(h.store.records.get(SID)).toMatchObject({ endReason: 'shell_exited', state: 'ended' });
+    expect(h.factory.created).toHaveLength(1); // no retry
+    expect(h.store.transitions(SID).map(([state]) => state)).not.toContain('reconnecting');
+    expect(h.store.events.filter((e) => e.type === 'state_changed').at(-1)?.detail).toMatchObject({
+      to: 'ended',
+      detail: 'shell_exited',
+    });
+  });
+
+  it('raw mode types the startup command once into every new shell', async () => {
+    const h = harness({
+      record: { policies: { ...harnessPolicies(), startupCommand: 'cd /srv' } },
+    });
+    const rt = h.runtime();
+    await rt.start();
+    expect(h.factory.last.pty.writtenText).toBe('cd /srv\r');
+    h.factory.last.lose(); // auto-reopen: a new shell gets it too
+    await until(() => rt.state === 'reconnecting');
+    await rt.retry();
+    await until(() => rt.state === 'ready');
+    expect(h.factory.created.map((t) => t.pty.writtenText)).toEqual(['cd /srv\r', 'cd /srv\r']);
+    await rt.shutdown();
   });
 });
 

@@ -1,13 +1,17 @@
 /** In-memory fakes for the runtime boundaries (stores, transport, attachments). */
 import type { ServerMessage, SessionState, SessionSummary } from '@termdock/protocol';
 import { bindToChannel } from '../../src/attachments/wire.ts';
-import type { DriverFactory } from '../../src/core/driver-factory.ts';
-import { createDriverFactory } from '../../src/core/driver-factory.ts';
+import {
+  createDriverFactory,
+  type DriverFactory,
+  type TmuxControlDriverOptions,
+} from '../../src/core/driver-factory.ts';
 import { SessionRuntime, type SessionRuntimeOptions } from '../../src/core/session-runtime.ts';
 import type { TransportFactory, TransportHooks } from '../../src/core/transport-factory.ts';
 import {
   type AttachmentHandle,
   type Dimensions,
+  type DriverContext,
   type ExecResult,
   type HostKeyStore,
   type PresentedHostKey,
@@ -158,6 +162,13 @@ export class MemoryHostKeyStore implements HostKeyStore {
     const [entry] = this.pending.splice(index, 1);
     this.trust(hostId, entry!.key);
     return true;
+  }
+
+  async rememberPublicKey(hostId: string, key: PresentedHostKey): Promise<void> {
+    const trusted = this.trustedKeys.get(hostId)?.get(key.type);
+    if (trusted?.fingerprint === key.fingerprint && !trusted.publicKeyB64) {
+      trusted.publicKeyB64 = key.publicKeyB64;
+    }
   }
 }
 
@@ -337,13 +348,14 @@ export function harness(
   options: {
     record?: Partial<SessionRecord>;
     behavior?: (attempt: number) => FakeTransportBehavior;
+    drivers?: DriverFactory;
   } = {},
 ): Harness {
   const store = new MemorySessionStore();
   const hostKeys = new MemoryHostKeyStore();
   const notifier = new RecordingNotifier();
   const factory = new FakeTransportFactory(options.behavior);
-  const drivers = createDriverFactory();
+  const drivers = options.drivers ?? createDriverFactory();
   const record = store.add(makeRecord(options.record));
   return {
     store,
@@ -365,6 +377,26 @@ export function harness(
         ...overrides,
       }),
   };
+}
+
+/** Probe output of a host where tmux-control is selected. */
+export const TMUX_PROBE =
+  'shell=/bin/bash\ntmux_path=/usr/bin/tmux\ntmux_version=tmux 3.4\nutf8_locale=C.UTF-8\n';
+
+/** A driver factory whose tmux-control driver runs `start` (raw mode stays the real driver). */
+export function fakeTmuxDrivers(
+  start: (ctx: DriverContext, opts: TmuxControlDriverOptions) => Promise<void>,
+): DriverFactory {
+  return createDriverFactory((opts) => ({
+    protection: 'tmux-control',
+    start: (ctx) => start(ctx, opts),
+    input() {},
+    resize() {},
+    pauseOutput() {},
+    resumeOutput() {},
+    detach: async () => {},
+    terminate: async () => {},
+  }));
 }
 
 /** Polls until `predicate` holds (real timers). */

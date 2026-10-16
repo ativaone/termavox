@@ -10,7 +10,12 @@ import type {
 } from '../../core/types.ts';
 import { TransportError } from '../../core/types.ts';
 import { SshExecChannel, SshPtyChannel } from './channel.ts';
-import { describeHostKey, type HostKeyDecision, type HostKeyInfo } from './host-key.ts';
+import {
+  describeHostKey,
+  type HostKeyDecision,
+  type HostKeyInfo,
+  hostKeyAlgorithms,
+} from './host-key.ts';
 import {
   decideKeyboardInteractive,
   type KeyboardInteractiveRequest,
@@ -32,6 +37,8 @@ export interface SshTransportOptions {
   credential: CredentialSecret | null;
   /** Host-key policy (plan §5.9). Never hold the handshake open for a human. */
   verifyHostKey: (key: HostKeyInfo) => HostKeyDecision | Promise<HostKeyDecision>;
+  /** Key types the host already has trusted keys for: negotiated first (plan §5.9). */
+  preferredHostKeyTypes?: readonly string[];
   /**
    * Relays a keyboard-interactive round to the user. Resolves with the answers, or null when the
    * prompt expired or was cancelled (→ AUTH_TIMEOUT).
@@ -138,6 +145,8 @@ export class SshTransport implements Transport {
             );
         },
       };
+      const serverHostKey = hostKeyAlgorithms(options.preferredHostKeyTypes ?? []);
+      if (serverHostKey) config.algorithms = { serverHostKey };
       const credential = options.credential;
       if (credential?.kind === 'password') config.password = credential.password;
       if (credential?.kind === 'private_key') {

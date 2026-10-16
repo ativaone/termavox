@@ -286,6 +286,11 @@ export interface HostKeyStore {
   recordPending(hostId: string, key: PresentedHostKey): Promise<void>;
   /** Trusts the pending key with this fingerprint; false when none matches (expired). */
   trustPending(hostId: string, fingerprint: string, decidedBy: string): Promise<boolean>;
+  /**
+   * A presented key matched a trusted row that has no `public_key_b64` (a pasted pre-trust
+   * fingerprint): store the key itself on that row.
+   */
+  rememberPublicKey(hostId: string, key: PresentedHostKey): Promise<void>;
 }
 
 /** Who owns what, for authorization checks on WS attach and internal API calls. */

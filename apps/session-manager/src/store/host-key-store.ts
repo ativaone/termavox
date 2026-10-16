@@ -131,6 +131,25 @@ export class SqliteHostKeyStore implements HostKeyStore {
   }
 
   /**
+   * Fills `public_key_b64` of the trusted row of a pasted pre-trust fingerprint (NULL until the
+   * key is first seen) once a presented key matched it (plan §9). No other row changes.
+   */
+  rememberPublicKey(hostId: string, key: PresentedHostKey): Promise<void> {
+    return this.#writer.run('host_key.public_key', (sqlite) => {
+      execute(
+        sqlite,
+        `UPDATE known_host_keys SET public_key_b64 = ?
+          WHERE host_id = ? AND key_type = ? AND fingerprint_sha256 = ? AND status = 'trusted'
+            AND public_key_b64 IS NULL`,
+        key.publicKeyB64,
+        hostId,
+        key.type,
+        key.fingerprint,
+      );
+    });
+  }
+
+  /**
    * Internal API `trust-key`: trusts the unexpired pending key with that fingerprint (and key
    * type, when given); without one and with `allowPreTrust`, records the pasted (normalized)
    * fingerprint as trusted (`public_key_b64` NULL).

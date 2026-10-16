@@ -3,8 +3,12 @@
 // approved images have no systemd (ADR-0003, untested).
 // Precondition: docker compose -f test/sshd/compose.yaml up -d --build
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { RemoteIdentity } from '../../src/core/types.ts';
-import { launchCommand, TmuxControlDriver } from '../../src/drivers/tmux-control/index.ts';
+import type { Emulator, RemoteIdentity } from '../../src/core/types.ts';
+import {
+  launchCommand,
+  remoteCommand,
+  TmuxControlDriver,
+} from '../../src/drivers/tmux-control/index.ts';
 import { requireSshd, sshdTransport } from '../ssh/sshd.ts';
 import { bufferText, compareEmulators, unknownModesFor } from './compare.ts';
 import { TestControlClient } from './control-client.ts';
@@ -12,6 +16,7 @@ import {
   BLOCKED_STARTUP,
   DIMS,
   driverOptions,
+  execBytes,
   killServerQuietly,
   launchOptions,
   newSocket,
@@ -36,6 +41,22 @@ const ALT_APP =
   "read _; printf '\\033[r\\033[?1006l\\033[?1000l\\033[?1l\\033>\\033[?1049l'";
 
 beforeAll(() => requireSshd(IMAGES));
+
+/** A stub runtime whose replaceState waits for `open()`: start() stays mid-rebuild meanwhile. */
+class GatedRuntime extends StubRuntime {
+  readonly entered = Promise.withResolvers<void>();
+  readonly #gate = Promise.withResolvers<void>();
+
+  open(): void {
+    this.#gate.resolve();
+  }
+
+  override async replaceState(build: (fresh: Emulator) => void | Promise<void>): Promise<void> {
+    this.entered.resolve();
+    await this.#gate.promise;
+    return super.replaceState(build);
+  }
+}
 
 describe.each(IMAGES)('S5 lifecycle (%s)', (image) => {
   let env: TmuxEnv;
@@ -237,5 +258,116 @@ describe.each(IMAGES)('S5 lifecycle (%s)', (image) => {
     const mode = await tmuxExec(env, socket, "display-message -p -t main '#{pane_in_mode}'");
     expect(mode.stdout.trim()).toBe('0');
     await driver.terminate();
+  });
+
+  it('8. deleted socket: SIGUSR1 makes tmux recreate it; the reattach is not a reboot', async () => {
+    const socket = started();
+    const first = await attach(socket);
+    const identity = first.opts.identities[0]!.identity as RemoteIdentity;
+    await first.driver.detach();
+    await execBytes(env.transport, remoteCommand(`rm -f "/tmp/tmux-$(id -u)/${socket}"`));
+    expect((await tmuxExec(env, socket, 'has-session -t main')).code).toBe(1); // unreachable
+    const second = await attach(socket, { previousIdentity: identity });
+    expect(second.opts.identities).toEqual([{ identity, rebooted: false }]);
+    expect(second.driver.stats).toMatchObject({ created: false, socketRecoveries: 1 });
+    await second.driver.terminate();
+    // One server existed throughout: terminate left no tmux process for the socket.
+    const left = await execBytes(
+      env.transport,
+      remoteCommand(
+        `s=${socket}; pgrep -u "$(id -u)" -f "^[^ ]*[t]mux[^ ]* .*-L $s " || echo none`,
+      ),
+    );
+    expect(Buffer.from(left.stdout).toString().trim()).toBe('none');
+  });
+
+  it('9. control channel closed without %exit: has-session decides (alive → onDesync, gone → onShellExit)', async () => {
+    // SIGKILL leaves the control client no chance to print %exit; the server goes after it.
+    const kill = (socket: string, server: boolean) =>
+      execBytes(
+        env.transport,
+        remoteCommand(
+          `t=${env.probe.tmuxPath}; c=$("$t" -L ${socket} list-clients -F '#{client_pid}'); ` +
+            (server
+              ? `p=$("$t" -L ${socket} display-message -p -t main '#{pid}'); kill -9 $c; kill -9 $p`
+              : 'kill -9 $c'),
+        ),
+      );
+    const alive = started();
+    const a = await attach(alive);
+    await kill(alive, false);
+    await waitUntil(() => a.runtime.desyncs.length > 0, 10_000, 'onDesync');
+    expect(a.runtime.desyncs).toEqual(['control channel closed']);
+    expect(a.runtime.shellExits).toEqual([]);
+    expect((await tmuxExec(env, alive, 'has-session -t main')).code).toBe(0);
+
+    const gone = started();
+    const b = await attach(gone);
+    await kill(gone, true);
+    await waitUntil(() => b.runtime.shellExits.length > 0, 10_000, 'onShellExit');
+    expect(b.runtime.shellExits).toEqual([{ code: null }]);
+    expect(b.runtime.desyncs).toEqual([]);
+  });
+
+  it('10. the session dies during start(): onShellExit (has-session: gone), then start() rejects', async () => {
+    const socket = started();
+    const runtime = new GatedRuntime(env.transport);
+    const driver = new TmuxControlDriver(driverOptions(env, socket));
+    runtime.driver = driver;
+    const outcome = driver.start(runtime, DIMS).then(
+      () => 'resolved',
+      () => 'rejected',
+    );
+    await runtime.entered.promise; // the launch ran; start() is rebuilding
+    await tmuxExec(env, socket, 'kill-server');
+    await waitUntil(() => runtime.shellExits.length > 0, 10_000, 'onShellExit');
+    runtime.open();
+    expect(await outcome).toBe('rejected');
+    expect(runtime.shellExits).toEqual([{ code: null }]);
+    expect(runtime.desyncs).toEqual([]);
+  });
+
+  it('11. a control client whose output can never be written does not outlive the session (exit, terminate)', async () => {
+    /** tmux processes of the socket (server and clients). */
+    const processes = async (socket: string): Promise<string> => {
+      const command = `s=${socket}; pgrep -u "$(id -u)" -f "^[^ ]*[t]mux[^ ]* .*-L $s " || true`;
+      return Buffer.from((await execBytes(env.transport, remoteCommand(command))).stdout)
+        .toString()
+        .trim();
+    };
+    /**
+     * A second control client writes into a FIFO; flood output fills it, then its reader goes
+     * away with output still queued (a connection that died mid-output). tmux keeps such a
+     * client, and its server, forever (3.2a, 3.4 and 3.8).
+     */
+    const stuckClient = async (socket: string, driver: TmuxControlDriver, runtime: StubRuntime) => {
+      const f = `/tmp/${socket}.stuck`;
+      const alive = `while [ -e ${f} ]; do sleep 0.2; done`;
+      await execBytes(
+        env.transport,
+        remoteCommand(
+          `rm -f ${f}; mkfifo ${f}; (exec 3<>${f}; ${alive}) </dev/null >/dev/null 2>&1 & ` +
+            `((${alive}) | ${env.probe.tmuxPath} -L ${socket} -C attach -t main >${f} 2>/dev/null) ` +
+            '</dev/null >/dev/null 2>&1 & sleep 0.5',
+        ),
+      );
+      driver.input(enc('yes | head -c 400000; echo flood-$((6*7))\r'));
+      await waitUntil(() => /^flood-42$/m.test(runtime.text()), 15_000, 'the flood');
+      await execBytes(env.transport, remoteCommand(`rm -f ${f}; sleep 0.5`)); // reader gone
+    };
+
+    const exiting = started();
+    const a = await attach(exiting);
+    await stuckClient(exiting, a.driver, a.runtime);
+    a.driver.input(enc('exit\r'));
+    await waitUntil(() => a.runtime.shellExits.length > 0, 15_000, 'onShellExit');
+    expect(a.runtime.desyncs).toEqual([]);
+    expect(await processes(exiting)).toBe(''); // reported only once nothing is left
+
+    const terminated = started();
+    const b = await attach(terminated);
+    await stuckClient(terminated, b.driver, b.runtime);
+    await b.driver.terminate();
+    expect(await processes(terminated)).toBe('');
   });
 });

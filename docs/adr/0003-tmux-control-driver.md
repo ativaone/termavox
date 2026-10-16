@@ -246,3 +246,44 @@ minus the documented list above. The boundary rule needs no fallback. Flow contr
 - **History paging** by `history_size` ranges for scrollback settings well above 5k lines (3.8's 64 MiB reply cap).
 - **Bracketed paste before 3.7:** the heuristic (on in the normal screen) is an owner decision.
 - **ADR-0002's "Final launch command"** predates two launch additions: `set-option -gqw scroll-on-clear off`, and `-P -F td-created` on `new-session`.
+
+## Decisions (integration with the runtime, Phase 3 close)
+
+Taken when the driver was wired into the daemon. Where they differ from the sections above (the `%exit` and channel-EOF bullets, the reboot banner in Start step 4, the socket-deletion and follow-up items), these decisions apply.
+
+- **Reboot notice is out of band.** When `onIdentity(…, rebooted=true)` reports a remote reboot, the runtime writes no banner, because the emulator mirrors tmux's screen. It appends a `remote_rebooted` session event and sends the next `ready` status with `detail: 'remote_rebooted'`. The detail is kept across failed attempts until a start succeeds. The UI shows the notice. Raw-mode banners (`connection lost … new shell started`, `Termdock restarted`) stay in the terminal.
+- **One outcome per attempt.** `start()` can reject and `onShellExit` can fire for the same attempt. Once the launch has run (its last block succeeded), a failed `start()` first confirms with `has-session`, the same check `%exit` gets, and rejects only after that check finished. So `onShellExit` is already known when the runtime sees the rejection. The runtime records a confirmed shell exit per attempt, and a confirmed exit wins over a retry: the session ends with `shell_exited`. Example: a startup command that exits at once no longer loops through new sessions that look like reboots.
+- **Control channel closed without `%exit` while running** (the control client was killed, or tmux crashed): the same confirmation as after `%exit` runs on a fresh exec. Session gone → `onShellExit({code: null})`. Alive → `onDesync('control channel closed')`. If the exec fails, the transport is down and the runtime's transport-loss path handles it.
+- **Leftover processes when a session ends.** A tmux server whose session ended still waits for all of its clients to go. A control client whose output can no longer be written (its connection died with output queued, or it was detached while its connection was dead) never goes. This was reproduced on 3.2a, 3.4 and 3.8; on 3.8 such a client is not even shown by `list-clients`. The server then outlives its session forever, and `kill-server` does not help either. Found by the daemon test: a network drop during output leaked a server plus a client on 3.2a.
+
+  The confirmation after `%exit` or a lost channel is therefore `confirmEndedCommand`, not a bare `has-session`:
+  - session alive → 0;
+  - otherwise the tmux processes of our socket get 1 s to exit;
+  - a process that does not answer had its socket (or the socket directory) deleted: the directory is recreated if needed, the process gets `SIGUSR1`, and if the session is then alive → 0;
+  - anything left is killed with `SIGKILL`, the stale socket file is removed, and the result is 1.
+
+  So `onShellExit` is reported only once nothing of the session is left. `terminate()` always ends with `killServerCommand`, which runs `kill-server` and then does the same 1 s wait and `SIGKILL`. Our socket is private to one session, so these processes are always ours.
+- **Deleted socket recovery** (plan §6.10). Every reattach (a previous identity exists) first runs one remote script, `recoverSocketCommand`:
+  - our server answers → nothing to do;
+  - otherwise, if `pgrep -u "$(id -u)" -f "^[^ ]*[t]mux[^ ]* .*-L <socket> "` finds a tmux process for our socket, it gets `SIGUSR1` (tmux recreates its socket) and the script waits up to 2 s for the server to answer;
+  - only when no such process exists does the launch create a new session (a reboot, or a session that ended).
+
+  Details:
+  - The first word of the matched command line must name the tmux binary (Alpine shows `{tmux: server} /usr/bin/tmux …`), so a shell whose command line only mentions the socket never matches. The socket name appears only as `$s` in our scripts.
+  - The trailing space keeps one socket name from matching another that starts with it.
+  - The socket directory is recreated first if it was purged, because tmux does not recreate it.
+  - Verified on 3.2a, 3.4 and 3.8 (`driver-lifecycle` test 8). Cost: one exec per reattach.
+- **Bracketed paste before tmux 3.7.** The heuristic stays: on in the normal screen (shells at a prompt enable it), off in the alternate screen. tmux does not report the mode before 3.7, and this matches what a shell or a full-screen program almost always set.
+- **Startup command in raw mode.** `RawPtyDriver` types `startupCommand` + Enter once into each shell it opens. Raw mode has no reattach, so every start is a new shell.
+- **Host-key negotiation prefers trusted types.** When a host has trusted keys, ssh2's `serverHostKey` list puts the algorithms of those key types first (RSA: `rsa-sha2-512`, `rsa-sha2-256`, `ssh-rsa`), then the rest of ssh2's defaults. A server with several host keys then presents the trusted one instead of a type that would read as a mismatch. When a presented key matches a pasted pre-trust fingerprint (`public_key_b64` NULL), the key is stored on that row.
+
+**Evidence:**
+- **T0:**
+  - `test/runtime/state.test.ts`: reboot notice, one outcome per attempt, raw startup command;
+  - `test/ssh/transport-units.test.ts`: algorithm order, kept equal to ssh2's defaults;
+  - `test/store/host-key-store.test.ts`: `rememberPublicKey`.
+- **T1:**
+  - `driver-lifecycle` tests 8 (deleted socket), 9 (EOF without `%exit`), 10 (session dies during start) and 11 (a stuck control client does not outlive the session, on exit and on terminate);
+  - `test/daemon/protected.int.test.ts`: Phase 3 A, B, D and E through the real daemon. A covers both a graceful and an abrupt stop. The abrupt stop is a TCP proxy that destroys the daemon's sockets while sshd keeps its side, so the old control client stays attached as a stale client.
+
+**Note for criterion A.** `top` clears the main screen and does not use the alternate screen, and tmux 3.2 pushes a cleared screen into history (quirk 4). With `seq 1 5000` and a 5,000-line history, that makes tmux trim 500 lines. The daemon test therefore uses an alternate-screen program from the image: ncurses `watch` on Ubuntu (3.2a, 3.4) and busybox `vi` on Alpine (3.8).

@@ -334,7 +334,9 @@ export async function drainClient(
 /** Local TCP proxy to an sshd container whose connections can be dropped abruptly. */
 export class TcpProxy {
   readonly #server: Server;
-  readonly #sockets = new Set<Socket>();
+  readonly #pairs = new Set<{ client: Socket; upstream: Socket }>();
+  /** sshd sides kept open by abandonAll() (closed by close()). */
+  readonly #abandoned = new Set<Socket>();
   port = 0;
 
   private constructor(server: Server) {
@@ -345,9 +347,10 @@ export class TcpProxy {
     const proxy = new TcpProxy(
       createServer((client) => {
         const upstream = netConnect({ host: '127.0.0.1', port: SSHD_PORTS[image] });
+        const pair = { client, upstream };
+        proxy.#pairs.add(pair);
         for (const s of [client, upstream]) {
-          proxy.#sockets.add(s);
-          s.on('close', () => proxy.#sockets.delete(s));
+          s.on('close', () => proxy.#pairs.delete(pair));
           s.on('error', () => {});
         }
         client.pipe(upstream);
@@ -359,13 +362,32 @@ export class TcpProxy {
     return proxy;
   }
 
-  /** Simulated daemon death: both sides of every connection vanish at once. */
+  /** Simulated daemon death or network drop: both sides of every connection vanish at once. */
   dropAll(): void {
-    for (const s of this.#sockets) s.destroy();
+    for (const { client, upstream } of this.#pairs) {
+      client.destroy();
+      upstream.destroy();
+    }
+  }
+
+  /**
+   * Daemon death the remote does not notice (a vanished network path): our side of every
+   * connection is destroyed while sshd's side stays open, so its sessions (e.g. a tmux control
+   * client) linger as stale clients.
+   */
+  abandonAll(): void {
+    for (const pair of this.#pairs) {
+      pair.client.unpipe(pair.upstream);
+      pair.upstream.unpipe(pair.client);
+      pair.client.destroy();
+      this.#abandoned.add(pair.upstream);
+    }
+    this.#pairs.clear();
   }
 
   async close(): Promise<void> {
     this.dropAll();
+    for (const s of this.#abandoned) s.destroy();
     await new Promise<void>((resolve) => this.#server.close(() => resolve()));
   }
 }

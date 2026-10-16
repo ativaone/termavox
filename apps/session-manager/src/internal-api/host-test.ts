@@ -82,6 +82,7 @@ export async function testHost(
       // Without a profile there is nothing to authenticate with: stop after the host key.
       return profile ? decision : 'unknown';
     },
+    preferredHostKeyTypes: [...trusted.keys()],
     readyTimeoutMs: deps.readyTimeoutMs ?? HOST_TEST_READY_TIMEOUT_MS,
   });
   let error: string | null = null;
@@ -105,6 +106,9 @@ export async function testHost(
     };
   }
   if (decision === 'unknown') await deps.hostKeys.recordPending(host.id, key);
+  if (decision === 'trusted' && !trusted.get(key.type)?.publicKeyB64) {
+    await deps.hostKeys.rememberPublicKey(host.id, key);
+  }
   if (decision === 'mismatch') {
     deps.hostKeys.recordMismatch(host.id, key, input.actingUserId, { source: 'host_test' });
   }

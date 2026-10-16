@@ -14,9 +14,9 @@ import type {
 import type { ProbeResult } from '../../probe/index.ts';
 import { OutputGate, type StreamEvent } from './boundary.ts';
 import {
+  confirmEndedCommand,
   detachClient,
   displayFormat,
-  hasSessionCommand,
   killServer,
   killServerCommand,
   type LaunchOptions,
@@ -25,6 +25,7 @@ import {
   launchCommands,
   listClients,
   parseListedClient,
+  recoverSocketCommand,
   refreshClientContinue,
   refreshClientPauseAfter,
   refreshClientSize,
@@ -73,6 +74,8 @@ export interface RebuildTiming {
 export interface TmuxControlDriverStats {
   /** Whether the launch created the session (null before the launch completed). */
   created: boolean | null;
+  /** Reattaches whose server answered again after SIGUSR1 recreated its deleted socket. */
+  socketRecoveries: number;
   staleClientsDetached: number;
   rebuilds: number;
   /** `%pause` notifications for our pane. */
@@ -96,6 +99,8 @@ const INPUT_COALESCE_MS = 3;
 /** Output held during a rebuild beyond this pauses reading the channel until the rebuild ends. */
 const HOLD_LIMIT_BYTES = 8 * 1024 * 1024;
 const CLOSE_TIMEOUT_MS = 3_000;
+/** Remote cleanup scripts wait up to ~2 s for tmux processes; the exec gets some slack. */
+const REAP_TIMEOUT_MS = 5_000;
 const SNAPSHOT_ATTEMPTS = 3;
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();
@@ -191,7 +196,11 @@ export class TmuxControlDriver implements Driver {
   #launchBlocks = 0;
   #launchSeen = 0;
   #launch: Deferred<boolean> | null = null;
+  /** The launch's last block ended successfully: our session existed during this start. */
+  #launched = false;
   #exitWaiter: Deferred<void> | null = null;
+  /** has-session confirmation after %exit or an unexpected channel close (plan §6.10). */
+  #exitConfirmation: Promise<void> | null = null;
   #channelDone = false;
   #paneId: number | null = null;
   #windowId: number | null = null;
@@ -215,6 +224,7 @@ export class TmuxControlDriver implements Driver {
     'droppedBytes' | 'heldBytes' | 'boundaryViolations'
   > = {
     created: null,
+    socketRecoveries: 0,
     staleClientsDetached: 0,
     rebuilds: 0,
     pauses: 0,
@@ -264,6 +274,9 @@ export class TmuxControlDriver implements Driver {
     this.#launchBlocks = launchCommands(launch).length;
     this.#launch = deferred<boolean>();
     try {
+      // A reattach first makes sure a server whose socket was deleted is reachable again, so the
+      // launch does not start a second server and report a reboot (plan §6.10).
+      if (this.#opts.previousIdentity !== null) await this.#recoverSocket(ctx.transport);
       const channel = await ctx.transport.exec(launchCommand(launch));
       this.#channel = channel;
       if (this.#pausedBy.size > 0) channel.pause();
@@ -291,6 +304,11 @@ export class TmuxControlDriver implements Driver {
     } catch (err) {
       if (this.#phase === 'starting') this.#phase = 'closed';
       this.#endChannel();
+      // A session that died during start is a shell exit, not a failed attempt: once the launch
+      // has run, confirm with has-session before rejecting, so the runtime sees onShellExit first
+      // (one outcome per attempt, ADR-0003).
+      this.#exitConfirmation ??= this.#launched ? this.#confirmExit('start failed', true) : null;
+      if (this.#exitConfirmation) await withTimeout(this.#exitConfirmation, REAP_TIMEOUT_MS);
       throw err;
     }
     const resize = this.#deferredResize;
@@ -359,27 +377,35 @@ export class TmuxControlDriver implements Driver {
     this.#clearInput();
     const phase = this.#phase;
     this.#phase = 'terminating';
-    let killed = false;
     if ((phase === 'running' || phase === 'starting') && this.#correlator && !this.#channelDone) {
       this.#exitWaiter = deferred<void>();
       this.#pauseReading('rebuild', false);
       this.resumeOutput();
-      const reply = this.#correlator.send(killServer()).then(
-        (r) => r.ok,
-        () => false,
-      );
-      killed = (await withTimeout(reply, CLOSE_TIMEOUT_MS)) ?? false;
+      const reply = this.#correlator.send(killServer()).catch(() => null);
+      await withTimeout(reply, CLOSE_TIMEOUT_MS);
       await withTimeout(this.#exitWaiter.promise, CLOSE_TIMEOUT_MS);
     }
-    if (!killed && this.#ctx) {
-      // No live control client: kill the server with a fresh exec.
-      await exitCodeOf(this.#ctx.transport, killServerCommand(this.#target())).catch(() => null);
+    if (this.#ctx) {
+      // A fresh exec kills the server when no control client was left to do it, and in any case
+      // the processes of our socket that would keep it alive (see killServerCommand).
+      const done = exitCodeOf(this.#ctx.transport, killServerCommand(this.#target()));
+      await withTimeout(done, REAP_TIMEOUT_MS).catch(() => null);
     }
     this.#endChannel();
     this.#phase = 'closed';
   }
 
   // ── attach steps ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Socket recovery (plan §6.10): when our server does not answer but a tmux process for our
+   * socket still runs, its socket file was deleted; SIGUSR1 makes tmux recreate it. Without such
+   * a process the launch creates a new session (remote reboot, or the session ended).
+   */
+  async #recoverSocket(transport: Transport): Promise<void> {
+    const code = await exitCodeOf(transport, recoverSocketCommand(this.#target()));
+    if (code === 2) this.#stats.socketRecoveries++;
+  }
 
   async #detachStaleClients(): Promise<void> {
     const [own, clients] = await Promise.all([
@@ -605,6 +631,7 @@ export class TmuxControlDriver implements Driver {
     if (event.type === 'blockError') {
       this.#launch?.reject(new Error(`tmux launch failed: ${text(event.lines)}`));
     } else if (this.#launchSeen === this.#launchBlocks) {
+      this.#launched = true;
       this.#launch?.resolve(event.lines.some((l) => decoder.decode(l) === SESSION_CREATED_MARKER));
     }
   }
@@ -743,14 +770,21 @@ export class TmuxControlDriver implements Driver {
     if (phase !== 'running' && phase !== 'starting') return;
     this.#phase = 'closed';
     this.#endChannel();
-    void this.#confirmExit(err.message, phase === 'starting');
+    // During start, only once the launch ran (before it, start() simply rejects and is retried).
+    if (phase === 'running' || this.#launched) {
+      this.#exitConfirmation ??= this.#confirmExit(err.message, phase === 'starting');
+    }
   }
 
+  /**
+   * has-session in a fresh exec (confirmEndedCommand): gone → onShellExit, once no tmux process
+   * of our socket is left; alive (also after recreating a deleted socket) → onDesync.
+   */
   async #confirmExit(reason: string, duringStart: boolean): Promise<void> {
     const ctx = this.#ctx!;
     let code: number | null;
     try {
-      code = await exitCodeOf(ctx.transport, hasSessionCommand(this.#target()));
+      code = await exitCodeOf(ctx.transport, confirmEndedCommand(this.#target()));
     } catch {
       return; // the transport is gone: the runtime's transport-loss path takes over
     }
@@ -759,16 +793,25 @@ export class TmuxControlDriver implements Driver {
     else if (!duringStart) ctx.onDesync(reason);
   }
 
-  /** Channel EOF. Without %exit, the runtime's transport-loss path handles it (plan §6.10). */
+  /**
+   * Channel EOF. Without %exit while running (the control client was killed, tmux crashed), ask
+   * has-session on a fresh exec: gone → onShellExit, alive → onDesync('control channel closed').
+   * When the exec fails, the transport is down and the runtime's transport-loss path handles it.
+   * During start(), start() rejects and runs the same confirmation itself.
+   */
   #onEof(): void {
     this.#channelDone = true;
     const err = new Error(
       `tmux control channel closed${this.#stderr ? `: ${this.#stderr.trim().slice(0, 300)}` : ''}`,
     );
+    const phase = this.#phase;
+    if (phase === 'running' || phase === 'starting') this.#phase = 'closed';
+    if (phase === 'running') {
+      this.#exitConfirmation ??= this.#confirmExit('control channel closed', false);
+    }
     this.#correlator?.failAll(err);
     this.#launch?.reject(err);
     this.#exitWaiter?.resolve();
-    if (this.#phase === 'running' || this.#phase === 'starting') this.#phase = 'closed';
     this.#clearInput();
   }
 

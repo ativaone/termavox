@@ -27,6 +27,9 @@ export class RawPtyDriver implements Driver {
       return;
     }
     this.#channel = channel;
+    // Every start opens a new shell (raw mode has no reattach): type the startup command once.
+    const { startupCommand } = this.#options;
+    if (startupCommand) channel.write(new TextEncoder().encode(`${startupCommand}\r`));
     void (async () => {
       for await (const chunk of channel.stdout) ctx.output(chunk);
     })().catch(() => {

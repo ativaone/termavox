@@ -132,6 +132,31 @@ describe('SqliteHostKeyStore', () => {
     expect(await store.trustPending(hostId, a.fingerprint, userId)).toBe(true);
   });
 
+  it('a matched pasted pre-trust fingerprint learns its public key; nothing else changes', async () => {
+    const { db, store, userId, hostId } = setup();
+    const a = key('A');
+    const outcome = await store.trust(hostId, {
+      fingerprint: a.fingerprint,
+      keyType: a.type,
+      decidedBy: userId,
+      allowPreTrust: true,
+    });
+    expect(outcome).toBe('trusted');
+    expect((await store.list(hostId))[0]?.publicKeyB64).toBeNull();
+    await store.rememberPublicKey(hostId, { ...key('B'), type: a.type }); // another key: ignored
+    await store.rememberPublicKey(hostId, a);
+    await store.rememberPublicKey(hostId, { ...a, publicKeyB64: 'AAAAother' }); // already known
+    expect(await store.list(hostId)).toMatchObject([
+      {
+        keyType: a.type,
+        fingerprint: a.fingerprint,
+        publicKeyB64: a.publicKeyB64,
+        status: 'trusted',
+      },
+    ]);
+    expect(auditTypes(db)).toEqual(['host_key.trust']);
+  });
+
   it('audits mismatches seen by session handshakes and passes every decision through', async () => {
     const { db, writer, store, userId, hostId } = setup();
     const presented = key('M');

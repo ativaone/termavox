@@ -1,8 +1,11 @@
+import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 import { ChunkQueue } from '../../src/transport/chunk-queue.ts';
 import {
+  DEFAULT_HOST_KEY_ALGORITHMS,
   decideKeyboardInteractive,
   describeHostKey,
+  hostKeyAlgorithms,
   normalizeFingerprint,
   parsePublicKeyLine,
 } from '../../src/transport/ssh/index.ts';
@@ -20,6 +23,27 @@ describe('host keys', () => {
     expect(() => describeHostKey(new Uint8Array([0, 0]))).toThrow(RangeError);
     expect(() => describeHostKey(new Uint8Array([0, 0, 0, 9, 0x61]))).toThrow(RangeError);
     expect(() => parsePublicKeyLine('ssh-ed25519')).toThrow(RangeError);
+  });
+
+  it('negotiates the trusted key types first, keeping the other defaults after them', () => {
+    expect(hostKeyAlgorithms([])).toBeUndefined(); // nothing trusted: ssh2's own order
+    expect(hostKeyAlgorithms(['ssh-rsa'])).toEqual([
+      'rsa-sha2-512',
+      'rsa-sha2-256',
+      'ssh-rsa',
+      'ssh-ed25519',
+      'ecdsa-sha2-nistp256',
+      'ecdsa-sha2-nistp384',
+      'ecdsa-sha2-nistp521',
+    ]);
+    expect(hostKeyAlgorithms(['ecdsa-sha2-nistp384', 'sk-ssh-ed25519@openssh.com'])?.[0]).toBe(
+      'ecdsa-sha2-nistp384',
+    );
+    // Same set as ssh2's defaults: an exact list may only name algorithms ssh2 supports.
+    const ssh2 = createRequire(import.meta.url)('ssh2/lib/protocol/constants.js') as {
+      DEFAULT_SERVER_HOST_KEY: string[];
+    };
+    expect([...DEFAULT_HOST_KEY_ALGORITHMS]).toEqual(ssh2.DEFAULT_SERVER_HOST_KEY);
   });
 
   it('normalizes pasted fingerprints', () => {

@@ -54,14 +54,20 @@ const owners = new Map([
   ['s-bob', 'bob'],
 ]);
 const invalidAuthSessions = new Set<string>(['asid-revoked']);
+/** Keyboard-interactive prompts waiting per user, and the answers routed to the gateway. */
+const waiting = new Map<string, ServerMessage[]>();
+const authResponses: Array<[string, string, string[], string]> = [];
 
 const gateway: SessionGateway = {
   host: (id) => hosts.get(id),
   attachable: async (id) => hosts.get(id) ?? null,
   listForUser: async () => [],
-  pendingPrompts: () => [],
+  pendingPrompts: (userId) => waiting.get(userId) ?? [],
   hostKeyDecision: async () => false,
-  authResponse: () => false,
+  authResponse: (sessionId, promptId, answers, userId) => {
+    authResponses.push([sessionId, promptId, answers, userId]);
+    return true;
+  },
 };
 
 let server: WsServer;
@@ -174,6 +180,41 @@ describe('WebSocket server', () => {
     }
     expect((await client.closed).code).toBe(CloseCode.BadRequest);
     expect(client.messages.filter((m) => m.type === 'session.attached')).toHaveLength(32);
+  });
+
+  it('keyboard-interactive: auth.prompt reaches every connection of the user (also later ones)', async () => {
+    const prompt: ServerMessage = {
+      type: 'auth.prompt',
+      sessionId: 's-alice',
+      promptId: 'p-1',
+      name: '',
+      instructions: 'MFA',
+      prompts: [{ text: 'OTP: ', echo: false }],
+    };
+    const [tab1, tab2, bob] = await Promise.all([connect(), connect(), connect('bob')]);
+    server.sendToUser('alice', prompt);
+    expect(await tab1.next((m) => m.type === 'auth.prompt')).toEqual(prompt);
+    expect(await tab2.next((m) => m.type === 'auth.prompt')).toEqual(prompt);
+    waiting.set('alice', [prompt]); // a connection opened while the prompt waits gets it on hello
+    const tab3 = await connect();
+    expect(tab3.messages.map((m) => m.type)).toEqual(['hello.ok', 'sessions.list', 'auth.prompt']);
+    waiting.clear();
+
+    // Answers go to the gateway with the promptId (it discards stale ids); not for foreign sessions.
+    bob.send({ type: 'auth.response', sessionId: 's-alice', promptId: 'p-1', answers: ['x'] });
+    tab2.send({
+      type: 'auth.response',
+      sessionId: 's-alice',
+      promptId: 'p-1',
+      answers: ['123456'],
+    });
+    for (const c of [bob, tab2]) {
+      c.send({ type: 'ping', t: 7 });
+      await c.next((m) => m.type === 'pong');
+    }
+    expect(authResponses).toEqual([['s-alice', 'p-1', ['123456'], 'alice']]);
+    expect(bob.messages.some((m) => m.type === 'auth.prompt')).toBe(false);
+    await Promise.all([tab1, tab2, tab3, bob].map((c) => c.close()));
   });
 
   it('revoke() closes the matching connections with 4401', async () => {

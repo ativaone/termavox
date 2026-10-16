@@ -173,11 +173,79 @@ export function hasSessionCommand(opts: { tmuxPath: string; socket: string }): s
   return remoteCommand(`exec ${opts.tmuxPath} -L ${opts.socket} has-session -t ${TMUX_SESSION}`);
 }
 
-/** Remote command that kills our tmux server (terminate without a live control client). */
+/**
+ * Shell fragments of the remote scripts (`t` = tmux path, `s` = socket name).
+ *
+ * SOCKET_PROCESSES lists the tmux processes of our socket (server and clients): the first word
+ * of the command line names the tmux binary (Alpine shows `{tmux: server} /usr/bin/tmux …`), so a
+ * shell whose command line merely mentions the socket never matches, and the socket name only
+ * appears as `$s` in our own scripts. The trailing space keeps `td-x-ab` from matching
+ * `td-x-abc` (our argv always continues with `-f /dev/null`).
+ *
+ * A tmux server whose session ended still waits for every client to go, and a
+ * control client whose output can no longer be written (its connection died with output queued)
+ * never goes, on 3.2a, 3.4 and 3.8 alike: the server would outlive its session forever. So the
+ * processes of our socket (server and clients; the socket is private to one session) get 1 s to
+ * exit, then SIGKILL, and a socket file left by a killed server is removed.
+ */
+const SOCKET_PROCESSES = 'pgrep -u "$(id -u)" -f "^[^ ]*[t]mux[^ ]* .*-L $s "';
+const WAIT_FOR_EXIT = `i=0; while p=$(${SOCKET_PROCESSES}); do [ $i -ge 10 ] && break; sleep 0.1; i=$((i+1)); done`;
+const KILL_LEFTOVERS = `kill -9 $p 2>/dev/null; rm -f "\${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)/$s"`;
+/** tmux recreates its socket file on SIGUSR1 but not the directory: a purged one comes first. */
+const ENSURE_SOCKET_DIR = `d="\${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)"; [ -d "$d" ] || mkdir -m 700 "$d"`;
+
+/**
+ * Remote command run before a reattach (plan §6.10, deleted socket). Exit status:
+ *   0  our server answers;
+ *   1  it does not and no tmux process for our socket runs (remote reboot, or the session ended);
+ *   2  a process for our socket still ran (its socket file was deleted): SIGUSR1 made tmux
+ *      recreate the socket and the server answers again;
+ *   3  signalled, but the server still does not answer.
+ */
+export function recoverSocketCommand(opts: { tmuxPath: string; socket: string }): string {
+  assertAbsolutePath(opts.tmuxPath);
+  assertSocket(opts.socket);
+  const answers = `"$t" -L "$s" has-session -t ${TMUX_SESSION} 2>/dev/null`;
+  return remoteCommand(
+    `t=${opts.tmuxPath}; s=${opts.socket}; ${answers} && exit 0; ` +
+      `p=$(${SOCKET_PROCESSES}) || exit 1; ` +
+      `${ENSURE_SOCKET_DIR}; kill -USR1 $p; i=0; ` +
+      `while [ $i -lt 20 ]; do ${answers} && exit 2; sleep 0.1; i=$((i+1)); done; exit 3`,
+  );
+}
+
+/**
+ * Remote command confirming that our session ended (`%exit`, or the control channel closed;
+ * plan §6.10). Exit status 0: the session lives. 1: it is gone and no tmux process of our socket
+ * is left. A server process that does not answer had its socket (or the socket directory)
+ * deleted: SIGUSR1 recreates it and the session may still be there (0). Leftovers are killed
+ * (see SOCKET_PROCESSES).
+ */
+export function confirmEndedCommand(opts: { tmuxPath: string; socket: string }): string {
+  assertAbsolutePath(opts.tmuxPath);
+  assertSocket(opts.socket);
+  const answers = `"$t" -L "$s" has-session -t ${TMUX_SESSION} 2>/dev/null`;
+  return remoteCommand(
+    `t=${opts.tmuxPath}; s=${opts.socket}; ${answers} && exit 0; ${WAIT_FOR_EXIT}; ` +
+      `[ -n "$p" ] || exit 1; ` +
+      `if ! "$t" -L "$s" list-sessions >/dev/null 2>&1; then ${ENSURE_SOCKET_DIR}; ` +
+      `kill -USR1 $p 2>/dev/null; ` +
+      `j=0; while [ $j -lt 10 ]; do ${answers} && exit 0; sleep 0.1; j=$((j+1)); done; fi; ` +
+      `${KILL_LEFTOVERS}; exit 1`,
+  );
+}
+
+/**
+ * Remote command that kills our tmux server (terminate), then any process of our socket that
+ * keeps it from exiting (see SOCKET_PROCESSES). Always exits 0.
+ */
 export function killServerCommand(opts: { tmuxPath: string; socket: string }): string {
   assertAbsolutePath(opts.tmuxPath);
   assertSocket(opts.socket);
-  return remoteCommand(`exec ${opts.tmuxPath} -L ${opts.socket} kill-server`);
+  return remoteCommand(
+    `t=${opts.tmuxPath}; s=${opts.socket}; "$t" -L "$s" kill-server 2>/dev/null; ` +
+      `${WAIT_FOR_EXIT}; [ -z "$p" ] || { ${KILL_LEFTOVERS}; }; exit 0`,
+  );
 }
 
 // Control-mode commands (written to the control client's stdin, one per line).

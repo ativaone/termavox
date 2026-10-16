@@ -66,7 +66,9 @@ export class SshTransportFactory implements TransportFactory {
       throw new TermdockError(ErrorCode.HostKeyRejected, 'the host of this session was deleted');
     }
     // Loaded before connect, so the verifier answers synchronously during the handshake.
-    const trusted = await this.#options.hostKeys.trusted(target.hostId);
+    const { hostKeys } = this.#options;
+    const hostId = target.hostId;
+    const trusted = await hostKeys.trusted(hostId);
     const credential = target.credentialId
       ? await this.#options.credentials.get(target.credentialId, record.userId)
       : null;
@@ -78,9 +80,14 @@ export class SshTransportFactory implements TransportFactory {
       credential,
       verifyHostKey: (key) => {
         const decision = decideHostKey(trusted, key);
+        if (decision === 'trusted' && !trusted.get(key.type)?.publicKeyB64) {
+          // A pasted pre-trust fingerprint just matched: keep the key itself from now on.
+          hostKeys.rememberPublicKey(hostId, key).catch(() => {});
+        }
         hooks.onHostKey(key, decision);
         return decision;
       },
+      preferredHostKeyTypes: [...trusted.keys()],
       onKeyboardInteractive: (request) => hooks.onKeyboardInteractive(request),
       keepaliveIntervalMs: Math.max(1, policies.keepaliveIntervalS) * 1000,
       readyTimeoutMs:

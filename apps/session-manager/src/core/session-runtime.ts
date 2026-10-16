@@ -103,7 +103,7 @@ interface Snapshot {
   gzipped: Uint8Array;
 }
 
-type Outcome = 'ready' | 'retry' | 'park' | 'stopped';
+type Outcome = 'ready' | 'retry' | 'park' | 'stopped' | 'exited';
 type LifeEnd = 'lost' | 'exited' | 'stopped';
 
 interface AuthPrompt {
@@ -156,7 +156,10 @@ export class SessionRuntime implements SessionHost {
   #promptExpired = false;
   #bannerBeforeStart: string | null = null;
   #resetBeforeStart = false;
-  #bannerAfterStart: string | null = null;
+  /** Out-of-band notice carried by the next `ready` status (tmux-control remote reboot). */
+  #readyDetail: string | null = null;
+  /** Generation whose driver confirmed that the shell exited (has-session: gone). */
+  #exitedGen = -1;
 
   // output pipeline
   #emulator: HeadlessEmulator;
@@ -449,6 +452,10 @@ export class SessionRuntime implements SessionHost {
       const outcome = await this.#attempt();
       this.#firstAttempt.resolve();
       if (outcome === 'stopped' || outcome === 'park') return;
+      if (outcome === 'exited') {
+        this.#end('shell_exited');
+        return;
+      }
       if (outcome === 'ready') {
         failures = 0;
         const end = await this.#life!.promise;
@@ -542,18 +549,17 @@ export class SessionRuntime implements SessionHost {
         driver.resize(this.#size); // a resize landed while the PTY was opening
       }
       this.#markReady();
-      if (this.#bannerAfterStart) {
-        this.#banner(this.#bannerAfterStart);
-        this.#bannerAfterStart = null;
-      }
       this.#onPolicyChange();
       return 'ready';
     } catch (err) {
       if (gen !== this.#generation) return 'stopped';
-      this.#warn('session start failed', err);
       this.#driver = null;
       this.#transport = null;
       await closeQuietly(transport);
+      // start() may reject and the driver confirm a shell exit for the same attempt (ADR-0003):
+      // one outcome per attempt, and a confirmed exit wins over a retry.
+      if (this.#exitedGen === gen) return 'exited';
+      this.#warn('session start failed', err);
       return 'retry';
     }
   }
@@ -740,16 +746,22 @@ export class SessionRuntime implements SessionHost {
         },
       });
     }
-    return this.#drivers.rawPty({ term: this.#record.term, env: policies.env });
+    return this.#drivers.rawPty({
+      term: this.#record.term,
+      env: policies.env,
+      startupCommand: policies.startupCommand,
+    });
   }
 
   #onIdentity(identity: RemoteIdentity, rebooted: boolean): void {
     this.#record.remoteIdentity = identity;
     this.#store.update(this.sessionId, { remoteIdentity: identity });
     if (!rebooted) return;
+    // Out of band (ADR-0003 decisions): the emulator mirrors tmux's screen, so a banner written
+    // into it would move the cursor away from tmux's and vanish at the next rebuild. The UI shows
+    // the notice from the `ready` status detail; kept until a start succeeds.
     this.#event('remote_rebooted');
-    // Written once start() resolved: an emulator swapped by replaceState would lose it.
-    this.#bannerAfterStart = 'remote host restarted · previous shell lost';
+    this.#readyDetail = 'remote_rebooted';
   }
 
   #context(transport: Transport, gen: number, life: PromiseWithResolvers<LifeEnd>): DriverContext {
@@ -771,8 +783,10 @@ export class SessionRuntime implements SessionHost {
         if (live()) this.#banner(text);
       },
       onShellExit: () => {
+        if (!live()) return;
+        this.#exitedGen = gen;
         // A connection loss also closes the channel; give onLost the chance to win.
-        if (live()) setImmediate(() => life.resolve('exited'));
+        setImmediate(() => life.resolve('exited'));
       },
       onDesync: (reason) => {
         if (!live()) return;
@@ -792,7 +806,9 @@ export class SessionRuntime implements SessionHost {
     this.#wasReady = true;
     this.#record.lastReadyAt = now;
     this.#store.update(this.sessionId, { lastReadyAt: now });
-    this.#setState('ready');
+    const detail = this.#readyDetail;
+    this.#readyDetail = null;
+    this.#setState('ready', detail !== null ? { detail } : {});
   }
 
   async #teardownAttempt(): Promise<void> {
