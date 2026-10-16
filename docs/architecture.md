@@ -42,14 +42,16 @@ SessionRegistry            every runtime of the process; boot restore; idle evic
         └── Transport      SshTransport (ssh2): connect, host-key check, auth, exec, PTY
 ```
 
-- `main.ts` boots: parse the environment → open and migrate the DB → `installation_id` → load
-  and check the master key → read the secret files → WebSocket server and boot restore →
-  internal API. SIGTERM/SIGINT start a graceful shutdown with a 25 s budget.
+- `main.ts` boots: parse the environment → take the data directory lock
+  (`session-manager.lock`) → open and migrate the DB → `installation_id` → load and check the
+  master key → read the secret files → WebSocket server and boot restore → internal API → event
+  retention job. SIGTERM/SIGINT start a graceful shutdown with a 25 s budget.
 - The canonical interfaces (`Transport`, `Driver`, `Emulator`, `SessionHost`, …) are in
   `src/core/types.ts`. Drivers never write to the emulator: they hand output to the runtime,
   which assigns sequence numbers, feeds the emulator and fans out to attachments.
 - `src/store/` holds the SQLite access: a batched writer for session events and state updates,
-  and the session, host-key, settings and audit stores. `src/vault/` encrypts credentials.
+  the session, host-key, settings and audit stores, the event retention purge and the data
+  directory lock. `src/vault/` encrypts credentials.
 
 ## Session lifecycle
 
@@ -201,7 +203,9 @@ processes read everything; each table has one writer
 
 SQLite serializes writers globally, so session-manager writes through an async batched writer
 with a 250 ms busy timeout plus retries, and web keeps a 5 s busy timeout: a long web
-transaction never stalls the data plane. A session snapshots its target (host, port, username,
+transaction never stalls the data plane. session-manager also purges `audit_events` and
+`session_events` rows older than `TERMDOCK_EVENT_RETENTION_DAYS` (default 180) every 6 hours, in
+500-row chunks through the same writer. A session snapshots its target (host, port, username,
 credential, `TERM`, scrollback) at creation, so later profile edits only affect new sessions.
 
 ## Repository layout

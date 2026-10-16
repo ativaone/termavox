@@ -311,7 +311,7 @@
       "hostUnreachable": "Não foi possível alcançar o host.",
       "notFound": "O host, o perfil ou a credencial não existe mais.",
       "forbidden": "Sua conta não tem permissão para abrir esta sessão.",
-      "localShellDisabled": "Shells locais estão desativados nesta instalação.",
+      "localShellDisabled": "Shells locais ainda não estão disponíveis: o modo direto chega em uma versão futura.",
       "hostKeyMismatch": "O host apresentou uma chave diferente da confiável.",
       "badLaunchParams": "O comando de inicialização ou o ambiente do perfil contém caracteres que o Termdock não consegue passar ao host com segurança. Edite o perfil e tente de novo.",
       "targetNotAllowed": "O endereço do host é o próprio servidor do Termdock ou um endereço de loopback, link-local ou multicast, o que esta instalação não permite.",
@@ -414,7 +414,7 @@
       "limit": "Você atingiu o número máximo de sessões em execução. Encerre uma antes.",
       "rejected": "O serviço de sessões recusou a solicitação.",
       "generic": "Algo deu errado. Tente de novo.",
-      "localShellDisabled": "Shells locais estão desativados nesta instalação.",
+      "localShellDisabled": "Shells locais ainda não estão disponíveis: o modo direto chega em uma versão futura.",
       "reopenConflict": "Só sessões encerradas ou desprotegidas podem ser reabertas."
     }
   },
@@ -476,12 +476,12 @@
       "kindSsh": "Servidor SSH",
       "kindSshHelp": "O Termdock se conecta por SSH e confere a chave do host.",
       "kindLocal": "Shell local (modo direto)",
-      "kindLocalHelp": "Um shell na máquina que roda o serviço de sessões. Só para administradores.",
+      "kindLocalHelp": "Um shell na máquina que roda o serviço de sessões, para administradores. Ainda não disponível: o modo direto chega em uma versão futura.",
       "hostname": "Nome do host ou endereço IP",
       "hostnameHelp": "Como alcançado a partir do servidor do Termdock, por exemplo 10.0.0.12 ou db.internal.",
       "port": "Porta",
       "localReason": {
-        "off": "O modo direto está desligado. Um administrador pode ligá-lo nas configurações da instância; ele também exige shells locais ativados no serviço de sessões.",
+        "off": "O modo direto ainda não está disponível; ele chega em uma versão futura.",
         "adminOnly": "Shells locais rodam com o usuário do próprio serviço de sessões, por isso só administradores podem criá-los."
       }
     },
@@ -1100,8 +1100,8 @@
       "maxHelp": "Novas sessões são recusadas acima deste número. Padrão: 50.",
       "direct": "Modo direto",
       "localShell": "Mostrar shells locais (modo direto) aos administradores",
-      "localShellHelp": "Permite que administradores adicionem um host local. Só funciona se o serviço de sessões também rodar com TERMDOCK_ENABLE_LOCAL_SHELL=true.",
-      "localShellWarning": "Shells locais rodam com o usuário do próprio serviço de sessões, que consegue ler a chave mestra e o banco de dados. Ligar esta opção dá aos administradores acesso efetivo a todas as credenciais guardadas.",
+      "localShellHelp": "Permite que administradores adicionem hosts locais. As sessões deles ainda não podem ser iniciadas: o modo direto chega em uma versão futura.",
+      "localShellWarning": "Quando o modo direto chegar, shells locais vão rodar com o usuário do próprio serviço de sessões, que consegue ler a chave mestra e o banco de dados. Deixar esta opção ligada vai então dar aos administradores acesso efetivo a todas as credenciais guardadas.",
       "submit": "Salvar configurações",
       "saved": "Configurações salvas.",
       "unchanged": "Nada foi alterado.",

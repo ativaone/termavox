@@ -68,6 +68,7 @@ Not possible: nothing among the S6 requirements.
 - **Banned accounts confirm a correct password.** Better Auth rejects a banned user (403) only after the password verifies, so a 403 tells the caller the password was right. The account is disabled anyway, so this is accepted.
 - **The per-IP sign-in limiter is shared across usernames.** Better Auth's default rule (3 sign-ins per 10 s per IP) can trip for several users behind one NAT or VPN egress. It can be tuned with `rateLimit.customRules` if that happens.
 - **Users can rename themselves.** The username plugin lets a user change their own `username` through `/update-user`. That doesn't weaken the lockout, but if admins should own usernames, set `immutableUsername` or fence the field (open question).
+  - **Update (2026-10-16):** settled. Admins own usernames: `apps/web/lib/auth/auth.ts` configures `username({ immutableUsername: true })` (since the auth core landed on 2026-10-15), so users cannot rename themselves ([security model](../security.md#authentication)).
 
 ## Decision
 

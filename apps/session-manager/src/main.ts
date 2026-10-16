@@ -5,9 +5,9 @@
  * per database; `vault rotate` takes it too) → open the DB (busy_timeout 250 ms) → migrate →
  * ensure `installation_id` → load and verify the vault KEK (`vault_key_check`, at its key
  * version) → read the WS secret and internal token files → data plane (WebSocket server + boot
- * restore) → internal API. SIGTERM/SIGINT → graceful shutdown within 25 s: internal API, data
- * plane (runtimes detach, clients are told the server is restarting), batched writer flush, DB
- * close, lock release.
+ * restore) → internal API → event retention job (first purge a few minutes later). SIGTERM/SIGINT
+ * → graceful shutdown within 25 s: retention job, internal API, data plane (runtimes detach,
+ * clients are told the server is restarting), batched writer flush, DB close, lock release.
  */
 import type { AddressInfo } from 'node:net';
 import { migrateDb, openDb, type TermdockDb } from '@termdock/db';
@@ -22,6 +22,7 @@ import { SqliteAuthSessionValidator, SqliteOwnership } from './store/access.ts';
 import { BatchedWriter } from './store/batched-writer.ts';
 import { lockDataDir } from './store/data-dir-lock.ts';
 import { auditHostKeyMismatches, SqliteHostKeyStore } from './store/host-key-store.ts';
+import { RetentionJob, type RetentionJobOptions } from './store/retention.ts';
 import { SqliteSessionStore } from './store/session-store.ts';
 import { ensureInstallationId } from './store/settings.ts';
 import { TargetPolicy } from './transport/ssh/index.ts';
@@ -40,6 +41,7 @@ export interface DaemonOverrides {
   registry?: DataPlaneDeps['registry'];
   wsOptions?: DataPlaneDeps['wsOptions'];
   hostTest?: InternalApiOptions['hostTest'];
+  retention?: Pick<RetentionJobOptions, 'initialDelayMs' | 'intervalMs' | 'chunkRows' | 'now'>;
 }
 
 export interface Daemon {
@@ -52,6 +54,8 @@ export interface Daemon {
   credentials: CredentialService;
   plane: DataPlane;
   internalApi: InternalApi;
+  /** Audit and session-event purge (TERMDOCK_EVENT_RETENTION_DAYS). */
+  retention: RetentionJob;
   wsAddress: AddressInfo;
   internalAddress: AddressInfo;
   /** Resolves when boot restore has started every restorable session. */
@@ -146,6 +150,13 @@ export async function startDaemon(
     const restoreDone = restored.then(() => {
       log.info({ sessions: plane?.registry.size ?? 0 }, 'boot restore finished');
     });
+    const retention = new RetentionJob({
+      writer,
+      retentionDays: config.eventRetentionDays,
+      logger: log,
+      ...overrides.retention,
+    });
+    retention.start();
 
     const runningPlane = plane;
     const runningApi = internalApi;
@@ -154,6 +165,8 @@ export async function startDaemon(
       stopping ??= (async () => {
         const deadline = Date.now() + budgetMs;
         log.info('shutting down');
+        // No purge chunk starts after this; one already queued commits with the final flush.
+        void retention.stop();
         await runningApi.close().catch((err) => log.warn({ err }, 'internal API close failed'));
         await runningPlane
           .shutdown()
@@ -176,6 +189,7 @@ export async function startDaemon(
       credentials,
       plane: runningPlane,
       internalApi: runningApi,
+      retention,
       wsAddress,
       internalAddress,
       restored: restoreDone,

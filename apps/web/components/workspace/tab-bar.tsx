@@ -132,6 +132,12 @@ export function TabBar({
   const observer = useRef<ResizeObserver | null>(null);
   /** The active tab was fully in view after the last scroll: size changes keep it there. */
   const keepActive = useRef(true);
+  /**
+   * The strip width the last resize handled. A scroll event that arrives at another width is the
+   * browser clamping `scrollLeft` for a size change the resize handler has not seen yet (a status
+   * chip hiding and coming back between two frames), not the user scrolling.
+   */
+  const handledWidth = useRef<number | null>(null);
   const fallback = { empty: t('pane.emptyPane'), loading: t('pane.loading') };
   const views = layout.tabs.map((tab) => viewOf(tab, sessions, paneMeta, fallback));
 
@@ -152,7 +158,9 @@ export function TabBar({
     const strip = stripRef.current;
     const item = strip ? activeItem(strip) : null;
     // Scrolled away by hand: later size changes leave the strip where the user put it.
-    if (strip && item) keepActive.current = fullyVisible(strip, item);
+    if (strip && item && strip.clientWidth === handledWidth.current) {
+      keepActive.current = fullyVisible(strip, item);
+    }
     measure();
   }, [measure]);
   const onResize = useCallback(() => {
@@ -161,6 +169,7 @@ export function TabBar({
     if (strip && item && keepActive.current && !fullyVisible(strip, item)) {
       reveal(strip, item, 'instant');
     }
+    if (strip) handledWidth.current = strip.clientWidth;
     measure();
   }, [measure]);
   const setStrip = useCallback((element: HTMLUListElement | null) => {

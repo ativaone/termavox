@@ -79,6 +79,30 @@ const Flag = z
   .default('false')
   .transform((v) => v === 'true' || v === '1');
 
+/** Audit and session-event retention (plan §10.2): 0 keeps rows forever. */
+export const DEFAULT_EVENT_RETENTION_DAYS = 180;
+export const MIN_EVENT_RETENTION_DAYS = 7;
+export const MAX_EVENT_RETENTION_DAYS = 3650;
+
+// Whole days: 0, or 7 to 3650. Unset or empty means the default (z.coerce would turn an empty
+// value into 0 and silently turn purging off).
+const RetentionDays = z
+  .string()
+  .optional()
+  .transform((raw, ctx) => {
+    const value = raw?.trim() ?? '';
+    if (value === '') return DEFAULT_EVENT_RETENTION_DAYS;
+    const days = /^\d{1,9}$/.test(value) ? Number(value) : Number.NaN;
+    if (days === 0 || (days >= MIN_EVENT_RETENTION_DAYS && days <= MAX_EVENT_RETENTION_DAYS)) {
+      return days;
+    }
+    ctx.addIssue({
+      code: 'custom',
+      message: `use 0 (keep forever) or a whole number of days from ${MIN_EVENT_RETENTION_DAYS} to ${MAX_EVENT_RETENTION_DAYS}`,
+    });
+    return z.NEVER;
+  });
+
 const DaemonEnv = z.object({
   TERMDOCK_MASTER_KEY_FILE: z.string().min(1),
   TERMDOCK_INTERNAL_TOKEN_FILE: z.string().min(1),
@@ -89,6 +113,7 @@ const DaemonEnv = z.object({
   // SSH targets on loopback, link-local, unspecified, multicast or the daemon's own addresses
   // are refused unless this is set (plan §10.2).
   TERMDOCK_SSH_ALLOW_LOCAL_TARGETS: Flag,
+  TERMDOCK_EVENT_RETENTION_DAYS: RetentionDays,
 });
 
 /** Everything the daemon process needs (plan §13.2): the data plane plus vault and internal API. */
@@ -102,6 +127,11 @@ export interface DaemonConfig extends DataPlaneConfig {
   enableLocalShell: boolean;
   /** TERMDOCK_SSH_ALLOW_LOCAL_TARGETS: sessions and host tests may reach local addresses. */
   sshAllowLocalTargets: boolean;
+  /**
+   * TERMDOCK_EVENT_RETENTION_DAYS: `audit_events` and `session_events` rows older than this are
+   * purged (store/retention.ts); 0 keeps them forever.
+   */
+  eventRetentionDays: number;
   /** `<dataDir>/app.db`. */
   dbFile: string;
 }
@@ -129,6 +159,7 @@ export function loadDaemonConfig(env: NodeJS.ProcessEnv = process.env): DaemonCo
     internalPort: e.TERMDOCK_INTERNAL_PORT,
     enableLocalShell: e.TERMDOCK_ENABLE_LOCAL_SHELL,
     sshAllowLocalTargets: e.TERMDOCK_SSH_ALLOW_LOCAL_TARGETS,
+    eventRetentionDays: e.TERMDOCK_EVENT_RETENTION_DAYS,
     dbFile: join(base.dataDir, 'app.db'),
   };
 }

@@ -46,6 +46,8 @@ export class DaemonFixture {
       enableLocalShell: false,
       // The test sshd containers listen on 127.0.0.1, a local target refused by default.
       sshAllowLocalTargets: true,
+      // The default; the first purge is minutes away (store/retention.ts has its own tests).
+      eventRetentionDays: 180,
       dbFile: join(this.dir, 'app.db'),
     };
   }

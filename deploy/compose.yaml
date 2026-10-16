@@ -136,6 +136,8 @@ services:
       # SSH targets on loopback, link-local, multicast or this container's own addresses are
       # refused unless set to true (private LAN ranges and host.docker.internal stay allowed).
       TERMDOCK_SSH_ALLOW_LOCAL_TARGETS: ${TERMDOCK_SSH_ALLOW_LOCAL_TARGETS:-false}
+      # Audit and session events older than this many days are purged (0 keeps them forever).
+      TERMDOCK_EVENT_RETENTION_DAYS: ${TERMDOCK_EVENT_RETENTION_DAYS:-180}
       TERMDOCK_LOG_LEVEL: ${TERMDOCK_LOG_LEVEL:-info}
     secrets:
       - master_key

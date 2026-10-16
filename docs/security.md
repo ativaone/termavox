@@ -154,7 +154,9 @@ secrets, the volumes and the containers' memory.
 - web trusts `X-Forwarded-For` because only Caddy can reach it. Anyone who can connect to
   `web:3000` directly can spoof the client IP and weaken the lockout, the rate limits and the
   audit trail.
-- Audit and session-event rows are kept indefinitely: there is no retention purge yet.
+- Audit and session-event rows are kept for 180 days by default
+  (`TERMDOCK_EVENT_RETENTION_DAYS`; `0` keeps them forever). Older rows are deleted for good:
+  raise the setting, or keep database backups, if you need a longer trail.
 - Terminal sessions keep running when a user is disabled, unless the admin also terminates them.
 
 ## Controls
@@ -385,7 +387,11 @@ From [`deploy/compose.yaml`](../deploy/compose.yaml) and the Dockerfiles:
   password, code or key. Client IPs come from Caddy's `X-Forwarded-For`; session-manager believes
   it only from `TERMDOCK_TRUSTED_PROXIES` and takes the rightmost value that is not a trusted
   proxy.
-- There is no retention limit yet: rows are kept until removed by hand.
+- Retention: session-manager deletes rows of both tables older than
+  `TERMDOCK_EVENT_RETENTION_DAYS` (default 180 days; `0` keeps them forever), a few minutes after
+  it starts and every 6 hours, oldest first and 500 rows per transaction. The purge covers every
+  row, including the audit events web writes, and logs only the per-table counts
+  ([Event retention](guides/configuration.md#event-retention)).
 
 ## Operator recommendations
 

@@ -83,7 +83,7 @@ Three ideas carry the design:
   - Login uses username/password plus optional TOTP, with rate limits.
   - Audit logs record session and security events.
 - 🔑 **SSH authentication** with private keys (with passphrase), passwords, and keyboard-interactive prompts (OTP/2FA) relayed to your browser.
-- 🏠 **Local mode** *(planned, Phase 6)*, for running Termdock on the target machine itself.
+- 🏠 **Local modes**: the "This Docker host" preset (available) adds the machine running Termdock as an SSH host; direct mode, a local shell without SSH, is planned (Phase 6).
 - 🌍 **English and Brazilian Portuguese** UI.
 - 🐳 **One-command deployment** with Docker Compose and Caddy (automatic HTTPS).
 
@@ -100,7 +100,7 @@ Three ideas carry the design:
 | 3 | tmux control-mode protection end to end: restore after daemon restarts and network drops, verified on tmux 3.2a, 3.4 and 3.8 | ✅ |
 | 4 | Resilience: reconnect, host-key trust, keyboard-interactive flows | ✅ |
 | 5 | Workspace UI: sidebar, tabs, splits, mobile key bar, Docker Compose deployment | ✅ |
-| 6 | Local modes (Docker host preset, direct mode) | ⏳ |
+| 6 | Local modes: the "This Docker host" preset ships; direct mode is pending | 🚧 |
 | 7 | Compatibility fallback for old tmux versions | ⏳ |
 | 8 | Hardening, security review, docs, release v0.1.0 (review and hardening done) | 🚧 |
 

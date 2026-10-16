@@ -648,7 +648,7 @@
       {
         "name": "lane-change",
         "value": "view transition, class strip: old snapshot hidden, group slides duration-move ease-out",
-        "purpose": "Signature move: the edge recolours at once, then the strip slides to its new lane; no cross-fade."
+        "purpose": "Signature move: the edge recolours at once, then the strip slides to its new lane; no cross-fade. The slide stays inside the lanes: the bay's head and account footer stay above a strip that passes under them."
       }
     ],
     "breakpoints": [

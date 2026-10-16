@@ -191,7 +191,7 @@ The full per-table write-ownership list is in §9.
 | Caddy `:80/:443` | public | TLS termination; `/ws` → `session-manager:3001`; everything else → `web:3000` |
 | web `:3000` | compose network `edge` only (via Caddy) | Next.js |
 | session-manager `:3001` | compose network `edge` only (via Caddy) | WebSocket attachments |
-| session-manager `:3002` | compose network **`internal` only** (web ↔ session-manager); Caddy is not on `internal`, so it can never route here | Internal API, bearer token |
+| session-manager `:3002` | compose network **`internal` only** (web ↔ session-manager): it binds to the alias `session-manager-internal`, which exists only on `internal`, and web calls `http://session-manager-internal:3002`; Caddy is not on `internal`, so it can never route here | Internal API, bearer token |
 
 Compose networks: `edge` connects caddy ↔ web and caddy ↔ session-manager (`:3001`); `internal` connects web ↔ session-manager (`:3002`).
 
@@ -439,17 +439,21 @@ A session's effective protection is fixed at creation. If a later reconnect find
 
 **Boot**
 
-1. Open the DB; ensure an `installationId` exists.
-2. Load the vault KEK; fail fast if it is missing or wrong (checked against a stored key-check value).
-3. For every session with `desired_state = running`, except those whose last state is a non-retryable `failed` (they wait for the user's Retry), create a runtime and start it with concurrency 4 and per-host spacing (avoids SSH connection storms).
-4. Mark the start in `session_events` (`restore_started` / `restored` / `restore_failed`).
+1. Take the **data directory lock**, `<data dir>/session-manager.lock` (`store/data-dir-lock.ts` over `tryFileLock` in `packages/db`). The lock file is a tiny SQLite database that holds no data: a connection in `locking_mode = EXCLUSIVE` runs one write transaction and keeps its exclusive lock until it closes. These are POSIX record locks, so the kernel drops them when the process exits, however it exits (no stale lock, no pid check), and they hold across containers that mount the same volume. A second session-manager, or `vault rotate` (§10.2), on the same data directory refuses to start while the lock is held. web does not take it: it never writes credential ciphertexts or the vault key check.
+2. Open the DB (`busy_timeout` 250 ms, §9) and apply the migrations; ensure an `installationId` exists.
+3. Load the vault KEK; fail fast if it is missing or wrong (checked against a stored key-check value, at its key version).
+4. For every session with `desired_state = running`, except those whose last state is a non-retryable `failed` (they wait for the user's Retry), create a runtime and start it with concurrency 4 and per-host spacing (avoids SSH connection storms).
+5. Mark the start in `session_events` (`restore_started` / `restored` / `restore_failed`).
+6. Start the event retention job (§10.2): the first purge runs a few minutes after boot, then every 6 hours.
 
 **SIGTERM (graceful; the daemon's internal shutdown budget is 25 s, inside compose's `stop_grace_period: 30s`)**
 
-1. Stop accepting attachments.
-2. Notify clients (`server.shutting_down`) so they display "Restoring…" instead of an error.
-3. For `tmux-control` sessions, detach the control client cleanly (send an empty line, wait for `%exit`) so the remote tmux keeps running.
-4. Persist states and flush the batched writer (§9); close transports.
+1. Stop the retention job: no purge chunk starts after this.
+2. Stop accepting attachments.
+3. Notify clients (`server.shutting_down`) so they display "Restoring…" instead of an error.
+4. For `tmux-control` sessions, detach the control client cleanly (send an empty line, wait for `%exit`) so the remote tmux keeps running.
+5. Persist states and flush the batched writer (§9); close transports.
+6. Close the DB and release the data directory lock.
 
 ### 5.9 Host key verification
 
@@ -675,12 +679,12 @@ One WebSocket per browser tab, multiplexing every attachment of that tab over nu
 1. The browser calls `POST /api/ws/ticket` (cookie-authenticated; the response carries `Cache-Control: no-store`) → `{ ticket, expiresAt }`. The issuer refuses while the user has a pending TOTP enrollment or a pending forced password change (§10.2).
 2. It opens `wss://<origin>/ws`. session-manager checks the `Origin` header against `TERMDOCK_PUBLIC_URL`; mismatch → close `4403`.
 3. The first frame must be `hello` within 5 s: `{ "type": "hello", "protocol": 1, "ticket": "…" }`.
-4. Ticket = `base64url(payload) "." base64url(HMAC-SHA256(TERMDOCK_WS_SECRET, payload))`, with payload `{ v: 1, uid, asid, exp, nonce }`, TTL 30 s, **single use** (nonce kept in an LRU until `exp`).
+4. Ticket = `base64url(payload) "." base64url(HMAC-SHA256(ws_secret, payload))`, with payload `{ v: 1, uid, asid, exp, nonce }`, TTL 30 s, **single use** (nonce kept in an LRU until `exp`). The key `ws_secret` is the trimmed content of the file named by `TERMDOCK_WS_SECRET_FILE`, as UTF-8 bytes (never base64-decoded); web and session-manager read the same file.
 5. The server verifies that the auth session `asid` exists and is not expired (it reads the auth-session table) and that the user is not `banned`, binds the connection to `uid`, and replies `hello.ok`.
 6. Revalidation (auth session still valid, user not `banned`) every 60 s, and immediately on `POST /internal/v1/auth-sessions/revoke`. A revoked connection is closed with `4401`.
 7. **Sliding the auth session.** Terminal traffic goes over the WebSocket and never touches Next.js, so while a workspace is open the web client calls Better Auth's get-session every 10 min; that keeps the 7-day sliding expiry (§10.2) moving.
 
-**Limits:** ws `maxPayload` is 1 MiB for client→server frames; at most 32 channels per connection; at most 50 running sessions per user (instance setting, enforced at session creation, §8.3).
+**Limits:** ws `maxPayload` is 1 MiB for client→server frames; at most 32 channels per connection (one more attach closes the connection with `4400`, §10.2); at most 50 running sessions per user (instance setting, enforced at session creation, §8.3).
 
 ### 7.2 Binary frames
 
@@ -754,7 +758,7 @@ Evolution: additive changes stay in v1 (receivers ignore unknown fields and unkn
 | `/settings/account` | Password, TOTP enroll/disable, language, theme. |
 | `/settings/terminal` | Font, size, color scheme, cursor, clipboard (OSC 52) permission, link-opening confirmation. (Scrollback is per connection profile, §5.3.) |
 | `/admin/users` | Create users (temporary password with a forced change on first login — `must_change_password`; role; require TOTP — `totp_required`), disable/enable (Better Auth admin plugin `banned`; disabling revokes the user's auth sessions and closes their WebSockets, while their terminal sessions keep running unless the admin ticks "also terminate sessions"), reset TOTP, revoke auth sessions. |
-| `/admin/settings` | Instance settings: require TOTP for everyone, web idle timeout, maximum running sessions per user (default 50), local direct-mode visibility (only effective if the daemon flag is on). |
+| `/admin/settings` | Instance settings (`instance_settings`, §9): require TOTP for everyone (`require_totp`), maximum running sessions per user (`max_running_sessions_per_user`, default 50), local direct-mode visibility (`local_shell_visible`; only effective with the daemon flag on, once direct mode ships in Phase 6). There is no idle-timeout setting: web auth sessions use the 7-day sliding expiry (§10.2). |
 | `/admin/audit` | Audit log viewer with filters. |
 
 ### 8.2 Server API
@@ -767,7 +771,7 @@ Evolution: additive changes stay in v1 (receivers ignore unknown fields and unkn
 
 ### 8.3 Internal API (session-manager `:3002`)
 
-Bearer `TERMDOCK_INTERNAL_TOKEN`, compared in constant time; a missing or wrong bearer → `401`. JSON; zod schemas in `packages/protocol/internal`. Every user-scoped call carries `actingUserId` (in the body, or in the query string for `GET`), and session-manager re-validates ownership against the DB. **Exceptions:** `POST /internal/v1/auth-sessions/revoke` (an admin/system action addressed by auth-session id or user id) and `GET /internal/v1/health`.
+Bearer token: the trimmed content of the file named by `TERMDOCK_INTERNAL_TOKEN_FILE` (`Authorization: Bearer <token>`, the same file web reads), compared in constant time; a missing or wrong bearer → `401`. JSON; zod schemas in `packages/protocol/internal`. Every user-scoped call carries `actingUserId` (in the body, or in the query string for `GET`), and session-manager re-validates ownership against the DB. **Exceptions:** `POST /internal/v1/auth-sessions/revoke` (an admin/system action addressed by auth-session id or user id) and `GET /internal/v1/health`.
 
 | Method & path | Body → Result |
 |---|---|
@@ -801,7 +805,7 @@ Conventions: `snake_case` tables and columns; UUIDv7 text ids; timestamps as int
 
 - **session-manager** writes through an **async batched writer**: session events and state updates are queued and flushed in short transactions. Its own writes use `busy_timeout` **250 ms** plus retry, so a long web transaction never stalls the data plane.
 - **web** keeps `busy_timeout` **5000 ms**.
-- Retention purges (§10.2) run in chunks, never as one large delete.
+- Retention purges (§10.2) run in chunks of 500 rows, each one op of the batched writer, yielding between chunks: never one large delete.
 
 **Auth tables (Better Auth, via the Drizzle adapter):** `user` (+ `username`, `role`, the admin plugin's `banned` / `ban_reason` / `ban_expires` — `banned` is how a user is disabled — `locale`, `totp_required`, `must_change_password`), `auth_session`, `account`, `verification`, `two_factor`. The final names come from Better Auth's schema generator; the session model is renamed to `auth_session`.
 
@@ -841,9 +845,10 @@ sessions              id, user_id→user,
 
 session_events        id, session_id→sessions, type, detail_json, actor_user_id,
                       attachment_id, ip, user_agent, created_at
+                                                  -- indexes (session_id, created_at), (created_at)
 
 audit_events          id, actor_user_id, type, target_type, target_id, detail_json,
-                      ip, user_agent, created_at
+                      ip, user_agent, created_at  -- indexes (created_at), (actor_user_id)
 
 workspace_layouts     user_id (PK)→user, version, layout_json, updated_at
 
@@ -859,7 +864,7 @@ instance_settings     key (PK), value_json, updated_at            -- e.g. instal
 
 | Writer | Tables |
 |---|---|
-| session-manager | `sessions`; `session_events`; all of `credentials` (rows created and deleted via the internal API, `last_used_at`); all of `known_host_keys` (pending, trust, replace, revoke via the internal API); `instance_settings` keys `installation_id` and `vault_key_check`; `audit_events` for host-key and credential events |
+| session-manager | `sessions`; `session_events`; all of `credentials` (rows created and deleted via the internal API, `last_used_at`); all of `known_host_keys` (pending, trust, replace, revoke via the internal API); `instance_settings` keys `installation_id` and `vault_key_check`; `audit_events` for host-key and credential events; the retention purge, which deletes old `audit_events` and `session_events` rows whoever wrote them (§10.2) |
 | web | auth tables; `hosts`; `connection_profiles`; `workspace_layouts`; `user_preferences`; every other `instance_settings` key; every other `audit_events` row |
 
 Both processes may read everything. WAL works across the two containers because they share a local Docker volume on the same kernel; network filesystems are not supported (documented). A daemon running on the host with web in a container (direct-mode testing, §13.3) shares the WAL safely only on a Linux host.
@@ -899,22 +904,23 @@ Honest limits:
 
 ### 10.2 Controls
 
-- **Vault.** AES-256-GCM, 96-bit random nonce per record. The plaintext is a JSON envelope `{ v: 1, kind, password? | privateKey?, passphrase? }`. AAD = `credential_id ‖ user_id ‖ kind ‖ key_version` (ciphertext cannot be moved between rows, kinds or key versions). `key_version` supports rotation, and a key-check value in `instance_settings` (`vault_key_check`) detects a wrong KEK at boot. KEK = 32 random bytes from `TERMDOCK_MASTER_KEY_FILE` (Docker secret file, mode 0440, group 10001, §13.2). Private keys are validated with ssh2's key parser before storage. Generated keys are ed25519 in OpenSSH format. A `vault rotate` CLI re-encrypts all rows under a new key version (P8).
+- **Vault.** AES-256-GCM, 96-bit random nonce per record. The plaintext is a JSON envelope `{ v: 1, kind, password? | privateKey?, passphrase? }`. AAD = `credential_id ‖ user_id ‖ kind ‖ key_version` (ciphertext cannot be moved between rows, kinds or key versions). `key_version` supports rotation, and a key-check value in `instance_settings` (`vault_key_check`) detects a wrong KEK at boot. KEK = 32 random bytes from `TERMDOCK_MASTER_KEY_FILE` (Docker secret file, mode 0440, group 10001, §13.2). Private keys are validated with ssh2's key parser before storage. Generated keys are ed25519 in OpenSSH format.
+- **Master key rotation.** `vault rotate` (`apps/session-manager/src/cli/vault-rotate.ts`, `pnpm --filter @termdock/session-manager vault:rotate --old-key-file … --new-key-file … [--data-dir …] [--dry-run]`) runs while session-manager is stopped. It refuses equal keys and a held data directory lock (§5.8), then holds that lock itself until it is done; verifies the old key against `vault_key_check` (when the new key matches instead, the rotation already happened: exit 3); writes a consistent backup next to the database (`VACUUM INTO pre-rotate-<UTC timestamp>.db`, mode 0600, synced and integrity-checked); then, in **one** `BEGIN IMMEDIATE` transaction, re-encrypts every credential (each must authenticate under the old key at its own key version) and the key check as key version N + 1, verifies them under the new key and commits with `synchronous = FULL`. Any failure rolls everything back; `--dry-run` writes nothing. Output never contains key material. For Compose, `deploy/scripts/rotate-master-key.sh` does the whole sequence: generate `master_key.new`, stop session-manager, run the CLI in a one-off container with both keys mounted read-only, keep the old key as `master_key.old`, install the new one, copy the backup to `deploy/backups/`, start session-manager (which verifies the new key at boot). Procedure and rollback: `docs/guides/install.md` ("Rotating the master key").
 - **Web auth.** Better Auth: public sign-up disabled; users are created by admins with a temporary password and `must_change_password`, which forces a change at first login. Cookies `HttpOnly; Secure; SameSite=Strict`, 7-day sliding expiry (closing the browser does not log out, consistent with G1; the workspace keeps it sliding, §7.1). Login rate limit plus **account lockout per (username, IP) with progressive delay** — implemented by Termdock if Better Auth lacks it (S6). Client IPs come from Better Auth's `advanced.ipAddress` reading Caddy's `X-Forwarded-For` (§4.3). TOTP via the `twoFactor` plugin (trusted-device option); `totp_required` per user and an instance-wide requirement force enrollment at next login; admins can reset a user's TOTP. Disabled users are Better Auth admin-plugin `banned` users. The WS ticket issuer refuses while a TOTP enrollment or a password change is pending, and WS revalidation also checks `banned` (§7.1). Password hashing: argon2id if configurable in Better Auth (Node ≥ 24.7 `crypto.argon2`), otherwise Better Auth's scrypt default; decided in Phase 0.
 - **CSRF and Origin.** Server Actions' origin check; route handlers verify `Origin`; WS Origin check.
-- **Isolation (structural).** Every query is scoped by `user_id` through a **user-scoped repository layer** in both apps. A Biome `noRestrictedImports` rule forbids importing the `db` client directly outside that layer, so a missing scope is a lint error rather than something tests must catch. The T0 authorization tests (one case per resource type, WS attach, internal API) back this up.
+- **Isolation (structural).** Every web query is scoped by `user_id` through the **user-scoped repository layer** (`apps/web/lib/repo`). A Biome `noRestrictedImports` rule, scoped to `apps/web/**`, forbids importing `@termdock/db` outside that layer and the auth core (`lib/auth`; tests and `next.config.ts` are exempt), so a missing scope in web is a lint error rather than something tests must catch. session-manager's `src/store/` is its own data layer and stays outside the rule: every user-scoped internal API call and every WS attach re-checks ownership there (§8.3). The T0 authorization tests (one case per resource type, WS attach, internal API) back this up.
 - **Headers.** Nonce-based CSP (`script-src 'self' 'nonce-…'`; no eval; xterm.js needs none), `style-src 'self' 'unsafe-inline'` (the xterm DOM renderer injects style elements, so `style-src` carries no nonce), `frame-ancestors 'none'`, `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, `Permissions-Policy` (camera, microphone, geolocation, payment, usb off), `Cross-Origin-Opener-Policy: same-origin`, HSTS (Caddy).
 - **Terminal escape safety.** OSC 52 clipboard writes are disabled by default (per-user opt-in). Links open only after the UI's confirmation showing the full URL (the user's preference and the in-pane link panel), only for `http(s)`, with `noopener,noreferrer`: plain-text URLs through the web-links addon and OSC 8 hyperlinks through xterm's `linkHandler`, so xterm never opens one on its own. Titles are sanitized and length-capped, without controls, bidi overrides or zero-width characters (daemon and web strip the same set). No OSC passthrough to the DOM.
 - **Host keys (§5.9).** A key the owner revoked fails closed like a mismatch, also when nothing else is trusted: no first-use prompt, no in-flow accept, `trust-key` (pre-trust included) and `hostkey.decision` refuse it, and only `replace-key` (host name confirmed) can trust it again. The prompt carries `revoked: true` and the workspace says so; the event is audited as `host_key.revoked_presented`. A key that is neither trusted nor revoked is first use again (a rotated server). Host keys are verified with SHA-2 signatures only (`ssh-rsa`/SHA-1 is never offered).
 - **SSH target policy.** The daemon resolves each host name itself, through the socket's lookup, and connects only to an address that passed the check (no second resolution). Refused by default, for sessions and host tests: loopback, link-local, unspecified, multicast and the daemon's own interface addresses, IPv4-mapped forms included. Private LAN ranges and the Docker host gateway stay allowed; `TERMDOCK_SSH_ALLOW_LOCAL_TARGETS=true` allows everything. A refused session fails with `TARGET_NOT_ALLOWED` and is not retried. Host tests are limited to 10 per user per minute.
 - **Launch parameters and remote output.** Profile startup commands and environment values are single lines without C0 controls (TAB allowed), checked by the form; a value the remote command builders still refuse (a profile or probe value) fails the session with `BAD_LAUNCH_PARAMS` instead of a reconnect loop. A trailing `;` in tmux argv words is escaped as `\;`. Capability-probe stdout is read up to 64 KiB (then the channel is closed and the probe fails like a timeout), each probe value is cut to 256 characters, and `probe_json` above 16 KiB is dropped.
 - **Keyboard-interactive prompts (§5.10).** Host text is capped (name 256, instructions 2048, prompt 256, 16 prompts) and stripped of controls and invisible formatting by the daemon. The panel always shows Termdock's own title and the line "Host user@host asks:", with the host's name and instructions quoted beneath as host content, never as the panel's own words.
-- **Resource caps.** Per user: 16 WebSocket connections (the next one closes with 4429) and 64 attached channels across them (more attaches get `RATE_LIMITED`); per connection: 32 channels and 64 messages in flight (4429 beyond). A runtime whose session is not meant to run and has no attachment is evicted after 60 s idle. Compose sets `mem_limit` and `pids_limit` on every container (§13.1).
+- **Resource caps.** Per user: 16 WebSocket connections (the next one closes with 4429) and 64 attached channels across them (more attaches get `RATE_LIMITED`); per connection: 32 channels (one more attach closes the connection with `4400`, a client protocol error) and 64 messages in flight (`4429` beyond). A runtime whose session is not meant to run and has no attachment is evicted after 60 s idle. Compose sets `mem_limit` and `pids_limit` on every container (§13.1).
 - **Revocation.** Besides admin ban and password reset, a user's own password change, an admin TOTP reset and sign-out close the affected WebSockets at once through `auth-sessions/revoke` instead of at the next 60 s revalidation (a TOTP reset also revokes the user's auth sessions). The daemon takes the rightmost `X-Forwarded-For` value that is not a trusted proxy.
 - **Logging hygiene.** pino `redact` for passwords, keys, tickets, cookies, tokens, `authorization`, profile `env`/`policies` and `auth.response` answers; the web logger censors the same keys in structured fields and in JSON embedded in messages. Terminal input/output bytes are never logged. No terminal recording in MVP; when it comes, it is opt-in and encrypted (§18).
-- **Audit.** `audit_events`: login success/failure and lockout, TOTP enable/disable/reset, user create/ban/unban, role change, credential create/delete, host-key pending/trust/replace/revoke/mismatch and revoked key presented, local (direct-mode) session start, admin setting changes, auth-session revocation. `session_events`: created, attached, detached (with IP and user agent), connected, lost, reconnected, restored, degraded, ended. Retention configurable (default 180 days); purges run in chunks (§9).
+- **Audit.** `audit_events`: login success/failure and lockout, TOTP enable/disable/reset, user create/ban/unban, role change, credential create/delete, host-key pending/trust/replace/revoke/mismatch and revoked key presented, local (direct-mode) session start, admin setting changes, auth-session revocation. `session_events`: created, attached, detached (with IP and user agent), connected, lost, reconnected, restored, degraded, ended. **Retention:** `TERMDOCK_EVENT_RETENTION_DAYS` (default 180; `0` keeps rows forever; otherwise 7 to 3650, anything else fails the boot). session-manager's retention job (`store/retention.ts`) deletes the rows of both tables older than that, whoever wrote them (web's audit events included: retention applies to the table), a few minutes after boot and then every 6 hours, on unref'd timers stopped at shutdown. It deletes the oldest rows first, 500 per batched-writer op, yielding between chunks (§9); both tables have a `created_at` index (`session_events_created_idx` came with migration `0002`). It logs the per-table counts and the cutoff, never row contents. A session parked in `failed` for longer than the retention loses its specific failure code (its `state_changed` events age out) and shows the generic failure text.
 - **Local direct mode.** Off unless `TERMDOCK_ENABLE_LOCAL_SHELL=true` on the daemon **and** enabled in admin settings. Admin-only (the internal API rejects `kind: local` for non-admins). Spawns shells as the daemon's OS user, which can read the master key and the DB, so enabling it gives admins effective access to the vault (§10.1). Recommended only outside containers, with a separate unprivileged UID for spawned shells (documented in the direct-mode guide). Every local session start is audited.
-- **Containers.** Both images run as a fixed shared non-root UID/GID (`10001:10001`); read-only root filesystem with `tmpfs: /tmp` (writable data volume; web also gets a writable `.next/cache` volume); `cap_drop: [ALL]`, `no-new-privileges`, no Docker socket mounted; memory and process limits (`TERMDOCK_DAEMON_MEM_LIMIT` 1g, `TERMDOCK_WEB_MEM_LIMIT` 768m, Caddy 256m; pids 512/256/128) (§13.1).
+- **Containers.** Both images run as a fixed shared non-root UID/GID (`10001:10001`); read-only root filesystem with `tmpfs: /tmp` (writable data volume; web also gets a tmpfs at `/app/apps/web/.next/cache`); `cap_drop: [ALL]`, `no-new-privileges`, no Docker socket mounted; memory and process limits (`TERMDOCK_DAEMON_MEM_LIMIT` 1g, `TERMDOCK_WEB_MEM_LIMIT` 768m, Caddy 256m; pids 512/256/128) (§13.1).
 - **Supply chain.** T-14. pnpm `allowBuilds` blocks every dependency build script (§12): better-sqlite3 loads its bundled prebuilds and ssh2's optional native crypto is skipped. Any native module that would need a build step (e.g. node-pty for P6) is an explicit exception decided when it is added; runtime images carry no compilers. Next.js is kept at or above patched versions (the WS-upgrade SSRF advisory is not reachable because WS never goes through Next, but patch anyway).
 
 ---
@@ -985,51 +991,57 @@ Light and dark themes; xterm.js screen-reader mode toggle; visible focus; all no
 termdock/
 ├── apps/
 │   ├── web/                       Next.js 16 — UI + control plane
-│   │   ├── app/                   routes (§8.1)
-│   │   ├── components/            ui/ (shadcn), terminal/, workspace/, mobile/
-│   │   ├── lib/                   auth, repositories (user-scoped db access), internal-api client, ws client
-│   │   └── messages/              en.json, pt-BR.json
+│   │   ├── app/                   routes (§8.1), API route handlers
+│   │   ├── components/            ui/, workspace/, hosts/, credentials/, admin/, auth/, settings/, manage/, icons/
+│   │   ├── lib/                   auth/ (Better Auth core), repo/ (user-scoped db access), actions/ (Server Actions),
+│   │   │                          terminal/ (ws client, channels), sessions/, workspace/, internal-api client, logger, CSP
+│   │   ├── messages/              en.json, pt-BR.json
+│   │   └── test/                  T0 tests
 │   └── session-manager/
-│       └── src/
-│           ├── main.ts            boot, restore, signals (run directly: `node src/main.ts`)
-│           ├── config/            env parsing (zod)
-│           ├── core/              types.ts (canonical interfaces), SessionRuntime (SessionHost), registry, state machine
-│           ├── repositories/      user-scoped db access
-│           ├── transport/         ssh/ (ssh2), local/ (child_process + node-pty)
-│           ├── drivers/           raw-pty/, tmux-control/ (parser, correlator, input, snapshot), tmux-normal/
-│           ├── probe/
-│           ├── emulator/          headless wrapper, serialize, rebuild-from-capture
-│           ├── attachments/       size policy, coalescing, backpressure
-│           ├── ws/                server, tickets, protocol handlers
-│           ├── internal-api/
-│           ├── vault/             vault + CredentialProvider
-│           └── events/            batched DB writer (session events, state updates)
+│       ├── src/
+│       │   ├── main.ts            boot, restore, signals (run directly: `node src/main.ts`)
+│       │   ├── config/            env parsing (zod), logger (pino)
+│       │   ├── core/              types.ts (canonical interfaces), SessionRuntime (SessionHost), registry, state machine,
+│       │   │                      protection, backoff, transport and driver factories
+│       │   ├── store/             SQLite stores (sessions, host keys, settings, audit, ownership checks), batched writer,
+│       │   │                      event retention, data directory lock
+│       │   ├── transport/         ssh/ (ssh2, host-key check, keyboard-interactive, target policy);
+│       │   │                      local/ (child_process + node-pty) planned for Phase 6
+│       │   ├── drivers/           raw-pty/, tmux-control/ (parser, correlator, commands, input, rebuild, boundary);
+│       │   │                      tmux-normal/ planned for Phase 7
+│       │   ├── probe/             capability probe, tmux version parsing
+│       │   ├── emulator/          headless wrapper, serialize view
+│       │   ├── attachments/       size policy, coalescing, backpressure, wire encoding
+│       │   ├── ws/                server, protocol handlers, client IP
+│       │   ├── internal-api/      server, host test
+│       │   ├── vault/             master key, vault, CredentialProvider, rotation
+│       │   └── cli/               vault-rotate.ts (§10.2)
+│       └── test/                  per area: T0 (*.test.ts) and T1 (*.int.test.ts, against test/sshd)
 ├── packages/
-│   ├── protocol/                  WS v1 + internal API + layout schemas (zod), binary codec, toSessionStatus
-│   ├── db/                        Drizzle schema, migrations, client factory, pragmas
-│   ├── terminal-config/           pinned xterm options, unicode provider, query silencer, mode tracker
-│   └── shared/                    ids (UUIDv7), errors/codes, logger factory, time
+│   ├── protocol/                  WS v1 + internal API + layout schemas (zod), binary codec, tickets, toSessionStatus
+│   ├── db/                        Drizzle schema, migrations, client factory, pragmas, file lock
+│   ├── terminal-config/           pinned xterm options, unicode provider, query silencer, mode tracker, UTF-8 aligner
+│   └── shared/                    ids (UUIDv7), errors/codes (each app has its own logger)
 ├── scripts/                       test-area.ts (T1 runner); dev-session.ts (dev-only CLI, P1; never shipped in images)
 ├── deploy/
-│   ├── compose.yaml
+│   ├── compose.yaml, .env.example
 │   ├── Caddyfile
 │   ├── docker/                    web.Dockerfile, session-manager.Dockerfile
-│   └── scripts/                   init-secrets.sh, backup.sh, restore.sh
+│   └── scripts/                   init-secrets.sh, backup.sh, restore.sh, rotate-master-key.sh
 ├── test/
-│   ├── sshd/                      Dockerfiles (D-22): alpine:3 no-tmux, ubuntu:22.04 3.2a, ubuntu:24.04 3.4, alpine:edge newest; KI/OTP variant
-│   ├── integration/               session-manager ↔ real sshd
-│   └── e2e/                       Playwright
+│   └── sshd/                      Dockerfiles (D-22): alpine:3 no-tmux, ubuntu:22.04 3.2a, ubuntu:24.04 3.4, alpine:edge newest
 └── docs/
     ├── implementation-plan.md     (this file)
+    ├── architecture.md, security.md
     ├── adr/                       ADR-0001… (spike outcomes and design decisions)
-    └── guides/                    install, configuration, security-model, direct-mode, docker-host
+    └── guides/                    install.md, configuration.md; direct-mode.md and docker-host.md planned for Phase 6
 ```
 
 **Conventions**
 
 - **Language: English** for code, identifiers, comments, docs, commit messages and UI default copy (D-18).
 - TypeScript **6.0.3** (pinned: TS 7 rewrote the compiler and its Next.js/tooling compatibility is unverified), `strict`, ESM only.
-- Lint and format with **Biome** (a single dependency; `biome.json` at the root). The isolation rule (`noRestrictedImports` for direct `db` imports, §10.2) lives there.
+- Lint and format with **Biome** (a single dependency; `biome.json` at the root). The isolation rule (`noRestrictedImports` for direct `@termdock/db` imports in `apps/web/**`, §10.2) lives there.
 - session-manager runs TypeScript directly with Node 24 type stripping (`node src/main.ts`), so its code uses erasable syntax only. There is no build step and no tsx.
 - pnpm **11.14.0** (the `packageManager` field) with workspaces and `workspace:*` internal deps; exact external versions; `engines` set; `.nvmrc` = 24. pnpm `allowBuilds` blocks every dependency build script: better-sqlite3 loads its bundled prebuilds, and ssh2's optional native crypto is skipped.
 - Root scripts: `pnpm check` (typecheck + lint + T0), `pnpm test:area <terminal|ssh|tmux>` (T1), `pnpm format`.
@@ -1042,73 +1054,32 @@ termdock/
 
 ### 13.1 Docker Compose
 
-```yaml
-# deploy/compose.yaml (shape; finalized in P8)
-services:
-  caddy:
-    image: caddy:2            # exact digest pinned in P8 (base image approved then, D-22)
-    ports: ["80:80", "443:443"]
-    environment: [TERMDOCK_DOMAIN]
-    volumes: [./Caddyfile:/etc/caddy/Caddyfile:ro, caddy-data:/data]
-    networks: [edge]          # never on `internal`
-    depends_on: [web, session-manager]
-  web:
-    build: { context: .., dockerfile: deploy/docker/web.Dockerfile }
-    user: "10001:10001"
-    environment: [TERMDOCK_PUBLIC_URL, TERMDOCK_INTERNAL_URL=http://session-manager:3002]
-    secrets: [auth_secret, internal_token, ws_secret]
-    volumes: [termdock-data:/data, web-next-cache:/app/apps/web/.next/cache]
-    networks: [edge, internal]
-    read_only: true
-    tmpfs: [/tmp]
-  session-manager:
-    build: { context: .., dockerfile: deploy/docker/session-manager.Dockerfile }
-    user: "10001:10001"
-    environment: [TERMDOCK_PUBLIC_URL, TERMDOCK_ENABLE_LOCAL_SHELL=false]
-    secrets: [master_key, internal_token, ws_secret]
-    volumes: [termdock-data:/data]
-    networks: [edge, internal]
-    extra_hosts: ["host.docker.internal:host-gateway"]
-    stop_grace_period: 30s    # the daemon's own shutdown budget is 25 s (§5.8)
-    restart: unless-stopped
-    read_only: true
-    tmpfs: [/tmp]
-networks: { edge: {}, internal: {} }
-volumes: { termdock-data: {}, caddy-data: {}, web-next-cache: {} }
-secrets:                      # bind mounts outside swarm: uid/gid/mode come from the files themselves
-  master_key:     { file: ./secrets/master_key }
-  internal_token: { file: ./secrets/internal_token }
-  ws_secret:      { file: ./secrets/ws_secret }
-  auth_secret:    { file: ./secrets/auth_secret }
-```
+[`deploy/compose.yaml`](../deploy/compose.yaml) is the deployment and its own reference; [`docs/guides/configuration.md`](guides/configuration.md) documents every variable, port, network and volume, and [`docs/guides/install.md`](guides/install.md) the procedure. Its shape:
 
-`Caddyfile`: `{$TERMDOCK_DOMAIN}` with `reverse_proxy /ws session-manager:3001` and `reverse_proxy web:3000`. For local testing, `tls internal`. Caddy sets `X-Forwarded-For` and is the only trusted proxy (§4.3).
+- **caddy** (official image, pinned by digest): the only service with published ports, `${TERMDOCK_HTTP_PORT:-80}` and `${TERMDOCK_HTTPS_PORT:-443}` (TCP, plus UDP for HTTP/3), the same port inside and outside; on `edge` only, never on `internal`; volumes `caddy-data` and `caddy-config`.
+- **web** (`deploy/docker/web.Dockerfile`): on `edge` and `internal`; `TERMDOCK_INTERNAL_URL=http://session-manager-internal:3002`; secrets `auth_secret`, `internal_token`, `ws_secret`; volume `termdock-data:/data`; tmpfs at `/tmp` and `/app/apps/web/.next/cache`.
+- **session-manager** (`deploy/docker/session-manager.Dockerfile`): on `edge`, and on `internal` with the alias `session-manager-internal`, which its internal API binds to (`TERMDOCK_INTERNAL_HOST`), so `:3002` never listens on `edge`; secrets `master_key`, `internal_token`, `ws_secret`; volume `termdock-data:/data`; `extra_hosts: host.docker.internal:host-gateway` (§13.4); `stop_grace_period: 30s` (the daemon's own budget is 25 s, §5.8); `TERMDOCK_ENABLE_LOCAL_SHELL` fixed to `false`.
+- Every service: `read_only`, tmpfs `/tmp`, `cap_drop: [ALL]` (Caddy adds back `NET_BIND_SERVICE`), `no-new-privileges`, `restart: unless-stopped`, `mem_limit` and `pids_limit` (§10.2). Both apps run as `10001:10001` and have healthchecks; caddy starts after both are healthy, web after session-manager (which migrates the database).
+- Networks: `edge` with the fixed subnet `172.30.10.0/24` (session-manager trusts `X-Forwarded-For` from it, §4.3) and `internal` (`internal: true`: no gateway).
+
+`Caddyfile`: `{$TERMDOCK_DOMAIN}` with `reverse_proxy /ws session-manager:3001` and `reverse_proxy web:3000`; `TERMDOCK_TLS=auto` (Caddy's automatic HTTPS, its local CA for `localhost` and IP addresses) or `internal` (always the local CA). Caddy sets `X-Forwarded-For` and is the only trusted proxy (§4.3).
 
 Compose `secrets:` with `file:` are bind mounts outside swarm (the `uid`/`gid`/`mode` keys are honored only in swarm), so the containers see the files' own ownership and mode; `init-secrets.sh` sets them (§13.2).
 
 ### 13.2 Configuration (environment)
 
-| Variable | Component | Notes |
-|---|---|---|
-| `TERMDOCK_DOMAIN` | caddy | site address in the `Caddyfile` (`{$TERMDOCK_DOMAIN}`), e.g. `termdock.example.com` |
-| `TERMDOCK_PUBLIC_URL` | both | e.g. `https://termdock.example.com`; used for the Origin check and cookies |
-| `TERMDOCK_DATA_DIR` | both | default `/data` (SQLite at `/data/app.db`) |
-| `TERMDOCK_MASTER_KEY_FILE` | session-manager | vault KEK (32 bytes, base64) |
-| `TERMDOCK_INTERNAL_TOKEN_FILE` | both | internal API bearer |
-| `TERMDOCK_WS_SECRET_FILE` | both | WS ticket HMAC key |
-| `BETTER_AUTH_SECRET_FILE` | web | auth signing secret |
-| `TERMDOCK_INTERNAL_URL` | web | `http://session-manager:3002` |
-| `TERMDOCK_ENABLE_LOCAL_SHELL` | session-manager | default `false` |
-| `TERMDOCK_TRUSTED_PROXIES` | session-manager | comma-separated IPs/CIDRs allowed to set `X-Forwarded-For` (the rightmost value that is not one of them names the WebSocket client), recorded in `session_events.ip`; default empty = trust nothing (socket address); compose sets the `edge` subnet `172.30.10.0/24` (§4.3) |
-| `TERMDOCK_SSH_ALLOW_LOCAL_TARGETS` | session-manager | default `false`: SSH targets on loopback, link-local, unspecified, multicast or the daemon's own addresses are refused (§10.2) |
-| `TERMDOCK_DAEMON_MEM_LIMIT` / `TERMDOCK_WEB_MEM_LIMIT` | compose | container memory limits, default `1g` / `768m` |
-| `TERMDOCK_LOG_LEVEL` | both | default `info` |
+[`docs/guides/configuration.md`](guides/configuration.md) is the reference: defaults, validation, compose values and meaning of every variable. Secrets are always files (`…_FILE`, the trimmed content is the secret); there is no `TERMDOCK_WS_SECRET`, `TERMDOCK_INTERNAL_TOKEN` or `BETTER_AUTH_SECRET` variable. The variables, by reader:
+
+- **Compose settings** (`deploy/.env` or the shell; everything else is fixed in `deploy/compose.yaml`): `TERMDOCK_DOMAIN`, `TERMDOCK_HTTP_PORT`, `TERMDOCK_HTTPS_PORT`, `TERMDOCK_PUBLIC_URL`, `TERMDOCK_TLS`, `TERMDOCK_LOG_LEVEL`, `TERMDOCK_DAEMON_MEM_LIMIT` / `TERMDOCK_WEB_MEM_LIMIT` (container memory limits, default `1g` / `768m`), `TERMDOCK_SSH_ALLOW_LOCAL_TARGETS`, `TERMDOCK_EVENT_RETENTION_DAYS`.
+- **session-manager**: `TERMDOCK_PUBLIC_URL`, `TERMDOCK_DATA_DIR`, `TERMDOCK_WS_HOST`, `TERMDOCK_WS_PORT`, `TERMDOCK_WS_SECRET_FILE`, `TERMDOCK_INTERNAL_HOST`, `TERMDOCK_INTERNAL_PORT`, `TERMDOCK_INTERNAL_TOKEN_FILE`, `TERMDOCK_MASTER_KEY_FILE`, `TERMDOCK_TRUSTED_PROXIES` (§4.3), `TERMDOCK_ENABLE_LOCAL_SHELL` (§10.2), `TERMDOCK_SSH_ALLOW_LOCAL_TARGETS` (§10.2), `TERMDOCK_EVENT_RETENTION_DAYS` (§10.2) and `TERMDOCK_LOG_LEVEL`, which only the daemon reads (web has no log level setting).
+- **web**: `TERMDOCK_PUBLIC_URL`, `TERMDOCK_DATA_DIR`, `BETTER_AUTH_SECRET_FILE`, `TERMDOCK_WS_SECRET_FILE`, `TERMDOCK_INTERNAL_URL` (`http://session-manager-internal:3002` in compose), `TERMDOCK_INTERNAL_TOKEN_FILE`; at build time only, `NEXT_PUBLIC_TERMDOCK_WS_URL` (a development override of the same-origin `/ws`).
+- **caddy**: `TERMDOCK_DOMAIN`, `TERMDOCK_HTTP_PORT`, `TERMDOCK_HTTPS_PORT`, `TERMDOCK_TLS`.
 
 `deploy/scripts/init-secrets.sh` generates every secret with `openssl rand` into `./secrets/` (gitignored), sets mode 0440 and group 10001 (the images' shared GID) on each file, and warns: **back up `master_key`. Losing it means losing every stored credential.**
 
 ### 13.3 Running outside the container (direct-mode testing, D-15b)
 
-`docs/guides/direct-mode.md` documents running `session-manager` manually on a host:
+`docs/guides/direct-mode.md` (planned with Phase 6) documents running `session-manager` manually on a host:
 
 1. Prerequisites: Node 24, pnpm, and build tools in case node-pty has no prebuild for the platform.
 2. `pnpm install`. There is no build step: session-manager runs with `node src/main.ts` (Node 24 type stripping).
@@ -1459,7 +1430,7 @@ Each session runs in its own detached **session host** process (`termdock-sessio
 |---|---|
 | Default scrollback size | 5,000 lines (snapshot CPU and memory trade-off, §5.4, §17) |
 | Default `auto_reopen` for unprotected sessions | On, with banner |
-| Web auth-session lifetime | 7 days sliding; admin-configurable idle timeout |
+| Web auth-session lifetime | 7 days sliding (Better Auth `expiresIn` 7 days, `updateAge` 1 day); no idle-timeout setting |
 | Public repository/organization name | Not decided |
 | Test image with tmux < 3.2 (Phase 7) | None approved (D-22); the normal-mode fallback stays untested until the owner approves one when P7 starts |
 

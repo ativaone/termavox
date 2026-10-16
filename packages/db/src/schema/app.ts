@@ -160,7 +160,11 @@ export const sessionEvents = sqliteTable(
     userAgent: text('user_agent'),
     createdAt: createdAt(),
   },
-  (t) => [index('session_events_session_idx').on(t.sessionId, t.createdAt)],
+  (t) => [
+    index('session_events_session_idx').on(t.sessionId, t.createdAt),
+    // The retention purge deletes by age across every session (plan §10.2).
+    index('session_events_created_idx').on(t.createdAt),
+  ],
 );
 
 export const auditEvents = sqliteTable(

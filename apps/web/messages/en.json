@@ -311,7 +311,7 @@
       "hostUnreachable": "The host can't be reached.",
       "notFound": "The host, profile or credential no longer exists.",
       "forbidden": "Your account isn't allowed to open this session.",
-      "localShellDisabled": "Local shells are turned off on this installation.",
+      "localShellDisabled": "Local shells aren't available yet: direct mode arrives in a later version.",
       "hostKeyMismatch": "The host presented a different key than the trusted one.",
       "badLaunchParams": "The profile's startup command or environment contains characters Termdock can't pass to the host safely. Edit the profile, then retry.",
       "targetNotAllowed": "The host's address is the Termdock server itself or a loopback, link-local or multicast address, which this installation doesn't allow.",
@@ -414,7 +414,7 @@
       "limit": "You've reached the maximum number of running sessions. End one first.",
       "rejected": "The session service rejected the request.",
       "generic": "Something went wrong. Try again.",
-      "localShellDisabled": "Local shells are turned off on this installation.",
+      "localShellDisabled": "Local shells aren't available yet: direct mode arrives in a later version.",
       "reopenConflict": "Only ended or unprotected sessions can be reopened."
     }
   },
@@ -476,12 +476,12 @@
       "kindSsh": "SSH server",
       "kindSshHelp": "Termdock connects over SSH and checks the host key.",
       "kindLocal": "Local shell (direct mode)",
-      "kindLocalHelp": "A shell on the machine running the session service. For administrators only.",
+      "kindLocalHelp": "A shell on the machine running the session service, for administrators. Not available yet: direct mode arrives in a later version.",
       "hostname": "Hostname or IP address",
       "hostnameHelp": "As reachable from the Termdock server, e.g. 10.0.0.12 or db.internal.",
       "port": "Port",
       "localReason": {
-        "off": "Direct mode is off. An administrator can turn it on in instance settings; it also needs local shells enabled on the session service.",
+        "off": "Direct mode isn't available yet; it arrives in a later version.",
         "adminOnly": "Local shells run as the session service's own user, so only administrators can create them."
       }
     },
@@ -1100,8 +1100,8 @@
       "maxHelp": "New sessions are refused above this number. Default 50.",
       "direct": "Direct mode",
       "localShell": "Show local shells (direct mode) to administrators",
-      "localShellHelp": "Lets administrators add a local host. It works only when the session service also runs with TERMDOCK_ENABLE_LOCAL_SHELL=true.",
-      "localShellWarning": "Local shells run as the session service's own user, which can read the master key and the database. Turning this on gives administrators effective access to every stored credential.",
+      "localShellHelp": "Lets administrators add local hosts. Their sessions can't start yet: direct mode arrives in a later version.",
+      "localShellWarning": "When direct mode arrives, local shells will run as the session service's own user, which can read the master key and the database. Leaving this on will then give administrators effective access to every stored credential.",
       "submit": "Save settings",
       "saved": "Settings saved.",
       "unchanged": "Nothing changed.",

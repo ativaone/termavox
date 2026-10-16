@@ -31,6 +31,8 @@ The first release, v0.1.0, is being prepared.
 - Docker Compose deployment behind Caddy (automatic HTTPS), hardened containers, backup and
   restore scripts.
 - Master key rotation, all or nothing and after a backup: `deploy/scripts/rotate-master-key.sh`.
+- Audit and session-event retention: rows older than `TERMDOCK_EVENT_RETENTION_DAYS` (default
+  180, `0` keeps them forever) are purged in small chunks every 6 hours.
 
 ### Security
 

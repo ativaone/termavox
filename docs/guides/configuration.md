@@ -45,6 +45,7 @@ is required.
 | `TERMDOCK_DAEMON_MEM_LIMIT` | `1g` | Compose `mem_limit` of session-manager | Memory ceiling of the daemon container. Raise it for many concurrent sessions or long scrollback. |
 | `TERMDOCK_WEB_MEM_LIMIT` | `768m` | Compose `mem_limit` of web | Memory ceiling of the web container. |
 | `TERMDOCK_SSH_ALLOW_LOCAL_TARGETS` | `false` | session-manager | Allow SSH targets on loopback, link-local, multicast, unspecified or the daemon's own addresses. See [SSH targets](install.md#ssh-targets). |
+| `TERMDOCK_EVENT_RETENTION_DAYS` | `180` | session-manager | Days to keep audit events and session events. See [Event retention](#event-retention). |
 
 Caddy's memory limit (256m) and every `pids_limit` (caddy 128, web 256, session-manager 512)
 are fixed in `deploy/compose.yaml`.
@@ -67,10 +68,23 @@ Read by `apps/session-manager/src/config/config.ts`.
 | `TERMDOCK_TRUSTED_PROXIES` | no | empty: trust nobody | `172.30.10.0/24` (the `edge` subnet) | Comma-separated IPs and CIDRs whose connections may name the client in `X-Forwarded-For`. The daemon takes the rightmost value that is not a trusted proxy; from any other peer it uses the socket address. Used for the IP in session events. An entry that is not an IP or CIDR is a configuration error. |
 | `TERMDOCK_ENABLE_LOCAL_SHELL` | no | `false` | `false` | Gate of local direct mode, which is not implemented yet (Phase 6): session-manager refuses local sessions even when it is on. Leave it off. |
 | `TERMDOCK_SSH_ALLOW_LOCAL_TARGETS` | no | `false` | from the compose setting | See [Compose settings](#compose-settings). Applies to sessions and to host tests (Fetch & verify). |
+| `TERMDOCK_EVENT_RETENTION_DAYS` | no | `180` | from the compose setting | Whole days: `0` keeps every row forever, otherwise `7` to `3650`. Unset or empty means `180`; any other value is a configuration error. See [Event retention](#event-retention). |
 | `TERMDOCK_LOG_LEVEL` | no | `info` | from the compose setting | `fatal`, `error`, `warn`, `info`, `debug`, `trace` or `silent`. Logs are JSON on stdout. |
 
 The session-manager image also sets `NODE_ENV=production` and `TERMDOCK_DATA_DIR=/data`; the
 daemon does not read `NODE_ENV`.
+
+### Event retention
+
+session-manager deletes `audit_events` and `session_events` rows older than
+`TERMDOCK_EVENT_RETENTION_DAYS` days: once a few minutes after it starts, then every 6 hours.
+The purge applies to the whole tables, so the audit events web writes (sign-ins, lockouts,
+admin actions) age out with the daemon's own; the admin audit log and each user's activity page
+show only what is left. It deletes the oldest rows first, 500 per short transaction, so other
+writes are never held up, and it logs how many rows it deleted from each table (never their
+contents). With `0` nothing is ever deleted. A session that has stayed failed for longer than
+the retention period keeps its state, but its specific failure reason ages out with its events
+and the UI shows the generic one.
 
 ## web environment
 
@@ -165,7 +179,7 @@ session-manager also maps `host.docker.internal` to the Docker host gateway, for
 
 | Volume | Mounted at | Service | Content |
 |---|---|---|---|
-| `termdock-data` | `/data` | web, session-manager | `app.db` and its `-wal`/`-shm` files. Back it up with `deploy/scripts/backup.sh`. |
+| `termdock-data` | `/data` | web, session-manager | `app.db` and its `-wal`/`-shm` files. Back it up with `deploy/scripts/backup.sh`. Also `session-manager.lock`, the data directory lock that session-manager and `vault rotate` hold while they run (released when the holder exits, even after a crash; do not delete it while either runs). |
 | `caddy-data` | `/data` | caddy | Certificates and Caddy's local CA. |
 | `caddy-config` | `/config` | caddy | Caddy's autosaved configuration. |
 
