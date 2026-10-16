@@ -4,6 +4,7 @@ import type { Terminal } from '@xterm/xterm';
 import { createContext, type RefObject, useContext } from 'react';
 import type { TerminalPreferences } from '../../lib/preferences/terminal.ts';
 import type { SessionActionResult } from '../../lib/sessions/action-result.ts';
+import type { SessionLabel } from '../../lib/sessions/types.ts';
 import type {
   ConnectionState,
   Dimensions,
@@ -41,6 +42,8 @@ export interface WorkspaceContextValue {
   connection: TermdockConnection;
   connectionState: ConnectionState;
   sessions: ReadonlyMap<string, SessionEntry>;
+  /** Label and status per session, from the server-rendered bay until live data arrives. */
+  labels: ReadonlyMap<string, SessionLabel>;
   preferences: TerminalPreferences;
   /** Null until the terminal font has loaded (terminals wait for it). */
   appearance: TerminalAppearance | null;

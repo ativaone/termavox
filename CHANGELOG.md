@@ -30,6 +30,7 @@ The first release, v0.1.0, is being prepared.
 - English and Brazilian Portuguese UI.
 - Docker Compose deployment behind Caddy (automatic HTTPS), hardened containers, backup and
   restore scripts.
+- Master key rotation, all or nothing and after a backup: `deploy/scripts/rotate-master-key.sh`.
 
 ### Security
 

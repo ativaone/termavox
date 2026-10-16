@@ -15,15 +15,18 @@ export class VaultError extends Error {
  * Loads the vault KEK from `TERMDOCK_MASTER_KEY_FILE` (plan §10.2, §13.2): the trimmed file
  * content is standard base64 of exactly 32 random bytes (`openssl rand -base64 32`). The key is
  * moved into a `KeyObject` (native memory) and the decoded buffer is zeroed. The file's text
- * itself is a JS string and cannot be wiped.
+ * itself is a JS string and cannot be wiped. `label` names the setting in error messages.
  */
-export async function loadMasterKey(path: string): Promise<KeyObject> {
+export async function loadMasterKey(
+  path: string,
+  label = 'TERMDOCK_MASTER_KEY_FILE',
+): Promise<KeyObject> {
   let text: string;
   try {
     text = await readFile(path, 'utf8');
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code ?? 'unreadable';
-    throw new VaultError(`cannot read TERMDOCK_MASTER_KEY_FILE ${path} (${code})`);
+    throw new VaultError(`cannot read ${label} ${path} (${code})`);
   }
   return parseMasterKey(text, path);
 }

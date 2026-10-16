@@ -15,6 +15,9 @@ export interface BaySession {
   endedAt: number | null;
 }
 
+/** What a tab or a pane caption shows of a session: its label and its state edge. */
+export type SessionLabel = Pick<BaySession, 'label' | 'status'>;
+
 export interface BayData {
   /** Every non-ended session plus the latest ended ones (see ENDED_SHOWN). */
   sessions: BaySession[];

@@ -48,8 +48,9 @@ COPY --from=build /src/node_modules /app/node_modules
 COPY --from=build /src/packages /app/packages
 COPY --from=build /src/apps/session-manager /app/apps/session-manager
 # Smoke check at build time: the whole module graph resolves with production dependencies only,
-# and the better-sqlite3 prebuild loads (main.ts only boots when run as the entry point).
-RUN node --input-type=module -e "await import('/app/apps/session-manager/src/main.ts'); const { openDb } = await import('/app/packages/db/src/index.ts'); openDb(':memory:').\$client.close();"
+# and the better-sqlite3 prebuild loads (main.ts and the vault rotate CLI only run when started
+# as the entry point).
+RUN node --input-type=module -e "await import('/app/apps/session-manager/src/main.ts'); await import('/app/apps/session-manager/src/cli/vault-rotate.ts'); const { openDb } = await import('/app/packages/db/src/index.ts'); openDb(':memory:').\$client.close();"
 WORKDIR /app/apps/session-manager
 USER 10001:10001
 # 3001: WebSocket attachments (edge network). 3002: internal API (internal network only).

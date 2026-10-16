@@ -12,7 +12,7 @@ import {
   useState,
   type WheelEvent,
 } from 'react';
-import type { SessionEntry } from '../../lib/terminal/index.ts';
+import type { SessionLabel } from '../../lib/sessions/types.ts';
 import { findLeaf, leaves } from '../../lib/workspace/tree.ts';
 import {
   BellIcon,
@@ -36,14 +36,14 @@ interface TabView {
   tab: Tab;
   label: string;
   title: string | null;
-  session: SessionEntry | undefined;
+  session: SessionLabel | undefined;
   panes: number;
   bell: boolean;
 }
 
 function viewOf(
   tab: Tab,
-  sessions: ReadonlyMap<string, SessionEntry>,
+  sessions: ReadonlyMap<string, SessionLabel>,
   paneMeta: Readonly<Record<string, PaneMeta>>,
   fallback: { empty: string; loading: string },
 ): TabView {
@@ -112,7 +112,8 @@ export function TabBar({
   trailing,
 }: {
   layout: WorkspaceLayout;
-  sessions: ReadonlyMap<string, SessionEntry>;
+  /** Label and status per session (server-rendered until live data arrives). */
+  sessions: ReadonlyMap<string, SessionLabel>;
   paneMeta: Readonly<Record<string, PaneMeta>>;
   onSelect(tabId: string): void;
   onClose(tabId: string): void;

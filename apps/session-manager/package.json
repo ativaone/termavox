@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
-    "start": "node src/main.ts"
+    "start": "node src/main.ts",
+    "vault:rotate": "node src/cli/vault-rotate.ts"
   },
   "dependencies": {
     "@termdock/db": "workspace:*",

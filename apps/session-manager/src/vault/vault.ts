@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { CredentialSecret } from '../core/types.ts';
 import type { BatchedWriter } from '../store/batched-writer.ts';
 import { insertSettingIfAbsent, readSetting, SETTING_VAULT_KEY_CHECK } from '../store/settings.ts';
-import { getRow } from '../store/sqlite.ts';
+import { getRow, type Sqlite } from '../store/sqlite.ts';
 import { loadMasterKey, VaultError } from './master-key.ts';
 
 /**
@@ -20,7 +20,9 @@ import { loadMasterKey, VaultError } from './master-key.ts';
  * - Key check (`instance_settings.vault_key_check`): GCM encryption of a constant under the KEK
  *   with its own AAD (`lp("termdock.vault-key-check.v1") ‖ u32be(key_version)`), created on the
  *   first boot and verified on every boot, so a wrong KEK fails fast instead of failing every
- *   connect later.
+ *   connect later. Its `keyVersion` is the version of the current KEK: 1 from the first boot,
+ *   one more after each `vault rotate` (src/vault/rotate.ts), which re-encrypts every record and
+ *   the check under the new KEK in one transaction. The daemon opens the vault at that version.
  *
  * Decrypted plaintext buffers are zeroed after use; the strings handed to ssh2 cannot be.
  */
@@ -66,6 +68,13 @@ const KeyCheck = z.object({
 });
 export type KeyCheck = z.infer<typeof KeyCheck>;
 
+/** Parses a stored `vault_key_check` value; throws a VaultError when it is malformed. */
+export function parseKeyCheck(value: unknown): KeyCheck {
+  const parsed = KeyCheck.safeParse(value);
+  if (!parsed.success) throw new VaultError('instance_settings.vault_key_check is malformed');
+  return parsed.data;
+}
+
 function lengthPrefixed(value: string): Buffer {
   const bytes = Buffer.from(value, 'utf8');
   const length = Buffer.alloc(4);
@@ -94,6 +103,14 @@ function keyCheckAad(keyVersion: number): Buffer {
   return Buffer.concat([lengthPrefixed(KEY_CHECK_AAD_DOMAIN), u32(keyVersion)]);
 }
 
+/** The KEK does not decrypt `vault_key_check`: a wrong key, or another installation's database. */
+export class KeyCheckMismatchError extends VaultError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'KeyCheckMismatchError';
+  }
+}
+
 export class Vault {
   readonly #keys: ReadonlyMap<number, KeyObject>;
   readonly currentVersion: number;
@@ -105,11 +122,6 @@ export class Vault {
     }
     this.#keys = keys;
     this.currentVersion = currentVersion;
-  }
-
-  /** The vault over the KEK file (key version 1; rotation arrives in Phase 8). */
-  static async fromFile(path: string): Promise<Vault> {
-    return new Vault(new Map([[1, await loadMasterKey(path)]]), 1);
   }
 
   seal(binding: CredentialBinding, secret: CredentialSecret): SealedSecret {
@@ -168,6 +180,40 @@ export class Vault {
     }
   }
 
+  /** Throws VaultError when the record does not authenticate; the plaintext is wiped at once. */
+  verify(binding: CredentialBinding, sealed: SealedSecret): void {
+    this.#decrypt(
+      sealed.keyVersion,
+      sealed.nonce,
+      sealed.ciphertext,
+      credentialAad(binding, sealed.keyVersion),
+    ).fill(0);
+  }
+
+  /**
+   * Rotation: decrypts a record with this vault's key for its version and encrypts the same
+   * plaintext bytes for `target`, under the target's current version, with a fresh nonce and the
+   * matching AAD. The plaintext stays in one buffer, never a string, and is zeroed afterwards.
+   * Throws VaultError when the record does not authenticate.
+   */
+  reseal(binding: CredentialBinding, sealed: SealedSecret, target: Vault): SealedSecret {
+    const plaintext = this.#decrypt(
+      sealed.keyVersion,
+      sealed.nonce,
+      sealed.ciphertext,
+      credentialAad(binding, sealed.keyVersion),
+    );
+    try {
+      const keyVersion = target.currentVersion;
+      return {
+        ...target.#encrypt(keyVersion, plaintext, credentialAad(binding, keyVersion)),
+        keyVersion,
+      };
+    } finally {
+      plaintext.fill(0);
+    }
+  }
+
   createKeyCheck(): KeyCheck {
     const keyVersion = this.currentVersion;
     const { nonce, ciphertext } = this.#encrypt(
@@ -186,9 +232,7 @@ export class Vault {
 
   /** Throws a VaultError with an operator-facing message when the KEK does not match. */
   verifyKeyCheck(value: unknown): void {
-    const parsed = KeyCheck.safeParse(value);
-    if (!parsed.success) throw new VaultError('instance_settings.vault_key_check is malformed');
-    const check = parsed.data;
+    const check = parseKeyCheck(value);
     if (!this.#keys.has(check.keyVersion)) {
       throw new VaultError(
         `vault_key_check uses key version ${check.keyVersion}, which is not loaded`,
@@ -203,7 +247,7 @@ export class Vault {
         keyCheckAad(check.keyVersion),
       );
     } catch {
-      throw new VaultError(
+      throw new KeyCheckMismatchError(
         'TERMDOCK_MASTER_KEY_FILE does not match this database (vault_key_check failed): ' +
           'wrong master key, or the database belongs to another installation',
       );
@@ -261,27 +305,48 @@ export class Vault {
 }
 
 /**
- * Boot step 2 (plan §5.8): verifies the KEK against `vault_key_check`, creating the check on the
- * first boot. A missing check while credentials exist is refused: the KEK cannot be validated.
+ * Boot step 2 (plan §5.8): loads the KEK from `keyFile` and opens the vault at the key version
+ * `vault_key_check` records (1 before the check exists, N + 1 after N rotations), so new records
+ * are sealed under the current version; then verifies the KEK against the check, creating it on
+ * the first boot. Reading the version and verifying happen in one transaction.
+ */
+export async function openVault(
+  writer: BatchedWriter,
+  keyFile: string,
+): Promise<{ vault: Vault; keyCheck: 'created' | 'verified' }> {
+  const key = await loadMasterKey(keyFile);
+  return writer.run('vault_key_check', (sqlite) => {
+    const stored = readSetting(sqlite, SETTING_VAULT_KEY_CHECK);
+    const keyVersion = stored === undefined ? 1 : parseKeyCheck(stored).keyVersion;
+    const vault = new Vault(new Map([[keyVersion, key]]), keyVersion);
+    return { vault, keyCheck: verifyOrCreateKeyCheck(sqlite, vault) };
+  });
+}
+
+/**
+ * Verifies the vault's KEK against `vault_key_check`, creating the check on the first boot. A
+ * missing check while credentials exist is refused: the KEK cannot be validated.
  */
 export function ensureVaultKeyCheck(
   writer: BatchedWriter,
   vault: Vault,
 ): Promise<'created' | 'verified'> {
-  return writer.run('vault_key_check', (sqlite) => {
-    const existing = readSetting(sqlite, SETTING_VAULT_KEY_CHECK);
-    if (existing !== undefined) {
-      vault.verifyKeyCheck(existing);
-      return 'verified';
-    }
-    const credentials = getRow<{ n: number }>(sqlite, 'SELECT COUNT(*) AS n FROM credentials');
-    if ((credentials?.n ?? 0) > 0) {
-      throw new VaultError(
-        'instance_settings.vault_key_check is missing but credentials exist; ' +
-          'refusing to start because the master key cannot be verified',
-      );
-    }
-    insertSettingIfAbsent(sqlite, SETTING_VAULT_KEY_CHECK, vault.createKeyCheck());
-    return 'created';
-  });
+  return writer.run('vault_key_check', (sqlite) => verifyOrCreateKeyCheck(sqlite, vault));
+}
+
+function verifyOrCreateKeyCheck(sqlite: Sqlite, vault: Vault): 'created' | 'verified' {
+  const existing = readSetting(sqlite, SETTING_VAULT_KEY_CHECK);
+  if (existing !== undefined) {
+    vault.verifyKeyCheck(existing);
+    return 'verified';
+  }
+  const credentials = getRow<{ n: number }>(sqlite, 'SELECT COUNT(*) AS n FROM credentials');
+  if ((credentials?.n ?? 0) > 0) {
+    throw new VaultError(
+      'instance_settings.vault_key_check is missing but credentials exist; ' +
+        'refusing to start because the master key cannot be verified',
+    );
+  }
+  insertSettingIfAbsent(sqlite, SETTING_VAULT_KEY_CHECK, vault.createKeyCheck());
+  return 'created';
 }

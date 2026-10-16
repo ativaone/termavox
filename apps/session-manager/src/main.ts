@@ -1,11 +1,13 @@
 /**
  * session-manager entry point: `node src/main.ts` (Node 24 runs TypeScript directly).
  *
- * Boot (plan §5.8): parse the environment → open the DB (busy_timeout 250 ms) → migrate →
- * ensure `installation_id` → load and verify the vault KEK (`vault_key_check`) → read the WS
- * secret and internal token files → data plane (WebSocket server + boot restore) → internal API.
- * SIGTERM/SIGINT → graceful shutdown within 25 s: internal API, data plane (runtimes detach,
- * clients are told the server is restarting), batched writer flush, DB close.
+ * Boot (plan §5.8): parse the environment → take the data directory lock (one session-manager
+ * per database; `vault rotate` takes it too) → open the DB (busy_timeout 250 ms) → migrate →
+ * ensure `installation_id` → load and verify the vault KEK (`vault_key_check`, at its key
+ * version) → read the WS secret and internal token files → data plane (WebSocket server + boot
+ * restore) → internal API. SIGTERM/SIGINT → graceful shutdown within 25 s: internal API, data
+ * plane (runtimes detach, clients are told the server is restarting), batched writer flush, DB
+ * close, lock release.
  */
 import type { AddressInfo } from 'node:net';
 import { migrateDb, openDb, type TermdockDb } from '@termdock/db';
@@ -18,12 +20,13 @@ import { TmuxControlDriver } from './drivers/tmux-control/index.ts';
 import { InternalApi, type InternalApiOptions } from './internal-api/server.ts';
 import { SqliteAuthSessionValidator, SqliteOwnership } from './store/access.ts';
 import { BatchedWriter } from './store/batched-writer.ts';
+import { lockDataDir } from './store/data-dir-lock.ts';
 import { auditHostKeyMismatches, SqliteHostKeyStore } from './store/host-key-store.ts';
 import { SqliteSessionStore } from './store/session-store.ts';
 import { ensureInstallationId } from './store/settings.ts';
 import { TargetPolicy } from './transport/ssh/index.ts';
 import { CredentialService, VaultCredentialProvider } from './vault/credentials.ts';
-import { ensureVaultKeyCheck, Vault } from './vault/vault.ts';
+import { openVault } from './vault/vault.ts';
 
 /** Daemon shutdown budget, inside compose's `stop_grace_period: 30s`. */
 export const SHUTDOWN_BUDGET_MS = 25_000;
@@ -63,15 +66,22 @@ export async function startDaemon(
   overrides: DaemonOverrides = {},
 ): Promise<Daemon> {
   const log = overrides.logger ?? createLogger(config.logLevel);
-  const db = openDb(config.dbFile, { busyTimeoutMs: DAEMON_BUSY_TIMEOUT_MS });
+  // Held until the shutdown completes; a crash releases it with the process.
+  const lock = lockDataDir(config.dbFile);
+  let db: TermdockDb;
+  try {
+    db = openDb(config.dbFile, { busyTimeoutMs: DAEMON_BUSY_TIMEOUT_MS });
+  } catch (err) {
+    lock.release();
+    throw err;
+  }
   const writer = new BatchedWriter(db, { logger: log });
   let plane: DataPlane | null = null;
   let internalApi: InternalApi | null = null;
   try {
     migrateDb(db);
     const installationId = await ensureInstallationId(writer);
-    const vault = await Vault.fromFile(config.masterKeyFile);
-    const vaultKeyCheck = await ensureVaultKeyCheck(writer, vault);
+    const { vault, keyCheck: vaultKeyCheck } = await openVault(writer, config.masterKeyFile);
     const wsSecret = await readSecretFile(config.wsSecretFile);
     const internalToken = await readSecretFile(config.internalTokenFile);
 
@@ -126,6 +136,7 @@ export async function startDaemon(
         version: VERSION,
         installationId,
         vaultKeyCheck,
+        vaultKeyVersion: vault.currentVersion,
         ws: `${wsAddress.address}:${wsAddress.port}`,
         internalApi: `${internalAddress.address}:${internalAddress.port}`,
         dataDir: config.dataDir,
@@ -150,6 +161,7 @@ export async function startDaemon(
         // Runtimes persist their last states during the data plane shutdown: flush after it.
         const drained = await writer.close(Math.max(1_000, deadline - Date.now()));
         db.$client.close();
+        lock.release();
         log.info({ drained }, 'shutdown complete');
       })();
       return stopping;
@@ -174,6 +186,7 @@ export async function startDaemon(
     await plane?.shutdown().catch(() => {});
     await writer.close(1_000).catch(() => false);
     db.$client.close();
+    lock.release();
     throw err;
   }
 }

@@ -297,6 +297,26 @@
   animation: none;
 }
 
+/*
+ * The slide stays inside the lanes. Strips are captured above the page, out of reach of the
+ * lanes' overflow clip, so the bay's head (wordmark, New session) and its account footer are
+ * captured too and drawn above them: a strip passing under either stays under it, as it does
+ * outside a transition. Both are opaque on the bay colour and do not animate.
+ */
+::view-transition-group(bay-head),
+::view-transition-group(bay-foot) {
+  z-index: 1;
+}
+
+::view-transition-group(bay-head),
+::view-transition-group(bay-foot),
+::view-transition-old(bay-head),
+::view-transition-new(bay-head),
+::view-transition-old(bay-foot),
+::view-transition-new(bay-foot) {
+  animation: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   /* Every transition reads these tokens, so zero here stills the whole interface. */
   :root {

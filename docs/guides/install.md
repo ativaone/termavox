@@ -65,7 +65,7 @@ If none of them works, the script leaves the files owner-only and prints the two
 > [!IMPORTANT]
 > **Back up `deploy/secrets/master_key`** somewhere safe and separate from the database backups. Losing it means losing every stored credential, and a database backup is useless without it.
 
-The script refuses to overwrite existing files. `--force` replaces them all, but a new `master_key` makes the existing vault unreadable: session-manager then refuses to start (vault key check).
+The script refuses to overwrite existing files. `--force` replaces them all, but a new `master_key` makes the existing vault unreadable: session-manager then refuses to start (vault key check). To change the key of a running installation, rotate it instead (see [Rotating the master key](#rotating-the-master-key)).
 
 ## 3. Configure
 
@@ -175,6 +175,48 @@ The script asks you to type `restore`, or takes `--yes` for automation, and then
 
 The `master_key` must be the one in use when the backup was taken.
 
+## Rotating the master key
+
+Rotate the master key when it may have been exposed (a copied secrets directory, a host you no longer trust, someone with access leaving), or on a schedule if your policy asks for one. Every stored credential is re-encrypted under a new key; hosts, profiles and sessions stay as they are.
+
+```bash
+deploy/scripts/rotate-master-key.sh
+```
+
+The script asks you to type `rotate`, or takes `--yes` for automation, and then:
+
+1. Generates `deploy/secrets/master_key.new` the way `init-secrets.sh` does: 32 random bytes, group `10001`, mode `0440`.
+2. Stops session-manager. Open terminals disconnect, protected sessions are restored when it starts again, and unprotected sessions end. web keeps running.
+3. Runs `vault rotate` in a one-off session-manager container, with the same image, user and data volume, and both keys mounted read-only. It checks the current key against the database's vault key check, writes a consistent backup next to the database (`/data/pre-rotate-<timestamp>.db`, mode `0600`), and re-encrypts every credential and the key check in one transaction: all or nothing.
+4. Keeps the old key as `deploy/secrets/master_key.old` (mode `0400`), installs the new key as `master_key`, copies the backup to `deploy/backups/`, and starts session-manager, which verifies the new key at boot.
+
+If the rotation fails, the database and `master_key` stay as they were, session-manager starts again on the current key, and the script exits non-zero. If the script cannot tell which key the database uses, for example after an interruption, it keeps `master_key.new`, and the next run prints the steps to find out.
+
+Afterwards:
+
+- **Back up the new `master_key`** in place of your copy of the old one.
+- Check that sessions connect. Then delete `deploy/secrets/master_key.old` and the pre-rotate backup, both on the host and in the volume (the script prints the commands). Only the old key opens that backup.
+- The script refuses to run again while `master_key.old` or `master_key.new` exists.
+
+To roll back, for example when session-manager does not become healthy with the new key, return to the old key and the pre-rotate backup. Changes made after the rotation are lost:
+
+```bash
+docker compose -f deploy/compose.yaml stop session-manager
+mv deploy/secrets/master_key deploy/secrets/master_key.rotated
+mv deploy/secrets/master_key.old deploy/secrets/master_key && chmod 0440 deploy/secrets/master_key
+deploy/scripts/restore.sh --yes deploy/backups/pre-rotate-<timestamp>.db
+```
+
+**Without Compose** (session-manager run by hand, plan §13.3): stop session-manager, create the new key, run the CLI, and start session-manager again with the new key in `TERMDOCK_MASTER_KEY_FILE`.
+
+```bash
+(umask 077 && openssl rand -base64 32 > /path/to/master_key.new)
+pnpm --filter @termdock/session-manager vault:rotate \
+  --old-key-file /path/to/master_key --new-key-file /path/to/master_key.new --data-dir /path/to/data
+```
+
+`--dry-run` checks that every credential decrypts with the old key and writes nothing. The CLI refuses equal keys and a wrong old key, refuses to run while session-manager holds the data directory (`session-manager.lock` beside `app.db`; the lock is released when its holder exits, even after a crash), and never prints key material. Exit status 3 means the database already uses the new key.
+
 ## Upgrades
 
 ```bash
@@ -200,6 +242,7 @@ The health endpoints are `GET /api/health` on web and `GET /internal/v1/health` 
 ## Troubleshooting
 
 - **session-manager or web logs `EACCES` on `/run/secrets/...`.** The secret files are not group 10001 with mode `0440`. Re-run `deploy/scripts/init-secrets.sh` (it refuses to overwrite, so delete the files first or fix the group as it suggests), or run `sudo chgrp 10001 deploy/secrets/* && chmod 0440 deploy/secrets/*`.
-- **session-manager exits at boot with a vault key check error.** `master_key` is not the key this database was created with. Put the original key back.
+- **session-manager exits at boot with a vault key check error.** `master_key` is not the key the database is encrypted with: the original key, or the newest one after a rotation. Put that key back (after a rotation, `master_key.old` holds the previous one).
+- **session-manager exits at boot because the data directory is in use.** Another session-manager or a running `vault rotate` holds `/data/session-manager.lock`. Let the rotation finish, or stop the other process; the lock is released as soon as its holder exits.
 - **Login or setup fails with an origin error, or the terminal never connects.** The URL in the browser's address bar must match `TERMDOCK_PUBLIC_URL` (scheme, host and port). Set it explicitly when the default `https://<domain>:<https port>` is not what browsers use.
 - **`bind: address already in use` on start.** Another service holds port 80 or 443. Pick other ports with `TERMDOCK_HTTP_PORT` and `TERMDOCK_HTTPS_PORT`, or stop that service.

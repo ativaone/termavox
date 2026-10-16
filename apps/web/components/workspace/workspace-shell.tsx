@@ -21,7 +21,7 @@ import {
 } from '../../lib/actions/sessions.ts';
 import type { TerminalPreferences } from '../../lib/preferences/terminal.ts';
 import type { SessionActionResult } from '../../lib/sessions/action-result.ts';
-import { toBayData } from '../../lib/sessions/live.ts';
+import { sessionLabels, toBayData } from '../../lib/sessions/live.ts';
 import type { BayData, BaySession } from '../../lib/sessions/types.ts';
 import { TermdockConnection } from '../../lib/terminal/index.ts';
 import { useConnectionState } from '../../lib/terminal/react.ts';
@@ -252,6 +252,11 @@ export function WorkspaceShell({
   const bay = useMemo(
     () => (connectionState.sessionsLoaded ? toBayData(connectionState.sessions) : serverBay),
     [connectionState.sessionsLoaded, connectionState.sessions, serverBay],
+  );
+  // Tabs and pane captions read the first paint's summaries until the live list arrives.
+  const labels = useMemo(
+    () => sessionLabels(sessions, connectionState.sessionsLoaded, serverBay.sessions),
+    [sessions, connectionState.sessionsLoaded, serverBay.sessions],
   );
 
   // ── panes ──────────────────────────────────────────────────────────────────
@@ -558,6 +563,7 @@ export function WorkspaceShell({
       connection,
       connectionState,
       sessions,
+      labels,
       preferences,
       appearance,
       isDesktop,
@@ -577,6 +583,7 @@ export function WorkspaceShell({
       connection,
       connectionState,
       sessions,
+      labels,
       preferences,
       appearance,
       isDesktop,
@@ -653,7 +660,9 @@ export function WorkspaceShell({
             phoneView === 'pane' && 'max-md:hidden',
           )}
         >
-          <div className="flex flex-col gap-3 px-3 pt-4 pb-3">
+          {/* The head and the footer ride above a sliding strip (globals.css, bay-head/bay-foot):
+              opaque on the bay colour, so a strip scrolled under them stays under them. */}
+          <div className="flex flex-col gap-3 bg-board-1 px-3 pt-4 pb-3 [view-transition-name:bay-head]">
             <div className="flex h-7 items-center px-1">
               <Wordmark />
             </div>
@@ -686,7 +695,7 @@ export function WorkspaceShell({
             )}
           </div>
 
-          <footer className="flex flex-col gap-2 border-board-rule border-t px-3 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <footer className="flex flex-col gap-2 border-board-rule border-t bg-board-1 px-3 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] [view-transition-name:bay-foot]">
             <div className="flex items-start justify-between gap-2">
               <AccountMenu username={username} isAdmin={isAdmin} locale={locale} />
               <SignOutButton label={tc('signOut')} iconOnly />
@@ -735,7 +744,7 @@ export function WorkspaceShell({
           <div className="max-md:hidden">
             <TabBar
               layout={layout}
-              sessions={sessions}
+              sessions={labels}
               paneMeta={paneMeta}
               onSelect={selectTab}
               onClose={(tabId) => dispatch({ type: 'closeTab', tabId })}

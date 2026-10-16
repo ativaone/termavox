@@ -1,6 +1,6 @@
 import type { SessionSummary } from '@termdock/protocol/client';
 import { ENDED_SHOWN } from './lanes.ts';
-import type { BayData, BaySession } from './types.ts';
+import type { BayData, BaySession, SessionLabel } from './types.ts';
 
 /**
  * The bay from the live `sessions.list` (every session the user ever had, newest first): the
@@ -36,4 +36,24 @@ export function toBayData(summaries: readonly SessionSummary[]): BayData {
     sessions: [...live, ...ended.slice(0, ENDED_SHOWN)].map(toBaySession),
     endedTotal: ended.length,
   };
+}
+
+/**
+ * Label and status per session for the tab bar and the pane captions. Until the live session
+ * list arrives, and for as long as the WebSocket cannot connect, they come from the
+ * server-rendered bay summaries (the bay's own strips show the same), not placeholders; once
+ * the list has arrived, from the live entries only.
+ */
+export function sessionLabels(
+  live: ReadonlyMap<string, SessionLabel>,
+  liveLoaded: boolean,
+  server: readonly BaySession[],
+): ReadonlyMap<string, SessionLabel> {
+  if (liveLoaded) return live;
+  const labels = new Map<string, SessionLabel>();
+  for (const session of server) {
+    labels.set(session.id, { label: session.label, status: session.status });
+  }
+  for (const [id, session] of live) labels.set(id, session);
+  return labels;
 }

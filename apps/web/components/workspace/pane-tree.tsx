@@ -195,8 +195,8 @@ function PaneCaption({
   meta: PaneMeta | undefined;
 }) {
   const t = useTranslations('workspace');
-  const { sessions, closePane } = useWorkspace();
-  const session = leaf.sessionId ? sessions.get(leaf.sessionId) : undefined;
+  const { labels, closePane } = useWorkspace();
+  const session = leaf.sessionId ? labels.get(leaf.sessionId) : undefined;
   const label = session?.label ?? (leaf.sessionId ? t('pane.loading') : t('pane.emptyPane'));
   return (
     <div
