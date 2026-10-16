@@ -10,6 +10,8 @@
     "typecheck": "next typegen && tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@fontsource-variable/archivo": "5.3.0",
+    "@fontsource-variable/jetbrains-mono": "5.3.0",
     "@termdock/db": "workspace:*",
     "@termdock/protocol": "workspace:*",
     "@termdock/shared": "workspace:*",

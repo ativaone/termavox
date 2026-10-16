@@ -1018,7 +1018,7 @@ termdock/
 - TypeScript **6.0.3** (pinned: TS 7 rewrote the compiler and its Next.js/tooling compatibility is unverified), `strict`, ESM only.
 - Lint and format with **Biome** (a single dependency; `biome.json` at the root). The isolation rule (`noRestrictedImports` for direct `db` imports, §10.2) lives there.
 - session-manager runs TypeScript directly with Node 24 type stripping (`node src/main.ts`), so its code uses erasable syntax only. There is no build step and no tsx.
-- pnpm **11.13.0** (the `packageManager` field) with workspaces and `workspace:*` internal deps; exact external versions; `engines` set; `.nvmrc` = 24. pnpm `allowBuilds` blocks every dependency build script: better-sqlite3 loads its bundled prebuilds, and ssh2's optional native crypto is skipped.
+- pnpm **11.14.0** (the `packageManager` field) with workspaces and `workspace:*` internal deps; exact external versions; `engines` set; `.nvmrc` = 24. pnpm `allowBuilds` blocks every dependency build script: better-sqlite3 loads its bundled prebuilds, and ssh2's optional native crypto is skipped.
 - Root scripts: `pnpm check` (typecheck + lint + T0), `pnpm test:area <terminal|ssh|tmux>` (T1), `pnpm format`.
 - Commits (D-20): one or more commits per delivered functional block, made by the orchestrator after verification. Messages are short and imperative, at most 2 lines, with no co-author or attribution trailers. Each verified commit is pushed to `origin main`.
 - Every architectural change or spike outcome gets an ADR in `docs/adr/`.
@@ -1146,7 +1146,7 @@ Exit criteria are delivery verifications, **not** a mandate to build permanent t
 
 **Scope**
 
-- Monorepo scaffold (pnpm 11.13.0, TypeScript 6.0.3, Biome, Vitest), CI (GitHub Actions: typecheck, lint, unit, i18n parity, build; integration job with the sshd matrix).
+- Monorepo scaffold (pnpm 11.14.0, TypeScript 6.0.3, Biome, Vitest), CI (GitHub Actions: typecheck, lint, unit, i18n parity, build; integration job with the sshd matrix).
 - Every dependency inspected via `ats-dependency-security` before install. Exact pins.
 - `test/sshd` images (D-22), all built in Phase 0 because S2 needs them:
   - **Core** (used by T1): alpine:3 (no tmux), ubuntu:22.04 (tmux **3.2a**, the floor), alpine:edge (the **newest packaged** tmux).

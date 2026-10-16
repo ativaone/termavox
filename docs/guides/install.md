@@ -24,7 +24,7 @@ This guide runs the whole system on one Linux host with a single command: **Cadd
 - A Linux host (x86_64 or arm64) with **Docker Engine 25 or newer** and the **Compose v2 plugin**. Tested with Engine 27.2 and Compose 2.29. Rootful Docker is assumed: with rootless Docker, container UIDs map to subordinate IDs and the secret permissions below don't apply as written.
 - `bash`, `git` and `openssl` on the host.
 - Free host ports: 80 and 443 by default (configurable).
-- Network access while building: Docker Hub (the two base images `node:24-bookworm-slim` and `caddy:2`, pinned by digest), the npm registry (pnpm 11.13.0 and the packages in `pnpm-lock.yaml`), and Google Fonts (the web build downloads its two fonts and serves them itself, so browsers never contact Google).
+- Network access while building: Docker Hub (the two base images `node:24-bookworm-slim` and `caddy:2`, pinned by digest) and the npm registry (pnpm 11.14.0 and the packages in `pnpm-lock.yaml`, including the two fonts, which the app serves itself — browsers never contact a font CDN).
 - Memory for the build: the web image runs a Next.js production build, the heaviest step. Build when the host has a couple of GB free. At runtime, the two Node processes need far less.
 - For a public domain: a DNS record that points to the host, and ports 80 and 443 reachable from the internet so Caddy can obtain a certificate.
 

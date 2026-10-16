@@ -11,7 +11,7 @@
 FROM node:24-bookworm-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5 AS build
 ENV CI=true
 # pnpm at the exact version of the root package.json `packageManager` field; no install scripts.
-RUN npm install --global --ignore-scripts pnpm@11.13.0 && npm cache clean --force
+RUN npm install --global --ignore-scripts pnpm@11.14.0 && npm cache clean --force
 WORKDIR /src
 # Manifests first: the dependency layer is reused until the lockfile or a manifest changes.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
