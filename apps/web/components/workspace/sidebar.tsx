@@ -3,8 +3,9 @@
 import { useTranslations } from 'next-intl';
 import type { ReactNode } from 'react';
 import type { Locale } from '../../i18n/locales.ts';
+import { ROUTES } from '../../lib/routes.ts';
 import type { BayData, BaySession } from '../../lib/sessions/types.ts';
-import { ActivityIcon, HostIcon, KeyIcon, PanelLeftIcon } from '../icons/index.tsx';
+import { ActivityIcon, KeyIcon, PanelLeftIcon, ServerIcon } from '../icons/index.tsx';
 import { cx } from '../ui/cx.ts';
 import { NavIcon, NavRow } from '../ui/nav-row.tsx';
 import { BrandTile, Wordmark } from '../ui/wordmark.tsx';
@@ -21,7 +22,7 @@ export interface SidebarProps {
   username: string;
   isAdmin: boolean;
   locale: Locale;
-  hostCount: number;
+  serverCount: number;
   data: BayData;
   followedId: string | null;
   renderedAt: number;
@@ -74,7 +75,7 @@ export function Sidebar({
   username,
   isAdmin,
   locale,
-  hostCount,
+  serverCount,
   data,
   followedId,
   renderedAt,
@@ -90,16 +91,16 @@ export function Sidebar({
   const tn = useTranslations('nav');
   const rail = desktop && mode === 'rail';
   const nav = [
-    { href: '/hosts', label: tn('hosts'), icon: <HostIcon size={16} /> },
+    { href: ROUTES.servers, label: tn('servers'), icon: <ServerIcon size={16} /> },
     { href: '/credentials', label: tn('credentials'), icon: <KeyIcon size={16} /> },
     { href: '/activity', label: tn('activity'), icon: <ActivityIcon size={16} /> },
   ];
 
   let list: ReactNode;
-  if (hostCount === 0) {
+  if (serverCount === 0) {
     list = rail ? null : (
       <>
-        <p className="px-2.5 text-ink-muted text-sm max-md:hidden">{t('bay.noHosts')}</p>
+        <p className="px-2.5 text-ink-muted text-sm max-md:hidden">{t('bay.noServers')}</p>
         <FirstRunPanel className="md:hidden" />
       </>
     );
@@ -147,7 +148,7 @@ export function Sidebar({
             <BrandTile />
           </span>
           <ToggleButton rail onClick={() => onModeChange('expanded')} />
-          <NewSessionButton disabled={hostCount === 0} compact />
+          <NewSessionButton disabled={serverCount === 0} compact />
         </div>
         <div id={SESSION_LIST_ID} className="min-h-0 flex-1 overflow-y-auto px-1.5 pt-1 pb-3">
           {list}
@@ -191,7 +192,7 @@ export function Sidebar({
             />
           </span>
         </div>
-        <NewSessionButton disabled={hostCount === 0} />
+        <NewSessionButton disabled={serverCount === 0} />
       </div>
 
       <div id={SESSION_LIST_ID} className="min-h-0 flex-1 overflow-y-auto px-3 pt-1 pb-3">

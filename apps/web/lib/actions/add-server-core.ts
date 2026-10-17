@@ -8,57 +8,60 @@ import {
 } from '../internal-api.ts';
 import type { WebLogger } from '../logger.ts';
 import {
-  HOST_ISSUES,
   issuesOf,
-  PROFILE_ISSUES,
-  readHostForm,
-  readProfileForm,
+  readServerForm,
+  SERVER_ISSUES,
+  SERVER_NAME_MAX,
   text,
+  toServerInput,
 } from '../manage/forms.ts';
 import { localKindAvailability } from '../manage/local-kind.ts';
 import { type ServiceErrorKey, serviceErrorKey } from '../manage/service-errors.ts';
 import { getCredentialName } from '../repo/credentials.ts';
 import {
-  createHost,
-  getHost,
-  type HostInput,
-  type HostKind,
-  type HostSummary,
-} from '../repo/hosts.ts';
-import { createProfile, type ProfileInput } from '../repo/profiles.ts';
+  type AuditMeta,
+  createServer,
+  getServer,
+  type Server,
+  type ServerKind,
+} from '../repo/servers.ts';
+import { formatTarget } from '../servers/target.ts';
 import type { AddServerResult, CredentialChoice } from './add-server-states.ts';
 
 /**
- * The work behind "Add server" (plan D-27), free of Next so T0 tests can drive it with a real
- * database and a fake internal API. One form, three sections, every input namespaced by its
- * section (`host.*`, `profile.*`, `credential.*`); each section is read with the same parser as
- * its own management form.
+ * The work behind "Add server" (plan D-29), free of Next so T0 tests can drive it with a real
+ * database and a fake internal API. One form, two sections, every input namespaced by its
+ * section (`server.*`, `credential.*`); the server section is read with the same parser as the
+ * server page.
  *
- * Order: validate all three sections and return every field error at once (nothing written);
- * create a new credential through the daemon (the step most likely to fail, e.g. an unreadable
- * key); then the host (when new) and the profile in one SQLite transaction. If that transaction
- * fails, the credential created a moment before is deleted again. Secrets are never echoed in
- * `values`.
+ * Order: validate both sections and return every field error at once (nothing written); create
+ * a new credential through the daemon (the step most likely to fail, e.g. an unreadable key);
+ * then insert the server. If the insert fails, the credential created a moment before is deleted
+ * again. Secrets are never echoed in `values`.
  */
 
 const CREDENTIAL_NAME_MAX = 120;
 const PRIVATE_KEY_MAX = 32_768;
-const CHOICES: readonly CredentialChoice[] = ['generate', 'private_key', 'password', 'saved'];
+const CHOICES: readonly CredentialChoice[] = [
+  'generate',
+  'private_key',
+  'password',
+  'saved',
+  'none',
+];
 
-type HostIssue = (typeof HOST_ISSUES)[number] | 'invalid' | 'kindLocal';
-type ProfileIssue = (typeof PROFILE_ISSUES)[number] | 'invalid' | 'envDuplicate';
+type ServerIssue = (typeof SERVER_ISSUES)[number] | 'invalid' | 'kindLocal' | 'envDuplicate';
 type CredentialIssue =
   | 'nameLong'
   | 'passwordRequired'
   | 'privateKeyRequired'
   | 'privateKeyLong'
   | 'privateKeyInvalid';
-type AddServerIssue = 'hostRequired' | 'hostMissing' | 'credentialRequired' | 'credentialMissing';
+type AddServerIssue = 'credentialRequired' | 'credentialMissing';
 
 /** A field error as a message key in the catalog of the section that owns the rule. */
 export type Issue =
-  | { scope: 'host'; key: HostIssue }
-  | { scope: 'profile'; key: ProfileIssue }
+  | { scope: 'server'; key: ServerIssue }
   | { scope: 'credential'; key: CredentialIssue }
   | { scope: 'addServer'; key: AddServerIssue };
 
@@ -85,10 +88,12 @@ export interface AddServerDeps {
   api: () => Pick<InternalApiClient, 'createCredential' | 'deleteCredential'>;
   /** Instance setting `local_shell_visible` (the local kind also needs an admin). */
   localShellVisible: boolean;
+  /** Request facts for the `server.create` audit row. */
+  meta?: AuditMeta;
   logger?: Pick<WebLogger, 'warn' | 'error'>;
 }
 
-/** The inputs of one section, without their prefix, as that section's own form posts them. */
+/** The inputs of one section, without their prefix, as the server page posts them. */
 function section(formData: FormData, prefix: string): FormData {
   const out = new FormData();
   for (const [key, value] of formData.entries()) {
@@ -98,24 +103,12 @@ function section(formData: FormData, prefix: string): FormData {
   return out;
 }
 
-const hostIssue = (key: string): HostIssue =>
-  (HOST_ISSUES as readonly string[]).includes(key) ? (key as HostIssue) : 'invalid';
-const profileIssue = (key: string): ProfileIssue =>
-  (PROFILE_ISSUES as readonly string[]).includes(key) ? (key as ProfileIssue) : 'invalid';
+const serverIssue = (key: string): ServerIssue =>
+  (SERVER_ISSUES as readonly string[]).includes(key) ? (key as ServerIssue) : 'invalid';
 
 /** The credential's name when none is typed: `<username>@<server name>`, cut to the limit. */
 export function defaultCredentialName(username: string, serverName: string): string {
   return `${username}@${serverName}`.slice(0, CREDENTIAL_NAME_MAX);
-}
-
-/** A refused write inside the host/profile transaction (rolls the host back). */
-class WriteRefused extends Error {
-  readonly reason: 'host' | 'credential';
-
-  constructor(reason: 'host' | 'credential') {
-    super(`profile write refused: ${reason}`);
-    this.reason = reason;
-  }
 }
 
 async function removeCredential(deps: AddServerDeps, credentialId: string): Promise<boolean> {
@@ -140,64 +133,25 @@ export async function addServerCore(
   const values: Record<string, string> = {};
 
   // ── 1. server ─────────────────────────────────────────────────────────────
-  const hostMode = text(formData, 'host.mode') === 'existing' ? 'existing' : 'new';
-  values['host.mode'] = hostMode;
-  let existing: HostSummary | null = null;
-  let hostInput: HostInput | null = null;
-  let kind: HostKind = 'ssh';
-  let serverName = '';
-  if (hostMode === 'existing') {
-    const id = text(formData, 'host.id').trim();
-    values['host.id'] = id;
-    existing = id ? getHost(db, user.id, id) : null;
-    if (existing) {
-      kind = existing.kind;
-      serverName = existing.name;
-    } else {
-      fields['host.id'] = { scope: 'addServer', key: id ? 'hostMissing' : 'hostRequired' };
+  const server = readServerForm(section(formData, 'server.'));
+  for (const [key, value] of Object.entries(server.values)) values[`server.${key}`] = value;
+  const kind: ServerKind = server.values.kind === 'local' ? 'local' : 'ssh';
+  const serverName = server.values.name.trim();
+  const username = server.values.username.trim();
+  if (server.parsed.success) {
+    if (kind === 'local' && !localKindAvailability(deps, user.role).allowed) {
+      fields['server.kind'] = { scope: 'server', key: 'kindLocal' };
     }
+    if (server.duplicate) fields['server.env'] = { scope: 'server', key: server.duplicate };
   } else {
-    const host = readHostForm(section(formData, 'host.'));
-    for (const [key, value] of Object.entries(host.values)) values[`host.${key}`] = value;
-    kind = host.values.kind === 'local' ? 'local' : 'ssh';
-    serverName = host.values.name.trim();
-    if (host.parsed.success) {
-      hostInput = host.parsed.data;
-      if (kind === 'local' && !localKindAvailability(deps, user.role).allowed) {
-        fields['host.kind'] = { scope: 'host', key: 'kindLocal' };
-      }
-    } else {
-      for (const [field, key] of Object.entries(issuesOf(host.parsed.error))) {
-        fields[`host.${field}`] = { scope: 'host', key: hostIssue(key) };
-      }
+    for (const [field, key] of Object.entries(issuesOf(server.parsed.error))) {
+      fields[`server.${field}`] = { scope: 'server', key: serverIssue(key) };
     }
   }
 
-  // ── 2. sign-in: always a new connection profile ────────────────────────────
-  const profileData = section(formData, 'profile.');
-  const typedProfileName = text(profileData, 'name');
-  const username = text(profileData, 'username').trim();
-  // The profile name is optional and defaults to the user name (≤ 64 fits the name's 80).
-  if (!typedProfileName.trim()) profileData.set('name', username);
-  profileData.delete('credentialId');
-  const profile = readProfileForm(profileData);
-  for (const [key, value] of Object.entries(profile.values)) {
-    if (key !== 'credentialId') values[`profile.${key}`] = value;
-  }
-  values['profile.name'] = typedProfileName;
-  if (!profile.parsed.success) {
-    for (const [field, key] of Object.entries(issuesOf(profile.parsed.error))) {
-      // A blank name came from a blank user name, which carries its own error.
-      if (field === 'name' && !typedProfileName.trim()) continue;
-      fields[`profile.${field}`] = { scope: 'profile', key: profileIssue(key) };
-    }
-  } else if (profile.duplicate) {
-    fields['profile.env'] = { scope: 'profile', key: profile.duplicate };
-  }
-
-  // ── 3. credential (a local shell signs in without one) ─────────────────────
+  // ── 2. credential (a local shell signs in without one) ─────────────────────
   let choice: CredentialChoice | null = null;
-  let credentialName = '';
+  let credentialName: string | null = null;
   let savedCredentialId: string | null = null;
   let request: CreateCredentialInput | null = null;
   if (kind === 'ssh') {
@@ -217,14 +171,15 @@ export async function addServerCore(
         savedCredentialId = id;
         credentialName = name;
       }
-    } else {
+    } else if (choice !== 'none') {
       const typedName = text(formData, 'credential.name').trim();
       values['credential.name'] = typedName;
-      credentialName = typedName || defaultCredentialName(username, serverName);
+      const name = typedName || defaultCredentialName(username, serverName);
+      credentialName = name;
       if (typedName.length > CREDENTIAL_NAME_MAX) {
         fields['credential.name'] = { scope: 'credential', key: 'nameLong' };
       }
-      const base = { actingUserId: user.id, name: credentialName };
+      const base = { actingUserId: user.id, name };
       if (choice === 'password') {
         const password = text(formData, 'credential.password');
         if (!password)
@@ -250,17 +205,10 @@ export async function addServerCore(
     }
   }
 
-  if (Object.keys(fields).length > 0 || !profile.parsed.success) {
+  if (Object.keys(fields).length > 0 || !server.parsed.success) {
     return { ok: false, fields, values };
   }
-  if (!existing && !hostInput) return { ok: false, message: { key: 'generic' }, values };
-
-  const { env, ...rest } = profile.parsed.data;
-  const profileInput: ProfileInput = {
-    ...rest,
-    credentialId: null,
-    env: Object.fromEntries(env.map((pair) => [pair.key, pair.value])),
-  };
+  const data = server.parsed.data;
 
   // ── write 1: the new credential, through the daemon ────────────────────────
   let created: CreateCredentialResult | null = null;
@@ -282,70 +230,47 @@ export async function addServerCore(
       const removed = await removeCredential(deps, created.credentialId);
       return {
         ok: false,
-        message: removed ? { key: 'generic' } : { key: 'leftover', name: credentialName },
+        message: removed ? { key: 'generic' } : { key: 'leftover', name: request.name },
         values,
       };
     }
   }
   const credentialId = created?.credentialId ?? savedCredentialId;
 
-  // ── write 2: host (when new) and profile, all or nothing ───────────────────
-  let written: { hostId: string; profileId: string };
+  // ── write 2: the server (with its audit row) ───────────────────────────────
+  let serverId: string | null = null;
+  let failure: 'credential' | 'error' = 'error';
   try {
-    written = db.$client.transaction(() => {
-      const hostId = existing ? existing.id : createHost(db, user.id, hostInput as HostInput);
-      // createProfile opens its own transaction; better-sqlite3 nests it as a savepoint.
-      const result = createProfile(db, user.id, hostId, { ...profileInput, credentialId });
-      if (result.outcome === 'not_found') throw new WriteRefused('host');
-      if (result.outcome !== 'ok' || !result.id) throw new WriteRefused('credential');
-      return { hostId, profileId: result.id };
-    })();
+    const result = createServer(db, user.id, toServerInput(data, credentialId), deps.meta);
+    if (result.outcome === 'ok') serverId = result.id;
+    else failure = 'credential';
   } catch (err) {
-    if (!(err instanceof WriteRefused)) {
-      deps.logger?.error('add server: writing the host and profile failed', {
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
+    deps.logger?.error('add server: writing the server failed', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+  if (serverId === null) {
     const removed = created ? await removeCredential(deps, created.credentialId) : true;
-    const failedFields: Record<string, Issue> = {};
-    if (err instanceof WriteRefused && err.reason === 'host' && existing) {
-      failedFields['host.id'] = { scope: 'addServer', key: 'hostMissing' };
-    } else if (err instanceof WriteRefused && err.reason === 'credential' && savedCredentialId) {
-      failedFields['credential.id'] = { scope: 'addServer', key: 'credentialMissing' };
+    if (!removed) {
+      return { ok: false, message: { key: 'leftover', name: credentialName ?? '' }, values };
     }
-    const hasFields = Object.keys(failedFields).length > 0;
-    const message: AddServerMessage | undefined = !removed
-      ? { key: 'leftover', name: credentialName }
-      : hasFields
-        ? undefined
-        : { key: 'saveFailed' };
-    return {
-      ok: false,
-      ...(hasFields ? { fields: failedFields } : {}),
-      ...(message ? { message } : {}),
-      values,
-    };
+    if (failure === 'credential' && savedCredentialId) {
+      return {
+        ok: false,
+        fields: { 'credential.id': { scope: 'addServer', key: 'credentialMissing' } },
+        values,
+      };
+    }
+    return { ok: false, message: { key: 'saveFailed' }, values };
   }
 
-  const hostName = existing ? existing.name : (hostInput as HostInput).name;
-  const address = existing
-    ? kind === 'ssh'
-      ? `${existing.hostname}:${existing.port}`
-      : null
-    : kind === 'ssh'
-      ? `${(hostInput as HostInput).hostname}:${(hostInput as HostInput).port}`
-      : null;
   return {
     ok: true,
     created: {
-      hostId: written.hostId,
-      hostName,
-      hostCreated: !existing,
+      serverId,
+      serverName: data.name,
       kind,
-      address,
-      profileId: written.profileId,
-      profileName: profileInput.name,
-      username: profileInput.username,
+      target: data.kind === 'ssh' ? formatTarget(data.username, data.hostname, data.port) : null,
       credential: choice
         ? {
             choice,
@@ -356,4 +281,55 @@ export async function addServerCore(
         : null,
     },
   };
+}
+
+/** `copyName(name)` cut so it fits the name limit: the source name gives way, never the suffix. */
+function fittedCopyName(name: string, copyName: (name: string) => string): string {
+  const full = copyName(name);
+  if (full.length <= SERVER_NAME_MAX) return full;
+  const keep = Math.max(1, name.length - (full.length - SERVER_NAME_MAX) - 1);
+  return copyName(`${name.slice(0, keep)}…`).slice(0, SERVER_NAME_MAX);
+}
+
+/**
+ * "Duplicate" (plan D-29): the Add form's starting values from a server, every field copied, the
+ * name with the localized copy suffix, and the credential section on "Use a saved credential"
+ * with the same credential (or "None" when it has none). Reads only.
+ */
+export function prefillFrom(
+  source: Server,
+  copyName: (name: string) => string,
+): Record<string, string> {
+  return {
+    'server.name': fittedCopyName(source.name, copyName),
+    'server.kind': source.kind,
+    'server.hostname': source.hostname ?? '',
+    'server.port': source.port === null ? '22' : String(source.port),
+    'server.username': source.username ?? '',
+    'server.protectionMode': source.protectionMode,
+    'server.startupCommand': source.startupCommand ?? '',
+    'server.keepaliveIntervalS': String(source.keepaliveIntervalS),
+    'server.autoReopen': source.autoReopen ? 'on' : '',
+    'server.scrollbackLines': String(source.scrollbackLines),
+    'server.env': JSON.stringify(
+      Object.entries(source.env).map(([key, value]) => ({ key, value })),
+    ),
+    'credential.mode': source.credentialId ? 'saved' : 'none',
+    'credential.id': source.credentialId ?? '',
+  };
+}
+
+/**
+ * The duplicate prefill for one of the user's servers, or null for a missing id or another
+ * user's server (ownership is checked here, server-side, through the user-scoped read). Nothing
+ * is written until the user saves the form.
+ */
+export function duplicatePrefill(
+  db: AuthRuntime['db'],
+  userId: string,
+  serverId: string,
+  copyName: (name: string) => string,
+): Record<string, string> | null {
+  const source = getServer(db, userId, serverId);
+  return source ? prefillFrom(source, copyName) : null;
 }

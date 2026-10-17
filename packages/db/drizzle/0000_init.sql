@@ -12,29 +12,6 @@ CREATE TABLE `audit_events` (
 --> statement-breakpoint
 CREATE INDEX `audit_events_created_idx` ON `audit_events` (`created_at`);--> statement-breakpoint
 CREATE INDEX `audit_events_actor_idx` ON `audit_events` (`actor_user_id`);--> statement-breakpoint
-CREATE TABLE `connection_profiles` (
-	`id` text PRIMARY KEY NOT NULL,
-	`user_id` text NOT NULL,
-	`host_id` text NOT NULL,
-	`credential_id` text,
-	`name` text NOT NULL,
-	`username` text NOT NULL,
-	`protection_mode` text DEFAULT 'auto' NOT NULL,
-	`startup_command` text,
-	`term` text DEFAULT 'xterm-256color' NOT NULL,
-	`env_json` text DEFAULT '{}' NOT NULL,
-	`keepalive_interval_s` integer DEFAULT 15 NOT NULL,
-	`auto_reopen` integer DEFAULT true NOT NULL,
-	`scrollback_lines` integer DEFAULT 5000 NOT NULL,
-	`created_at` integer NOT NULL,
-	`updated_at` integer NOT NULL,
-	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade,
-	FOREIGN KEY (`host_id`) REFERENCES `hosts`(`id`) ON UPDATE no action ON DELETE cascade,
-	FOREIGN KEY (`credential_id`) REFERENCES `credentials`(`id`) ON UPDATE no action ON DELETE set null
-);
---> statement-breakpoint
-CREATE INDEX `connection_profiles_user_idx` ON `connection_profiles` (`user_id`);--> statement-breakpoint
-CREATE INDEX `connection_profiles_host_idx` ON `connection_profiles` (`host_id`);--> statement-breakpoint
 CREATE TABLE `credentials` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
@@ -51,20 +28,6 @@ CREATE TABLE `credentials` (
 );
 --> statement-breakpoint
 CREATE INDEX `credentials_user_idx` ON `credentials` (`user_id`);--> statement-breakpoint
-CREATE TABLE `hosts` (
-	`id` text PRIMARY KEY NOT NULL,
-	`user_id` text NOT NULL,
-	`name` text NOT NULL,
-	`kind` text NOT NULL,
-	`hostname` text NOT NULL,
-	`port` integer DEFAULT 22 NOT NULL,
-	`tags_json` text DEFAULT '[]' NOT NULL,
-	`created_at` integer NOT NULL,
-	`updated_at` integer NOT NULL,
-	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade
-);
---> statement-breakpoint
-CREATE INDEX `hosts_user_idx` ON `hosts` (`user_id`);--> statement-breakpoint
 CREATE TABLE `instance_settings` (
 	`key` text PRIMARY KEY NOT NULL,
 	`value_json` text NOT NULL,
@@ -73,7 +36,9 @@ CREATE TABLE `instance_settings` (
 --> statement-breakpoint
 CREATE TABLE `known_host_keys` (
 	`id` text PRIMARY KEY NOT NULL,
-	`host_id` text NOT NULL,
+	`user_id` text NOT NULL,
+	`hostname` text NOT NULL,
+	`port` integer NOT NULL,
 	`key_type` text NOT NULL,
 	`public_key_b64` text,
 	`fingerprint_sha256` text NOT NULL,
@@ -81,11 +46,36 @@ CREATE TABLE `known_host_keys` (
 	`first_seen_at` integer NOT NULL,
 	`decided_by` text,
 	`decided_at` integer,
-	FOREIGN KEY (`host_id`) REFERENCES `hosts`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`decided_by`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE set null
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `known_host_keys_trusted_uq` ON `known_host_keys` (`host_id`,`key_type`) WHERE status = 'trusted';--> statement-breakpoint
+CREATE INDEX `known_host_keys_address_idx` ON `known_host_keys` (`user_id`,`hostname`,`port`);--> statement-breakpoint
+CREATE UNIQUE INDEX `known_host_keys_trusted_uq` ON `known_host_keys` (`user_id`,`hostname`,`port`,`key_type`) WHERE status = 'trusted';--> statement-breakpoint
+CREATE TABLE `servers` (
+	`id` text PRIMARY KEY NOT NULL,
+	`user_id` text NOT NULL,
+	`name` text NOT NULL,
+	`kind` text NOT NULL,
+	`hostname` text,
+	`port` integer,
+	`username` text,
+	`credential_id` text,
+	`protection_mode` text DEFAULT 'auto' NOT NULL,
+	`startup_command` text,
+	`term` text DEFAULT 'xterm-256color' NOT NULL,
+	`env_json` text DEFAULT '{}' NOT NULL,
+	`keepalive_interval_s` integer DEFAULT 15 NOT NULL,
+	`auto_reopen` integer DEFAULT true NOT NULL,
+	`scrollback_lines` integer DEFAULT 5000 NOT NULL,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`credential_id`) REFERENCES `credentials`(`id`) ON UPDATE no action ON DELETE set null,
+	CONSTRAINT "servers_ssh_target_ck" CHECK("servers"."kind" = 'local' OR ("servers"."hostname" IS NOT NULL AND "servers"."port" IS NOT NULL AND "servers"."username" IS NOT NULL))
+);
+--> statement-breakpoint
+CREATE INDEX `servers_user_idx` ON `servers` (`user_id`);--> statement-breakpoint
 CREATE TABLE `session_events` (
 	`id` text PRIMARY KEY NOT NULL,
 	`session_id` text NOT NULL,
@@ -100,12 +90,12 @@ CREATE TABLE `session_events` (
 );
 --> statement-breakpoint
 CREATE INDEX `session_events_session_idx` ON `session_events` (`session_id`,`created_at`);--> statement-breakpoint
+CREATE INDEX `session_events_created_idx` ON `session_events` (`created_at`);--> statement-breakpoint
 CREATE TABLE `sessions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
-	`profile_id` text,
+	`server_id` text,
 	`target_kind` text NOT NULL,
-	`target_host_id` text,
 	`target_hostname` text NOT NULL,
 	`target_port` integer NOT NULL,
 	`target_username` text NOT NULL,
@@ -128,12 +118,12 @@ CREATE TABLE `sessions` (
 	`ended_at` integer,
 	`end_reason` text,
 	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade,
-	FOREIGN KEY (`profile_id`) REFERENCES `connection_profiles`(`id`) ON UPDATE no action ON DELETE set null,
-	FOREIGN KEY (`target_host_id`) REFERENCES `hosts`(`id`) ON UPDATE no action ON DELETE set null,
+	FOREIGN KEY (`server_id`) REFERENCES `servers`(`id`) ON UPDATE no action ON DELETE set null,
 	FOREIGN KEY (`target_credential_id`) REFERENCES `credentials`(`id`) ON UPDATE no action ON DELETE set null
 );
 --> statement-breakpoint
 CREATE INDEX `sessions_user_idx` ON `sessions` (`user_id`);--> statement-breakpoint
+CREATE INDEX `sessions_server_idx` ON `sessions` (`server_id`);--> statement-breakpoint
 CREATE INDEX `sessions_desired_idx` ON `sessions` (`desired_state`);--> statement-breakpoint
 CREATE TABLE `user_preferences` (
 	`user_id` text PRIMARY KEY NOT NULL,
@@ -189,9 +179,13 @@ CREATE TABLE `two_factor` (
 	`secret` text NOT NULL,
 	`backup_codes` text NOT NULL,
 	`user_id` text NOT NULL,
+	`verified` integer DEFAULT true NOT NULL,
+	`failed_verification_count` integer DEFAULT 0 NOT NULL,
+	`locked_until` integer,
 	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
+CREATE INDEX `two_factor_user_idx` ON `two_factor` (`user_id`);--> statement-breakpoint
 CREATE TABLE `user` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,

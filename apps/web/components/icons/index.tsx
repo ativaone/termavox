@@ -202,7 +202,7 @@ export function SignOutIcon(props: IconProps) {
   );
 }
 
-export function HostIcon(props: IconProps) {
+export function ServerIcon(props: IconProps) {
   return (
     <Icon {...props}>
       <rect x="3.5" y="4" width="17" height="7" rx="1.5" />

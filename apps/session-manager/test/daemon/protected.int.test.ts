@@ -9,7 +9,7 @@ import type { HeadlessEmulator } from '../../src/emulator/headless-emulator.ts';
 import type { Daemon } from '../../src/main.ts';
 import { until } from '../runtime/fakes.ts';
 import { HOST_KEY, requireSshd, TEST_USER, USER_KEY } from '../ssh/sshd.ts';
-import { insertAuthSession, insertHost, insertProfile, insertUser } from '../store/fixture.ts';
+import { insertAuthSession, insertServer, insertUser } from '../store/fixture.ts';
 import { compareEmulators, unknownModesFor } from '../tmux/compare.ts';
 import {
   killServerQuietly,
@@ -96,25 +96,29 @@ describe.each(IMAGES)('protected session through the daemon (%s)', (image) => {
     daemon = await fixture.boot();
     const { db } = daemon;
     userId = insertUser(db);
-    const hostId = insertHost(db, userId, { name: image, port: proxy.port });
     const { credentialId } = await daemon.credentials.create({
       actingUserId: userId,
       kind: 'private_key',
       name: 'test key',
       privateKey: USER_KEY,
     });
+    const serverId = insertServer(db, userId, {
+      name: image,
+      port: proxy.port,
+      username: TEST_USER,
+      credentialId,
+    });
     // Pre-trust by pasting the fingerprint: the row has no public key until the first handshake.
-    const pasted = await fixture.api(daemon, 'POST', `/hosts/${hostId}/trust-key`, {
+    const pasted = await fixture.api(daemon, 'POST', `/servers/${serverId}/trust-key`, {
       actingUserId: userId,
       keyType: HOST_KEY.type,
       fingerprint: HOST_KEY.fingerprint.slice('SHA256:'.length),
     });
     expect(pasted.status).toBe(204);
-    const profileId = insertProfile(db, userId, hostId, credentialId, { username: TEST_USER });
     asid = insertAuthSession(db, userId, Date.now() + 3_600_000);
     const created = await fixture.api(daemon, 'POST', '/sessions', {
       actingUserId: userId,
-      profileId,
+      serverId,
       viewport: VIEWPORT,
     });
     expect(created.status).toBe(201);
@@ -122,7 +126,8 @@ describe.each(IMAGES)('protected session through the daemon (%s)', (image) => {
     await until(() => daemon.plane.registry.host(sessionId)?.state === 'ready', 20_000);
     expect(daemon.plane.registry.host(sessionId)?.protection).toBe('tmux-control');
     await daemon.writer.flush();
-    expect((await daemon.hostKeys.list(hostId))[0]).toMatchObject({
+    const address = { userId, hostname: '127.0.0.1', port: proxy.port };
+    expect((await daemon.hostKeys.list(address))[0]).toMatchObject({
       status: 'trusted',
       publicKeyB64: HOST_KEY.publicKeyB64, // learned from the matching handshake
     });

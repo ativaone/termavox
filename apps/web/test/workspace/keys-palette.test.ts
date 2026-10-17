@@ -1,6 +1,8 @@
 import type { SessionSummary } from '@termdock/protocol/client';
 import { describe, expect, it } from 'vitest';
+import { formatAddress, formatEndpoint, formatTarget } from '../../lib/servers/target.ts';
 import { toBayData } from '../../lib/sessions/live.ts';
+import { sessionTarget } from '../../lib/sessions/target.ts';
 import { altChar, ctrlChar, encodeKey } from '../../lib/workspace/keys.ts';
 import { filterPalette, matchScore } from '../../lib/workspace/palette.ts';
 
@@ -86,10 +88,11 @@ describe('live bay', () => {
   ): SessionSummary => ({
     id,
     label: id,
-    profileId: null,
-    hostId: null,
-    hostName: 'alpha',
+    serverId: 'server-1',
+    serverName: 'alpha',
+    kind: 'ssh',
     hostname: '10.0.0.1',
+    port: 2222,
     username: 'deploy',
     state: status === 'ended' ? 'ended' : 'ready',
     status,
@@ -112,9 +115,43 @@ describe('live bay', () => {
     expect(bay.sessions.slice(0, 3).map((s) => s.id)).toEqual(['old', 'new', 'e21']);
     expect(bay.sessions).toHaveLength(22);
     expect(bay.sessions[0]).toMatchObject({
-      user: 'deploy',
-      host: 'alpha',
+      kind: 'ssh',
+      username: 'deploy',
+      hostname: '10.0.0.1',
+      port: 2222,
       status: 'reconnecting',
     });
+  });
+
+  it('takes the kind from the summary and marks a session whose server was deleted', () => {
+    const local = {
+      ...summary('here', 'connected', 5),
+      kind: 'local' as const,
+      hostname: 'localhost',
+      port: 0,
+      username: '',
+    };
+    const orphan = { ...summary('gone', 'disconnected', 6), serverId: null };
+    const [here, gone] = toBayData([local, { ...orphan, statusDetail: 'NOT_FOUND' }]).sessions;
+    expect(here).toMatchObject({ kind: 'local', serverDeleted: false });
+    expect(gone).toMatchObject({ kind: 'ssh', serverDeleted: true });
+  });
+});
+
+describe('session and server targets (plan D-29)', () => {
+  it('reads like an ssh command line: the port only when it is not 22', () => {
+    expect(formatTarget('deploy', 'db.internal', 22)).toBe('deploy@db.internal');
+    expect(formatTarget('deploy', 'db.internal', 2222)).toBe('deploy@db.internal:2222');
+    expect(formatAddress('::1', 22)).toBe('::1');
+    expect(formatAddress('fd00::5', 2222)).toBe('[fd00::5]:2222');
+    // A host-key decision's scope always names the port.
+    expect(formatEndpoint('db.internal', 22)).toBe('db.internal:22');
+    expect(formatEndpoint('::1', 22)).toBe('[::1]:22');
+  });
+
+  it('uses the local wording for a direct-mode session', () => {
+    const ssh = { kind: 'ssh' as const, username: 'u', hostname: 'h', port: 22 };
+    expect(sessionTarget(ssh, 'This server')).toBe('u@h');
+    expect(sessionTarget({ ...ssh, kind: 'local' }, 'This server')).toBe('This server');
   });
 });

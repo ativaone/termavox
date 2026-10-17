@@ -9,12 +9,13 @@
  *   node --env-file=data/dev/daemon.env apps/session-manager/src/main.ts
  *       Runs the daemon (another terminal). WS on 127.0.0.1:3001, internal API on 127.0.0.1:3002.
  *   node scripts/dev-session.ts seed [--target no-tmux|tmux-3.2a|tmux-3.4|tmux-edge] [--auth key|password]
- *       Needs the daemon running. Inserts a dev admin user, a host and a profile (web-owned
- *       tables, directly in the DB), creates the credential through the internal API (the test
- *       key from test/sshd/keys or the test password) and pre-trusts the host key from
- *       test/sshd/keys/known_hosts through `trust-key`. Ids are saved to data/dev/seed.json.
- *   node scripts/dev-session.ts create [--profile <id>] [--label <text>]
- *       Creates a session through the internal API (default: the last seeded profile).
+ *       Needs the daemon running. Inserts a dev admin user and a server (web-owned tables,
+ *       directly in the DB), creates the credential through the internal API (the test key from
+ *       test/sshd/keys or the test password) and pre-trusts the host key from
+ *       test/sshd/keys/known_hosts through `trust-key` (stored for the user and the server's
+ *       address). Ids are saved to data/dev/seed.json.
+ *   node scripts/dev-session.ts create [--server <id>] [--label <text>]
+ *       Creates a session through the internal API (default: the last seeded server).
  *   node scripts/dev-session.ts attach [<sessionId>]
  *       Inserts a dev auth_session row, mints a WS ticket and attaches in this terminal (raw
  *       mode). Ctrl-] detaches. Default: the last created session.
@@ -57,8 +58,7 @@ const DETACH_KEY = 0x1d; // Ctrl-]
 
 interface Seed {
   userId: string;
-  hostId?: string;
-  profileId?: string;
+  serverId?: string;
   credentialId?: string;
   sessionId?: string;
 }
@@ -215,36 +215,30 @@ async function seed(args: string[]): Promise<void> {
         : { kind: 'password', password: TEST_PASSWORD }),
     })) as { credentialId: string };
 
-    const hostId = uuidv7();
+    const serverId = uuidv7();
     sqlite
       .prepare(
-        `INSERT INTO hosts (id, user_id, name, kind, hostname, port, created_at, updated_at)
-         VALUES (?, ?, ?, 'ssh', '127.0.0.1', ?, ?, ?)`,
+        `INSERT INTO servers (id, user_id, name, kind, hostname, port, username, credential_id,
+           created_at, updated_at)
+         VALUES (?, ?, ?, 'ssh', '127.0.0.1', ?, ?, ?, ?, ?)`,
       )
-      .run(hostId, userId, `dev ${target}`, port, now, now);
-    await api(config, 'POST', `/hosts/${hostId}/trust-key`, {
+      .run(
+        serverId,
+        userId,
+        `dev ${target} (${auth})`,
+        port,
+        TEST_USER,
+        credential.credentialId,
+        now,
+        now,
+      );
+    // Already trusted when an earlier seed used the same target: trust-key is idempotent.
+    await api(config, 'POST', `/servers/${serverId}/trust-key`, {
       actingUserId: userId,
       ...knownHostKey(port),
     });
 
-    const profileId = uuidv7();
-    sqlite
-      .prepare(
-        `INSERT INTO connection_profiles (id, user_id, host_id, credential_id, name, username, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        profileId,
-        userId,
-        hostId,
-        credential.credentialId,
-        `dev ${target} (${auth})`,
-        TEST_USER,
-        now,
-        now,
-      );
-
-    const seeded: Seed = { userId, hostId, profileId, credentialId: credential.credentialId };
+    const seeded: Seed = { userId, serverId, credentialId: credential.credentialId };
     writeSeed(seeded);
     console.log(JSON.stringify(seeded, null, 2));
   } finally {
@@ -261,12 +255,12 @@ function requireSeed(): Seed {
 async function create(args: string[]): Promise<void> {
   const config = devConfig();
   const seeded = requireSeed();
-  const profileId = option(args, '--profile') ?? seeded.profileId;
-  if (!profileId) fail('no profile; pass --profile <id>');
+  const serverId = option(args, '--server') ?? seeded.serverId;
+  if (!serverId) fail('no server; pass --server <id> (or seed again)');
   const label = option(args, '--label');
   const { sessionId } = (await api(config, 'POST', '/sessions', {
     actingUserId: seeded.userId,
-    profileId,
+    serverId,
     ...(label ? { label } : {}),
     viewport: {
       cols: Math.min(500, Math.max(20, process.stdout.columns ?? 120)),

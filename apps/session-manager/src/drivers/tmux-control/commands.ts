@@ -77,7 +77,7 @@ export interface LaunchOptions {
   defaultTerminal: DefaultTerminal;
   cols: number;
   rows: number;
-  /** Profile env vars, passed as `new-session -e KEY=VALUE`. */
+  /** Server env vars, passed as `new-session -e KEY=VALUE`. */
   env?: Record<string, string>;
   /** Optional startup command run by the login shell (`$SHELL -lc '<startup>'`). */
   startupCommand?: string | null;

@@ -22,6 +22,7 @@ import {
 import type { TerminalPreferences } from '../../lib/preferences/terminal.ts';
 import type { SessionActionResult } from '../../lib/sessions/action-result.ts';
 import { sessionLabels, toBayData } from '../../lib/sessions/live.ts';
+import { sessionTarget } from '../../lib/sessions/target.ts';
 import type { BayData, BaySession } from '../../lib/sessions/types.ts';
 import { TermdockConnection } from '../../lib/terminal/index.ts';
 import { useConnectionState } from '../../lib/terminal/react.ts';
@@ -63,7 +64,7 @@ import {
 } from './hooks.ts';
 import { KeyBar } from './key-bar.tsx';
 import { NEW_SESSION_EVENT } from './new-session-button.tsx';
-import { CommandPalette, type PaletteProfile, type PaletteSession } from './palette.tsx';
+import { CommandPalette, type PaletteServer, type PaletteSession } from './palette.tsx';
 import { PaneTree } from './pane-tree.tsx';
 import { RenameDialog, type RenameTarget } from './rename-dialog.tsx';
 import { SESSION_LIST_ID, Sidebar } from './sidebar.tsx';
@@ -86,12 +87,12 @@ const NOTICE_MS = 8_000;
 
 export interface WorkspaceShellProps {
   bay: BayData;
-  hostCount: number;
+  serverCount: number;
   renderedAt: number;
   username: string;
   locale: Locale;
   workspaceHref: string;
-  hostsHref: string;
+  serversHref: string;
   /** The Add server form, carrying the way back to the workspace (plan D-27). */
   addServerHref: string;
   loginHref: string;
@@ -99,7 +100,7 @@ export interface WorkspaceShellProps {
   isAdmin?: boolean;
   /** The saved layout and its version (first paint; the client never refetches on load). */
   initialLayout: StoredLayout;
-  profiles: PaletteProfile[];
+  servers: PaletteServer[];
   preferences: TerminalPreferences;
 }
 
@@ -196,17 +197,17 @@ function ConnectionLimit({ connection }: { connection: TermdockConnection }) {
  */
 export function WorkspaceShell({
   bay: serverBay,
-  hostCount,
+  serverCount,
   renderedAt,
   username,
   locale,
   workspaceHref,
-  hostsHref,
+  serversHref,
   addServerHref,
   loginHref,
   isAdmin = false,
   initialLayout,
-  profiles,
+  servers,
   preferences,
 }: WorkspaceShellProps) {
   const t = useTranslations('workspace');
@@ -453,7 +454,7 @@ export function WorkspaceShell({
     setPalette({ target: target ?? null });
   }, []);
   const closePalette = useCallback(() => setPalette(null), []);
-  const firstRun = hostCount === 0;
+  const firstRun = serverCount === 0;
   useEffect(() => {
     const onRequest = () => openPalette();
     const onKey = (event: KeyboardEvent) => {
@@ -495,10 +496,10 @@ export function WorkspaceShell({
         .map((s) => ({
           id: s.id,
           label: s.label,
-          target: `${s.user}@${s.host}`,
+          target: sessionTarget(s, t('localTarget')),
           status: s.status,
         })),
-    [bay.sessions],
+    [bay.sessions, t],
   );
 
   // A session the layout already shows is switched to (follow), not bound into a second pane.
@@ -511,15 +512,15 @@ export function WorkspaceShell({
     }
   };
 
-  const createFromProfile = async (
-    profileId: string,
+  const createFromServer = async (
+    serverId: string,
     label: string,
   ): Promise<SessionActionResult> => {
     const target = palette?.target ?? null;
     let result: SessionActionResult;
     try {
       result = await createSession({
-        profileId,
+        serverId,
         ...(label ? { label } : {}),
         viewport: createViewport(target),
       });
@@ -605,9 +606,9 @@ export function WorkspaceShell({
   };
 
   // ── context ────────────────────────────────────────────────────────────────
-  const hostHref = useCallback(
-    (hostId: string) => `${hostsHref}/${encodeURIComponent(hostId)}`,
-    [hostsHref],
+  const serverHref = useCallback(
+    (serverId: string) => `${serversHref}/${encodeURIComponent(serverId)}`,
+    [serversHref],
   );
   const context: WorkspaceContextValue = useMemo(
     () => ({
@@ -630,7 +631,7 @@ export function WorkspaceShell({
       bindPane,
       openPalette,
       sessionAction,
-      hostHref,
+      serverHref,
     }),
     [
       connection,
@@ -650,7 +651,7 @@ export function WorkspaceShell({
       bindPane,
       openPalette,
       sessionAction,
-      hostHref,
+      serverHref,
     ],
   );
 
@@ -713,7 +714,7 @@ export function WorkspaceShell({
           username={username}
           isAdmin={isAdmin}
           locale={locale}
-          hostCount={hostCount}
+          serverCount={serverCount}
           data={bay}
           followedId={followedId}
           renderedAt={renderedAt}
@@ -833,10 +834,10 @@ export function WorkspaceShell({
         {palette ? (
           <CommandPalette
             sessions={paletteSessions}
-            profiles={profiles}
+            servers={servers}
             addServerHref={addServerHref}
             onJump={(sessionId) => jumpTo(sessionId, palette.target)}
-            onCreate={createFromProfile}
+            onCreate={createFromServer}
             onClose={closePalette}
           />
         ) : null}

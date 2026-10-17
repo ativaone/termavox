@@ -32,7 +32,7 @@ export default async function CredentialsPage({
   const credentials = listCredentials(getAuthRuntime().db, user.id);
   const search = await searchParams;
   const renaming = param(search.rename);
-  // Reached from another page (e.g. a host's profile form): offer the way back there (D-27).
+  // Reached from another page (e.g. a server's page): offer the way back there (D-27).
   const back = await backLinkFrom(search.from, user.id);
 
   return (
@@ -92,7 +92,7 @@ export default async function CredentialsPage({
                             </code>
                           ) : null}
                           <span className="text-ink-muted text-sm">
-                            {t('list.usedBy', { count: credential.profileCount })}
+                            {t('list.usedBy', { count: credential.serverCount })}
                           </span>
                         </span>
                       )}

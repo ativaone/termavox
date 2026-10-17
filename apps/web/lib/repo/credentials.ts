@@ -15,15 +15,16 @@ export interface CredentialSummary {
   fingerprint: string | null;
   createdAt: number;
   lastUsedAt: number | null;
-  profileCount: number;
+  /** How many of the user's servers sign in with it. */
+  serverCount: number;
 }
 
 export function listCredentials(db: TermdockDb, userId: string): CredentialSummary[] {
   const rows = db.$client
     .prepare(
       `SELECT c.id, c.name, c.kind, c.public_key, c.fingerprint_sha256, c.created_at, c.last_used_at,
-              (SELECT COUNT(*) FROM connection_profiles p
-                WHERE p.credential_id = c.id AND p.user_id = c.user_id) AS profile_count
+              (SELECT COUNT(*) FROM servers s
+                WHERE s.credential_id = c.id AND s.user_id = c.user_id) AS server_count
          FROM credentials c
         WHERE c.user_id = ?
         ORDER BY c.name COLLATE NOCASE, c.id`,
@@ -36,7 +37,7 @@ export function listCredentials(db: TermdockDb, userId: string): CredentialSumma
     fingerprint_sha256: string | null;
     created_at: number;
     last_used_at: number | null;
-    profile_count: number;
+    server_count: number;
   }>;
   return rows.map((r) => ({
     id: r.id,
@@ -46,7 +47,7 @@ export function listCredentials(db: TermdockDb, userId: string): CredentialSumma
     fingerprint: r.fingerprint_sha256,
     createdAt: r.created_at,
     lastUsedAt: r.last_used_at,
-    profileCount: r.profile_count,
+    serverCount: r.server_count,
   }));
 }
 

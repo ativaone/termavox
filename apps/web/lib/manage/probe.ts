@@ -1,7 +1,7 @@
-import type { ProtectionMode } from '../repo/profiles.ts';
+import type { ProtectionMode } from '@termdock/protocol';
 
 /**
- * Reads the capability probe report of "Fetch & verify" (raw key/value output, plan §5.11) the
+ * Reads the capability probe report of "Test connection" (raw key/value output, plan §5.11) the
  * way the daemon decides protection, conservatively: tmux ≥ 3.2 with a UTF-8 locale runs
  * protected (tmux control mode); anything else, or protection off, runs unprotected.
  */

@@ -1,6 +1,6 @@
 /** In-memory fakes for the runtime boundaries (stores, transport, attachments). */
 import type { ServerMessage, SessionState, SessionSummary } from '@termdock/protocol';
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import { ErrorCode, normalizeHostname, TermdockError } from '@termdock/shared';
 import { bindToChannel } from '../../src/attachments/wire.ts';
 import {
   createDriverFactory,
@@ -14,7 +14,9 @@ import {
   type Dimensions,
   type DriverContext,
   type ExecResult,
+  type HostKeyAddress,
   type HostKeyStore,
+  type HostKeyTarget,
   type PresentedHostKey,
   type PtyChannel,
   type PtyOptions,
@@ -40,10 +42,10 @@ export function makeRecord(overrides: Partial<SessionRecord> = {}): SessionRecor
   return {
     id: 'session-1',
     userId: 'user-1',
+    serverId: 'server-1',
     label: 'test',
     target: {
       kind: 'ssh',
-      hostId: 'host-1',
       hostname: '127.0.0.1',
       port: 22,
       username: 'td',
@@ -102,10 +104,11 @@ export class MemorySessionStore implements SessionStore {
       .map((r) => ({
         id: r.id,
         label: r.label,
-        profileId: 'profile-1',
-        hostId: r.target.hostId,
-        hostName: 'test host',
+        serverId: r.serverId,
+        serverName: 'test server',
+        kind: r.target.kind,
         hostname: r.target.hostname,
+        port: r.target.port,
         username: r.target.username,
         state: r.state,
         status: r.status,
@@ -161,42 +164,60 @@ export class MemorySessionStore implements SessionStore {
   }
 }
 
+/** The map key of an address, normalized like the SQLite store's rows. */
+export function addressKey(address: HostKeyAddress): string {
+  return `${address.userId}|${normalizeHostname(address.hostname)}|${address.port}`;
+}
+
+/** The address of `makeRecord()`'s session (user-1 at 127.0.0.1:22). */
+export const TEST_ADDRESS: HostKeyAddress = { userId: 'user-1', hostname: '127.0.0.1', port: 22 };
+
+/** Keys per address (user, normalized hostname, port), like `SqliteHostKeyStore`. */
 export class MemoryHostKeyStore implements HostKeyStore {
   readonly trustedKeys = new Map<string, Map<string, PresentedHostKey>>();
   readonly revokedKeys = new Map<string, Set<string>>();
-  readonly pending: Array<{ hostId: string; key: PresentedHostKey }> = [];
+  readonly pending: Array<{ target: HostKeyTarget; key: PresentedHostKey }> = [];
 
-  trust(hostId: string, key: PresentedHostKey): void {
-    const keys = this.trustedKeys.get(hostId) ?? new Map<string, PresentedHostKey>();
+  trust(address: HostKeyAddress, key: PresentedHostKey): void {
+    const keys = this.trustedKeys.get(addressKey(address)) ?? new Map<string, PresentedHostKey>();
     keys.set(key.type, key);
-    this.trustedKeys.set(hostId, keys);
+    this.trustedKeys.set(addressKey(address), keys);
   }
 
-  async trusted(hostId: string): Promise<Map<string, PresentedHostKey>> {
-    return new Map(this.trustedKeys.get(hostId) ?? []);
+  /** The trusted keys of an address (a test helper). */
+  trustedAt(address: HostKeyAddress): Map<string, PresentedHostKey> | undefined {
+    return this.trustedKeys.get(addressKey(address));
   }
 
-  async revoked(hostId: string): Promise<Set<string>> {
-    return new Set(this.revokedKeys.get(hostId) ?? []);
+  async trusted(address: HostKeyAddress): Promise<Map<string, PresentedHostKey>> {
+    return new Map(this.trustedKeys.get(addressKey(address)) ?? []);
   }
 
-  async recordPending(hostId: string, key: PresentedHostKey): Promise<void> {
-    this.pending.push({ hostId, key });
+  async revoked(address: HostKeyAddress): Promise<Set<string>> {
+    return new Set(this.revokedKeys.get(addressKey(address)) ?? []);
   }
 
-  async trustPending(hostId: string, fingerprint: string): Promise<boolean> {
-    if (this.revokedKeys.get(hostId)?.has(fingerprint)) return false;
+  async recordPending(target: HostKeyTarget, key: PresentedHostKey): Promise<void> {
+    this.pending.push({ target, key });
+  }
+
+  async trustPending(target: HostKeyTarget, fingerprint: string): Promise<boolean> {
+    const at = addressKey(target);
+    // Like the SQLite store: a key already trusted for the address counts as trusted.
+    const trusted = [...(this.trustedKeys.get(at)?.values() ?? [])];
+    if (trusted.some((key) => key.fingerprint === fingerprint)) return true;
+    if (this.revokedKeys.get(at)?.has(fingerprint)) return false;
     const index = this.pending.findIndex(
-      (p) => p.hostId === hostId && p.key.fingerprint === fingerprint,
+      (p) => addressKey(p.target) === at && p.key.fingerprint === fingerprint,
     );
     if (index < 0) return false;
     const [entry] = this.pending.splice(index, 1);
-    this.trust(hostId, entry!.key);
+    this.trust(target, entry!.key);
     return true;
   }
 
-  async rememberPublicKey(hostId: string, key: PresentedHostKey): Promise<void> {
-    const trusted = this.trustedKeys.get(hostId)?.get(key.type);
+  async rememberPublicKey(address: HostKeyAddress, key: PresentedHostKey): Promise<void> {
+    const trusted = this.trustedKeys.get(addressKey(address))?.get(key.type);
     if (trusted?.fingerprint === key.fingerprint && !trusted.publicKeyB64) {
       trusted.publicKeyB64 = key.publicKeyB64;
     }

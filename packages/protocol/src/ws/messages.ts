@@ -59,10 +59,13 @@ export type ClientMessage = z.infer<typeof ClientMessage>;
 export const SessionSummary = z.object({
   id,
   label: z.string(),
-  profileId: id.nullable(), // null after the profile was deleted (history)
-  hostId: id.nullable(),
-  hostName: z.string(),
+  serverId: id.nullable(), // null after the server was deleted (history)
+  // The server's current name, or the snapshotted hostname once the server is gone.
+  serverName: z.string(),
+  // Snapshotted at creation (a local session: 'localhost', 0, '').
+  kind: z.enum(['ssh', 'local']),
   hostname: z.string(),
+  port: z.number().int(),
   username: z.string(),
   state: SessionState,
   status: SessionStatus,

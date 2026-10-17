@@ -7,10 +7,14 @@ export interface BaySession {
   status: SessionStatus;
   /** Effective protection; null until the session has started once. */
   protection: Protection | null;
-  /** Remote login name (`target_username`). */
-  user: string;
-  /** The host's name, or the snapshotted hostname when the host was deleted. */
-  host: string;
+  /** `local` for a direct-mode shell (no address); the target below is then unused. */
+  kind: 'ssh' | 'local';
+  /** Snapshotted at creation: the user name, hostname and port the session connects to. */
+  username: string;
+  hostname: string;
+  port: number;
+  /** Its server was deleted (plan D-29): it never connects again, so no Retry or Reopen. */
+  serverDeleted: boolean;
   createdAt: number;
   endedAt: number | null;
 }

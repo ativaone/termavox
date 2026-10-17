@@ -10,7 +10,8 @@ export const FAILURE_KEYS = {
   HOST_KEY_REJECTED: 'hostKeyRejected',
   HOST_KEY_MISMATCH: 'hostKeyMismatch',
   HOST_UNREACHABLE: 'hostUnreachable',
-  NOT_FOUND: 'notFound',
+  // The only NOT_FOUND a session parks with: its server was deleted (plan D-29).
+  NOT_FOUND: 'serverDeleted',
   FORBIDDEN: 'forbidden',
   LOCAL_SHELL_DISABLED: 'localShellDisabled',
   BAD_LAUNCH_PARAMS: 'badLaunchParams',

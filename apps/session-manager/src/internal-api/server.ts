@@ -6,7 +6,6 @@ import {
   ActingUserRequest,
   CreateCredentialRequest,
   CreateSessionRequest,
-  HostTestRequest,
   INTERNAL_API_PREFIX,
   ListSessionsQuery,
   RenameCredentialRequest,
@@ -15,26 +14,32 @@ import {
   RevokeAuthSessionsRequest,
   RevokeHostKeyRequest,
   SESSION_LABEL_MAX,
+  ServerTestRequest,
   type SessionSummary,
   TerminateUserSessionsRequest,
   TrustHostKeyRequest,
 } from '@termdock/protocol';
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import { ErrorCode, normalizeHostname, TermdockError } from '@termdock/shared';
 import type { z } from 'zod';
 import { type Logger, silentLogger } from '../config/logger.ts';
 import { sanitizePromptText } from '../core/session-runtime.ts';
-import type { CredentialProvider, OwnershipCheck, SessionRecord } from '../core/types.ts';
+import type {
+  CredentialProvider,
+  HostKeyTarget,
+  OwnershipCheck,
+  SessionRecord,
+} from '../core/types.ts';
 import { isAdmin, requireActingUser } from '../store/access.ts';
 import type { SqliteHostKeyStore } from '../store/host-key-store.ts';
 import type { SqliteSessionStore } from '../store/session-store.ts';
 import { getRow } from '../store/sqlite.ts';
 import type { TargetPolicy } from '../transport/ssh/index.ts';
 import type { CredentialService } from '../vault/credentials.ts';
-import { type HostTestDeps, testHost } from './host-test.ts';
+import { type ServerTestDeps, testServer } from './server-test.ts';
 
 export const MAX_BODY_BYTES = 64 * 1024;
-/** Host tests per user and minute: each one opens an SSH connection to a user-chosen target. */
-export const HOST_TEST_LIMIT = { max: 10, windowMs: 60_000 } as const;
+/** Server tests per user and minute: each one opens an SSH connection to a user-chosen target. */
+export const SERVER_TEST_LIMIT = { max: 10, windowMs: 60_000 } as const;
 const CLOSE_GRACE_MS = 2_000;
 
 /** What the internal API needs from the session registry (`SessionRegistry` satisfies it). */
@@ -70,11 +75,11 @@ export interface InternalApiOptions {
   connections: ConnectionRevoker;
   /** TERMDOCK_ENABLE_LOCAL_SHELL. */
   enableLocalShell: boolean;
-  /** SSH target policy for host tests (the same one sessions use). */
+  /** SSH target policy for server tests (the same one sessions use). */
   targetPolicy: TargetPolicy;
   version: string;
   startedAt?: number;
-  hostTest?: Pick<HostTestDeps, 'readyTimeoutMs' | 'probeTimeoutMs'>;
+  serverTest?: Pick<ServerTestDeps, 'readyTimeoutMs' | 'probeTimeoutMs'>;
   logger?: Logger;
   now?: () => number;
 }
@@ -143,7 +148,7 @@ interface Route {
 const ID = '([^/]{1,64})';
 const NO_CONTENT: Reply = { status: 204 };
 
-/** In-memory sliding-window counter per key (e.g. host tests per user). */
+/** In-memory sliding-window counter per key (e.g. server tests per user). */
 export class SlidingWindowLimit {
   readonly #hits = new Map<string, number[]>();
   readonly #max: number;
@@ -177,8 +182,8 @@ export class SlidingWindowLimit {
  * with the protocol schemas. Errors are `{ code, message }`.
  *
  * Ownership: every user-scoped route re-validates `actingUserId` against the DB — the acting
- * user must exist and not be banned (403), and a session, credential, host or profile of
- * another user is answered with 404, exactly like a missing one (no id probing).
+ * user must exist and not be banned (403), and a session, credential or server of another user
+ * is answered with 404, exactly like a missing one (no id probing).
  */
 export class InternalApi {
   readonly #options: InternalApiOptions;
@@ -187,16 +192,16 @@ export class InternalApi {
   readonly #routes: Route[];
   readonly #log: Logger;
   readonly #startedAt: number;
-  readonly #hostTests: SlidingWindowLimit;
+  readonly #serverTests: SlidingWindowLimit;
 
   constructor(options: InternalApiOptions) {
     this.#options = options;
     this.#tokenDigest = tokenDigest(options.token);
     this.#log = (options.logger ?? silentLogger()).child({ component: 'internal-api' });
     this.#startedAt = options.startedAt ?? Date.now();
-    this.#hostTests = new SlidingWindowLimit(
-      HOST_TEST_LIMIT.max,
-      HOST_TEST_LIMIT.windowMs,
+    this.#serverTests = new SlidingWindowLimit(
+      SERVER_TEST_LIMIT.max,
+      SERVER_TEST_LIMIT.windowMs,
       options.now,
     );
     this.#routes = this.#buildRoutes();
@@ -327,20 +332,24 @@ export class InternalApi {
         pattern: path(`/credentials/${ID}`),
         handler: (c) => this.#deleteCredential(c),
       },
-      { method: 'POST', pattern: path(`/hosts/${ID}/test`), handler: (c) => this.#testHost(c) },
       {
         method: 'POST',
-        pattern: path(`/hosts/${ID}/trust-key`),
+        pattern: path(`/servers/${ID}/test`),
+        handler: (c) => this.#testServer(c),
+      },
+      {
+        method: 'POST',
+        pattern: path(`/servers/${ID}/trust-key`),
         handler: (c) => this.#trustKey(c),
       },
       {
         method: 'POST',
-        pattern: path(`/hosts/${ID}/replace-key`),
+        pattern: path(`/servers/${ID}/replace-key`),
         handler: (c) => this.#replaceKey(c),
       },
       {
         method: 'POST',
-        pattern: path(`/hosts/${ID}/revoke-key`),
+        pattern: path(`/servers/${ID}/revoke-key`),
         handler: (c) => this.#revokeKey(c),
       },
       {
@@ -361,9 +370,9 @@ export class InternalApi {
 
   async #createSession(ctx: RequestContext): Promise<Reply> {
     const body = parse(CreateSessionRequest, ctx.body);
-    const record = await this.#options.sessions.createFromProfile({
+    const record = await this.#options.sessions.createFromServer({
       actingUserId: body.actingUserId,
-      profileId: body.profileId,
+      serverId: body.serverId,
       label: body.label === undefined ? undefined : sessionLabel(body.label),
       viewport: body.viewport,
       enableLocalShell: this.#options.enableLocalShell,
@@ -445,33 +454,33 @@ export class InternalApi {
     return NO_CONTENT;
   }
 
-  // ── hosts ─────────────────────────────────────────────────────────────────
+  // ── servers: test and host keys ───────────────────────────────────────────
 
-  async #testHost(ctx: RequestContext): Promise<Reply> {
-    const body = parse(HostTestRequest, ctx.body);
-    if (!this.#hostTests.take(body.actingUserId)) {
+  async #testServer(ctx: RequestContext): Promise<Reply> {
+    const body = parse(ServerTestRequest, ctx.body);
+    if (!this.#serverTests.take(body.actingUserId)) {
       throw new TermdockError(
         ErrorCode.RateLimited,
-        `at most ${HOST_TEST_LIMIT.max} host tests per minute; try again shortly`,
+        `at most ${SERVER_TEST_LIMIT.max} server tests per minute; try again shortly`,
       );
     }
-    const result = await testHost(
+    const result = await testServer(
       {
         db: this.#options.db,
         hostKeys: this.#options.hostKeys,
         credentials: this.#options.credentialProvider,
         targetPolicy: this.#options.targetPolicy,
-        ...this.#options.hostTest,
+        ...this.#options.serverTest,
       },
-      { actingUserId: body.actingUserId, hostId: ctx.params[0]!, profileId: body.profileId },
+      { actingUserId: body.actingUserId, serverId: ctx.params[0]! },
     );
     return { status: 200, body: result };
   }
 
   async #trustKey(ctx: RequestContext): Promise<Reply> {
     const body = parse(TrustHostKeyRequest, ctx.body);
-    const host = this.#ownedHost(ctx.params[0]!, body.actingUserId);
-    const outcome = await this.#options.hostKeys.trust(host.id, {
+    const target = this.#hostKeyTarget(ctx.params[0]!, body.actingUserId);
+    const outcome = await this.#options.hostKeys.trust(target, {
       fingerprint: body.fingerprint,
       keyType: body.keyType,
       decidedBy: body.actingUserId,
@@ -480,53 +489,75 @@ export class InternalApi {
     if (outcome === 'conflict') {
       throw new TermdockError(
         ErrorCode.Conflict,
-        'another key of this type is trusted for the host; use replace-key',
+        'another key of this type is trusted for this address; use replace-key',
       );
     }
     if (outcome === 'revoked') {
       throw new TermdockError(
         ErrorCode.Conflict,
-        'this key was revoked for the host; only replace-key can trust it again',
+        'this key was revoked for this address; only replace-key can trust it again',
       );
     }
     return NO_CONTENT;
   }
 
+  /**
+   * The owner confirms by typing the address, since the change applies to every one of their
+   * servers with it: `confirmHostname` must name the server's stored hostname (both normalized,
+   * so `DB.Internal` confirms `db.internal`). Anything else is 400 and changes nothing.
+   */
   async #replaceKey(ctx: RequestContext): Promise<Reply> {
     const body = parse(ReplaceHostKeyRequest, ctx.body);
-    const host = this.#ownedHost(ctx.params[0]!, body.actingUserId);
-    if (body.confirmHostName !== host.name) {
-      throw new TermdockError(ErrorCode.BadRequest, 'confirmHostName does not match the host name');
+    const target = this.#hostKeyTarget(ctx.params[0]!, body.actingUserId);
+    if (normalizeHostname(body.confirmHostname) !== target.hostname) {
+      throw new TermdockError(
+        ErrorCode.BadRequest,
+        'confirmHostname does not match the server hostname',
+      );
     }
-    await this.#options.hostKeys.replace(
-      host.id,
-      body.keyType,
-      body.fingerprint,
-      body.actingUserId,
-    );
+    await this.#options.hostKeys.replace(target, body.keyType, body.fingerprint, body.actingUserId);
     return NO_CONTENT;
   }
 
   async #revokeKey(ctx: RequestContext): Promise<Reply> {
     const body = parse(RevokeHostKeyRequest, ctx.body);
-    const host = this.#ownedHost(ctx.params[0]!, body.actingUserId);
-    if (!(await this.#options.hostKeys.revoke(host.id, body.keyType, body.actingUserId))) {
+    const target = this.#hostKeyTarget(ctx.params[0]!, body.actingUserId);
+    if (!(await this.#options.hostKeys.revoke(target, body.keyType, body.actingUserId))) {
       throw new TermdockError(ErrorCode.NotFound, 'no trusted key of this type');
     }
     return NO_CONTENT;
   }
 
-  #ownedHost(hostId: string, actingUserId: string): { id: string; name: string } {
+  /**
+   * The acting user's SSH server and the host-key target it names (plan §5.9, D-29): the server
+   * id only picks the address (normalized hostname and port) and proves ownership; the decision
+   * is stored for the address, so it applies to every server of that user with it. A foreign or
+   * missing server is 404; a local server has no address (400).
+   */
+  #hostKeyTarget(serverId: string, actingUserId: string): HostKeyTarget {
     const sqlite = this.#options.db.$client;
     requireActingUser(sqlite, actingUserId);
-    const host = getRow<{ id: string; name: string }>(
+    const server = getRow<{
+      id: string;
+      kind: string;
+      hostname: string | null;
+      port: number | null;
+    }>(
       sqlite,
-      'SELECT id, name FROM hosts WHERE id = ? AND user_id = ?',
-      hostId,
+      'SELECT id, kind, hostname, port FROM servers WHERE id = ? AND user_id = ?',
+      serverId,
       actingUserId,
     );
-    if (!host) throw new TermdockError(ErrorCode.NotFound, 'host not found');
-    return host;
+    if (!server) throw new TermdockError(ErrorCode.NotFound, 'server not found');
+    if (server.kind !== 'ssh' || server.hostname === null || server.port === null) {
+      throw new TermdockError(ErrorCode.BadRequest, 'a local server has no host keys');
+    }
+    return {
+      userId: actingUserId,
+      hostname: normalizeHostname(server.hostname),
+      port: server.port,
+      serverId: server.id,
+    };
   }
 
   // ── admin ─────────────────────────────────────────────────────────────────

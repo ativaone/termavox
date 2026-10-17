@@ -27,7 +27,7 @@ import type {
 
 const SessionId = z.string().min(1).max(64);
 const CreateInput = z.object({
-  profileId: z.string().min(1).max(64),
+  serverId: z.string().min(1).max(64),
   label: SessionLabelInput.optional(),
   viewport: Viewport,
 });
@@ -54,31 +54,31 @@ async function invalid(): Promise<SessionActionFailure> {
 }
 
 /**
- * Opens a session from one of the user's connection profiles.
+ * Opens a session from one of the user's servers (plan D-29).
  *
- * @param input.profileId The profile to connect with (snapshotted at creation, plan §9).
- * @param input.label Optional name (D-28). Blank or absent: the profile's name, as before.
+ * @param input.serverId The server to connect to (its target is snapshotted at creation, §9).
+ * @param input.label Optional name (D-28). Blank or absent: the server's name.
  *   Otherwise the daemon drops control and invisible formatting characters, trims, and needs
  *   1–120 characters left (`LABEL_INVALID` otherwise); raw input above 1024 characters is
  *   `BAD_REQUEST`.
  * @param input.viewport The first pane's grid (20–500 × 5–200).
- * @returns `{ ok: true, sessionId }`, or a failure: `LABEL_INVALID`, `NOT_FOUND` (profile, host or
+ * @returns `{ ok: true, sessionId }`, or a failure: `LABEL_INVALID`, `NOT_FOUND` (server or
  *   credential gone), `RATE_LIMITED` (running-session cap), `LOCAL_SHELL_DISABLED`, `FORBIDDEN`,
  *   `BAD_REQUEST`, `UNAVAILABLE` / `TIMEOUT` / `BAD_RESPONSE`.
  */
 export async function createSession(input: {
-  profileId: string;
+  serverId: string;
   label?: string;
   viewport: { cols: number; rows: number };
 }): Promise<SessionActionResult> {
   const { user } = await requireSession();
   const parsed = CreateInput.safeParse(input);
   if (!parsed.success) return invalid();
-  const { profileId, label, viewport } = parsed.data;
+  const { serverId, label, viewport } = parsed.data;
   try {
     const { sessionId } = await getInternalApi().createSession({
       actingUserId: user.id,
-      profileId,
+      serverId,
       ...(label?.trim() ? { label } : {}),
       viewport,
     });

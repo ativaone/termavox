@@ -6,7 +6,7 @@ import type { ServerMessage } from '@termdock/protocol';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Daemon } from '../../src/main.ts';
 import { until } from '../runtime/fakes.ts';
-import { insertAuthSession, insertHost, insertProfile, insertUser } from '../store/fixture.ts';
+import { insertAuthSession, insertServer, insertUser } from '../store/fixture.ts';
 import { DaemonFixture, VIEWPORT } from './harness.ts';
 
 type Upsert = Extract<ServerMessage, { type: 'session.upsert' }>;
@@ -30,10 +30,10 @@ describe('session rename through the daemon wiring (D-28)', () => {
     const { db } = daemon;
     const owner = insertUser(db);
     const other = insertUser(db);
-    const profileId = insertProfile(db, owner, insertHost(db, owner), null);
+    const serverId = insertServer(db, owner, { name: 'web box' });
     const created = await fixture.api(daemon, 'POST', '/sessions', {
       actingUserId: owner,
-      profileId,
+      serverId,
       label: '‮web​ ',
       viewport: VIEWPORT,
     });
@@ -62,7 +62,15 @@ describe('session rename through the daemon wiring (D-28)', () => {
           m.session.id === sessionId &&
           m.session.label === 'deploy watcher',
       );
-      expect(upsert.session).toMatchObject({ state: 'failed', hostName: 'test host' });
+      expect(upsert.session).toMatchObject({
+        state: 'failed',
+        serverId,
+        serverName: 'web box',
+        kind: 'ssh',
+        hostname: '127.0.0.1',
+        port: 22,
+        username: 'td',
+      });
     }
     expect(runtime()?.label).toBe('deploy watcher');
     expect(stranger.messages.some((m) => m.type === 'session.upsert')).toBe(false);

@@ -1,61 +1,171 @@
 'use client';
 
-import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { useActionState, useId, useState } from 'react';
-import { saveProfile } from '../../lib/actions/hosts.ts';
+import { type ChangeEvent, useId, useState } from 'react';
 import {
   ENV_MAX,
   KEEPALIVE_MAX,
   KEEPALIVE_MIN,
-  type ManageState,
   SCROLLBACK_MAX,
   SCROLLBACK_MIN,
+  SERVER_NAME_MAX,
 } from '../../lib/manage/forms.ts';
-import { withReturnPath } from '../../lib/manage/return-to.ts';
-import { ROUTES } from '../../lib/routes.ts';
+import type { ServerKind } from '../../lib/repo/servers.ts';
+import type { ServerOptionsValues } from '../../lib/servers/options.ts';
 import { CloseIcon, PlusIcon } from '../icons/index.tsx';
-import { Button, ButtonLink } from '../ui/button.tsx';
+import { Button } from '../ui/button.tsx';
 import { Checkbox } from '../ui/checkbox.tsx';
+import { DisclosureSummary } from '../ui/disclosure-summary.tsx';
 import { FieldError } from '../ui/field.tsx';
-import { FormMessage } from '../ui/notice.tsx';
 import { radioClasses } from '../ui/radio.ts';
-import { Select } from '../ui/select.tsx';
-import { SubmitButton } from '../ui/submit-button.tsx';
 import { TextField } from '../ui/text-field.tsx';
+import { ChoiceCard } from './add-server-section.tsx';
 
-export interface ProfileFormValues {
-  id?: string;
-  name: string;
-  username: string;
-  credentialId: string;
-  protectionMode: 'auto' | 'off';
-  startupCommand: string;
-  env: Array<{ key: string; value: string }>;
-  keepaliveIntervalS: number;
-  autoReopen: boolean;
-  scrollbackLines: number;
+/**
+ * The fields of a server (plan D-29), shared by "Add server" and the server page so both read
+ * and validate the same way: where it is and as whom (`ServerTargetFields`), and how its
+ * sessions behave (`ServerOptionsFields`, inside `AdvancedOptions`). Inputs carry a `prefix`
+ * (`server.` on Add server); `values` (echoed after a failed submit, or a duplicate's prefill)
+ * and `fields` (errors) use the prefixed names.
+ */
+
+/** Option inputs that live in the "Advanced" disclosure (it opens when one of them has an error). */
+export const ADVANCED_FIELDS = [
+  'protectionMode',
+  'startupCommand',
+  'env',
+  'keepaliveIntervalS',
+  'scrollbackLines',
+] as const;
+
+interface FieldProps {
+  prefix?: string;
+  values: Record<string, string>;
+  fields?: Record<string, string>;
+  errorPrefix: string;
 }
 
-/** A new profile's behaviour (the host page and "Add server" share these defaults). */
-export const PROFILE_DEFAULTS: ProfileOptionsValues = {
-  protectionMode: 'auto',
-  startupCommand: '',
-  env: [],
-  keepaliveIntervalS: 15,
-  autoReopen: true,
-  scrollbackLines: 5000,
-};
+/**
+ * Name, kind, address, port and the user name on the server. The local (direct-mode) kind is
+ * offered only when allowed (or when the server already is one, so it can be switched back);
+ * a local server has no address or user name, and a one-line note says why.
+ */
+export function ServerTargetFields({
+  prefix = '',
+  values,
+  fields,
+  errorPrefix,
+  kind,
+  onKindChange,
+  localAllowed,
+  localReason,
+  onNameChange,
+  onUsernameChange,
+}: FieldProps & {
+  kind: ServerKind;
+  onKindChange(kind: ServerKind): void;
+  localAllowed: boolean;
+  /** Why the local kind is unavailable, shown under its disabled card (the server page). */
+  localReason?: string | null;
+  onNameChange?(event: ChangeEvent<HTMLInputElement>): void;
+  onUsernameChange?(event: ChangeEvent<HTMLInputElement>): void;
+}) {
+  const t = useTranslations('servers.form');
+  const n = (name: string) => `${prefix}${name}`;
+  const v = (name: string, fallback = '') => values[n(name)] ?? fallback;
+  const showKind = localAllowed || kind === 'local';
 
-export type ProfileOptionsValues = Pick<
-  ProfileFormValues,
-  | 'protectionMode'
-  | 'startupCommand'
-  | 'env'
-  | 'keepaliveIntervalS'
-  | 'autoReopen'
-  | 'scrollbackLines'
->;
+  return (
+    <>
+      <TextField
+        name={n('name')}
+        label={t('name')}
+        help={t('nameHelp')}
+        defaultValue={v('name')}
+        onChange={onNameChange}
+        error={fields?.[n('name')]}
+        errorPrefix={errorPrefix}
+        required
+        maxLength={SERVER_NAME_MAX}
+        autoComplete="off"
+      />
+      {showKind ? (
+        <fieldset className="flex flex-col gap-2">
+          <legend className="mb-1.5 font-semibold text-ink text-sm">{t('kind')}</legend>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <ChoiceCard
+              name={n('kind')}
+              value="ssh"
+              checked={kind === 'ssh'}
+              onChange={() => onKindChange('ssh')}
+              title={t('kindSsh')}
+              help={t('kindSshHelp')}
+            />
+            <ChoiceCard
+              name={n('kind')}
+              value="local"
+              checked={kind === 'local'}
+              onChange={() => onKindChange('local')}
+              title={t('kindLocal')}
+              help={(!localAllowed && localReason) || t('kindLocalHelp')}
+              disabled={!localAllowed && kind !== 'local'}
+            />
+          </div>
+          {fields?.[n('kind')] ? (
+            <FieldError prefix={errorPrefix} message={fields[n('kind')] as string} />
+          ) : null}
+        </fieldset>
+      ) : (
+        <input type="hidden" name={n('kind')} value="ssh" />
+      )}
+      {kind === 'ssh' ? (
+        <>
+          <div className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_8rem]">
+            <TextField
+              name={n('hostname')}
+              label={t('hostname')}
+              help={t('hostnameHelp')}
+              defaultValue={v('hostname')}
+              error={fields?.[n('hostname')]}
+              errorPrefix={errorPrefix}
+              required
+              maxLength={253}
+              autoComplete="off"
+              autoCapitalize="none"
+              spellCheck={false}
+            />
+            <TextField
+              name={n('port')}
+              label={t('port')}
+              defaultValue={v('port') || '22'}
+              error={fields?.[n('port')]}
+              errorPrefix={errorPrefix}
+              inputMode="numeric"
+              required
+              className="tabular-nums"
+            />
+          </div>
+          <TextField
+            name={n('username')}
+            label={t('username')}
+            help={t('usernameHelp')}
+            defaultValue={v('username')}
+            onChange={onUsernameChange}
+            error={fields?.[n('username')]}
+            errorPrefix={errorPrefix}
+            required
+            maxLength={64}
+            autoComplete="off"
+            autoCapitalize="none"
+            spellCheck={false}
+          />
+        </>
+      ) : (
+        <p className="max-w-[60ch] text-pretty text-base text-ink-muted">{t('localNote')}</p>
+      )}
+    </>
+  );
+}
 
 interface EnvRow {
   id: number;
@@ -89,7 +199,7 @@ function EnvEditor({
   error?: string;
   errorPrefix: string;
 }) {
-  const t = useTranslations('hosts.profile.form');
+  const t = useTranslations('servers.form');
   const [rows, setRows] = useState<EnvRow[]>(() => toRows(initial));
   const legendId = useId();
   return (
@@ -153,25 +263,17 @@ function EnvEditor({
 }
 
 /**
- * How sessions from a profile behave: tmux protection, startup command, environment, keepalive,
- * scrollback and auto-reopen, as three hairline-divided groups. Shared by the profile form on
- * the host page and the "Advanced" disclosure of "Add server", whose inputs carry a `prefix`.
- * `values` (echoed after a failed submit) and `fields` (errors) use the prefixed names.
+ * How sessions from a server behave: tmux protection, startup command, environment, keepalive,
+ * scrollback and auto-reopen, as three hairline-divided groups.
  */
-export function ProfileOptionsFields({
+export function ServerOptionsFields({
+  prefix = '',
   initial,
   values,
   fields,
   errorPrefix,
-  prefix = '',
-}: {
-  initial: ProfileOptionsValues;
-  values: Record<string, string>;
-  fields?: Record<string, string>;
-  errorPrefix: string;
-  prefix?: string;
-}) {
-  const t = useTranslations('hosts.profile.form');
+}: FieldProps & { initial: ServerOptionsValues }) {
+  const t = useTranslations('servers.form');
   const n = (name: string) => `${prefix}${name}`;
   const str = (name: string, fallback: string | number) =>
     values[n(name)] !== undefined ? (values[n(name)] as string) : String(fallback);
@@ -280,97 +382,40 @@ export function ProfileOptionsFields({
 }
 
 /**
- * Create or edit a connection profile: who to log in as, with which credential, and how the
- * session behaves (tmux protection, startup command, environment, keepalive, auto-reopen,
- * scrollback). Edits apply to new sessions; running ones keep what they started with.
+ * The "Advanced" disclosure around the options; it opens itself when one has an error, or when
+ * asked to (`defaultOpen`).
  */
-export function ProfileForm({
-  hostId,
+export function AdvancedOptions({
+  prefix = '',
   initial,
-  credentials,
-  cancelHref,
-}: {
-  hostId: string;
-  initial: ProfileFormValues;
-  credentials: Array<{ id: string; name: string }>;
-  cancelHref: string;
+  values,
+  fields,
+  errorPrefix,
+  defaultOpen = false,
+}: FieldProps & {
+  initial: ServerOptionsValues;
+  /** Open from the start, e.g. when a duplicated server's options differ from the defaults. */
+  defaultOpen?: boolean;
 }) {
-  const t = useTranslations('hosts.profile.form');
-  const tf = useTranslations('common.field');
-  const [state, action] = useActionState(saveProfile, {} as ManageState);
-  const errorPrefix = tf('errorPrefix');
-  const values = state.values ?? {};
-  const str = (name: string, fallback: string | number) =>
-    values[name] !== undefined ? values[name] : String(fallback);
-
+  const t = useTranslations('servers.form');
+  const open = defaultOpen || ADVANCED_FIELDS.some((name) => fields?.[`${prefix}${name}`]);
   return (
-    <form action={action} noValidate className="flex flex-col gap-5">
-      <input type="hidden" name="hostId" value={hostId} />
-      {initial.id ? <input type="hidden" name="id" value={initial.id} /> : null}
-      <FormMessage message={state.message} />
-      <div className="grid gap-5 sm:grid-cols-2">
-        <TextField
-          name="name"
-          label={t('name')}
-          help={t('nameHelp')}
-          defaultValue={str('name', initial.name)}
-          error={state.fields?.name}
+    <details className="group/disclosure border-line border-t pt-4" open={open || undefined}>
+      <DisclosureSummary className="font-semibold text-ink text-sm">
+        {t('advanced')}
+      </DisclosureSummary>
+      <p className="mt-1.5 ms-5 max-w-[60ch] text-pretty text-ink-muted text-sm">
+        {t('advancedHelp')}
+      </p>
+      <div className="mt-4 flex flex-col gap-5">
+        <ServerOptionsFields
+          prefix={prefix}
+          initial={initial}
+          values={values}
+          fields={fields}
           errorPrefix={errorPrefix}
-          required
-          maxLength={80}
-          autoComplete="off"
-        />
-        <TextField
-          name="username"
-          label={t('username')}
-          help={t('usernameHelp')}
-          defaultValue={str('username', initial.username)}
-          error={state.fields?.username}
-          errorPrefix={errorPrefix}
-          required
-          maxLength={64}
-          autoComplete="off"
-          autoCapitalize="none"
-          spellCheck={false}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
-        <Select
-          name="credentialId"
-          label={t('credential')}
-          defaultValue={str('credentialId', initial.credentialId)}
-          error={state.fields?.credentialId}
-          errorPrefix={errorPrefix}
-          options={[
-            { value: '', label: t('credentialNone') },
-            ...credentials.map((c) => ({ value: c.id, label: c.name })),
-          ]}
-        />
-        <p className="text-ink-muted text-sm">
-          {credentials.length === 0 ? t('credentialEmpty') : t('credentialHelp')}{' '}
-          {/* Comes back here afterwards (plan D-27); the select then lists the new credential. */}
-          <Link
-            href={withReturnPath(ROUTES.credentials, `${ROUTES.hosts}/${hostId}`)}
-            className="inline-flex items-center gap-1 font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink"
-          >
-            {t('credentialNew')}
-          </Link>
-        </p>
-      </div>
-
-      <ProfileOptionsFields
-        initial={initial}
-        values={values}
-        fields={state.fields}
-        errorPrefix={errorPrefix}
-      />
-
-      <div className="flex flex-wrap items-center gap-2 border-line border-t pt-5">
-        <SubmitButton size="lg">{initial.id ? t('save') : t('create')}</SubmitButton>
-        <ButtonLink href={cancelHref} variant="quiet" size="lg" scroll={false}>
-          {t('cancel')}
-        </ButtonLink>
-      </div>
-    </form>
+    </details>
   );
 }

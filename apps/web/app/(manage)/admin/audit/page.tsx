@@ -18,6 +18,7 @@ import {
   listAuditEvents,
   listAuditTypes,
 } from '../../../../lib/repo/audit.ts';
+import { formatAddress } from '../../../../lib/servers/target.ts';
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('meta');
@@ -50,6 +51,9 @@ const KNOWN_TYPES = new Set([
   'host_key.mismatch',
   'host_key.revoked_presented',
   'session.rename',
+  'server.create',
+  'server.update',
+  'server.delete',
 ]);
 
 /** Message keys cannot contain dots (next-intl nesting), so `auth.lockout` reads `auth_lockout`. */
@@ -78,7 +82,10 @@ type AuditTypeKey =
   | 'host_key_revoke'
   | 'host_key_mismatch'
   | 'host_key_revoked_presented'
-  | 'session_rename';
+  | 'session_rename'
+  | 'server_create'
+  | 'server_update'
+  | 'server_delete';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -111,6 +118,8 @@ const DETAIL_KEYS = [
   'source',
   'previousLabel',
   'label',
+  'hostname',
+  'port',
 ] as const;
 type DetailKey = (typeof DETAIL_KEYS)[number];
 const isDetailKey = (key: string): key is DetailKey =>
@@ -124,7 +133,7 @@ const DETAIL_VALUES = {
   scope: ['auth_sessions', 'websockets'],
   source: ['pending', 'pasted', 'host_test'],
   role: ['user', 'admin'],
-  kind: ['password', 'private_key', 'generate'],
+  kind: ['password', 'private_key', 'generate', 'ssh', 'local'],
 } as const;
 type DetailValueKey = {
   [K in keyof typeof DETAIL_VALUES]: `details.value.${K}.${(typeof DETAIL_VALUES)[K][number]}`;
@@ -142,12 +151,31 @@ const SETTING_LABELS = {
   local_shell_visible: 'localShell',
 } as const;
 
-/** A readable target: the user, host or credential name, a setting's label, or a short id. */
+/**
+ * The address a server event names (`host`, `host:port` off 22), from its detail: the daemon's
+ * `host_key.*` rows and web's `server.*` rows both carry `hostname` and `port` (plan D-29).
+ */
+function detailAddress(row: AuditRow): string | null {
+  const hostname = row.detail?.hostname;
+  const port = row.detail?.port;
+  if (row.targetType !== 'server' || typeof hostname !== 'string' || !hostname) return null;
+  return typeof port === 'number' ? formatAddress(hostname, port) : hostname;
+}
+
+/** Detail fields the target column already shows for a server event. */
+const SHOWN_IN_TARGET = new Set(['hostname', 'port', 'name']);
+
+/**
+ * A readable target: the user, server or credential name, a setting's label, or a short id. A
+ * deleted server (host-key rows outlive it) reads as its address.
+ */
 function targetLabel(row: AuditRow, settingLabel: (key: string) => string): string {
   if (row.targetName) return row.targetName;
   if (row.targetType === 'setting' && row.targetId) return settingLabel(row.targetId);
   const name = row.detail?.name;
   if (typeof name === 'string') return name;
+  const address = detailAddress(row);
+  if (address) return address;
   if (!row.targetId) return '—';
   return row.targetId.length > 12 ? `${row.targetId.slice(0, 8)}…` : row.targetId;
 }
@@ -220,8 +248,10 @@ export default async function AdminAuditPage({
       }
     }
     const parts: string[] = [];
+    const serverEvent = detailAddress(row) !== null;
     for (const [key, value] of Object.entries(detail)) {
       if (key.endsWith('Id') || key === 'id') continue;
+      if (serverEvent && SHOWN_IN_TARGET.has(key)) continue;
       if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') {
         continue;
       }
@@ -347,7 +377,12 @@ export default async function AdminAuditPage({
                   {auditActorLabel(row, t)}
                 </Td>
                 <Td label={t('target')} className="text-sm [overflow-wrap:anywhere]">
-                  {targetLabel(row, settingLabel)}
+                  <span className="flex min-w-0 flex-col">
+                    <span>{targetLabel(row, settingLabel)}</span>
+                    {detailAddress(row) && detailAddress(row) !== targetLabel(row, settingLabel) ? (
+                      <span className="font-mono text-ink-muted text-xs">{detailAddress(row)}</span>
+                    ) : null}
+                  </span>
                 </Td>
                 <Td label={t('source')} className="text-ink-muted text-sm">
                   <span className="flex min-w-0 flex-col">

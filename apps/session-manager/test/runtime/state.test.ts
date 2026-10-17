@@ -5,6 +5,7 @@ import {
   FakeAttachment,
   fakeTmuxDrivers,
   harness,
+  TEST_ADDRESS,
   TEST_KEY,
   TMUX_PROBE,
   until,
@@ -77,7 +78,10 @@ describe('SessionRuntime state machine', () => {
     const rt = h.runtime();
     await rt.start();
     expect(rt.state).toBe('awaiting_host_key');
-    expect(h.hostKeys.pending).toEqual([{ hostId: 'host-1', key: TEST_KEY }]);
+    // Recorded for the session's address, with its server as the audit target.
+    expect(h.hostKeys.pending).toEqual([
+      { target: { ...TEST_ADDRESS, serverId: 'server-1' }, key: TEST_KEY },
+    ]);
     const prompt = {
       type: 'hostkey.prompt',
       sessionId: SID,
@@ -91,7 +95,7 @@ describe('SessionRuntime state machine', () => {
     expect(await rt.hostKeyDecision('SHA256:other', true, 'user-1')).toBe(false);
     expect(await rt.hostKeyDecision(TEST_KEY.fingerprint, true, 'user-1')).toBe(true);
     await until(() => rt.state === 'ready');
-    expect(h.hostKeys.trustedKeys.get('host-1')?.get(TEST_KEY.type)).toEqual(TEST_KEY);
+    expect(h.hostKeys.trustedAt(TEST_ADDRESS)?.get(TEST_KEY.type)).toEqual(TEST_KEY);
     expect(h.factory.created).toHaveLength(2);
     await rt.shutdown();
   });
@@ -213,6 +217,47 @@ describe('SessionRuntime state machine', () => {
     });
     expect(terminated.factory.last.pty.ended).toBe(true);
     expect(terminated.factory.last.closed).toBe(true);
+  });
+
+  it('a session whose server was deleted never connects: parked as failed NOT_FOUND, no loop (D-29)', async () => {
+    const h = harness({ record: { serverId: null } });
+    const rt = h.runtime();
+    await rt.start();
+    expect(rt.state).toBe('failed');
+    expect(rt.live()).toMatchObject({ status: 'disconnected', statusDetail: 'NOT_FOUND' });
+    expect(h.factory.created).toHaveLength(0); // no transport, so no login on the host
+    expect(h.store.transitions(SID)).toEqual([['failed', 'disconnected']]);
+    expect(h.store.events.filter((e) => e.type === 'server_deleted')).toHaveLength(1);
+    // Parked, not ended: only terminating it is left (the registry refuses Retry first).
+    expect(h.store.records.get(SID)?.desiredState).toBe('running');
+    // A retry reaching the runtime anyway parks it again. (Let the parked loop wind down
+    // first: start() resolves before the loop has finished.)
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    await rt.retry();
+    await until(() => h.store.events.filter((e) => e.type === 'server_deleted').length === 2);
+    expect(h.factory.created).toHaveLength(0);
+    await rt.terminate();
+    expect(h.store.records.get(SID)).toMatchObject({
+      state: 'ended',
+      endReason: 'user_terminated',
+    });
+  });
+
+  it('a server deleted while its session runs: the next connect attempt is refused', async () => {
+    const h = harness();
+    const rt = h.runtime();
+    await rt.start();
+    expect(rt.state).toBe('ready');
+    // The FK sets server_id NULL; the runtime reads it again before every attempt.
+    h.store.records.get(SID)!.serverId = null;
+    h.factory.last.lose();
+    await until(() => rt.state === 'reconnecting');
+    await rt.retry(); // skips the backoff wait
+    await until(() => rt.state === 'failed');
+    expect(rt.live().statusDetail).toBe('NOT_FOUND');
+    expect(h.factory.created).toHaveLength(1);
+    expect(h.store.events.map((e) => e.type)).toContain('server_deleted');
+    await rt.shutdown();
   });
 });
 

@@ -1,4 +1,4 @@
-import type { SessionSummary } from '@termdock/protocol';
+import { SessionSummary } from '@termdock/protocol';
 import { ErrorCode, TermdockError } from '@termdock/shared';
 import { describe, expect, it } from 'vitest';
 import { createDriverFactory } from '../../src/core/driver-factory.ts';
@@ -59,6 +59,29 @@ describe('SessionRegistry session.upsert', () => {
         .some((s) => s.protection === 'none'),
     );
     expect(upserts()[before]).toMatchObject({ endedAt: null, endReason: null });
+    await registry.shutdown();
+  });
+
+  it('publishes a complete summary, kind included, for a session the store does not list', async () => {
+    const { notifier, registry } = registryWith();
+    // Not in the store: the upsert falls back to the record the runtime was spawned from.
+    registry.create(
+      makeRecord({
+        id: 'unlisted',
+        target: { kind: 'local', hostname: 'localhost', port: 0, username: '', credentialId: null },
+      }),
+    );
+    await until(() => notifier.ofType('session.upsert').length > 0);
+    const [upsert] = notifier.ofType('session.upsert');
+    expect(SessionSummary.parse(upsert!.session)).toMatchObject({
+      id: 'unlisted',
+      serverId: 'server-1',
+      serverName: 'localhost', // the record has no server name: the snapshotted hostname
+      kind: 'local',
+      hostname: 'localhost',
+      port: 0,
+      username: '',
+    });
     await registry.shutdown();
   });
 
@@ -170,6 +193,66 @@ describe('SessionRegistry.reopen and the running-session cap', () => {
     await registry.reopen('s1', 'user-1');
     await until(() => registry.host('s1')?.state === 'ready');
     expect(reopens()).toBe(before + 1);
+    await registry.shutdown();
+  });
+});
+
+describe('SessionRegistry: a session whose server was deleted (D-29)', () => {
+  it('refuses Reopen and Retry with NOT_FOUND, and boot restore only parks it', async () => {
+    const { store, factory, registry } = registryWith();
+    const refusal = { code: ErrorCode.NotFound, message: 'server was deleted' };
+    const typesOf = (id: string) =>
+      store.events.filter((e) => e.sessionId === id).map((e) => e.type);
+
+    // Ended before its server was deleted: Reopen is refused and nothing changes.
+    store.add(
+      makeRecord({
+        id: 'ended',
+        serverId: null,
+        state: 'ended',
+        status: 'ended',
+        desiredState: 'terminated',
+        endedAt: 1,
+        endReason: 'user_terminated',
+      }),
+    );
+    await expect(registry.reopen('ended', 'user-1')).rejects.toMatchObject(refusal);
+    await expect(registry.retry('ended', 'user-1')).rejects.toMatchObject(refusal);
+    expect(store.records.get('ended')).toMatchObject({
+      state: 'ended',
+      desiredState: 'terminated',
+    });
+    expect(typesOf('ended')).toEqual([]);
+
+    // Parked as failed: Retry is refused before the runtime tries anything.
+    store.add(
+      makeRecord({ id: 'failed', serverId: null, state: 'failed', status: 'disconnected' }),
+    );
+    await expect(registry.retry('failed', 'user-1')).rejects.toMatchObject(refusal);
+    expect(typesOf('failed')).toEqual([]);
+
+    // Meant to run when the daemon stopped: restore starts it, the runtime parks it at once.
+    store.add(
+      makeRecord({
+        id: 'running',
+        serverId: null,
+        state: 'reconnecting',
+        status: 'reconnecting',
+        lastReadyAt: 1,
+      }),
+    );
+    await registry.restore();
+    expect(registry.host('running')?.state).toBe('failed');
+    expect(registry.host('running')?.live().statusDetail).toBe('NOT_FOUND');
+    expect(typesOf('running')).toEqual([
+      'restore_started',
+      'server_deleted',
+      'state_changed',
+      'restore_failed',
+    ]);
+    expect(factory.created).toHaveLength(0);
+    // Failed sessions are not restorable: the next boot leaves it alone.
+    expect((await store.listRestorable()).map((r) => r.id)).toEqual([]);
     await registry.shutdown();
   });
 });

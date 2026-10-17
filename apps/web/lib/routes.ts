@@ -9,9 +9,21 @@ export const ROUTES = {
   ...AUTH_ROUTES,
   twoFactor: '/login/two-factor',
   workspace: '/workspace',
-  /** Host management arrives with the management surfaces (plan §8.1). */
-  hosts: '/hosts',
-  /** The single "Add server" form: host, sign-in profile and credential (plan D-27). */
-  addServer: '/hosts/new',
+  /** The servers list (plan D-29); a server's page is `/servers/<id>`. */
+  servers: '/servers',
+  /** The single "Add server" form: the server and its credential (plan D-29). */
+  addServer: '/servers/new',
+  /** The "Add this Docker host" preset (plan §13.4). */
+  dockerServer: '/servers/docker',
   credentials: '/credentials',
 } as const;
+
+/** A server's page. */
+export function serverPath(serverId: string): string {
+  return `${ROUTES.servers}/${encodeURIComponent(serverId)}`;
+}
+
+/** "Duplicate" (plan D-29): Add server prefilled from this server; nothing is saved until then. */
+export function duplicateServerPath(serverId: string): string {
+  return `${ROUTES.addServer}?duplicate=${encodeURIComponent(serverId)}`;
+}

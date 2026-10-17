@@ -5,22 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1792103755860,
+      "when": 1792204677455,
       "tag": "0000_init",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1792109560042,
-      "tag": "0001_two_factor_lockout",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1792168286240,
-      "tag": "0002_session_events_created_idx",
       "breakpoints": true
     }
   ]

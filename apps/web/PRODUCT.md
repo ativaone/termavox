@@ -12,7 +12,7 @@ Decided by the owner and the implementation plan (`docs/implementation-plan.md`)
 
 ## Users
 
-Open-source, self-hosted from day one. The primary users are developers and operators who keep shells open on several servers for long stretches (deploys, debugging, database consoles, log tails). They install Termdock on a bastion or on one of their own servers and reach it from a laptop browser and, during on-call moments, from a phone. Each installation has an admin who creates the user accounts; every user sees only their own hosts, credentials and sessions.
+Open-source, self-hosted from day one. The primary users are developers and operators who keep shells open on several servers for long stretches (deploys, debugging, database consoles, log tails). They install Termdock on a bastion or on one of their own servers and reach it from a laptop browser and, during on-call moments, from a phone. Each installation has an admin who creates the user accounts; every user sees only their own servers, credentials and sessions.
 
 ## Product Purpose
 
@@ -24,7 +24,7 @@ The browser lifecycle is not the terminal lifecycle. Unlike web SSH gateways tha
 
 ## Operating Context
 
-- Long-lived sessions: hours to weeks, many hosts at once, often several sessions per host.
+- Long-lived sessions: hours to weeks, many servers at once, often several sessions per server.
 - Typical work inside sessions: shells, editors (`vim`), monitors (`htop`), pagers (`less`), `kubectl`, database consoles, log tails.
 - Reached from desktop browsers with tabs and split panes, and from phones with an extra-key bar (Esc, Ctrl, Alt, Tab, arrows).
 - It is a privileged bastion: host-key trust decisions, two-factor login and session status must be clear and trustworthy at a glance.
@@ -32,7 +32,7 @@ The browser lifecycle is not the terminal lifecycle. Unlike web SSH gateways tha
 
 ## Capabilities and Constraints
 
-- Hosts, credentials (password or private key, stored encrypted), connection profiles, sessions, attachments (several browsers can attach to the same session; the most recently active one drives the terminal size).
+- Servers (plan D-29): one record per `ssh user@host` target, holding the name, address, port, user name, the credential (or none: the server asks in the terminal) and the session options; the same machine as another user is another server. Credentials (password or private key, stored encrypted) are separate and reusable across servers. Sessions are terminals opened from a server (a server can have many), and attachments are the browsers viewing a session (several can attach to the same session; the most recently active one drives the terminal size). Host-key trust is per user and per address.
 - Workspace: a session sidebar, tabs and split panes. The layout is stored on the server per user and restored in any browser. Closing a pane only detaches; terminating a session is always explicit.
 - Login with username + password and optional TOTP (an admin can require it). Admin pages: users, instance settings, audit log.
 - UI language: English by default, pt-BR selectable; both ship in the first release. All strings are externalized.
@@ -52,5 +52,5 @@ None yet: greenfield project with no users, screenshots, testimonials, benchmark
 1. Continuity is the product: never show a blank terminal where state exists; recovery is quiet and fast.
 2. Honest status: protection, connection state and trust decisions are always visible and never overstated.
 3. The terminal comes first: when a terminal has focus, every key belongs to it; the app chrome stays out of the way.
-4. Safe by default for a privileged tool: explicit host-key trust, explicit termination, no surprising side effects on remote hosts.
+4. Safe by default for a privileged tool: explicit host-key trust, explicit termination, no surprising side effects on remote servers.
 5. Works where operators actually are: a desktop with many panes, and a phone during an incident.

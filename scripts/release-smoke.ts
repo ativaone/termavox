@@ -48,11 +48,14 @@ const PROJECT_LABEL = `label=com.docker.compose.project=${PROJECT}`;
 const ADMIN = { username: 'smokeadmin', email: 'smoke-admin@example.test' };
 const NAMES = {
   credential: 'smoke-key',
-  host: 'smoke-sshd',
-  profile: 'smoke-profile',
-  /** The first session's name after the rename check (no "-p-": palette ids stay unambiguous). */
+  server: 'smoke-sshd',
+  /** The second server, made with Duplicate (same address, same credential). */
+  duplicate: en.servers.copyName.replace('{name}', 'smoke-sshd'),
+  /** The first session's name after the rename check. */
   renamed: 'smoke-renamed',
 };
+/** The smoke server's sign-in, as rows and the Add server result show it (port 22 is implied). */
+const TARGET = `td@${SSHD_SERVICE}`;
 const LABELS = {
   restoring: en.workspace.status.restoring,
   connecting: en.workspace.status.connecting,
@@ -65,7 +68,7 @@ const LABELS = {
   tabs: en.workspace.tabs.label,
   protected: en.workspace.protection['tmux-control'],
 };
-const ADD_SERVER = en.hosts.addServer;
+const ADD_SERVER = en.servers.addServer;
 
 // ── output ──────────────────────────────────────────────────────────────────
 
@@ -297,15 +300,16 @@ async function waitConnected(page: CdpPage, sessionId: string, label: string): P
   );
 }
 
-/** Opens the palette and starts a session from the smoke profile; returns the new id. */
+/** Opens the palette and starts a session from the smoke server; returns the new id. */
 async function startSession(page: CdpPage): Promise<string> {
   const before = new Set(await stripIds(page));
   await page.click(
     `$$('button').find((b) => visible(b) && text(b).startsWith(${js(LABELS.newSession)}))`,
     'the New session button',
   );
-  const option = `$$('[role=dialog] li[role=option]').find((li) => li.id.includes('-p-') && text(li).includes(${js(NAMES.profile)}))`;
-  await page.click(option, 'the smoke profile in the palette');
+  // A server option (`v-<id>`), named exactly like the smoke server (not its copy, not a session).
+  const option = `$$('[role=dialog] li[role=option]').find((li) => li.id.includes('-v-') && $$('span', li).some((s) => s.children.length === 0 && text(s) === ${js(NAMES.server)}))`;
+  await page.click(option, 'the smoke server in the palette');
   return page.waitFor<string>(
     `$$('a[href^="/workspace?s="]').map((a) => decodeURIComponent(a.getAttribute('href').slice('/workspace?s='.length))).find((id) => !${js([...before])}.includes(id))`,
     'the new session strip',
@@ -414,7 +418,9 @@ async function setupAdmin(page: CdpPage, password: string): Promise<void> {
 }
 
 async function signIn(page: CdpPage, password: string): Promise<void> {
-  // 2. A fresh sign-in: drop every cookie, then /login.
+  // 2. A fresh sign-in: drop every cookie, then /login. Leave the signed-in page first: once its
+  // cookie is gone it may navigate on its own and abort ours (net::ERR_ABORTED).
+  await page.navigate('about:blank');
   await page.send('Network.clearBrowserCookies');
   await setLocaleCookie(page);
   await page.navigate(`${BASE}/workspace`);
@@ -434,84 +440,45 @@ async function signIn(page: CdpPage, password: string): Promise<void> {
   check('2 sign-in', true, `signed out, then signed in as "${ADMIN.username}" at /login`);
 }
 
-async function addServer(page: CdpPage): Promise<string> {
-  // 3. "Add server" in one form: a new server (the smoke sshd), sign-in td as the smoke profile,
-  // the test key pasted as a new credential. Then "Start a session" on the result, which lands
-  // in the workspace through /workspace?open=<id>; returns that session's id.
-  const privateKey = readFileSync(join(KEYS, 'id_ed25519'), 'utf8');
-  const userKeyFp = fingerprint(readFileSync(join(KEYS, 'id_ed25519.pub'), 'utf8'));
-  await page.navigate(`${BASE}/hosts/new`);
-  const form = `$('input[name="host.hostname"]')?.closest('form')`;
-  const field = (selector: string) => `${form}.querySelector(${js(selector)})`;
-  await page.waitHydrated(form, 'the Add server form');
-  await page.fill(field('input[name="host.name"]'), NAMES.host, 'server name');
-  await page.fill(field('input[name="host.hostname"]'), SSHD_SERVICE, 'hostname');
-  await page.fill(field('input[name="host.port"]'), '22', 'port');
-  await page.fill(field('input[name="profile.username"]'), 'td', 'user name on the server');
-  await page.fill(field('input[name="profile.name"]'), NAMES.profile, 'profile name');
-  await page.click(
-    field('input[name="credential.mode"][value=private_key]'),
-    `the "${ADD_SERVER.credential.choices.private_key}" option`,
-  );
-  await page.waitFor(
-    `!!${field('textarea[name="credential.privateKey"]')}`,
-    'the private key field',
-  );
-  await page.evaluate(
-    `(() => { const el = ${field('textarea[name="credential.privateKey"]')}; const set = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set; set.call(el, ${js(privateKey)}); el.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`,
-  );
-  await page.fill(field('input[name="credential.name"]'), NAMES.credential, 'credential name');
-  const protection = await page.evaluate<string>(
-    `${field('input[name="profile.protectionMode"]:checked')}?.value ?? ''`,
-  );
-  check(
-    '3 add server',
-    protection === 'auto',
-    'the sign-in keeps the default session protection (auto)',
-    `profile.protectionMode: "${protection}"`,
-  );
-  await page.click(field('button[type=submit]'), ADD_SERVER.submit);
+/** The Add server result panel ("Server added", shown in place of the form). */
+const DONE = `$(${js(`section[aria-label=${js(ADD_SERVER.done.title)}]`)})`;
 
-  // The result replaces the form in place; a refusal keeps the form with its errors.
-  const done = `$(${js(`section[aria-label=${js(ADD_SERVER.done.title)}]`)})`;
+/** Submits the Add server form; fails with the form's own errors when it refuses. */
+async function submitAddServer(page: CdpPage, step: string, form: string): Promise<void> {
+  await page.click(`${form}.querySelector('button[type=submit]')`, ADD_SERVER.submit);
   const outcome = await page.waitFor<string>(
-    `(() => { if (${done}) return 'done'; const f = ${form}; if (!f) return ''; const errors = $$('[role=alert]', f).map(text).filter(Boolean); const invalid = $$('[aria-invalid="true"]', f).map((el) => el.name); return errors.length || invalid.length ? errors.concat(invalid).join('; ') : ''; })()`,
+    `(() => { if (${DONE}) return 'done'; const f = ${form}; if (!f) return ''; const errors = $$('[role=alert]', f).map(text).filter(Boolean); const invalid = $$('[aria-invalid="true"]', f).map((el) => el.name); return errors.length || invalid.length ? errors.concat(invalid).join('; ') : ''; })()`,
     'the Add server result',
     60_000,
   );
-  check('3 add server', outcome === 'done', `"${ADD_SERVER.done.title}" shown in place`, outcome);
-  await page.waitHydrated(done, 'the Add server result');
-  const shown = await page.evaluate<{ notice: string; rows: string[][]; hostHref: string }>(
-    `(() => { const d = ${done}; return { notice: text($('[role=status]', d)), rows: $$('dd', d).map((dd) => [...dd.children].map(text)), hostHref: byText('a', ${js(ADD_SERVER.done.openHost.replace('{server}', NAMES.host))}, d)?.getAttribute('href') ?? '' }; })()`,
-  );
-  const expected = [
-    [NAMES.host, `${SSHD_SERVICE}:22`],
-    ['td', ADD_SERVER.done.profile.replace('{name}', NAMES.profile)],
-    [NAMES.credential, ADD_SERVER.done.kind.private_key],
-  ];
-  const body = ADD_SERVER.done.body.replace('{server}', NAMES.host).replace('{username}', 'td');
-  const hostId = decodeURIComponent(/^\/hosts\/([^/?#]+)$/.exec(shown.hostHref)?.[1] ?? '');
-  check(
-    '3 add server',
-    shown.notice.includes(body) && js(shown.rows) === js(expected) && hostId.length > 0,
-    `server "${NAMES.host}" → ${SSHD_SERVICE}:22 (${hostId}), sign-in td as profile "${NAMES.profile}" ` +
-      `and credential "${NAMES.credential}" (${ADD_SERVER.done.kind.private_key}) added in one form`,
-    `notice "${shown.notice}", rows ${js(shown.rows)}, host link "${shown.hostHref}"`,
-  );
+  check(step, outcome === 'done', `"${ADD_SERVER.done.title}" shown in place`, outcome);
+  await page.waitHydrated(DONE, 'the Add server result');
+}
 
-  // The result names no fingerprint for a pasted key: read it from the credentials list.
-  const listedFp = await page.evaluate<string>(
-    `fetch('/credentials', { cache: 'no-store' }).then((r) => r.text()).then((html) => { const doc = new DOMParser().parseFromString(html, 'text/html'); const row = $$('tr', doc).find((tr) => $$('span', tr).some((s) => text(s) === ${js(NAMES.credential)})); return text($$('code', row ?? doc.createElement('tr')).find((c) => text(c).startsWith('SHA256:'))); })`,
+/** What the Add server result shows: notice, the summary rows, the key fingerprint, the server. */
+async function readAddServerDone(
+  page: CdpPage,
+  serverName: string,
+): Promise<{ notice: string; rows: string[][]; fingerprint: string; serverId: string }> {
+  const shown = await page.evaluate<{
+    notice: string;
+    rows: string[][];
+    fingerprint: string;
+    href: string;
+  }>(
+    `(() => { const d = ${DONE}; return { notice: text($('[role=status]', d)), rows: $$('dd', d).map((dd) => [...dd.children].map(text)), fingerprint: text($$('code', d).find((c) => text(c).startsWith('SHA256:'))), href: byText('a', ${js(ADD_SERVER.done.openServer.replace('{server}', serverName))}, d)?.getAttribute('href') ?? '' }; })()`,
   );
-  check(
-    '3 add server',
-    listedFp === userKeyFp,
-    `credential "${NAMES.credential}" is listed with ${listedFp || 'no fingerprint'} (the test key)`,
-    `expected ${userKeyFp}`,
-  );
+  const serverId = decodeURIComponent(/^\/servers\/([^/?#]+)$/.exec(shown.href)?.[1] ?? '');
+  return { notice: shown.notice, rows: shown.rows, fingerprint: shown.fingerprint, serverId };
+}
 
-  // "Start a session": a Server Action that redirects to /workspace?open=<id>; the workspace
-  // cleans that from the URL at once, so every URL the page goes through is recorded here.
+/**
+ * "Start a session" on the Add server result: a Server Action that redirects to
+ * /workspace?open=<id>. The workspace cleans that from the URL at once, so every URL the page
+ * goes through is recorded. Returns the session id once the URL is clean and its row is the
+ * followed one (the session shown in the focused pane).
+ */
+async function startFromResult(page: CdpPage): Promise<string> {
   const urls: string[] = [];
   const offs = [
     page.on('Page.navigatedWithinDocument', (params) => urls.push(String(params.url))),
@@ -523,7 +490,7 @@ async function addServer(page: CdpPage): Promise<string> {
   let openUrl: URL;
   try {
     await page.click(
-      `byText('button', ${js(ADD_SERVER.done.start)}, ${done})`,
+      `byText('button', ${js(ADD_SERVER.done.start)}, ${DONE})`,
       ADD_SERVER.done.start,
     );
     openUrl = await until(
@@ -543,19 +510,80 @@ async function addServer(page: CdpPage): Promise<string> {
     60_000,
   );
   await page.waitHydrated(stripOf(sessionId), `the row of session ${sessionId}`, 60_000);
-  const followed = await page.waitFor<boolean>(
+  await page.waitFor(
     `${stripOf(sessionId)}?.querySelector('a')?.getAttribute('aria-current') === 'true'`,
     `session ${sessionId} to be followed (shown in the focused pane)`,
   );
+  return sessionId;
+}
+
+async function addServer(page: CdpPage): Promise<{ serverId: string; sessionId: string }> {
+  // 3. "Add server" in one form (D-29): the server (name, address, port, user name) and the test
+  // key pasted as a new credential. Then "Start a session" on the result, which lands in the
+  // workspace through /workspace?open=<id>.
+  const privateKey = readFileSync(join(KEYS, 'id_ed25519'), 'utf8');
+  const userKeyFp = fingerprint(readFileSync(join(KEYS, 'id_ed25519.pub'), 'utf8'));
+  await page.navigate(`${BASE}/servers/new`);
+  const form = `$('input[name="server.hostname"]')?.closest('form')`;
+  const field = (selector: string) => `${form}.querySelector(${js(selector)})`;
+  await page.waitHydrated(form, 'the Add server form');
+  await page.fill(field('input[name="server.name"]'), NAMES.server, 'server name');
+  await page.fill(field('input[name="server.hostname"]'), SSHD_SERVICE, 'address');
+  await page.fill(field('input[name="server.port"]'), '22', 'port');
+  await page.fill(field('input[name="server.username"]'), 'td', 'user name on the server');
+  await page.click(
+    field('input[name="credential.mode"][value=private_key]'),
+    `the "${ADD_SERVER.credential.choices.private_key}" option`,
+  );
+  await page.waitFor(
+    `!!${field('textarea[name="credential.privateKey"]')}`,
+    'the private key field',
+  );
+  await page.evaluate(
+    `(() => { const el = ${field('textarea[name="credential.privateKey"]')}; const set = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set; set.call(el, ${js(privateKey)}); el.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`,
+  );
+  await page.fill(field('input[name="credential.name"]'), NAMES.credential, 'credential name');
+  const protection = await page.evaluate<string>(
+    `${field('input[name="server.protectionMode"]:checked')}?.value ?? ''`,
+  );
+  check(
+    '3 add server',
+    protection === 'auto',
+    'the server keeps the default session protection (auto)',
+    `server.protectionMode: "${protection}"`,
+  );
+  await submitAddServer(page, '3 add server', form);
+
+  const shown = await readAddServerDone(page, NAMES.server);
+  const expected = [
+    [NAMES.server, TARGET],
+    [NAMES.credential, ADD_SERVER.done.kind.private_key],
+  ];
+  const body = ADD_SERVER.done.body.replace('{server}', NAMES.server).replace('{target}', TARGET);
+  check(
+    '3 add server',
+    shown.notice.includes(body) && js(shown.rows) === js(expected) && shown.serverId.length > 0,
+    `server "${NAMES.server}" → ${TARGET}:22 (${shown.serverId}) with credential ` +
+      `"${NAMES.credential}" (${ADD_SERVER.done.kind.private_key}) added in one form`,
+    `notice "${shown.notice}", rows ${js(shown.rows)}, server id "${shown.serverId}"`,
+  );
+  check(
+    '3 add server',
+    shown.fingerprint === userKeyFp,
+    `the result shows the pasted key's fingerprint ${shown.fingerprint || '(none)'} (the test key)`,
+    `expected ${userKeyFp}`,
+  );
+
+  const sessionId = await startFromResult(page);
   const ids = await stripIds(page);
   check(
     '3 add server',
-    followed && ids.length === 1 && ids[0] === sessionId,
+    ids.length === 1 && ids[0] === sessionId,
     `"${ADD_SERVER.done.start}" led to /workspace?open=${sessionId}: the workspace opened it in ` +
       'the focused pane and cleaned the URL',
     `sessions on the page: ${ids.join(', ')}`,
   );
-  return sessionId;
+  return { serverId: shown.serverId, sessionId };
 }
 
 async function firstSession(page: CdpPage, sessionId: string, marker: string): Promise<void> {
@@ -746,8 +774,77 @@ async function rotateAndReconnect(page: CdpPage, firstId: string, marker: string
   return secondId;
 }
 
+async function duplicateServer(page: CdpPage, serverId: string): Promise<string> {
+  // 9. Duplicate the smoke server (D-29) on its page, save the copy unchanged (same address,
+  // same saved credential) and start a session from it: host-key trust is per address, so it
+  // connects with no host-key prompt.
+  const before = await stripIds(page);
+  await page.navigate(`${BASE}/servers/${encodeURIComponent(serverId)}`);
+  const duplicate = `byText('a', ${js(en.servers.duplicate)})`;
+  await page.waitHydrated(duplicate, 'the Duplicate action on the server page');
+  await page.click(duplicate, en.servers.duplicate);
+  await page.waitFor(
+    `location.pathname === '/servers/new' && new URLSearchParams(location.search).get('duplicate') === ${js(serverId)}`,
+    'Add server, prefilled from the smoke server',
+  );
+  const form = `$('input[name="server.hostname"]')?.closest('form')`;
+  await page.waitHydrated(form, 'the prefilled Add server form');
+  const prefill = await page.evaluate<Record<string, string>>(
+    `(() => { const f = ${form}; const value = (name) => f.querySelector('[name="' + name + '"]')?.value ?? ''; const saved = f.querySelector('select[name="credential.id"]'); return { name: value('server.name'), hostname: value('server.hostname'), port: value('server.port'), username: value('server.username'), mode: f.querySelector('input[name="credential.mode"]:checked')?.value ?? '', credential: text(saved?.selectedOptions[0]) }; })()`,
+  );
+  const expectedPrefill = {
+    name: NAMES.duplicate,
+    hostname: SSHD_SERVICE,
+    port: '22',
+    username: 'td',
+    mode: 'saved',
+    credential: NAMES.credential,
+  };
+  check(
+    '9 duplicate',
+    js(prefill) === js(expectedPrefill),
+    `Duplicate prefills "${NAMES.duplicate}": ${TARGET}:22 with the saved credential "${NAMES.credential}"`,
+    js(prefill),
+  );
+  await submitAddServer(page, '9 duplicate', form);
+  const shown = await readAddServerDone(page, NAMES.duplicate);
+  const expected = [
+    [NAMES.duplicate, TARGET],
+    [NAMES.credential, ADD_SERVER.done.kind.saved],
+  ];
+  check(
+    '9 duplicate',
+    js(shown.rows) === js(expected) && shown.serverId.length > 0 && shown.serverId !== serverId,
+    `second server "${NAMES.duplicate}" saved (${shown.serverId}): same address, same credential`,
+    `rows ${js(shown.rows)}, server id "${shown.serverId}"`,
+  );
+
+  const sessionId = await startFromResult(page);
+  const ids = await stripIds(page);
+  check(
+    '9 duplicate',
+    !before.includes(sessionId) && ids.length === before.length + 1 && ids.includes(sessionId),
+    `"${ADD_SERVER.done.start}" opened session ${sessionId} from the copy via ?open=`,
+    `before: ${before.join(', ')}; now: ${ids.join(', ')}`,
+  );
+  // Connected, or a host-key prompt: whichever comes first decides.
+  const outcome = await page.waitFor<string>(
+    `(() => { if (visible(byText('button', ${js(LABELS.trust)}))) return 'a host-key prompt appeared'; const s = ${stripOf(sessionId)}; return s?.dataset.status === 'connected' && ${PROGRESS}.length === 0 ? 'connected' : ''; })()`,
+    `session ${sessionId} to be Connected (or a host-key prompt)`,
+    120_000,
+    250,
+  );
+  check(
+    '9 duplicate',
+    outcome === 'connected',
+    `session ${sessionId} Connected with no host-key prompt (trust is per address)`,
+    outcome,
+  );
+  return sessionId;
+}
+
 async function terminate(page: CdpPage, ids: string[]): Promise<void> {
-  // 9. Terminate every session through its strip menu.
+  // 10. Terminate every session through its strip menu.
   for (const id of ids) {
     const strip = stripOf(id);
     await page.click(
@@ -760,28 +857,28 @@ async function terminate(page: CdpPage, ids: string[]): Promise<void> {
     );
     await page.click(`byText('button', ${js(LABELS.terminateConfirm)})`, 'Terminate session');
     await page.waitFor(`${strip}?.dataset.status === 'ended'`, `session ${id} to end`, 60_000);
-    pass('9 terminate', `session ${id} terminated (Ended)`);
+    pass('10 terminate', `session ${id} terminated (Ended)`);
   }
 }
 
 async function backup(ids: string[], renamedId: string): Promise<void> {
-  // 10. An online backup through backup.sh, checked independently.
+  // 11. An online backup through backup.sh, checked independently.
   const dest = join(backupDir, 'smoke');
   const result = await deployScript('backup.sh', [dest]);
   const file = result.stdout.trim().split('\n').at(-1) ?? '';
   check(
-    '10 backup',
+    '11 backup',
     result.code === 0 && existsSync(file),
     `backup.sh wrote ${file}`,
     `exit ${result.code}`,
   );
   check(
-    '10 backup',
+    '11 backup',
     result.stderr.includes('integrity_check: ok'),
     "backup.sh's own integrity check passed inside the container",
   );
   check(
-    '10 backup',
+    '11 backup',
     readFileSync(file).subarray(0, 15).toString() === 'SQLite format 3',
     'the file is a SQLite database',
   );
@@ -796,24 +893,55 @@ async function backup(ids: string[], renamedId: string): Promise<void> {
       label: string;
     }>;
     check(
-      '10 backup',
+      '11 backup',
       Object.values(integrity)[0] === 'ok',
       'PRAGMA integrity_check on the host copy: ok',
     );
-    const counts = `users ${count('user')}, hosts ${count('hosts')}, credentials ${count('credentials')}, profiles ${count('connection_profiles')}, sessions ${sessions.length}`;
+    const servers = db.prepare('SELECT hostname, port, credential_id FROM servers').all() as Array<{
+      hostname: string | null;
+      port: number | null;
+      credential_id: string | null;
+    }>;
+    const counts = `users ${count('user')}, servers ${servers.length}, credentials ${count('credentials')}, sessions ${sessions.length}`;
     check(
-      '10 backup',
+      '11 backup',
       count('user') === 1 &&
-        count('hosts') === 1 &&
+        servers.length === 2 &&
+        servers.every(
+          (s) =>
+            s.hostname === SSHD_SERVICE &&
+            s.port === 22 &&
+            s.credential_id !== null &&
+            s.credential_id === servers[0]?.credential_id,
+        ) &&
         count('credentials') === 1 &&
-        count('connection_profiles') === 1 &&
         sessions.length === ids.length &&
         sessions.every((s) => ids.includes(s.id) && s.desired_state === 'terminated'),
-      `the backup holds this run's data (${counts}; both sessions terminated)`,
+      `the backup holds this run's data (${counts}; both servers at ${SSHD_SERVICE}:22 with the ` +
+        `same credential; all ${ids.length} sessions terminated)`,
+      js(servers),
+    );
+    const hostFp = fingerprint(readFileSync(join(KEYS, 'ssh_host_ed25519_key.pub'), 'utf8'));
+    const keys = db
+      .prepare('SELECT hostname, port, status, fingerprint_sha256 FROM known_host_keys')
+      .all() as Array<{
+      hostname: string;
+      port: number;
+      status: string;
+      fingerprint_sha256: string;
+    }>;
+    const atAddress = keys.filter((k) => k.hostname === SSHD_SERVICE && k.port === 22);
+    check(
+      '11 backup',
+      atAddress.length === 1 &&
+        atAddress[0]?.status === 'trusted' &&
+        atAddress[0]?.fingerprint_sha256 === hostFp,
+      `known_host_keys holds exactly one row for ${SSHD_SERVICE}:22, trusted, with the test sshd key`,
+      js(keys),
     );
     const stored = sessions.find((s) => s.id === renamedId)?.label;
     check(
-      '10 backup',
+      '11 backup',
       stored === NAMES.renamed,
       `the rename is stored: session ${renamedId} is labelled "${NAMES.renamed}"`,
       `label: "${stored}"`,
@@ -921,12 +1049,13 @@ async function main(): Promise<number> {
 
     await setupAdmin(page, password);
     await signIn(page, password);
-    const firstId = await addServer(page);
+    const { serverId, sessionId: firstId } = await addServer(page);
     await firstSession(page, firstId, markers[0] ?? '');
     await renameSession(page, firstId);
     await restartAndRestore(page, firstId, markers[0] ?? '');
     const secondId = await rotateAndReconnect(page, firstId, markers[1] ?? '');
-    await terminate(page, [secondId, firstId]);
+    const thirdId = await duplicateServer(page, serverId);
+    await terminate(page, [thirdId, secondId, firstId]);
     check(
       'csp',
       cspViolations.length === 0,
@@ -936,7 +1065,7 @@ async function main(): Promise<number> {
     await browser.close();
     browser = null;
     info('Chromium stopped (flow finished)');
-    await backup([firstId, secondId], firstId);
+    await backup([firstId, secondId, thirdId], firstId);
   } catch (err) {
     failed = true;
     // Interrupted: the signal handler tears down; the browser it closed is not a finding.

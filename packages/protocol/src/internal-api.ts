@@ -24,8 +24,8 @@ export const SessionLabelInput = z.string().max(1024);
 
 export const CreateSessionRequest = z.object({
   actingUserId,
-  profileId: id,
-  /** Absent: the profile's name, as before. */
+  serverId: id,
+  /** Absent: the server's name. */
   label: SessionLabelInput.optional(),
   viewport: Viewport,
 });
@@ -81,15 +81,19 @@ export const CreateCredentialResponse = z.object({
   fingerprint: z.string().nullable(),
 });
 
-export const HostTestRequest = z.object({ actingUserId, profileId: id.optional() });
-export const HostTestResponse = z.object({
+/**
+ * `POST /servers/:id/test`: connects to the server's address, records an unknown host key as
+ * pending for that address, and probes the remote with the server's own user name and credential.
+ */
+export const ServerTestRequest = z.object({ actingUserId });
+export const ServerTestResponse = z.object({
   reachable: z.boolean(),
   error: z.string().nullable(),
   hostKey: z.object({ type: z.string(), fingerprint: z.string(), trusted: z.boolean() }).nullable(),
   probe: z.record(z.string(), z.string()).nullable(),
   /**
-   * The presented key is one the owner revoked for this host (`error` stays HOST_KEY_MISMATCH
-   * for older readers). Absent otherwise.
+   * The presented key is one the owner revoked for this address (`error` stays
+   * HOST_KEY_MISMATCH). Absent otherwise.
    */
   revoked: z.literal(true).optional(),
 });
@@ -101,15 +105,24 @@ export const Fingerprint = z
   .transform((v) => (v.startsWith('SHA256:') ? v : `SHA256:${v}`).replace(/=+$/, ''))
   .pipe(z.string().regex(/^SHA256:[A-Za-z0-9+/]{43}$/));
 
+/**
+ * Host-key decisions, `POST /servers/:id/{trust,replace,revoke}-key`. The server id only names
+ * the address (and proves ownership): every decision is stored for the server's normalized
+ * hostname and port, so it applies to all of the user's servers with that address (plan §5.9).
+ */
 /** Trusts the pending key with this fingerprint (or pre-trusts a pasted fingerprint). */
 export const TrustHostKeyRequest = z.object({
   actingUserId,
   keyType: z.string().min(1).max(64),
   fingerprint: Fingerprint,
 });
-/** Replaces the trusted key of this type after a mismatch (explicit owner action). */
+/**
+ * Replaces the trusted key of this type after a mismatch (explicit owner action). The owner
+ * types the address (the server's stored hostname) to confirm, since the change applies to every
+ * server with that address.
+ */
 export const ReplaceHostKeyRequest = TrustHostKeyRequest.extend({
-  confirmHostName: z.string().min(1),
+  confirmHostname: z.string().min(1),
 });
 export const RevokeHostKeyRequest = z.object({ actingUserId, keyType: z.string().min(1).max(64) });
 

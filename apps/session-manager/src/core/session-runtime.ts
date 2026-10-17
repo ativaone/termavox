@@ -42,6 +42,7 @@ import {
   type SessionHost,
   type SessionRecord,
   type SessionStore,
+  sessionHostKeyTarget,
   type Transport,
   TransportError,
 } from './types.ts';
@@ -402,13 +403,13 @@ export class SessionRuntime implements SessionHost {
       this.#setState('failed', { detail: ErrorCode.HostKeyRejected });
       return true;
     }
-    const hostId = this.#record.target.hostId;
-    const trusted = hostId
-      ? await this.#hostKeys.trustPending(hostId, fingerprint, userId).catch((err) => {
-          this.#warn('trust pending host key', err);
-          return false;
-        })
-      : false;
+    // Stored for the session's address: every server of the owner with it trusts the key now.
+    const trusted = await this.#hostKeys
+      .trustPending(sessionHostKeyTarget(this.#record), fingerprint, userId)
+      .catch((err) => {
+        this.#warn('trust pending host key', err);
+        return false;
+      });
     // An expired pending row trusts nothing: the reconnect simply prompts again.
     this.#event(trusted ? 'host_key_trusted' : 'host_key_expired', detail, userId);
     this.#kick();
@@ -548,6 +549,14 @@ export class SessionRuntime implements SessionHost {
     this.#promptExpired = false;
     await this.#refreshPolicies();
     if (gen !== this.#generation) return 'stopped';
+    // The user deleted the session's server (plan D-29): nothing connects through its snapshot
+    // any more, whatever started the attempt (boot restore, a reconnect, an answered prompt).
+    // Parked, never retried; the registry refuses Retry and Reopen the same way.
+    if (this.#record.serverId === null) {
+      this.#event('server_deleted');
+      this.#fail(ErrorCode.NotFound);
+      return 'park';
+    }
     this.#setState('connecting');
 
     const abort = new AbortController();
@@ -620,8 +629,8 @@ export class SessionRuntime implements SessionHost {
       // one outcome per attempt, and a confirmed exit wins over a retry.
       if (this.#exitedGen === gen) return 'exited';
       this.#warn('session start failed', err);
-      // A profile or probe value the launch cannot pass safely: every retry would log in to
-      // the host again only to fail the same way, so the session waits for the user instead.
+      // A server setting or probe value the launch cannot pass safely: every retry would log in
+      // to the host again only to fail the same way, so the session waits for the user instead.
       if (err instanceof BadLaunchParamsError) {
         this.#fail(ErrorCode.BadLaunchParams);
         return 'park';
@@ -635,8 +644,8 @@ export class SessionRuntime implements SessionHost {
       switch (err.code) {
         case ErrorCode.HostKeyRejected: {
           const pending = err.details?.pending as PresentedHostKey | undefined;
-          if (pending && this.#record.target.hostId) {
-            await this.#awaitHostKey(this.#record.target.hostId, pending);
+          if (pending) {
+            await this.#awaitHostKey(pending);
             return 'park';
           }
           this.#fail(err.code);
@@ -684,9 +693,9 @@ export class SessionRuntime implements SessionHost {
     return 'retry';
   }
 
-  async #awaitHostKey(hostId: string, key: PresentedHostKey): Promise<void> {
+  async #awaitHostKey(key: PresentedHostKey): Promise<void> {
     await this.#hostKeys
-      .recordPending(hostId, key)
+      .recordPending(sessionHostKeyTarget(this.#record), key)
       .catch((err) => this.#warn('record pending host key', err));
     this.#pendingHostKey = key;
     this.#setState('awaiting_host_key');
@@ -760,7 +769,7 @@ export class SessionRuntime implements SessionHost {
   } {
     const fixed = this.#protection;
     const wantsTmux = fixed === null || fixed === 'tmux-control';
-    // An existing protected session keeps its protection even if the profile now says off.
+    // An existing protected session keeps its protection even if the server now says off.
     const mode = fixed === null ? this.#record.policies.protectionMode : 'auto';
     let { protection, notice, code }: ProtectionChoice = wantsTmux
       ? selectProtection(mode, probe)
@@ -910,10 +919,14 @@ export class SessionRuntime implements SessionHost {
   }
 
   async #refreshPolicies(): Promise<void> {
-    // Policies are read live from the profile (§9); the store resolves them.
+    // Policies are read live from the server (§9); the store resolves them. The server link
+    // comes with them: once the server is deleted, `#attempt` refuses to connect.
     try {
       const fresh = await this.#store.get(this.sessionId);
-      if (fresh) this.#record.policies = fresh.policies;
+      if (fresh) {
+        this.#record.policies = fresh.policies;
+        this.#record.serverId = fresh.serverId;
+      }
     } catch (err) {
       this.#warn('refresh policies', err);
     }

@@ -44,6 +44,17 @@ export interface SessionRegistryOptions {
 }
 
 /**
+ * A session whose server was deleted (`server_id` NULL) never connects again (plan D-29): Retry
+ * and Reopen answer NOT_FOUND "server was deleted" before anything changes, and the runtime parks
+ * any other connect attempt (boot restore included) as `failed` with NOT_FOUND.
+ */
+function requireServer(record: SessionRecord | null): void {
+  if (record?.serverId === null) {
+    throw new TermdockError(ErrorCode.NotFound, 'server was deleted');
+  }
+}
+
+/**
  * Owns every session runtime of the process. The internal API (create/terminate/retry/reopen)
  * and the WebSocket server reach sessions only through here.
  *
@@ -95,10 +106,11 @@ export class SessionRegistry {
     const worker = async (): Promise<void> => {
       for (let record = queue.shift(); record; record = queue.shift()) {
         if (this.#closed) return;
-        const host = record.target.hostId ?? `${record.target.hostname}:${record.target.port}`;
+        // Spaced per address: several servers (and users) may point at the same machine.
+        const address = `${record.target.hostname}:${record.target.port}`;
         const now = Date.now();
-        const at = Math.max(now, nextStart.get(host) ?? 0);
-        nextStart.set(host, at + spacing);
+        const at = Math.max(now, nextStart.get(address) ?? 0);
+        nextStart.set(address, at + spacing);
         if (at > now) await new Promise((resolve) => setTimeout(resolve, at - now));
         if (this.#closed) return;
         const { store } = this.#options;
@@ -148,6 +160,7 @@ export class SessionRegistry {
   async retry(sessionId: string, actingUserId: string): Promise<void> {
     await this.#pinned(sessionId, async () => {
       const runtime = await this.#owned(sessionId, actingUserId);
+      requireServer(await this.#options.store.get(sessionId));
       await runtime.retry();
     });
   }
@@ -170,6 +183,7 @@ export class SessionRegistry {
     }
     const record = await this.#options.store.get(sessionId);
     if (!record) throw new TermdockError(ErrorCode.NotFound, 'session not found');
+    requireServer(record);
     // Same cap as create; checked before anything changes, so a refusal leaves the session as is.
     await this.#options.store.assertRunningCapacity(record.userId, sessionId);
     await old.shutdown();
@@ -380,10 +394,13 @@ export class SessionRegistry {
       id: record.id,
       // The runtime's copy follows renames; `record` is the one the runtime was spawned from.
       label: runtime?.label ?? record.label,
-      profileId: null,
-      hostId: record.target.hostId,
-      hostName: record.target.hostname,
+      serverId: record.serverId,
+      // The server's name is not part of the record: the snapshotted hostname stands in, as for
+      // a session whose server is gone.
+      serverName: record.target.hostname,
+      kind: record.target.kind,
       hostname: record.target.hostname,
+      port: record.target.port,
       username: record.target.username,
       createdAt: record.createdAt,
       statusDetail: null,

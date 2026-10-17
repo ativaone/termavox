@@ -1,4 +1,4 @@
-import type { ProfileProtection, Protection, ProtectionNotice } from '@termdock/protocol';
+import type { Protection, ProtectionMode, ProtectionNotice } from '@termdock/protocol';
 import { type ProbeResult, tmuxVersionAtLeast } from '../probe/index.ts';
 
 export interface ProtectionChoice {
@@ -13,7 +13,7 @@ export interface ProtectionChoice {
  * Protection selection (plan §5.11). tmux-normal ships in Phase 7; until then every case that
  * would select it runs unprotected with a notice.
  */
-export function selectProtection(mode: ProfileProtection, probe: ProbeResult): ProtectionChoice {
+export function selectProtection(mode: ProtectionMode, probe: ProbeResult): ProtectionChoice {
   if (mode === 'off') return { protection: 'none', notice: null, code: null };
   if (!probe.tmuxPath) {
     return {

@@ -64,7 +64,8 @@ export interface WorkspaceContextValue {
   bindPane(place: PanePlace, sessionId: string): void;
   openPalette(target?: PanePlace): void;
   sessionAction(kind: SessionActionKind, sessionId: string): Promise<SessionActionResult>;
-  hostHref(hostId: string): string;
+  /** A server's page (the mismatch panel links there). */
+  serverHref(serverId: string): string;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);

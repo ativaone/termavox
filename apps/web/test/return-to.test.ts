@@ -5,9 +5,9 @@ describe('safeReturnPath', () => {
   it('keeps the allowed in-app pages', () => {
     for (const path of [
       '/workspace',
-      '/hosts',
-      '/hosts/new',
-      '/hosts/0199f1c2-7a4b-7c3d-9e8f-0123456789ab',
+      '/servers',
+      '/servers/new',
+      '/servers/0199f1c2-7a4b-7c3d-9e8f-0123456789ab',
       '/credentials',
     ]) {
       expect(safeReturnPath(path)).toBe(path);
@@ -26,8 +26,13 @@ describe('safeReturnPath', () => {
       '/\\evil.example',
       '/workspace?x=1',
       '/workspace#top',
-      '/hosts/../admin',
-      '/hosts/a/b',
+      '/servers/../admin',
+      '/servers/a/b',
+      '/servers/new?duplicate=1',
+      // The pre-D-29 pages are gone, so they are no longer a way back.
+      '/hosts',
+      '/hosts/new',
+      '/hosts/0199f1c2-7a4b-7c3d-9e8f-0123456789ab',
       '/admin/users',
       '/settings/account',
     ]) {
@@ -38,12 +43,12 @@ describe('safeReturnPath', () => {
 
 describe('withReturnPath', () => {
   it('attaches an allowed origin, encoded', () => {
-    expect(withReturnPath('/hosts/new', '/workspace')).toBe('/hosts/new?from=%2Fworkspace');
-    expect(withReturnPath('/credentials?x=1', '/hosts')).toBe('/credentials?x=1&from=%2Fhosts');
+    expect(withReturnPath('/servers/new', '/workspace')).toBe('/servers/new?from=%2Fworkspace');
+    expect(withReturnPath('/credentials?x=1', '/servers')).toBe('/credentials?x=1&from=%2Fservers');
   });
 
   it('leaves the link alone for a disallowed or missing origin', () => {
-    expect(withReturnPath('/hosts/new', '//evil.example')).toBe('/hosts/new');
-    expect(withReturnPath('/hosts/new', null)).toBe('/hosts/new');
+    expect(withReturnPath('/servers/new', '//evil.example')).toBe('/servers/new');
+    expect(withReturnPath('/servers/new', null)).toBe('/servers/new');
   });
 });

@@ -46,8 +46,9 @@ export const ProtectionNotice = z.enum([
 ]);
 export type ProtectionNotice = z.infer<typeof ProtectionNotice>;
 
-export const ProfileProtection = z.enum(['auto', 'off']);
-export type ProfileProtection = z.infer<typeof ProfileProtection>;
+/** A server's `protection_mode` setting (plan §5.7). */
+export const ProtectionMode = z.enum(['auto', 'off']);
+export type ProtectionMode = z.infer<typeof ProtectionMode>;
 
 export const EndReason = z.enum([
   'user_terminated',

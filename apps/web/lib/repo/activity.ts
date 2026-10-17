@@ -14,7 +14,8 @@ export interface SessionEventRow {
   type: string;
   sessionId: string;
   sessionLabel: string;
-  host: string;
+  /** The server's current name, or the snapshotted hostname once the server is gone. */
+  server: string;
   detail: Record<string, unknown> | null;
   ip: string | null;
   createdAt: number;
@@ -23,8 +24,11 @@ export interface SessionEventRow {
 export interface SessionHistoryRow {
   id: string;
   label: string;
-  host: string;
-  user: string;
+  /** The snapshotted target (plan §9); `kind: local` has none worth showing. */
+  kind: 'ssh' | 'local';
+  username: string;
+  hostname: string;
+  port: number;
   status: SessionStatus;
   protection: Protection | null;
   createdAt: number;
@@ -51,11 +55,11 @@ export function listSessionEvents(
     .get(userId) as { total: number };
   const rows = sqlite
     .prepare(
-      `SELECT e.id, e.type, e.session_id, s.label, COALESCE(h.name, s.target_hostname) AS host,
+      `SELECT e.id, e.type, e.session_id, s.label, COALESCE(sv.name, s.target_hostname) AS server,
               e.detail_json, e.ip, e.created_at
          FROM session_events e
          JOIN sessions s ON s.id = e.session_id
-         LEFT JOIN hosts h ON h.id = s.target_host_id AND h.user_id = s.user_id
+         LEFT JOIN servers sv ON sv.id = s.server_id AND sv.user_id = s.user_id
         WHERE s.user_id = ?
         ORDER BY e.created_at DESC, e.id DESC
         LIMIT ? OFFSET ?`,
@@ -65,7 +69,7 @@ export function listSessionEvents(
     type: string;
     session_id: string;
     label: string;
-    host: string;
+    server: string;
     detail_json: string | null;
     ip: string | null;
     created_at: number;
@@ -77,7 +81,7 @@ export function listSessionEvents(
       type: r.type,
       sessionId: r.session_id,
       sessionLabel: r.label,
-      host: r.host,
+      server: r.server,
       detail: parseDetail(r.detail_json),
       ip: r.ip,
       createdAt: r.created_at,
@@ -96,10 +100,10 @@ export function listSessionHistory(
     .get(userId) as { total: number };
   const rows = sqlite
     .prepare(
-      `SELECT s.id, s.label, COALESCE(h.name, s.target_hostname) AS host, s.target_username AS user,
-              s.status, s.protection_effective, s.created_at, s.ended_at, s.end_reason
+      `SELECT s.id, s.label, s.target_kind AS kind, s.target_username AS username,
+              s.target_hostname AS hostname, s.target_port AS port, s.status,
+              s.protection_effective, s.created_at, s.ended_at, s.end_reason
          FROM sessions s
-         LEFT JOIN hosts h ON h.id = s.target_host_id AND h.user_id = s.user_id
         WHERE s.user_id = ?
         ORDER BY s.created_at DESC, s.id DESC
         LIMIT ? OFFSET ?`,
@@ -107,8 +111,10 @@ export function listSessionHistory(
     .all(userId, page.limit, page.offset) as Array<{
     id: string;
     label: string;
-    host: string;
-    user: string;
+    kind: string;
+    username: string;
+    hostname: string;
+    port: number;
     status: string;
     protection_effective: string | null;
     created_at: number;
@@ -123,8 +129,10 @@ export function listSessionHistory(
       return {
         id: r.id,
         label: r.label,
-        host: r.host,
-        user: r.user,
+        kind: r.kind === 'local' ? 'local' : 'ssh',
+        username: r.username,
+        hostname: r.hostname,
+        port: r.port,
         status: status.success ? status.data : 'disconnected',
         protection: protection.success ? protection.data : null,
         createdAt: r.created_at,

@@ -21,39 +21,39 @@ export interface PaletteSession {
   status: SessionStatus;
 }
 
-export interface PaletteProfile {
+export interface PaletteServer {
   id: string;
   name: string;
-  username: string;
-  hostName: string;
+  /** `user@host` (`:port` when not 22), or the local wording for a direct-mode server. */
+  target: string;
 }
 
 type Option =
   | { kind: 'session'; key: string; session: PaletteSession }
-  | { kind: 'profile'; key: string; profile: PaletteProfile };
+  | { kind: 'server'; key: string; server: PaletteServer };
 
 /**
  * The command palette (Ctrl/⌘K outside terminals, Ctrl+Shift+K inside): one search over open
- * sessions (jump to it) and connection profiles (start a session there). A combobox with a
+ * sessions (jump to it) and servers (start a session there, plan D-29). A combobox with a
  * grouped listbox, driven from the keyboard; it floats over the workspace without blocking it
  * (Escape or a click outside closes it, and the focus returns where it was). Opaque: it may
  * sit over a live terminal.
  */
 export function CommandPalette({
   sessions,
-  profiles,
+  servers,
   addServerHref,
   onJump,
   onCreate,
   onClose,
 }: {
   sessions: readonly PaletteSession[];
-  profiles: readonly PaletteProfile[];
+  servers: readonly PaletteServer[];
   /** The Add server form, carrying the way back here (plan D-27). */
   addServerHref: string;
   onJump(sessionId: string): void;
-  /** Starts a session from a profile, with an optional name (empty: the default label). */
-  onCreate(profileId: string, label: string): Promise<SessionActionResult>;
+  /** Starts a session from a server, with an optional name (empty: the server's name). */
+  onCreate(serverId: string, label: string): Promise<SessionActionResult>;
   onClose(): void;
 }) {
   const t = useTranslations('workspace.palette');
@@ -63,7 +63,7 @@ export function CommandPalette({
   const [name, setName] = useState('');
   const listId = useId();
   const sessionsHeading = useId();
-  const profilesHeading = useId();
+  const serversHeading = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
@@ -75,9 +75,9 @@ export function CommandPalette({
     () => filterPalette(sessions, query, (s) => [s.label, s.target]),
     [sessions, query],
   );
-  const matchedProfiles = useMemo(
-    () => filterPalette(profiles, query, (p) => [p.name, `${p.username}@${p.hostName}`]),
-    [profiles, query],
+  const matchedServers = useMemo(
+    () => filterPalette(servers, query, (server) => [server.name, server.target]),
+    [servers, query],
   );
   const options: Option[] = [
     ...matchedSessions.map((session) => ({
@@ -85,10 +85,10 @@ export function CommandPalette({
       key: `s-${session.id}`,
       session,
     })),
-    ...matchedProfiles.map((profile) => ({
-      kind: 'profile' as const,
-      key: `p-${profile.id}`,
-      profile,
+    ...matchedServers.map((server) => ({
+      kind: 'server' as const,
+      key: `v-${server.id}`,
+      server,
     })),
   ];
   const activeIndex = options.length === 0 ? -1 : Math.min(index, options.length - 1);
@@ -128,13 +128,13 @@ export function CommandPalette({
     setBusy(option.key);
     setError(null);
     try {
-      const result = await onCreate(option.profile.id, name.trim());
+      const result = await onCreate(option.server.id, name.trim());
       if (!result.ok) setError(result.message);
     } finally {
       setBusy(null);
     }
   };
-  // Enter in the name field starts the highlighted profile; Escape closes the palette.
+  // Enter in the name field starts the highlighted server; Escape closes the palette.
   const onNameKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Escape') {
       event.preventDefault();
@@ -191,17 +191,15 @@ export function CommandPalette({
         </li>
       );
     }
-    const { profile } = option;
+    const { server } = option;
     return (
       <li key={option.key} {...common} className={rowClass}>
         <span aria-hidden="true" className="flex justify-center text-accent">
           <PlusIcon size={14} strokeWidth={2.25} />
         </span>
         <span className="flex min-w-0 flex-col py-1">
-          <span className="truncate font-medium text-ink text-sm">{profile.name}</span>
-          <span className="truncate text-ink-muted text-xs">
-            {profile.username}@{profile.hostName}
-          </span>
+          <span className="truncate font-medium text-ink text-sm">{server.name}</span>
+          <span className="truncate text-ink-muted text-xs">{server.target}</span>
         </span>
         {busy === option.key ? (
           <span className="flex items-center gap-1.5 text-ink-muted text-xs">
@@ -267,21 +265,21 @@ export function CommandPalette({
                 {options.filter((o) => o.kind === 'session').map(row)}
               </ul>
             ) : null}
-            {matchedProfiles.length > 0 ? (
+            {matchedServers.length > 0 ? (
               // biome-ignore lint/a11y/useSemanticElements: an option group of a listbox (a fieldset is not allowed there)
               <ul
                 role="group"
-                aria-labelledby={profilesHeading}
+                aria-labelledby={serversHeading}
                 className={cx(matchedSessions.length > 0 && 'mt-1.5 border-line border-t pt-1.5')}
               >
                 <li
                   role="presentation"
-                  id={profilesHeading}
+                  id={serversHeading}
                   className="px-4 pt-1.5 pb-1 font-semibold text-ink-muted text-xs"
                 >
                   {t('newSession')}
                 </li>
-                {options.filter((o) => o.kind === 'profile').map(row)}
+                {options.filter((o) => o.kind === 'server').map(row)}
               </ul>
             ) : null}
           </div>
@@ -290,9 +288,9 @@ export function CommandPalette({
               {query.trim() ? t('noMatch', { query: query.trim() }) : t('nothing')}
             </p>
           ) : null}
-          {profiles.length === 0 ? (
+          {servers.length === 0 ? (
             <p className="border-line border-t px-4 pt-3 pb-2 text-ink-muted text-sm">
-              {t.rich('noProfiles', {
+              {t.rich('noServers', {
                 link: (chunks) => (
                   <Link
                     href={addServerHref}
@@ -305,7 +303,7 @@ export function CommandPalette({
             </p>
           ) : null}
         </div>
-        {active?.kind === 'profile' ? (
+        {active?.kind === 'server' ? (
           <div className="flex shrink-0 items-center gap-3 border-line border-t px-4 py-2.5">
             <label htmlFor={nameId} className="shrink-0 font-semibold text-ink text-sm">
               {t('name')}
@@ -314,7 +312,7 @@ export function CommandPalette({
               id={nameId}
               type="text"
               value={name}
-              placeholder={active.profile.name}
+              placeholder={active.server.name}
               aria-describedby={`${nameId}-help`}
               maxLength={1024}
               autoComplete="off"

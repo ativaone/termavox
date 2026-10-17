@@ -8,12 +8,13 @@ import {
   SshTransport,
   type TargetPolicy,
 } from '../transport/ssh/index.ts';
-import type {
-  CredentialProvider,
-  HostKeyStore,
-  PresentedHostKey,
-  SessionRecord,
-  Transport,
+import {
+  type CredentialProvider,
+  type HostKeyStore,
+  type PresentedHostKey,
+  type SessionRecord,
+  sessionHostKeyTarget,
+  type Transport,
 } from './types.ts';
 
 /** Callbacks from the transport handshake into the session runtime. */
@@ -30,8 +31,8 @@ export interface TransportFactory {
 }
 
 /**
- * Host-key policy against the trusted and revoked keys of a host: a trusted key of the same type
- * and fingerprint → trusted; a fingerprint the owner revoked → revoked (fails closed like a
+ * Host-key policy against the trusted and revoked keys of an address: a trusted key of the same
+ * type and fingerprint → trusted; a fingerprint the owner revoked → revoked (fails closed like a
  * mismatch, even when nothing is trusted any more); no trusted key at all → unknown (prompt);
  * trusted keys exist but none matches (same type with another fingerprint, or only other key
  * types) → mismatch. The last case is deliberately strict: offering a different key type is a
@@ -70,14 +71,13 @@ export class SshTransportFactory implements TransportFactory {
     if (target.kind !== 'ssh') {
       throw new TermdockError(ErrorCode.LocalShellDisabled, 'local sessions are not available');
     }
-    if (!target.hostId) {
-      throw new TermdockError(ErrorCode.HostKeyRejected, 'the host of this session was deleted');
-    }
-    // Loaded before connect, so the verifier answers synchronously during the handshake.
+    // The owner's decisions for the session's snapshotted address (plan §5.9, D-29); the runtime
+    // never gets here once the server was deleted. Loaded before connect, so the verifier
+    // answers synchronously during the handshake.
     const { hostKeys } = this.#options;
-    const hostId = target.hostId;
-    const trusted = await hostKeys.trusted(hostId);
-    const revoked = await hostKeys.revoked(hostId);
+    const address = sessionHostKeyTarget(record);
+    const trusted = await hostKeys.trusted(address);
+    const revoked = await hostKeys.revoked(address);
     const credential = target.credentialId
       ? await this.#options.credentials.get(target.credentialId, record.userId)
       : null;
@@ -91,7 +91,7 @@ export class SshTransportFactory implements TransportFactory {
         const decision = decideHostKey(trusted, key, revoked);
         if (decision === 'trusted' && !trusted.get(key.type)?.publicKeyB64) {
           // A pasted pre-trust fingerprint just matched: keep the key itself from now on.
-          hostKeys.rememberPublicKey(hostId, key).catch(() => {});
+          hostKeys.rememberPublicKey(address, key).catch(() => {});
         }
         hooks.onHostKey(key, decision);
         return decision;

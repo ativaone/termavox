@@ -5,13 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Daemon } from '../../src/main.ts';
 import { until } from '../runtime/fakes.ts';
 import { HOST_KEY, requireSshd, SSHD_PORTS, TEST_USER, USER_KEY } from '../ssh/sshd.ts';
-import {
-  auditTypes,
-  insertAuthSession,
-  insertHost,
-  insertProfile,
-  insertUser,
-} from '../store/fixture.ts';
+import { auditTypes, insertAuthSession, insertServer, insertUser } from '../store/fixture.ts';
 import { DaemonFixture, shows, VIEWPORT } from './harness.ts';
 
 let fixture: DaemonFixture;
@@ -48,15 +42,26 @@ describe('daemon (SQLite + vault + internal API + WS) against no-tmux', () => {
     const first = await fixture.boot();
     const { db } = first;
     const userId = insertUser(db);
-    const hostId = insertHost(db, userId, { name: 'no-tmux', port: SSHD_PORTS['no-tmux'] });
+    const port = SSHD_PORTS['no-tmux'];
     const { credentialId } = await first.credentials.create({
       actingUserId: userId,
       kind: 'private_key',
       name: 'test key',
       privateKey: USER_KEY,
     });
-    // "Fetch & verify": the unknown key is recorded as pending, then trusted by fingerprint.
-    const fetched = await fixture.api(first, 'POST', `/hosts/${hostId}/test`, {
+    const server = (name: string, opts: { autoReopen?: boolean; credential?: boolean } = {}) =>
+      insertServer(db, userId, {
+        name,
+        port,
+        username: TEST_USER,
+        credentialId: opts.credential === false ? null : credentialId,
+        ...(opts.autoReopen !== undefined ? { autoReopen: opts.autoReopen } : {}),
+      });
+    const serverId = server('no-tmux', { autoReopen: true });
+    const address = { userId, hostname: '127.0.0.1', port };
+    // "Fetch & verify": the unknown key is recorded as pending for the server's address and
+    // the handshake stops there; then the key is trusted by fingerprint.
+    const fetched = await fixture.api(first, 'POST', `/servers/${serverId}/test`, {
       actingUserId: userId,
     });
     expect(fetched).toEqual({
@@ -68,24 +73,20 @@ describe('daemon (SQLite + vault + internal API + WS) against no-tmux', () => {
         probe: null,
       },
     });
-    expect((await first.hostKeys.list(hostId)).map((k) => k.status)).toEqual(['pending']);
+    expect((await first.hostKeys.list(address)).map((k) => k.status)).toEqual(['pending']);
     const trustKey = { actingUserId: userId, keyType: HOST_KEY.type };
     expect(
       (
-        await fixture.api(first, 'POST', `/hosts/${hostId}/trust-key`, {
+        await fixture.api(first, 'POST', `/servers/${serverId}/trust-key`, {
           ...trustKey,
           fingerprint: HOST_KEY.fingerprint,
         })
       ).status,
     ).toBe(204);
-    const profileId = insertProfile(db, userId, hostId, credentialId, {
-      username: TEST_USER,
-      autoReopen: true,
-    });
-    // With a profile and a trusted key the test authenticates and runs the capability probe.
-    const probed = await fixture.api(first, 'POST', `/hosts/${hostId}/test`, {
+    // With a trusted key the test signs in with the server's user name and credential and runs
+    // the capability probe.
+    const probed = await fixture.api(first, 'POST', `/servers/${serverId}/test`, {
       actingUserId: userId,
-      profileId,
     });
     expect(probed.json).toMatchObject({
       reachable: true,
@@ -93,23 +94,34 @@ describe('daemon (SQLite + vault + internal API + WS) against no-tmux', () => {
       hostKey: { trusted: true },
       probe: { shell: '/bin/bash' }, // no-tmux image: no tmux_path key
     });
+    // A server without a credential prompts in the terminal: its test stops after the host key
+    // (trusted already, through the first server: same user, same address).
+    const prompting = server('no-tmux (password typed)', { credential: false });
+    expect(
+      await fixture.api(first, 'POST', `/servers/${prompting}/test`, { actingUserId: userId }),
+    ).toEqual({
+      status: 200,
+      json: {
+        reachable: true,
+        error: null,
+        hostKey: { type: HOST_KEY.type, fingerprint: HOST_KEY.fingerprint, trusted: true },
+        probe: null,
+      },
+    });
     const asid = insertAuthSession(db, userId, Date.now() + 3_600_000);
 
-    const create = (profile: string) =>
+    const create = (from: string) =>
       fixture.api(first, 'POST', '/sessions', {
         actingUserId: userId,
-        profileId: profile,
+        serverId: from,
         viewport: VIEWPORT,
       });
-    const created = await create(profileId);
+    const created = await create(serverId);
     expect(created.status).toBe(201);
     const sessionId = created.json?.sessionId as string;
-    // A second session whose profile does not reopen (checked after the restart).
-    const noReopenProfile = insertProfile(db, userId, hostId, credentialId, {
-      username: TEST_USER,
-      autoReopen: false,
-    });
-    const noReopenId = (await create(noReopenProfile)).json?.sessionId as string;
+    // A second session whose server does not reopen (checked after the restart).
+    const noReopenServer = server('no-tmux (no reopen)', { autoReopen: false });
+    const noReopenId = (await create(noReopenServer)).json?.sessionId as string;
     await until(
       () =>
         first.plane.registry.host(sessionId)?.state === 'ready' &&
@@ -183,23 +195,26 @@ describe('daemon (SQLite + vault + internal API + WS) against no-tmux', () => {
   it('host keys over the protocol: prompt → decision → trusted; a mismatch has no in-flow accept; replace and revoke', async () => {
     const daemon = await fixture.boot();
     const { db } = daemon;
+    // A new user: host-key decisions are per user, so nothing of the first test applies.
     const userId = insertUser(db);
-    const hostName = 'rekeyed';
-    const hostId = insertHost(db, userId, { name: hostName, port: SSHD_PORTS['no-tmux'] });
+    const port = SSHD_PORTS['no-tmux'];
     const { credentialId } = await daemon.credentials.create({
       actingUserId: userId,
       kind: 'private_key',
       name: 'test key',
       privateKey: USER_KEY,
     });
-    const profileId = insertProfile(db, userId, hostId, credentialId, { username: TEST_USER });
+    const server = (name: string) =>
+      insertServer(db, userId, { name, port, username: TEST_USER, credentialId });
+    const serverId = server('rekeyed');
+    const address = { userId, hostname: '127.0.0.1', port };
     const asid = insertAuthSession(db, userId, Date.now() + 3_600_000);
     const watcher = await fixture.connect(daemon, userId, asid);
-    const create = async () =>
+    const create = async (from = serverId) =>
       (
         await fixture.api(daemon, 'POST', '/sessions', {
           actingUserId: userId,
-          profileId,
+          serverId: from,
           viewport: VIEWPORT,
         })
       ).json?.sessionId as string;
@@ -210,7 +225,7 @@ describe('daemon (SQLite + vault + internal API + WS) against no-tmux', () => {
       );
     const keys = async () => {
       await daemon.writer.flush();
-      return (await daemon.hostKeys.list(hostId)).map((k) => ({
+      return (await daemon.hostKeys.list(address)).map((k) => ({
         status: k.status,
         fingerprint: k.fingerprint,
         publicKeyB64: k.publicKeyB64,
@@ -252,16 +267,25 @@ describe('daemon (SQLite + vault + internal API + WS) against no-tmux', () => {
     await status(sessionId, 'connected');
     expect(await keys()).toEqual([{ status: 'trusted', ...live }]);
     expect(auditTypes(db)).toEqual(expect.arrayContaining(['host_key.pending', 'host_key.trust']));
+    // Another server of the user at the same address is trusted by that decision: its session
+    // connects without a prompt (the lookup is the session's user, hostname and port).
+    const twin = await create(server('rekeyed twin'));
+    await status(twin, 'connected');
+    expect(watcher.messages.some((m) => m.type === 'hostkey.prompt' && m.sessionId === twin)).toBe(
+      false,
+    );
 
     // The trusted key no longer matches what the host presents (as after a host re-key).
-    const replace = (fingerprint: string, confirmHostName = hostName) =>
-      fixture.api(daemon, 'POST', `/hosts/${hostId}/replace-key`, {
+    const replace = (fingerprint: string, confirmHostname = '127.0.0.1') =>
+      fixture.api(daemon, 'POST', `/servers/${serverId}/replace-key`, {
         actingUserId: userId,
         keyType: HOST_KEY.type,
         fingerprint,
-        confirmHostName,
+        confirmHostname,
       });
-    expect((await replace(otherFingerprint, 'wrong name')).status).toBe(400);
+    // The server's name is not its address: refused, nothing changes.
+    expect((await replace(otherFingerprint, 'rekeyed')).status).toBe(400);
+    expect(await keys()).toEqual([{ status: 'trusted', ...live }]);
     expect((await replace(otherFingerprint)).status).toBe(204);
     // The host still presents the key that replace just revoked: refused like any mismatch,
     // and flagged as a revoked key (§5.9).
@@ -288,7 +312,7 @@ describe('daemon (SQLite + vault + internal API + WS) against no-tmux', () => {
       expect.arrayContaining(['host_key.replace', 'host_key.revoked_presented']),
     );
 
-    // The owner replaces the key (typed host name) and retries: connected; the replaced key was
+    // The owner replaces the key (typed hostname) and retries: connected; the replaced key was
     // pasted, so its public key is learned from the handshake.
     expect((await replace(HOST_KEY.fingerprint)).status).toBe(204);
     expect(
@@ -303,7 +327,7 @@ describe('daemon (SQLite + vault + internal API + WS) against no-tmux', () => {
 
     // Revoke marks the trusted key revoked; a second revoke finds none.
     const revoke = () =>
-      fixture.api(daemon, 'POST', `/hosts/${hostId}/revoke-key`, {
+      fixture.api(daemon, 'POST', `/servers/${serverId}/revoke-key`, {
         actingUserId: userId,
         keyType: HOST_KEY.type,
       });
@@ -322,14 +346,14 @@ describe('daemon (SQLite + vault + internal API + WS) against no-tmux', () => {
       detail: 'HOST_KEY_MISMATCH',
     });
     expect((await keys()).filter((k) => k.status === 'pending')).toEqual([]);
-    const trustAgain = await fixture.api(daemon, 'POST', `/hosts/${hostId}/trust-key`, {
+    const trustAgain = await fixture.api(daemon, 'POST', `/servers/${serverId}/trust-key`, {
       actingUserId: userId,
       keyType: HOST_KEY.type,
       fingerprint: HOST_KEY.fingerprint,
     });
     expect(trustAgain.status).toBe(409);
     expect((await keys()).filter((k) => k.status === 'trusted')).toEqual([]);
-    for (const id of [sessionId, mismatched, afterRevoke]) {
+    for (const id of [sessionId, twin, mismatched, afterRevoke]) {
       await fixture.api(daemon, 'POST', `/sessions/${id}/terminate`, { actingUserId: userId });
     }
   });

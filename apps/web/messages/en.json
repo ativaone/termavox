@@ -31,9 +31,9 @@
     "enrollTotp": "Set up two-step verification",
     "workspace": "Workspace",
     "notFound": "Page not found",
-    "hosts": "Hosts",
-    "hostNew": "Add server",
-    "dockerHost": "Add this Docker host",
+    "servers": "Servers",
+    "addServer": "Add server",
+    "dockerServer": "Add this Docker host",
     "credentials": "Credentials",
     "activity": "Activity",
     "settingsAccount": "Account settings",
@@ -164,7 +164,7 @@
       "shortcut": "Shortcut",
       "emptyTitle": "No sessions yet",
       "emptyBody": "Start one with New session. It keeps running until you end it.",
-      "noHosts": "Sessions appear here once you add a server."
+      "noServers": "Sessions appear here once you add a server."
     },
     "lane": {
       "action_required": "Action required",
@@ -226,12 +226,12 @@
       "emptyBody": "Choose a session in the list to open it here. Closing a tab only detaches; the session keeps running on the server.",
       "firstRunTitle": "Connect your first server",
       "firstRunBody": "Termdock holds SSH sessions open on the server, so you can close the browser and come back to the same screen. Setting up a server takes one page:",
-      "firstRunStep1": "Where the server is: a name and its address.",
-      "firstRunStep2": "How you sign in: the user name and a key or password.",
+      "firstRunStep1": "Where the server is and the user name on it.",
+      "firstRunStep2": "A key or a password to sign in with.",
       "firstRunStep3": "Start a session. It keeps running until you end it.",
       "firstRunCta": "Add your first server",
       "noSessionsTitle": "Start a session",
-      "noSessionsBody": "Your hosts are ready. Start a session and it will appear in the bay.",
+      "noSessionsBody": "Your servers are ready. Start a session and it will appear in the bay.",
       "resize": "Resize panes",
       "loading": "Session",
       "emptyPane": "Empty pane",
@@ -282,17 +282,18 @@
       "offline": "Not connected to Termdock right now. Try again when the connection is back.",
       "reconnectingIn": "Reconnecting in {seconds, plural, one {# second} other {# seconds}}",
       "reconnectingNow": "Reconnecting…",
-      "reconnectingBody": "The connection to {host} dropped. Termdock keeps trying.",
+      "reconnectingBody": "The connection to {server} dropped. Termdock keeps trying.",
       "retryNow": "Retry now",
       "retry": "Retry",
+      "terminate": "Terminate",
       "disconnectedTitle": "Disconnected",
       "endedTitle": "Session ended",
       "reopen": "Reopen",
       "closePane": "Close pane",
       "goneBody": "This session no longer exists.",
-      "waitTitle": "Waiting for the host's prompt",
-      "waitBody": "The sign-in prompt expired or hasn't arrived yet. Retry to ask the host again.",
-      "rebootTitle": "The remote host restarted",
+      "waitTitle": "Waiting for the server's prompt",
+      "waitBody": "The sign-in prompt expired or hasn't arrived yet. Retry to ask the server again.",
+      "rebootTitle": "The server restarted",
       "rebootBody": "The previous shell was lost; a new one started.",
       "acknowledge": "Got it",
       "dismiss": "Dismiss",
@@ -300,7 +301,7 @@
     },
     "hostKey": {
       "title": "Trust this host key?",
-      "body": "{host} presented a key Termdock hasn't seen before.",
+      "body": "{server} presented a key Termdock hasn't seen before.",
       "target": "Login",
       "keyType": "Key type",
       "fingerprint": "Fingerprint",
@@ -310,29 +311,29 @@
     },
     "mismatch": {
       "title": "Host key changed",
-      "body": "{host} presented a key that doesn't match the trusted one. Someone may be intercepting the connection, so Termdock refused to connect.",
-      "revokedBody": "{host} presented a key you revoked. Termdock refused to connect.",
+      "body": "{server} presented a key that doesn't match the trusted one. Someone may be intercepting the connection, so Termdock refused to connect.",
+      "revokedBody": "{server} presented a key you revoked. Termdock refused to connect.",
       "presented": "Presented",
-      "review": "Review the keys on the host page"
+      "review": "Review the keys on the server page"
     },
     "auth": {
-      "title": "The host asks you to sign in",
-      "asks": "Host {target} asks:",
-      "note": "Answers go to the host and are never stored.",
+      "title": "The server asks you to sign in",
+      "asks": "{target} asks:",
+      "note": "Answers go to the server and are never stored.",
       "answer": "Answer {n}",
       "submit": "Send"
     },
     "failure": {
-      "authRejected": "The host rejected the credential.",
+      "authRejected": "The server rejected the credential.",
       "credentialInvalid": "The stored credential can't be used. Check it on the credentials page.",
       "hostKeyRejected": "You rejected the host key.",
-      "hostUnreachable": "The host can't be reached.",
-      "notFound": "The host, profile or credential no longer exists.",
+      "hostUnreachable": "The server can't be reached.",
+      "serverDeleted": "This session's server was deleted, so it can't connect again.",
       "forbidden": "Your account isn't allowed to open this session.",
       "localShellDisabled": "Local shells aren't available yet: direct mode arrives in a later version.",
-      "hostKeyMismatch": "The host presented a different key than the trusted one.",
-      "badLaunchParams": "The profile's startup command or environment contains characters Termdock can't pass to the host safely. Edit the profile, then retry.",
-      "targetNotAllowed": "The host's address is the Termdock server itself or a loopback, link-local or multicast address, which this installation doesn't allow.",
+      "hostKeyMismatch": "The server presented a different key than the trusted one.",
+      "badLaunchParams": "The server's startup command or environment contains characters Termdock can't pass to it safely. Edit the server, then retry.",
+      "targetNotAllowed": "This server's address points at the machine running Termdock, or at a loopback, link-local or multicast address, which this installation doesn't allow.",
       "generic": "The connection failed and won't be retried automatically."
     },
     "endReason": {
@@ -369,17 +370,17 @@
     },
     "palette": {
       "label": "Find a session or start one",
-      "placeholder": "Search sessions and profiles",
+      "placeholder": "Search sessions and servers",
       "results": "Results",
       "sessions": "Open sessions",
       "newSession": "Start a session",
       "start": "Start",
       "starting": "Starting…",
       "noMatch": "Nothing matches “{query}”.",
-      "nothing": "No sessions or profiles yet.",
-      "noProfiles": "Sessions start from a connection profile. <link>Add a server to create one.</link>",
+      "nothing": "No sessions or servers yet.",
+      "noServers": "Sessions start from a server. <link>Add your first server.</link>",
       "name": "Name",
-      "nameHelp": "Optional. Empty uses the profile name.",
+      "nameHelp": "Optional. Empty uses the server name.",
       "hintMove": "to move",
       "hintChoose": "to open",
       "keyUp": "Up arrow",
@@ -401,7 +402,8 @@
       "tabLimit": "You have 32 tabs open. Close one to open another.",
       "paneLimit": "This tab can't hold more panes. Open the session in a new tab instead.",
       "actionFailed": "Termdock didn't answer. Check your connection and try again."
-    }
+    },
+    "localTarget": "This server (direct mode)"
   },
   "notFound": {
     "title": "Page not found",
@@ -412,7 +414,7 @@
     "label": "Manage",
     "menu": "Menu",
     "workspace": "Workspace",
-    "hosts": "Hosts",
+    "servers": "Servers",
     "credentials": "Credentials",
     "activity": "Activity",
     "settings": "Settings",
@@ -429,7 +431,7 @@
     "sessionError": {
       "unavailable": "The session service is not responding. Try again in a moment.",
       "timeout": "The session service took too long to answer. Try again.",
-      "notFound": "That session or profile no longer exists.",
+      "notFound": "That session or server no longer exists.",
       "conflict": "That session can't take this action right now.",
       "forbidden": "Your account isn't allowed to do that.",
       "limit": "You've reached the maximum number of running sessions. End one first.",
@@ -440,35 +442,36 @@
       "labelInvalid": "Session names need 1 to 120 visible characters."
     }
   },
-  "hosts": {
-    "title": "Hosts",
-    "intro": "Servers Termdock connects to. Each host has connection profiles that say who to log in as.",
+  "servers": {
+    "title": "Servers",
+    "intro": "Where Termdock connects, as which user, and with which key or password. Sessions start from a server.",
     "add": "Add server",
+    "edit": "Edit",
+    "duplicate": "Duplicate",
+    "copyName": "{name} (copy)",
     "kind": {
       "ssh": "SSH",
       "local": "Local"
     },
     "list": {
-      "caption": "Your hosts",
+      "caption": "Your servers",
       "name": "Name",
-      "address": "Address",
-      "kind": "Kind",
-      "profiles": "Profiles",
-      "sessions": "Running sessions",
-      "localAddress": "This server (direct mode)"
+      "target": "User and address",
+      "credential": "Credential",
+      "actions": "Actions",
+      "noCredential": "None",
+      "local": "This server (direct mode)",
+      "editLabel": "Edit {name}",
+      "duplicateLabel": "Duplicate {name}"
     },
     "empty": {
-      "title": "No hosts yet",
-      "body": "A host is a server Termdock reaches over SSH. Add server asks where it is, how you sign in and which key or password to use, all on one page.",
-      "dockerHelp": "Running Termdock in Docker on the server you want to reach? “Add this Docker host” creates the host and a dedicated key for you."
+      "title": "No servers yet",
+      "body": "A server is everything one terminal needs: where the machine is, the user name on it, and a key or password. Add server asks for all of it on one page.",
+      "dockerHelp": "Running Termdock in Docker on the machine you want to reach? “Add this Docker host” creates the server and a dedicated key for you."
     },
     "notice": {
-      "hostCreated": "Host added. Next, add a connection profile and check the host key.",
-      "hostSaved": "Host saved. Running sessions keep the address they started with.",
-      "hostDeleted": "Host deleted.",
-      "profileCreated": "Profile added.",
-      "profileSaved": "Profile saved. It applies to new sessions.",
-      "profileDeleted": "Profile deleted.",
+      "serverSaved": "Server saved. It applies to new sessions; running ones keep the address they started with.",
+      "serverDeleted": "Server deleted.",
       "keyTrusted": "Host key trusted.",
       "keyPretrusted": "Fingerprint trusted. The first connection must present a matching key.",
       "keyReplaced": "Trusted key replaced.",
@@ -481,69 +484,68 @@
       "hostnameRequired": "Enter a hostname or IP address.",
       "hostname": "Use a hostname or IP address, without spaces or a scheme.",
       "port": "Use a port from 1 to 65535.",
+      "usernameRequired": "Enter the user name on the server.",
+      "username": "Use a user name without spaces, at most 64 characters.",
+      "credential": "Choose one of your credentials.",
+      "protection": "Choose a protection mode.",
+      "startupLong": "Use at most 1000 characters.",
+      "startupControl": "Use a single line without control characters (tabs are fine).",
+      "envKey": "Variable names use letters, digits and underscores, and can't start with a digit.",
+      "envValue": "Variable values can have at most 1000 characters.",
+      "envValueControl": "Variable values must be a single line without control characters (tabs are fine).",
+      "envCount": "Use at most 32 variables.",
+      "envDuplicate": "Each variable name can appear only once.",
+      "keepalive": "Use a whole number of seconds from 5 to 300.",
+      "scrollback": "Use a whole number of lines from 1000 to 10000.",
       "invalid": "Check this field.",
-      "kindLocal": "Local hosts are not available on this installation.",
-      "notFound": "This host no longer exists.",
-      "hostInUse": "This host still has running sessions. Terminate them first, then delete the host."
+      "kindLocal": "Local shells are not available on this installation.",
+      "notFound": "This server no longer exists.",
+      "inUse": "Sessions from this server are still running. Terminate them first, then delete the server."
     },
     "back": {
       "workspace": "Back to the workspace",
-      "hosts": "Back to hosts",
-      "host": "Back to {name}",
+      "servers": "Back to servers",
+      "server": "Back to {name}",
       "addServer": "Back to Add server",
       "credentials": "Back to credentials"
     },
     "addServer": {
       "title": "Add server",
-      "intro": "Where the server is, how you sign in and which key or password to use, on one page.",
+      "intro": "Where the server is, the user name and the key or password, on one page.",
+      "duplicateIntro": "A copy of {name}, with every field filled in. Change what differs; nothing is saved until you add the server.",
+      "duplicateMissing": "That server wasn't found, so the form starts empty.",
       "submit": "Add server",
       "nothingSaved": "Nothing is saved until you add the server.",
       "cancel": "Cancel",
       "optional": "(optional)",
       "fixFields": "{count, plural, one {# field above needs attention.} other {# fields above need attention.}} Nothing was saved.",
       "docker": {
-        "title": "Termdock runs in Docker on this server?",
+        "title": "Termdock runs in Docker on this machine?",
         "body": "Add the machine that runs Docker in one step, with a key made for it.",
         "cta": "Add this Docker host"
       },
       "server": {
         "title": "Server",
-        "intro": "The machine Termdock connects to.",
-        "choice": "Which server",
-        "new": "New server",
-        "newHelp": "Enter its name and address",
-        "existing": "A server I already added",
-        "existingHelp": "Add another sign-in to it",
-        "pick": "Server",
-        "pickHelp": "The new sign-in is added to this server."
-      },
-      "signIn": {
-        "title": "Sign-in",
-        "intro": "The account Termdock logs in as. This creates a new connection profile.",
-        "username": "User name on the server",
-        "usernameHelp": "The account Termdock logs in as, e.g. deploy or ubuntu.",
-        "name": "Profile name",
-        "nameHelp": "Shown when you start a session. Leave it empty to use the user name.",
-        "advanced": "Advanced",
-        "advancedHelp": "Session protection, startup command, environment, keepalive, scrollback and reopening. The defaults suit most servers."
+        "intro": "Where Termdock connects and as which user, like an ssh command line."
       },
       "credential": {
         "title": "Credential",
-        "intro": "The key or password Termdock signs in with. Secrets go to the session service once and are never shown again.",
-        "local": "A local shell runs as the session service's own user, so it needs no credential.",
+        "intro": "How Termdock signs in. Secrets go to the session service once and are never shown again.",
         "choice": "Sign in with",
         "recommended": "Recommended",
         "choices": {
           "generate": "Generate a new key",
           "private_key": "Paste a private key",
           "password": "Password",
-          "saved": "Use a saved credential"
+          "saved": "Use a saved credential",
+          "none": "None"
         },
         "choiceHelp": {
           "generate": "A new ed25519 key; you add its public key to the server",
           "private_key": "An OpenSSH or PEM key you already have",
           "password": "Termdock answers the server's password prompt",
-          "saved": "A key or password you stored before"
+          "saved": "A key or password you stored before",
+          "none": "The server asks for a password in the terminal"
         },
         "pick": "Saved credential",
         "name": "Credential name",
@@ -551,11 +553,10 @@
         "exampleUser": "user",
         "exampleServer": "server",
         "generateNote": "The private key never leaves the session service. Once the server is added, you get the public key and the command that installs it.",
+        "noneNote": "Termdock stores no secret for this server. Each session shows the server's password prompt in the terminal, and you answer it there.",
         "reenter": "Secrets are never sent back to the browser, so enter it again."
       },
       "error": {
-        "hostRequired": "Pick a server.",
-        "hostMissing": "This server no longer exists. Pick another one.",
         "credentialRequired": "Pick a saved credential.",
         "credentialMissing": "This credential no longer exists. Pick another one.",
         "saveFailed": "The server could not be added, and nothing was saved. Try again.",
@@ -571,159 +572,109 @@
       },
       "done": {
         "title": "Server added",
-        "body": "Termdock signs in to {server} as {username}.",
+        "body": "Termdock connects to {server} as {target}.",
         "bodyLocal": "{server} opens a local shell.",
-        "profile": "profile {name}",
         "kind": {
           "generate": "New key",
           "private_key": "Pasted key",
           "password": "Password",
-          "saved": "Saved credential"
+          "saved": "Saved credential",
+          "none": "None: the server asks in the terminal"
         },
         "keyTitle": "Install the key on the server",
-        "keyIntro": "Before the first session, add the public key for {username} on the server. It is shown here once, so copy it now.",
-        "command": "Run this as {username} on the server",
+        "keyIntro": "Before the first session, add the public key for the server's user. It is shown here once, so copy it now.",
+        "command": "Run this on the server as {target}",
         "copyCommand": "Copy command",
         "publicKey": "Or add this line to ~/.ssh/authorized_keys",
         "copyKey": "Copy public key",
         "fingerprint": "Key fingerprint:",
         "trust": "The first session shows the server's host key fingerprint. Check it and trust it once.",
+        "trustNone": "The first session shows the server's host key fingerprint to check and trust once; then the server asks for the password in the terminal.",
         "start": "Start a session",
-        "openHost": "Open {server}"
+        "openServer": "Open {server}"
       }
     },
     "form": {
       "name": "Name",
-      "nameHelp": "Shown in the session list and in session labels, e.g. api-prod.",
+      "nameHelp": "Shown in the session list and in session labels, e.g. api-prod or db as root.",
       "kind": "Kind",
       "kindSsh": "SSH server",
       "kindSshHelp": "Termdock connects over SSH and checks the host key.",
       "kindLocal": "Local shell (direct mode)",
       "kindLocalHelp": "A shell on the machine running the session service, for administrators. Not available yet: direct mode arrives in a later version.",
-      "hostname": "Hostname or IP address",
-      "hostnameHelp": "As reachable from the Termdock server, e.g. 10.0.0.12 or db.internal.",
+      "localNote": "A local shell runs as the session service's own user on its machine, so it has no address, user name or credential.",
+      "hostname": "Address",
+      "hostnameHelp": "A hostname or IP address, as reachable from the Termdock server, e.g. 10.0.0.12 or db.internal.",
       "port": "Port",
+      "username": "User name on the server",
+      "usernameHelp": "The account Termdock signs in as, e.g. deploy or ubuntu.",
       "localReason": {
         "off": "Direct mode isn't available yet; it arrives in a later version.",
         "adminOnly": "Local shells run as the session service's own user, so only administrators can create them."
-      }
+      },
+      "advanced": "Advanced",
+      "advancedHelp": "Session protection, startup command, environment, keepalive, scrollback and reopening. The defaults suit most servers.",
+      "credential": "Credential",
+      "credentialNone": "None (the server asks for a password in the terminal)",
+      "credentialEmpty": "You have no saved credentials yet.",
+      "credentialHelp": "The key or password Termdock signs in with.",
+      "credentialNew": "New credential",
+      "protection": "Session protection",
+      "protectionAuto": "Auto (recommended)",
+      "protectionAutoHelp": "When the server has tmux 3.2 or newer, Termdock runs the shell inside tmux, invisibly. The session then survives Termdock restarts and network drops, with the same screen when you return. Without tmux the session runs unprotected and says so.",
+      "protectionOff": "Off",
+      "protectionOffHelp": "A plain shell. If the connection drops or Termdock restarts, the shell is lost.",
+      "startup": "Startup command",
+      "startupHelp": "Optional. Runs once when the shell starts, e.g. cd /srv/app.",
+      "env": "Environment variables",
+      "envHelp": "Optional. Set for the remote shell when it starts.",
+      "envKey": "Variable {n} name",
+      "envValue": "Variable {n} value",
+      "envKeyPlaceholder": "NAME",
+      "envValuePlaceholder": "value",
+      "envRemove": "Remove variable {n}",
+      "envAdd": "Add variable",
+      "keepalive": "Keepalive interval (seconds)",
+      "keepaliveHelp": "How often Termdock checks the connection: {min} to {max}.",
+      "scrollback": "Scrollback lines",
+      "scrollbackHelp": "Kept on the server for each session: {min} to {max}.",
+      "autoReopen": "Reopen unprotected sessions automatically",
+      "autoReopenHelp": "If an unprotected shell is lost, start a new one in the same terminal with a notice line instead of ending the session.",
+      "save": "Save server"
     },
-    "settings": {
-      "title": "Host details",
-      "intro": "Edits apply to new sessions. Running sessions keep the address they started with.",
-      "submit": "Save host"
+    "page": {
+      "settingsTitle": "Server details",
+      "settingsIntro": "Edits apply to new sessions. Running sessions keep the address they started with."
     },
     "delete": {
-      "title": "Delete host",
-      "intro": "Deletes the host with its profiles and trusted keys. Session history is kept.",
-      "blocked": "{count, plural, one {# session is still running on this host. Terminate it} other {# sessions are still running on this host. Terminate them}} before you delete the host.",
+      "title": "Delete server",
+      "intro": "Deletes the server. Session history is kept, and so are the host keys you decided on for its address.",
+      "blocked": "{count, plural, one {# session from this server is still running. Terminate it} other {# sessions from this server are still running. Terminate them}} before you delete the server.",
       "toWorkspace": "Go to the workspace",
-      "label": "Delete host…",
-      "question": "Delete {name}, its connection profiles and its trusted keys? This can't be undone.",
-      "confirm": "Delete host"
-    },
-    "profile": {
-      "title": "Connection profiles",
-      "intro": "Who to log in as and with which credential. Sessions start from a profile.",
-      "add": "Add profile",
-      "newTitle": "New profile",
-      "editTitle": "Edit {name}",
-      "empty": "No profiles yet. Add one with the user name on this host and a credential, then start sessions from it.",
-      "edit": "Edit",
-      "delete": "Delete…",
-      "deleteQuestion": "Delete the profile {name}? Session history is kept.",
-      "deleteConfirm": "Delete profile",
-      "list": {
-        "name": "Profile",
-        "login": "Login",
-        "protection": "Protection",
-        "scrollback": "Scrollback",
-        "actions": "Actions",
-        "noCredential": "No stored credential"
-      },
-      "mode": {
-        "auto": "Auto (tmux)",
-        "off": "Off"
-      },
-      "form": {
-        "name": "Profile name",
-        "nameHelp": "e.g. deploy or root.",
-        "username": "User name on the host",
-        "usernameHelp": "The account Termdock logs in as.",
-        "credential": "Credential",
-        "credentialNone": "None (prompt in the terminal)",
-        "credentialEmpty": "You have no credentials yet.",
-        "credentialHelp": "The key or password Termdock uses for this login.",
-        "credentialNew": "New credential",
-        "protection": "Session protection",
-        "protectionAuto": "Auto (recommended)",
-        "protectionAutoHelp": "When the host has tmux 3.2 or newer, Termdock runs the shell inside tmux, invisibly. The session then survives Termdock restarts and network drops, with the same screen when you return. Without tmux the session runs unprotected and says so.",
-        "protectionOff": "Off",
-        "protectionOffHelp": "A plain shell. If the connection drops or Termdock restarts, the shell is lost.",
-        "startup": "Startup command",
-        "startupHelp": "Optional. Runs once when the shell starts, e.g. cd /srv/app.",
-        "env": "Environment variables",
-        "envHelp": "Optional. Set for the remote shell when it starts.",
-        "envKey": "Variable {n} name",
-        "envValue": "Variable {n} value",
-        "envKeyPlaceholder": "NAME",
-        "envValuePlaceholder": "value",
-        "envRemove": "Remove variable {n}",
-        "envAdd": "Add variable",
-        "keepalive": "Keepalive interval (seconds)",
-        "keepaliveHelp": "How often Termdock checks the connection: {min} to {max}.",
-        "scrollback": "Scrollback lines",
-        "scrollbackHelp": "Kept on the server for each session: {min} to {max}.",
-        "autoReopen": "Reopen unprotected sessions automatically",
-        "autoReopenHelp": "If an unprotected shell is lost, start a new one in the same terminal with a notice line instead of ending the session.",
-        "save": "Save profile",
-        "create": "Add profile",
-        "cancel": "Cancel"
-      },
-      "error": {
-        "nameRequired": "Enter a profile name.",
-        "nameLong": "Use at most 80 characters.",
-        "usernameRequired": "Enter the user name on the host.",
-        "username": "Use a user name without spaces, at most 64 characters.",
-        "credential": "Choose one of your credentials.",
-        "protection": "Choose a protection mode.",
-        "startupLong": "Use at most 1000 characters.",
-        "startupControl": "Use a single line without control characters (tabs are fine).",
-        "envKey": "Variable names use letters, digits and underscores, and can't start with a digit.",
-        "envValue": "Variable values can have at most 1000 characters.",
-        "envValueControl": "Variable values must be a single line without control characters (tabs are fine).",
-        "envCount": "Use at most 32 variables.",
-        "envDuplicate": "Each variable name can appear only once.",
-        "keepalive": "Use a whole number of seconds from 5 to 300.",
-        "scrollback": "Use a whole number of lines from 1000 to 10000.",
-        "invalid": "Check this field.",
-        "notFound": "This profile or host no longer exists.",
-        "inUse": "Sessions started from this profile are still running. Terminate them first, then delete the profile."
-      }
+      "label": "Delete server…",
+      "question": "Delete {name}? This can't be undone.",
+      "confirm": "Delete server"
     },
     "diagnostics": {
       "title": "Diagnostics",
-      "intro": "Check the host's identity before the first session, and see whether sessions would be protected.",
+      "intro": "Check the server's identity before the first session, and see whether sessions would be protected.",
       "trust": "Trust this key",
-      "localOnly": "Host keys and the capability probe apply to SSH hosts only.",
-      "fetch": {
-        "profile": "Also log in with",
-        "profileHelp": "With a profile, Termdock logs in (once the key is trusted) and checks tmux and logind on the host.",
-        "profileNone": "No profile: host key only",
-        "submit": "Fetch & verify",
-        "help": "Connects to the host and shows the key it presents. Nothing is trusted until you choose to."
+      "localOnly": "Host keys and the capability probe apply to SSH servers only.",
+      "test": {
+        "submit": "Test connection",
+        "help": "Connects to the server and shows the host key it presents; nothing is trusted until you choose to. Once the key is trusted, it also signs in and checks tmux and logind."
       },
       "result": {
-        "unreachable": "The host could not be reached",
+        "unreachable": "The server could not be reached",
         "presented": "Presented host key",
         "compare": "Compare the fingerprint with the one the server's administrator gives you before you trust it.",
-        "mismatchTitle": "The host presented a different key",
+        "mismatchTitle": "The server presented a different key",
         "mismatchBody": "This is not the key you trusted. If the server was reinstalled or its key rotated, replace the trusted key. Otherwise, do not connect: someone may be intercepting the connection.",
-        "revokedTitle": "The host presented a key you revoked",
-        "revokedBody": "You revoked this key for the host, so Termdock refuses it. If you revoked it by mistake, replace the trusted key with it. Otherwise, do not connect: the server may be using an old or stolen key.",
-        "loginFailed": "The host key is trusted, but the login failed",
+        "revokedTitle": "The server presented a key you revoked",
+        "revokedBody": "You revoked this key for this address, so Termdock refuses it. If you revoked it by mistake, replace the trusted key with it. Otherwise, do not connect: the server may be using an old or stolen key.",
+        "loginFailed": "The host key is trusted, but the sign-in failed",
         "noProbe": "The host key is trusted. The probe did not run.",
-        "pickProfile": "The host key is trusted. Choose a profile above to check tmux and logind too."
+        "noCredential": "The host key is trusted. This server has no stored credential, so Termdock can't sign in to check tmux and logind; sessions ask for the password in the terminal."
       },
       "status": {
         "trusted": "Trusted",
@@ -732,35 +683,36 @@
         "mismatch": "Mismatch"
       },
       "code": {
-        "HOST_UNREACHABLE": "Check the hostname and port, and that the Termdock server can reach the host.",
+        "HOST_UNREACHABLE": "Check the address and port, and that the Termdock server can reach it.",
         "TARGET_NOT_ALLOWED": "This installation doesn't allow connecting to this address: it is the Termdock server itself, or a loopback, link-local or multicast address.",
         "HOST_KEY_MISMATCH": "The presented key does not match the trusted one.",
-        "AUTH_REJECTED": "The host rejected the profile's user or credential.",
-        "AUTH_TIMEOUT": "The login took too long. The host may be waiting for an interactive prompt.",
-        "CREDENTIAL_INVALID": "The profile's credential could not be used.",
+        "AUTH_REJECTED": "The server rejected the user name or the credential.",
+        "AUTH_TIMEOUT": "The sign-in took too long. The server may be waiting for an interactive prompt.",
+        "CREDENTIAL_INVALID": "The server's credential could not be used.",
         "PROBE_TIMEOUT": "The capability probe took too long to answer.",
         "PROBE_TOO_LARGE": "The capability probe printed more output than Termdock reads.",
         "CONNECTION_LOST": "The connection dropped during the check.",
         "OTHER": "The check failed. Try again."
       },
       "keys": {
-        "title": "Host keys",
-        "empty": "No keys recorded yet. Run Fetch & verify, or paste the expected fingerprint below.",
+        "title": "Host keys for {address}",
+        "shared": "{count, plural, one {A decision here applies to this server and to any server you add later at {address}.} other {A decision here applies to all # of your servers at {address}.}}",
+        "empty": "No keys recorded yet. Run Test connection, or paste the expected fingerprint below.",
         "seen": "Seen",
         "decided": "Decided"
       },
       "replace": {
         "title": "Replace trusted key",
-        "intro": "Only after you confirmed with the server's administrator that its key changed. The current trusted key of this type is revoked.",
+        "intro": "Only after you confirmed with the server's administrator that its key changed. The current trusted key of this type is revoked for every server at this address.",
         "fingerprint": "New fingerprint",
         "fingerprintHelp": "The SHA256 fingerprint of the new {keyType} key.",
-        "confirm": "Type {name} to confirm",
-        "confirmHelp": "The host's name, exactly as shown at the top of this page.",
+        "confirm": "Type {hostname} to confirm",
+        "confirmHelp": "The server's address, as shown at the top of this page.",
         "submit": "Replace trusted key"
       },
       "revoke": {
         "label": "Revoke…",
-        "question": "Revoke the trusted {keyType} key? New connections will stop until you trust a key again.",
+        "question": "Revoke the trusted {keyType} key for {address}? New connections there stop until you trust a key again.",
         "confirm": "Revoke key"
       },
       "pretrust": {
@@ -784,24 +736,23 @@
         "protectedBody": "tmux control mode: sessions survive Termdock restarts and network drops.",
         "unprotected": "Sessions would not be protected",
         "reason": {
-          "off": "Protection is off in this profile.",
-          "no_tmux": "tmux is not installed on the host. Install tmux 3.2 or newer to protect sessions.",
-          "too_old": "The host's tmux is older than 3.2, which Termdock needs for protection.",
-          "no_locale": "The host has no UTF-8 locale, which tmux needs."
+          "off": "Protection is off for this server.",
+          "no_tmux": "tmux is not installed on the server. Install tmux 3.2 or newer to protect sessions.",
+          "too_old": "The server's tmux is older than 3.2, which Termdock needs for protection.",
+          "no_locale": "The server has no UTF-8 locale, which tmux needs."
         },
-        "lingerTitle": "The host may kill tmux on disconnect",
+        "lingerTitle": "The server may kill tmux on disconnect",
         "lingerBody": "systemd-logind is set to kill user processes when the SSH login ends. Enable linger for this user (loginctl enable-linger) and make sure systemd-run is available, or protection is not reliable."
       },
       "error": {
-        "profile": "Choose one of this host's profiles.",
-        "notFound": "This host no longer exists.",
-        "trustConflict": "Another key of this type is already trusted, or this key was revoked for the host. Use Replace trusted key instead.",
-        "keyNotFound": "That key is no longer pending. Run Fetch & verify again.",
+        "notFound": "This server no longer exists.",
+        "trustConflict": "Another key of this type is already trusted for this address, or this key was revoked. Use Replace trusted key instead.",
+        "keyNotFound": "That key is no longer pending. Run Test connection again.",
         "fingerprint": "Enter a SHA256 fingerprint (43 characters after SHA256:).",
-        "confirmName": "Type the host's name exactly.",
+        "confirmHostname": "Type the server's address exactly.",
         "unavailable": "The session service is not responding. Try again in a moment.",
-        "timeout": "The check took too long. The host may be unreachable.",
-        "conflict": "The host's keys changed meanwhile. Reload the page.",
+        "timeout": "The check took too long. The server may be unreachable.",
+        "conflict": "The host keys changed meanwhile. Reload the page.",
         "forbidden": "Your account isn't allowed to do that.",
         "limit": "Too many requests. Wait a moment.",
         "testLimit": "Too many checks in the last minute. Wait a moment, then try again.",
@@ -814,17 +765,16 @@
       "title": "Add this Docker host",
       "intro": "When Termdock runs in Docker, it can reach the machine that runs Docker over SSH at host.docker.internal. Termdock generates a key for it; you add the key to the user on that machine.",
       "username": "User on the Docker host",
-      "usernameHelp": "The account sessions log in as, e.g. your own user on that machine.",
-      "submit": "Create host and key",
+      "usernameHelp": "The account sessions sign in as, e.g. your own user on that machine.",
+      "submit": "Create server and key",
       "credentialName": "Docker host key",
-      "hostName": "Docker host",
+      "serverName": "Docker host",
       "creates": {
-        "host": "A host at {hostname}, port 22",
-        "key": "A new ed25519 key, stored encrypted",
-        "profile": "A profile for that user with the key"
+        "server": "A server at {hostname}, port 22, for that user",
+        "key": "A new ed25519 key for it, stored encrypted"
       },
       "done": {
-        "title": "Host and key created",
+        "title": "Server and key created",
         "body": "Two steps remain on the Docker host before {username}@{hostname} accepts the connection.",
         "step1": "1. Add the key for the user",
         "command": "Run this as that user on the Docker host",
@@ -836,8 +786,8 @@
         "step2": "2. Make sure sshd accepts connections from Docker",
         "sshd": "The SSH server on the Docker host must listen on an address the containers reach (the Docker bridge, e.g. 172.17.0.1). Termdock's compose file maps host.docker.internal to that gateway.",
         "step3": "3. Verify the host key",
-        "verify": "On the host page, run Fetch & verify and trust the key the Docker host presents.",
-        "open": "Open the host"
+        "verify": "On the server page, run Test connection and trust the key the Docker host presents.",
+        "open": "Open the server"
       },
       "error": {
         "username": "Use a user name of letters, digits, dots, dashes or underscores.",
@@ -854,7 +804,7 @@
   },
   "credentials": {
     "title": "Credentials",
-    "intro": "Keys and passwords Termdock uses to log in to your hosts. The session service stores them encrypted; after saving, nobody can view a secret again.",
+    "intro": "Keys and passwords Termdock uses to sign in to your servers. The session service stores them encrypted; after saving, nobody can view a secret again.",
     "kind": {
       "password": "Password",
       "private_key": "SSH key"
@@ -870,11 +820,11 @@
       "kind": "Kind",
       "lastUsed": "Last used",
       "actions": "Actions",
-      "usedBy": "{count, plural, =0 {Not used by any profile} one {Used by # profile} other {Used by # profiles}}",
+      "usedBy": "{count, plural, =0 {Not used by any server} one {Used by # server} other {Used by # servers}}",
       "never": "Never",
       "rename": "Rename",
       "delete": "Delete…",
-      "deleteQuestion": "Delete {name}? Profiles that use it will have no credential.",
+      "deleteQuestion": "Delete {name}? Servers that use it will have no credential, so they ask for a password in the terminal.",
       "deleteConfirm": "Delete credential"
     },
     "create": {
@@ -894,12 +844,12 @@
       "name": "Name",
       "nameHelp": "So you can tell it apart, e.g. deploy key 2026.",
       "password": "Password",
-      "passwordHelp": "Stored encrypted; Termdock answers the host's password prompt with it.",
+      "passwordHelp": "Stored encrypted; Termdock answers the server's password prompt with it.",
       "privateKey": "Private key",
       "privateKeyHelp": "Paste the whole key, including the BEGIN and END lines.",
       "passphrase": "Passphrase",
       "passphraseHelp": "Only if the key is protected by one.",
-      "generateNote": "Termdock creates an ed25519 key pair. The private key never leaves the session service; you get the public key to install on your hosts.",
+      "generateNote": "Termdock creates an ed25519 key pair. The private key never leaves the session service; you get the public key to install on your servers.",
       "submit": {
         "generate": "Generate key",
         "private_key": "Save key",
@@ -907,11 +857,11 @@
       },
       "done": {
         "title": "{name} is saved",
-        "generated": "Install the public key on each host for the user that will log in with it.",
+        "generated": "Install the public key on each server, for the user that signs in with it.",
         "stored": "The secret is stored encrypted and won't be shown again.",
         "publicKey": "Public key",
         "copyKey": "Copy public key",
-        "command": "Install it for the current user on a host",
+        "command": "Install it for the current user on a server",
         "copyCommand": "Copy command",
         "once": "This is the only time the public key is shown here. Copy it now.",
         "fingerprint": "Fingerprint:",
@@ -990,12 +940,13 @@
       "auth_prompt_expired": "Login prompt expired",
       "protection_selected": "Protection selected",
       "protection_degraded": "Protection degraded",
-      "remote_rebooted": "Host rebooted",
+      "remote_rebooted": "Server rebooted",
       "desync": "Screen resynchronized",
       "attached": "Browser attached",
       "detached": "Browser detached",
       "host_key_trusted": "Host key trusted",
-      "host_key_expired": "Host key prompt expired"
+      "host_key_expired": "Host key prompt expired",
+      "server_deleted": "Server deleted"
     },
     "detail": {
       "transition": "{from} → {to}",
@@ -1005,14 +956,14 @@
       "phase": {
         "checkingHostKey": "Checking the host key",
         "signingIn": "Signing in",
-        "checkingHost": "Checking the host",
+        "checkingHost": "Checking the server",
         "startingShell": "Starting the shell",
         "syncingScreen": "Syncing the screen"
       },
       "notice": {
-        "tmuxMissing": "tmux isn't installed on the host",
-        "tmuxTooOld": "tmux on the host is older than 3.2",
-        "noUtf8": "The host has no UTF-8 locale",
+        "tmuxMissing": "tmux isn't installed on the server",
+        "tmuxTooOld": "tmux on the server is older than 3.2",
+        "noUtf8": "The server has no UTF-8 locale",
         "controlUnavailable": "tmux control mode isn't available"
       }
     }
@@ -1052,7 +1003,7 @@
     "terminal": {
       "tab": "Terminal",
       "title": "Terminal",
-      "intro": "How your terminals look and behave in every browser. Scrollback is set per connection profile.",
+      "intro": "How your terminals look and behave in every browser. Scrollback is set per server.",
       "scheme": "Color scheme",
       "schemes": {
         "board": "Night",
@@ -1102,7 +1053,7 @@
       "tab": "Users",
       "list": {
         "title": "Users",
-        "intro": "Each user sees only their own hosts, credentials and sessions.",
+        "intro": "Each user sees only their own servers, credentials and sessions.",
         "user": "User",
         "role": "Role",
         "status": "Status",
@@ -1167,7 +1118,7 @@
         "disable": "Disable account…",
         "question": "Disable {username}? They are signed out right away and can't sign in until you enable the account.",
         "terminate": "{count, plural, =0 {No running sessions to terminate} one {Also terminate their running session} other {Also terminate their # running sessions}}",
-        "terminateHelp": "Ends the shells on their hosts. This can't be undone.",
+        "terminateHelp": "Ends the shells on their servers. This can't be undone.",
         "confirm": "Disable account"
       },
       "totpReset": {
@@ -1223,7 +1174,7 @@
       "maxHelp": "New sessions are refused above this number. Default 50.",
       "direct": "Direct mode",
       "localShell": "Show local shells (direct mode) to administrators",
-      "localShellHelp": "Lets administrators add local hosts. Their sessions can't start yet: direct mode arrives in a later version.",
+      "localShellHelp": "Lets administrators add local shells (direct mode) as servers. Their sessions can't start yet: direct mode arrives in a later version.",
       "localShellWarning": "When direct mode arrives, local shells will run as the session service's own user, which can read the master key and the database. Leaving this on will then give administrators effective access to every stored credential.",
       "submit": "Save settings",
       "saved": "Settings saved.",
@@ -1282,7 +1233,10 @@
         "host_key_revoke": "Host key revoked",
         "host_key_mismatch": "Host key mismatch",
         "host_key_revoked_presented": "Revoked host key presented",
-        "session_rename": "Session renamed"
+        "session_rename": "Session renamed",
+        "server_create": "Server added",
+        "server_update": "Server changed",
+        "server_delete": "Server deleted"
       },
       "details": {
         "key": {
@@ -1305,7 +1259,9 @@
           "previousFingerprint": "Previous fingerprint",
           "source": "Source",
           "previousLabel": "Previous name",
-          "label": "New name"
+          "label": "New name",
+          "hostname": "Address",
+          "port": "Port"
         },
         "value": {
           "stage": {
@@ -1340,7 +1296,9 @@
           "kind": {
             "password": "Password",
             "private_key": "SSH key",
-            "generate": "Generated SSH key"
+            "generate": "Generated SSH key",
+            "ssh": "SSH server",
+            "local": "Local shell"
           }
         },
         "yes": "Yes",

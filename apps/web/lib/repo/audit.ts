@@ -4,9 +4,10 @@ import { ErrorCode, TermdockError, uuidv7 } from '@termdock/shared';
 
 /**
  * `audit_events` rows written by web (plan §9 write ownership, §10.2): sign-in, lockout, TOTP,
- * passwords, user administration, instance settings and auth-session revocation. The daemon
- * writes the credential and host-key rows with the same dotted vocabulary. Details carry public
- * data only (ids, usernames, roles, setting values); never a password, code or key.
+ * passwords, user administration, instance settings, auth-session revocation and server
+ * create/update/delete (plan D-29). The daemon writes the credential and host-key rows with the
+ * same dotted vocabulary. Details carry public data only (ids, usernames, roles, setting values,
+ * server names and addresses); never a password, code or key.
  */
 export type WebAuditType =
   | 'auth.login_success'
@@ -23,12 +24,15 @@ export type WebAuditType =
   | 'user.unban'
   | 'user.role_change'
   | 'user.sessions_terminate'
-  | 'admin_setting.change';
+  | 'admin_setting.change'
+  | 'server.create'
+  | 'server.update'
+  | 'server.delete';
 
 export interface AuditInput {
   type: WebAuditType;
   actorUserId: string | null;
-  targetType?: 'user' | 'setting' | null;
+  targetType?: 'user' | 'setting' | 'server' | null;
   targetId?: string | null;
   detail?: Record<string, unknown>;
   ip?: string | null;
@@ -142,12 +146,12 @@ export function listAuditEvents(
   const rows = sqlite
     .prepare(
       `SELECT a.id, a.type, a.actor_user_id, actor.username AS actor_name, a.target_type,
-              a.target_id, COALESCE(tu.username, th.name, tc.name, tsn.label) AS target_name,
+              a.target_id, COALESCE(tu.username, tsv.name, tc.name, tsn.label) AS target_name,
               a.detail_json, a.ip, a.user_agent, a.created_at
          FROM audit_events a
          LEFT JOIN user actor ON actor.id = a.actor_user_id
          LEFT JOIN user tu ON a.target_type = 'user' AND tu.id = a.target_id
-         LEFT JOIN hosts th ON a.target_type = 'host' AND th.id = a.target_id
+         LEFT JOIN servers tsv ON a.target_type = 'server' AND tsv.id = a.target_id
          LEFT JOIN credentials tc ON a.target_type = 'credential' AND tc.id = a.target_id
          LEFT JOIN sessions tsn ON a.target_type = 'session' AND tsn.id = a.target_id
          ${where.sql}

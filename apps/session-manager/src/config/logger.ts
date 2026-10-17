@@ -4,7 +4,7 @@ export type { Logger };
 
 /**
  * Keys that must never reach the logs (tickets, keystrokes, prompt answers, credential
- * material, profile environments and policies, which often hold API keys, and HTTP auth
+ * material, server environments and policies, which often hold API keys, and HTTP auth
  * headers). Code never logs them on purpose; redaction is the safety net. The web logger keeps
  * the same list (apps/web/lib/logger.ts).
  */

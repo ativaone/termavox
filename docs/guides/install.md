@@ -85,7 +85,7 @@ cp deploy/.env.example deploy/.env
 | `TERMDOCK_LOG_LEVEL` | `info` | session-manager log level |
 | `TERMDOCK_DAEMON_MEM_LIMIT` | `1g` | Memory limit of the session-manager container (Compose `mem_limit`). Raise it for many concurrent sessions or long scrollback |
 | `TERMDOCK_WEB_MEM_LIMIT` | `768m` | Memory limit of the web container |
-| `TERMDOCK_SSH_ALLOW_LOCAL_TARGETS` | `false` | `true` lets hosts point at loopback, link-local, multicast or session-manager's own addresses (see [SSH targets](#ssh-targets)) |
+| `TERMDOCK_SSH_ALLOW_LOCAL_TARGETS` | `false` | `true` lets servers point at loopback, link-local, multicast or session-manager's own addresses (see [SSH targets](#ssh-targets)) |
 
 `TERMDOCK_ENABLE_LOCAL_SHELL` is fixed to `false` in the containers. Local direct mode is meant for running session-manager outside Docker (plan §13.3).
 
@@ -93,9 +93,9 @@ Every container also has a process limit (`pids_limit`: session-manager 512, web
 
 ### SSH targets
 
-session-manager resolves each host's name itself and connects only to an address it allows, both for sessions and for **Fetch & verify**. By default it refuses loopback (`127.0.0.0/8`, `::1`), link-local (`169.254.0.0/16`, where cloud metadata services live, and `fe80::/10`), unspecified (`0.0.0.0`, `::`) and multicast addresses, and the addresses of its own network interfaces, IPv4-mapped IPv6 forms included. Such a host fails with "not allowed" instead of connecting, and is not retried. Private LAN ranges (`10/8`, `172.16/12`, `192.168/16`, `fc00::/7`) stay allowed, and so does the Docker host behind `host.docker.internal`.
+session-manager resolves each server's address itself and connects only to an address it allows, both for sessions and for **Test connection**. By default it refuses loopback (`127.0.0.0/8`, `::1`), link-local (`169.254.0.0/16`, where cloud metadata services live, and `fe80::/10`), unspecified (`0.0.0.0`, `::`) and multicast addresses, and the addresses of its own network interfaces, IPv4-mapped IPv6 forms included. Such a server fails with "not allowed" instead of connecting, and is not retried. Private LAN ranges (`10/8`, `172.16/12`, `192.168/16`, `fc00::/7`) stay allowed, and so does the Docker host behind `host.docker.internal`.
 
-Set `TERMDOCK_SSH_ALLOW_LOCAL_TARGETS=true` to allow those addresses too, for example when session-manager runs outside Docker and should reach an SSH server on the same machine. Fetch & verify is also limited to 10 checks per user per minute.
+Set `TERMDOCK_SSH_ALLOW_LOCAL_TARGETS=true` to allow those addresses too, for example when session-manager runs outside Docker and should reach an SSH server on the same machine. Test connection is also limited to 10 checks per user per minute.
 
 ## 4. Start
 
@@ -120,7 +120,7 @@ The token lives only in web's memory (and in that log line). If you lose it, `do
 
 ## 6. Add your first server
 
-Sign in. The empty workspace offers **Add your first server**, which opens one page with three sections: the server (a name and its address), the sign-in (the user name on that server) and the credential (generate a new key, paste a private key, or a password). Nothing is saved until you submit it. For a generated key, the page then shows the public key and a one-line command that adds it to `~/.ssh/authorized_keys` on the server. **Start a session** opens it in the workspace, where the first connection shows the server's host key fingerprint for you to check and trust.
+Sign in. The empty workspace offers **Add your first server**, which opens one page with two sections: the server (a name, its address and port, and the user name on it, like an `ssh user@host` command line) and the credential (generate a new key, paste a private key, a password, or none, in which case the server asks for the password in the terminal). Nothing is saved until you submit it. For a generated key, the page then shows the public key and a one-line command that adds it to `~/.ssh/authorized_keys` on the server. **Start a session** opens it in the workspace, where the first connection shows the server's host key fingerprint for you to check and trust. To reach the same machine as another user, use **Duplicate** on the server and change the user name.
 
 ## Domain and TLS
 
@@ -141,7 +141,7 @@ HSTS (`max-age=31536000`) is sent for every name except `localhost`. HSTS applie
 
 ## The "This Docker host" preset
 
-session-manager can reach the Docker host itself as `host.docker.internal`. Compose maps that name to the host gateway (`extra_hosts: host.docker.internal:host-gateway`). The "Add this Docker host" preset (`/hosts/docker`, linked from the hosts list and the Add server page) creates a host `host.docker.internal:22`, generates an ed25519 key, and shows the `authorized_keys` line to install for the host user. The first connection goes through the normal host-key trust flow.
+session-manager can reach the Docker host itself as `host.docker.internal`. Compose maps that name to the host gateway (`extra_hosts: host.docker.internal:host-gateway`). The "Add this Docker host" preset (`/servers/docker`, linked from the servers list and the Add server page) generates an ed25519 key, creates a server `<user>@host.docker.internal:22` that uses it, and shows the `authorized_keys` line to install for that user. The first connection goes through the normal host-key trust flow.
 
 On the host, `sshd` must accept connections from the container network. By default it listens on all addresses, which is enough. If a firewall such as `ufw` filters incoming traffic, allow port 22 from the compose `edge` subnet:
 
@@ -181,7 +181,7 @@ The `master_key` must be the one in use when the backup was taken.
 
 ## Rotating the master key
 
-Rotate the master key when it may have been exposed (a copied secrets directory, a host you no longer trust, someone with access leaving), or on a schedule if your policy asks for one. Every stored credential is re-encrypted under a new key; hosts, profiles and sessions stay as they are.
+Rotate the master key when it may have been exposed (a copied secrets directory, a host you no longer trust, someone with access leaving), or on a schedule if your policy asks for one. Every stored credential is re-encrypted under a new key; servers and sessions stay as they are.
 
 ```bash
 deploy/scripts/rotate-master-key.sh
@@ -223,13 +223,33 @@ pnpm --filter @termdock/session-manager vault:rotate \
 
 ## Upgrades
 
+Termdock is built from the source you check out, so an upgrade is: new source, new images, restart. Run every command from the repository root.
+
+1. **Read the release notes.** `CHANGELOG.md` lists each version's changes; an **Upgrade notes** entry there names anything you must do by hand. Do this before pulling.
+2. **Back up.** `deploy/scripts/backup.sh` (see [Backups](#backups)).
+3. **Get the new source.** `git pull`, or `git fetch --tags && git checkout vX.Y.Z` for a specific release.
+4. **Rebuild and restart.**
+
+   ```bash
+   docker compose -f deploy/compose.yaml up -d --build
+   ```
+
+   This rebuilds the images from the new source and recreates the containers that changed. Database migrations apply on their own when session-manager starts; there is no separate migration command. Your secrets in `deploy/secrets/` and `deploy/.env` are kept.
+5. **Check it.** `docker compose -f deploy/compose.yaml ps` shows every service `healthy` after a minute; `docker compose -f deploy/compose.yaml logs session-manager` shows the migrations it applied, if any.
+6. **Optionally reclaim disk.** `docker image prune` removes the previous images.
+
+What users notice: web restarts freely. A session-manager restart keeps protected (tmux) sessions: browsers show "Restoring…", and the sessions come back as they were. Unprotected sessions end.
+
+**Going back.** Check out the previous version, rebuild (step 4), and restore the backup from step 2 with `deploy/scripts/restore.sh` if the new version already migrated the database.
+
+**When the notes say the data cannot be migrated.** This happens only before v1.0, when the data model changes without a migration path. The notes say so explicitly. Then start from an empty database instead of step 4:
+
 ```bash
-deploy/scripts/backup.sh
-git pull
+docker compose -f deploy/compose.yaml down -v
 docker compose -f deploy/compose.yaml up -d --build
 ```
 
-web restarts freely. A session-manager restart keeps protected (tmux) sessions: browsers show "Restoring…", and the sessions come back as they were. Unprotected sessions end. Old images can be removed afterwards with `docker image prune`.
+`down -v` deletes the database volume (users, servers, credentials, session history) and the certificate volume; the secret files stay. Then create the first admin again with a new setup token ([step 5](#5-create-the-first-admin)), as on a new install.
 
 ## Day-to-day operations
 

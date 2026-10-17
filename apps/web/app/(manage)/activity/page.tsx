@@ -14,6 +14,7 @@ import { getAuthRuntime, requireSession } from '../../../lib/auth/server.ts';
 import { listSessionEvents, listSessionHistory } from '../../../lib/repo/activity.ts';
 import { collapseRuns, describeStateChange, statusOf } from '../../../lib/sessions/activity.ts';
 import { END_KEYS, FAILURE_KEYS, pick } from '../../../lib/sessions/reasons.ts';
+import { sessionTarget } from '../../../lib/sessions/target.ts';
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('meta');
@@ -42,6 +43,7 @@ const KNOWN_EVENTS = [
   'detached',
   'host_key_trusted',
   'host_key_expired',
+  'server_deleted',
 ] as const;
 type KnownEvent = (typeof KNOWN_EVENTS)[number];
 const isKnownEvent = (type: string): type is KnownEvent =>
@@ -231,7 +233,7 @@ export default async function ActivityPage({
                     <span className="flex min-w-0 flex-col">
                       <span className="break-words font-semibold">{row.label}</span>
                       <span className="break-all text-ink-muted text-sm">
-                        {row.user}@{row.host}
+                        {sessionTarget(row, tw('localTarget'))}
                       </span>
                     </span>
                   </Td>
@@ -325,7 +327,7 @@ export default async function ActivityPage({
                 <Td label={t('events.session')}>
                   <span className="flex min-w-0 flex-col">
                     <span className="break-words">{row.sessionLabel}</span>
-                    <span className="break-all text-ink-muted text-sm">{row.host}</span>
+                    <span className="break-all text-ink-muted text-sm">{row.server}</span>
                   </span>
                 </Td>
                 <Td

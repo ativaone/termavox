@@ -5,7 +5,7 @@ import { loadDaemonConfig } from '../../src/config/config.ts';
 import { REDACT_PATHS } from '../../src/config/logger.ts';
 
 describe('daemon logging', () => {
-  it('redacts profile environments, policies, auth headers, cookies and tokens (I3)', () => {
+  it('redacts server environments, policies, auth headers, cookies and tokens (I3)', () => {
     const lines: string[] = [];
     const sink = new Writable({
       write(chunk, _encoding, done) {

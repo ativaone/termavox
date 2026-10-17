@@ -7,8 +7,11 @@ const bay = (id: string, label: string, status: BaySession['status']): BaySessio
   label,
   status,
   protection: null,
-  user: 'td',
-  host: 'box',
+  kind: 'ssh',
+  username: 'td',
+  hostname: 'box',
+  port: 22,
+  serverDeleted: false,
   createdAt: 1,
   endedAt: null,
 });

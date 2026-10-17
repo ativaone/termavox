@@ -3,53 +3,29 @@
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useActionState } from 'react';
-import { DOCKER_HOSTNAME, type DockerPresetState } from '../../lib/actions/host-states.ts';
-import { addDockerHost } from '../../lib/actions/hosts.ts';
+import { DOCKER_HOSTNAME, type DockerPresetState } from '../../lib/actions/server-states.ts';
+import { addDockerServer } from '../../lib/actions/servers.ts';
+import { installCommand } from '../../lib/manage/install-command.ts';
+import { serverPath } from '../../lib/routes.ts';
 import { ArrowRightIcon } from '../icons/index.tsx';
 import { buttonClasses } from '../ui/button.tsx';
-import { CopyButton } from '../ui/copy-button.tsx';
 import { FormMessage, Notice } from '../ui/notice.tsx';
 import { SubmitButton } from '../ui/submit-button.tsx';
 import { TextField } from '../ui/text-field.tsx';
-
-/** The shell command that installs the key for the host user (single-quoted, POSIX sh). */
-function installCommand(publicKey: string): string {
-  const quoted = `'${publicKey.replaceAll("'", `'\\''`)}'`;
-  return `mkdir -p ~/.ssh && chmod 700 ~/.ssh && printf '%s\\n' ${quoted} >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys`;
-}
-
-function CodeWell({
-  label,
-  value,
-  copyLabel,
-}: {
-  label: string;
-  value: string;
-  copyLabel: string;
-}) {
-  return (
-    <div className="flex flex-col gap-2">
-      <p className="font-semibold text-ink text-sm">{label}</p>
-      <pre className="whitespace-pre-wrap break-all rounded-control bg-field px-3 py-2.5 font-mono text-ink text-sm">
-        {value}
-      </pre>
-      <CopyButton value={value} label={copyLabel} />
-    </div>
-  );
-}
+import { CodeWell } from './add-server-result.tsx';
 
 /**
- * "Add this Docker host" (plan §13.4): one field (the user on the Docker host), then the exact
- * `authorized_keys` line and a copy-paste command, shown once. The host's own key is still
- * checked through the normal trust flow on the host page.
+ * "Add this Docker host" (plan §13.4): one field (the user on the machine that runs Docker), then
+ * the exact `authorized_keys` line and a copy-paste command, shown once. The machine's own host
+ * key is still checked through the normal trust flow on the server page.
  */
 export function DockerPreset() {
-  const t = useTranslations('hosts.docker');
+  const t = useTranslations('servers.docker');
   const tf = useTranslations('common.field');
-  const [state, action] = useActionState(addDockerHost, {} as DockerPresetState);
+  const [state, action] = useActionState(addDockerServer, {} as DockerPresetState);
 
   if (state.created) {
-    const { hostId, publicKey, fingerprint, username } = state.created;
+    const { serverId, publicKey, fingerprint, username } = state.created;
     return (
       <div className="flex flex-col gap-5">
         <Notice tone="success" title={t('done.title')}>
@@ -80,7 +56,7 @@ export function DockerPreset() {
             <h3 className="font-semibold text-ink text-md">{t('done.step3')}</h3>
             <p className="max-w-[60ch] text-pretty text-base text-ink-muted">{t('done.verify')}</p>
             <Link
-              href={`/hosts/${encodeURIComponent(hostId)}#diagnostics`}
+              href={`${serverPath(serverId)}#diagnostics`}
               className={buttonClasses({ variant: 'primary', size: 'lg' })}
             >
               {t('done.open')}
@@ -109,9 +85,8 @@ export function DockerPreset() {
         maxLength={32}
       />
       <ul className="flex flex-col gap-1.5 border-line border-y py-3 text-base text-ink">
-        <li>{t('creates.host', { hostname: DOCKER_HOSTNAME })}</li>
+        <li>{t('creates.server', { hostname: DOCKER_HOSTNAME })}</li>
         <li>{t('creates.key')}</li>
-        <li>{t('creates.profile')}</li>
       </ul>
       <div>
         <SubmitButton size="lg">{t('submit')}</SubmitButton>

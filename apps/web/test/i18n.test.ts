@@ -29,7 +29,7 @@ describe('message catalogs (plan §8.4)', () => {
         expect(catalog.workspace.failure).toHaveProperty(key);
       }
       for (const code of ['TARGET_NOT_ALLOWED', 'PROBE_TOO_LARGE']) {
-        expect(catalog.hosts.diagnostics.code).toHaveProperty(code);
+        expect(catalog.servers.diagnostics.code).toHaveProperty(code);
       }
     }
   });

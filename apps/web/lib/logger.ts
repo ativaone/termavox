@@ -2,7 +2,7 @@ import './server-guard.ts';
 
 /**
  * Keys whose values never reach the logs: the daemon's pino redaction list (tickets, prompt
- * answers, credential material, terminal bytes, profile environments and policies, HTTP auth
+ * answers, credential material, terminal bytes, server environments and policies, HTTP auth
  * headers; apps/session-manager/src/config/logger.ts) and the web's own secrets. Code never
  * logs them on purpose; redaction is the safety net.
  */

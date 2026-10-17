@@ -2,13 +2,13 @@
 
 import { useTranslations } from 'next-intl';
 import { useActionState } from 'react';
-import type { DiagnosticsState } from '../../lib/actions/host-states.ts';
+import type { DiagnosticsState } from '../../lib/actions/server-states.ts';
 import {
-  fetchHostKey,
   pretrustFingerprint,
   replaceHostKey,
+  testServer,
   trustHostKey,
-} from '../../lib/actions/hosts.ts';
+} from '../../lib/actions/servers.ts';
 import type { ManageState } from '../../lib/manage/forms.ts';
 import { ChevronRightIcon } from '../icons/index.tsx';
 import { DisclosureSummary } from '../ui/disclosure-summary.tsx';
@@ -31,14 +31,14 @@ export function FingerprintText({ value }: { value: string }) {
   return <code className="break-all font-mono text-ink text-xs leading-5">{value}</code>;
 }
 
-/** Trusts exactly the pending key with this fingerprint. */
+/** Trusts exactly the pending key with this fingerprint, for the server's address. */
 export function TrustKeyButton({
-  hostId,
+  serverId,
   keyType,
   fingerprint,
   label,
 }: {
-  hostId: string;
+  serverId: string;
   keyType: string;
   fingerprint: string;
   label: string;
@@ -46,7 +46,7 @@ export function TrustKeyButton({
   const [state, action] = useActionState(trustHostKey, {} as ManageState);
   return (
     <form action={action} className="flex flex-col items-start gap-2">
-      <input type="hidden" name="hostId" value={hostId} />
+      <input type="hidden" name="serverId" value={serverId} />
       <input type="hidden" name="keyType" value={keyType} />
       <input type="hidden" name="fingerprint" value={fingerprint} />
       <FormMessage message={state.message} />
@@ -57,26 +57,27 @@ export function TrustKeyButton({
 
 /**
  * "Replace trusted key" after a mismatch (plan §5.9): revokes the trusted key of that type and
- * trusts the given fingerprint, only once the host's name is typed to confirm.
+ * trusts the given fingerprint for the whole address, only once the address is typed to confirm.
  */
 export function ReplaceKeyForm({
-  hostId,
-  hostName,
+  serverId,
+  hostname,
   keyType,
   fingerprint,
 }: {
-  hostId: string;
-  hostName: string;
+  serverId: string;
+  /** The server's stored address, which the user types to confirm. */
+  hostname: string;
   keyType: string;
   fingerprint?: string;
 }) {
-  const t = useTranslations('hosts.diagnostics.replace');
+  const t = useTranslations('servers.diagnostics.replace');
   const tf = useTranslations('common.field');
   const [state, action] = useActionState(replaceHostKey, {} as ManageState);
   const errorPrefix = tf('errorPrefix');
   return (
     <form action={action} noValidate className="flex flex-col gap-4">
-      <input type="hidden" name="hostId" value={hostId} />
+      <input type="hidden" name="serverId" value={serverId} />
       <input type="hidden" name="keyType" value={keyType} />
       <p className="text-pretty text-base text-ink-muted">{t('intro')}</p>
       <FormMessage message={state.message} />
@@ -93,10 +94,11 @@ export function ReplaceKeyForm({
         autoCapitalize="none"
       />
       <TextField
-        name="confirmHostName"
-        label={t('confirm', { name: hostName })}
+        name="confirmHostname"
+        label={t('confirm', { hostname })}
         help={t('confirmHelp')}
-        error={state.fields?.confirmHostName}
+        defaultValue={state.values?.confirmHostname ?? ''}
+        error={state.fields?.confirmHostname}
         errorPrefix={errorPrefix}
         autoComplete="off"
         spellCheck={false}
@@ -112,14 +114,14 @@ export function ReplaceKeyForm({
 }
 
 /** Pre-trust: a fingerprint obtained out of band, recorded before any connection. */
-export function PretrustForm({ hostId }: { hostId: string }) {
-  const t = useTranslations('hosts.diagnostics.pretrust');
+export function PretrustForm({ serverId }: { serverId: string }) {
+  const t = useTranslations('servers.diagnostics.pretrust');
   const tf = useTranslations('common.field');
   const [state, action] = useActionState(pretrustFingerprint, {} as ManageState);
   const errorPrefix = tf('errorPrefix');
   return (
     <form action={action} noValidate className="flex flex-col gap-4">
-      <input type="hidden" name="hostId" value={hostId} />
+      <input type="hidden" name="serverId" value={serverId} />
       <p className="text-pretty text-base text-ink-muted">
         {t('intro')} <code className="font-mono text-ink text-sm">{t('command')}</code>
       </p>
@@ -152,7 +154,7 @@ export function PretrustForm({ hostId }: { hostId: string }) {
 }
 
 function ProbeReport({ result }: { result: NonNullable<DiagnosticsState['result']> }) {
-  const t = useTranslations('hosts.diagnostics.probe');
+  const t = useTranslations('servers.diagnostics.probe');
   const probe = result.probe;
   if (!probe) return null;
   const rows: Array<[string, string]> = [
@@ -194,21 +196,22 @@ function ProbeReport({ result }: { result: NonNullable<DiagnosticsState['result'
 }
 
 /**
- * "Fetch & verify" (plan §5.9): connects to the host, shows the presented key's type and SHA256
- * fingerprint, and records an unknown key as pending so it can be trusted here. With a profile
- * whose key is already trusted it also logs in and runs the capability probe.
+ * "Test connection" (plan §5.9): connects to the server's address, shows the presented key's
+ * type and SHA256 fingerprint, and records an unknown key as pending so it can be trusted here.
+ * Once the key is trusted it also signs in as the server's user and runs the capability probe.
  */
-export function FetchVerify({
-  hostId,
-  hostName,
-  profiles,
+export function TestConnection({
+  serverId,
+  hostname,
+  hasCredential,
 }: {
-  hostId: string;
-  hostName: string;
-  profiles: Array<{ id: string; name: string; username: string }>;
+  serverId: string;
+  hostname: string;
+  /** Without a stored credential the server asks in the terminal, so the probe cannot sign in. */
+  hasCredential: boolean;
 }) {
-  const t = useTranslations('hosts.diagnostics');
-  const [state, action] = useActionState(fetchHostKey, {} as DiagnosticsState);
+  const t = useTranslations('servers.diagnostics');
+  const [state, action] = useActionState(testServer, {} as DiagnosticsState);
   const result = state.result;
   const key = result?.hostKey ?? null;
   const mismatch = result?.error === 'HOST_KEY_MISMATCH';
@@ -218,25 +221,13 @@ export function FetchVerify({
   return (
     <div className="flex flex-col gap-4">
       <form action={action} className="flex flex-col gap-4">
-        <input type="hidden" name="hostId" value={hostId} />
-        {profiles.length > 0 ? (
-          <Select
-            name="profileId"
-            label={t('fetch.profile')}
-            help={t('fetch.profileHelp')}
-            defaultValue=""
-            options={[
-              { value: '', label: t('fetch.profileNone') },
-              ...profiles.map((p) => ({ value: p.id, label: `${p.name} (${p.username})` })),
-            ]}
-          />
-        ) : null}
+        <input type="hidden" name="serverId" value={serverId} />
         <div>
           <SubmitButton size="md" icon={<ChevronRightIcon size={16} />}>
-            {t('fetch.submit')}
+            {t('test.submit')}
           </SubmitButton>
         </div>
-        <p className="text-ink-muted text-sm">{t('fetch.help')}</p>
+        <p className="text-ink-muted text-sm">{t('test.help')}</p>
       </form>
 
       <div aria-live="polite" className="flex flex-col gap-4 empty:hidden">
@@ -266,7 +257,7 @@ export function FetchVerify({
               <>
                 <p className="text-pretty text-ink-muted text-sm">{t('result.compare')}</p>
                 <TrustKeyButton
-                  hostId={hostId}
+                  serverId={serverId}
                   keyType={key.type}
                   fingerprint={key.fingerprint}
                   label={t('trust')}
@@ -289,8 +280,8 @@ export function FetchVerify({
               </DisclosureSummary>
               <div className="mt-3">
                 <ReplaceKeyForm
-                  hostId={hostId}
-                  hostName={hostName}
+                  serverId={serverId}
+                  hostname={hostname}
                   keyType={key.type}
                   fingerprint={key.fingerprint}
                 />
@@ -300,12 +291,12 @@ export function FetchVerify({
         ) : null}
         {result?.reachable && key?.trusted && result.error ? (
           <Notice tone="warning" title={t('result.loginFailed')}>
-            {t(`code.${codeKey(result.error)}`)}
+            {hasCredential ? t(`code.${codeKey(result.error)}`) : t('result.noCredential')}
           </Notice>
         ) : null}
         {result?.reachable && key?.trusted && !result.probe && !result.error ? (
           <p className="text-ink-muted text-sm">
-            {state.profileName ? t('result.noProbe') : t('result.pickProfile')}
+            {hasCredential ? t('result.noProbe') : t('result.noCredential')}
           </p>
         ) : null}
         {result ? <ProbeReport result={result} /> : null}

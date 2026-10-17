@@ -82,8 +82,9 @@ Other protocols (RDP/VNC); Agent mode (outbound agent on target servers); RBAC a
 | D-24 | **License: GNU AGPL-3.0-only** (`LICENSE`, `license` field in every manifest). "Only" keeps the choice of a later GPL version with the copyright holder; widening to "or later" stays possible. | Owner, 2026-10-16 |
 | D-25 | **Pre-release routine (T2):** a `pnpm test:release` script (T0, every T1 area in sequence, Docker image builds, a scripted end-to-end smoke against the composed stack) plus a short manual checklist. No browser E2E dependency and no soak in the routine. Confirms the T1 tier. | Owner, 2026-10-16 |
 | D-26 | **New visual direction, superseding D-23** (the owner rejected the strip-board look after using it). A dark violet-navy dashboard from an owner-supplied reference (described in words only; the reference image is third-party and is not committed): deep indigo base with a violet-magenta glow at the frame edge, translucent cards with fine light borders and generous radii, cyan as the primary accent, magenta for attention, sentence-case geometric type. Dark only. UI font **Plus Jakarta Sans** (`@fontsource-variable/plus-jakarta-sans` 5.3.0, approved by the owner on trial: other fonts may be tried, and the unused ones are removed once the owner signs off). Terminal panes stay near-black and effect-free. | Owner, 2026-10-16 |
-| D-27 | **First use and server setup in one form.** "Add server" has clearly separated sections (host, sign-in profile, credential). Each section lets the user pick an existing item or create a new one (generate a key, paste a key, or a password), and the form creates whatever is missing at once. The host, profile and credential pages remain for management, and every cross-link returns to where the user came from. The first-run guidance follows the same path. **As built:** the server and the credential sections offer an existing item; the sign-in section always creates a new connection profile, because picking an existing profile would leave nothing to add. The form validates all three sections before writing anything, creates a new credential first through the daemon (the step most likely to fail), then the host and profile in one SQLite transaction, and deletes that credential again if the transaction fails. | Owner, 2026-10-16 |
+| D-27 | *(Sections and profiles superseded by D-29 on 2026-10-17; the one-form setup and the return links stand.)* **First use and server setup in one form.** "Add server" has clearly separated sections (host, sign-in profile, credential). Each section lets the user pick an existing item or create a new one (generate a key, paste a key, or a password), and the form creates whatever is missing at once. The host, profile and credential pages remain for management, and every cross-link returns to where the user came from. The first-run guidance follows the same path. **As built:** the server and the credential sections offer an existing item; the sign-in section always creates a new connection profile, because picking an existing profile would leave nothing to add. The form validates all three sections before writing anything, creates a new credential first through the daemon (the step most likely to fail), then the host and profile in one SQLite transaction, and deletes that credential again if the transaction fails. | Owner, 2026-10-16 |
 | D-28 | **Workspace UX changes:** sessions take an optional name when opened and can be renamed later (all viewers see the new name, in the list and on tabs); an account menu (name + gear) holds settings and sign-out, replacing the footer sign-out icon and the language selector; the language is a rare setting, so the menu only has a "Language…" item under Settings that opens a dialog (also on the account settings page); the session list collapses to a narrow rail from a toggle at its left; the active session is marked by fill and outline, never by shifting it sideways. | Owner, 2026-10-16 |
+| D-29 | **Servers replace hosts and connection profiles.** The owner found the host → profile → credential split confusing in practice. One **server** holds everything an `ssh user@host` command line would: name, address, port, the user name on the server, which credential (or none: the server prompts in the terminal) and the connection options (tmux protection, startup command, TERM, environment, keepalive, auto-reopen, scrollback). Duplicates are expected: the same machine as another user is another server, made with **Duplicate**. Credentials stay separate and reusable. A session is a terminal opened from a server; a server can have many. **Host-key decisions are kept per user and per address** (the normalized hostname as typed plus the port, like `known_hosts`): they apply to every server of that user with that address, are never shared between users, and outlive the servers, so deleting and re-adding a server never lets a revoked key back in. "Add server" has two sections (server, credential). Pre-release clean slate: one fresh initial migration, no migration from the old tables. | Owner, 2026-10-17 |
 
 ### 2.2 Technical decisions (orchestrator; reversible, with rationale)
 
@@ -112,17 +113,17 @@ These names are used in code, the database, the protocol and the UI. **Do not in
 
 | Term | Meaning |
 |---|---|
-| **Host** | A machine known to Termdock (`kind: ssh` with hostname/port, or `kind: local` for direct mode). Owned by one user. |
-| **Credential** | Secret material used to authenticate: a password, or a private key with an optional passphrase. Stored encrypted; owned by one user. |
-| **Connection profile** | *How* to connect: host + username + credential + options (protection mode, startup command, TERM, env, keepalive, auto-reopen, scrollback lines). |
-| **Session** | A live terminal created from a profile. Exists independently of any browser. Snapshots its target (host, port, username, credential) at creation (§9). Has an internal **state** and a user-facing **status**. |
+| **Server** | Everything one terminal needs, owned by one user (D-29): `kind: ssh` with hostname, port, user name and an optional credential, or `kind: local` for direct mode; plus the options (protection mode, startup command, TERM, env, keepalive, auto-reopen, scrollback lines). Duplicates are allowed. |
+| **Credential** | Secret material used to authenticate: a password, or a private key with an optional passphrase. Stored encrypted; owned by one user; reusable by any of the user's servers. |
+| **Address** | A server's normalized hostname (`normalizeHostname`: trimmed, lowercased, IPv6 without brackets) plus its port. Host-key decisions are kept per user and address (§5.9). |
+| **Session** | A live terminal created from a server. Exists independently of any browser. Snapshots its target (host, port, username, credential) at creation (§9). Has an internal **state** and a user-facing **status**. |
 | **Attachment** | One browser view attached to a session through a WebSocket channel. A session has 0..N attachments. |
 | **Active attachment** | The attachment that most recently sent input or explicitly took focus; it drives the session size. |
 | **Auth session** | A logged-in web session (Better Auth). Never call this just "session" in code: use `authSession`. |
 | **Transport** | How bytes reach the target: `SshTransport` (ssh2) or `LocalTransport` (child_process / node-pty). |
 | **Driver** | How the terminal is run over a transport: `RawPtyDriver`, `TmuxControlDriver`, or `TmuxNormalDriver`. |
 | **Emulator** | The server-side headless xterm instance holding the authoritative screen state of one session. Owned by the session runtime; drivers never touch it directly. |
-| **Protection mode** | The connection-profile setting `protection_mode`: `auto` (default) or `off`. |
+| **Protection mode** | The server setting `protection_mode`: `auto` (default) or `off`. |
 | **Protection** | The effective result for a session: whether the remote shell survives a lost connection — `tmux-control`, `tmux-normal` or `none`. Fixed at creation (§5.7). |
 | **Mode tracker** | Observe-only parser hooks on the server emulator that record terminal state the serialize addon does not restore (§5.3.1). |
 | **Mode epilogue** | The escape sequences generated from the mode tracker; `Emulator.snapshot()` appends them after the SerializeAddon output in every snapshot. |
@@ -153,8 +154,8 @@ These names are used in code, the database, the protocol and the UI. **Do not in
 │                              │  │                                         │
 │ UI (React + xterm.js)        │  │ :3001  WebSocket server (attachments)   │
 │ Auth (Better Auth, TOTP)     │  │ :3002  Internal API (control plane only)│
-│ Users, hosts, credentials*,  │  │                                         │
-│ profiles, layout, audit view │  │ Session registry & state machines       │
+│ Users, credentials*,         │  │                                         │
+│ servers, layout, audit view  │  │ Session registry & state machines       │
 │ WS ticket issuer             │  │ Emulators (@xterm/headless)             │
 │                              │  │ Drivers: raw / tmux-control / tmux-norm │
 │ * via :3002: the daemon      │  │ Transports: SSH (ssh2) / Local (pty)    │
@@ -175,7 +176,7 @@ These names are used in code, the database, the protocol and the UI. **Do not in
 | Concern | web (control plane) | session-manager (data plane) |
 |---|---|---|
 | Users, login, TOTP, admin | owns | validates WS tickets; re-checks auth-session validity and `banned` |
-| Hosts, profiles, layout, preferences | owns (CRUD) | reads (a session snapshots its target at creation, §9) |
+| Servers, layout, preferences | owns (CRUD) | reads (a session snapshots its target at creation, §9) |
 | Credentials | UI; create/delete through the internal API | **writes every `credentials` row; encrypts/decrypts; sole holder of the KEK** |
 | Known host keys | UI for trust decisions, through the internal API | verifies on connect; **writes every `known_host_keys` row** (pending, trust, replace, revoke) |
 | Sessions | requests create/rename/terminate/retry/reopen via the internal API; reads history | **owns runtime and lifecycle; writes `sessions` and `session_events`** |
@@ -460,16 +461,16 @@ A session's effective protection is fixed at creation. If a later reconnect find
 
 ### 5.9 Host key verification
 
-- Table `known_host_keys`: rows per host and key type, with `public_key_b64` and `status ∈ {trusted, pending, revoked}` (at most one `trusted` row per host and key type). session-manager writes every row (§9).
+- Table `known_host_keys`: rows per **user and address** (normalized hostname + port, D-29) and key type, with `public_key_b64` and `status ∈ {trusted, pending, revoked}` (at most one `trusted` row per user, address and key type). A decision therefore applies to every server of that user with that address, is never shared between users, and has no foreign key to `servers`: deleting a server keeps its address's decisions, so a revoked key cannot come back through a re-added server. Rows go only with the user (cascade); `pending` rows expire as below. session-manager writes every row (§9).
 - **Fingerprint format.** Fingerprints are compared in OpenSSH format `SHA256:<unpadded base64>` (43 base64 characters). Pasted pre-trust fingerprints are normalized to that form (trimmed, `SHA256:` prefix added if missing, `=` padding removed) before storage or comparison.
 - The ssh2 `hostVerifier(key, callback)` async form computes the fingerprint and the key type (parsed from the key blob).
   - **Trusted match** → continue.
-  - **Revoked key** (its fingerprint matches a `revoked` row of the host) → handled like a mismatch, also when nothing is trusted any more: `failed` with `HOST_KEY_MISMATCH`, `hostkey.prompt { …, mismatch: true, revoked: true }`, audit `host_key.revoked_presented`. It is never recorded as pending; `hostkey.decision` and `trust-key` refuse it, and only replace-key trusts it again.
-  - **No trusted key for this host (unknown key)** → store the key as `status 'pending'` (with `public_key_b64`), **abort the connection**, and move the session to `awaiting_host_key`; broadcast `hostkey.prompt { sessionId, keyType, fingerprint, mismatch: false }`. The client answers `hostkey.decision { sessionId, fingerprint, accept }`. Accept → the daemon trusts exactly that pending key, matched by fingerprint (audit event), and reconnects. Reject → `failed`.
-  - **On the reconnect**, a different key produces a new prompt if the host still has no trusted key, or a mismatch if a trusted key exists.
-  - **Mismatch with a trusted key** → `failed` with code `HOST_KEY_MISMATCH`, a red alert, and an audit event. There is **no in-flow accept**. The owner must go to the host page and "Replace trusted key", typing the host name to confirm (`POST /internal/v1/hosts/:id/replace-key`); "Revoke" marks a trusted key `revoked` (`…/revoke-key`).
+  - **Revoked key** (its fingerprint matches a `revoked` row of the address) → handled like a mismatch, also when nothing is trusted any more: `failed` with `HOST_KEY_MISMATCH`, `hostkey.prompt { …, mismatch: true, revoked: true }`, audit `host_key.revoked_presented`. It is never recorded as pending; `hostkey.decision` and `trust-key` refuse it, and only replace-key trusts it again.
+  - **No trusted key for this address (unknown key)** → store the key as `status 'pending'` (with `public_key_b64`), **abort the connection**, and move the session to `awaiting_host_key`; broadcast `hostkey.prompt { sessionId, keyType, fingerprint, mismatch: false }`. The client answers `hostkey.decision { sessionId, fingerprint, accept }`. Accept → the daemon trusts exactly that pending key, matched by fingerprint (audit event), and reconnects. Reject → `failed`.
+  - **On the reconnect**, a different key produces a new prompt if the address still has no trusted key, or a mismatch if a trusted key exists.
+  - **Mismatch with a trusted key** → `failed` with code `HOST_KEY_MISMATCH`, a red alert, and an audit event. There is **no in-flow accept**. The owner must go to a server page with that address and "Replace trusted key", typing the hostname to confirm (`POST /internal/v1/servers/:id/replace-key`); "Revoke" marks a trusted key `revoked` (`…/revoke-key`). The page says the decision applies to all of the user's servers at that address.
   - **Pending rows expire after 24 h.** A decision that arrives after its pending row expired trusts nothing; the next connect attempt prompts again.
-- Pre-trust options on the host form: paste an expected fingerprint (normalized, then recorded as trusted via `trust-key`), or "Fetch & verify" (internal API `hosts/:id/test`), which records the presented key as `pending` and shows its fingerprint before any session exists; the user then trusts it via `trust-key`.
+- Pre-trust options on the server page: paste an expected fingerprint (normalized, then recorded as trusted via `trust-key`), or "Test connection" (internal API `servers/:id/test`), which records the presented key as `pending` and shows its fingerprint before any session exists; the user then trusts it via `trust-key`.
 - Never `StrictHostKeyChecking=no`, in any code path, including tests (tests use pre-seeded keys).
 
 ### 5.10 Keyboard-interactive relay
@@ -503,7 +504,7 @@ exec sh -c '
 
 The probe prints `tmux_path=<absolute path>` and a concrete `utf8_locale=<name>`; the launch uses that absolute tmux path and exports `LC_CTYPE=<utf8_locale>` (§6.3). The probe's key/value output is stored on the session (`probe_json`). Mode selection:
 
-| Profile `protection_mode` | Probe result | Effective protection |
+| Server `protection_mode` | Probe result | Effective protection |
 |---|---|---|
 | `auto` (default) | tmux ≥ 3.2 and a UTF-8 locale | `tmux-control` |
 | `auto` | tmux present but < 3.2 (or control mode unusable) | `tmux-normal` (until P7 ships: `none` + "tmux too old" notice) |
@@ -545,7 +546,7 @@ Naming: socket `td-<installationId[0:8]>-<session.tmuxToken>`, where `tmuxToken`
 ```sh
 # Sent over an SSH exec channel (no PTY) as:  exec sh -c '<script>'   (§5.11 remote command rule)
 # Example <script>, with values from the probe and the session:
-#   tmux_path=/usr/bin/tmux · utf8_locale=C.UTF-8 · scrollback_lines=5000 · profile env EDITOR=vim
+#   tmux_path=/usr/bin/tmux · utf8_locale=C.UTF-8 · scrollback_lines=5000 · server env EDITOR=vim
 # `exec /usr/bin/tmux` becomes `exec systemd-run --user --scope --quiet /usr/bin/tmux` only under the §5.11 logind rules.
 export LC_CTYPE=C.UTF-8
 exec /usr/bin/tmux -u -L td-1a2b3c4d-k3j9x2m8q0wz -f /dev/null -C \
@@ -564,7 +565,7 @@ Notes and rules:
 
 - **Always `-u`, and export `LC_CTYPE`.** Without `-u`, command output is sanitized to `_` for non-ASCII when the exec channel has no UTF-8 locale. The remote tmux server also needs a UTF-8 locale: the launch exports `LC_CTYPE=<utf8_locale>` from the probe.
 - **Absolute tmux path** from the probe (`tmux_path`), so the launch does not depend on the PATH of a non-login `sh`.
-- `history-limit` = the session's `scrollback_lines` (from the profile; never hard-coded).
+- `history-limit` = the session's `scrollback_lines` (from the server; never hard-coded).
 - `-f /dev/null` applies only when this invocation starts the server. Options are re-applied harmlessly on reattach. Exact quoting and option ordering **[SPIKE S2]**.
 - `default-terminal`: use `tmux-256color` if the probe found its terminfo, else `screen-256color`.
 - **Pane command**: `exec env -u TMUX -u TMUX_PANE "$SHELL" -l`, or, with a startup command, `exec env -u TMUX -u TMUX_PANE "$SHELL" -lc '<quoted startup>'`. Profile env vars (`env_json`) are passed as `new-session -e KEY=VALUE`, one per variable.
@@ -755,13 +756,15 @@ Evolution: additive changes stay in v1 (receivers ignore unknown fields and unkn
 | `/setup` | First-run only: create the first admin. Requires the one-time **setup token** printed in the web logs at boot while no user exists. Returns 404 afterwards. |
 | `/login`, `/login/two-factor` | Username/password, then TOTP (with "trust this device for 30 days"). A pending forced password change (`must_change_password`) or required TOTP enrollment (`totp_required` or the instance-wide requirement) is completed before any other page opens. |
 | `/workspace` | The terminal workspace (§11). Default landing page. |
-| `/hosts`, `/hosts/[id]` | Hosts, with profiles managed inside the host detail. Host diagnostics (probe report, logind/linger warning, trusted and pending keys, "Fetch & verify", "Replace trusted key", "Revoke"). "Add this Docker host" preset (§13.4). Deleting a host or profile referenced by a non-ended session is rejected (§8.2). |
-| `/hosts/new` | **Add server** (D-27): server (new, or one already added), sign-in (always a new profile; advanced options behind a disclosure) and credential (generate a key, paste a key, a password, or a saved credential; none for a local shell) in one form. The result shows in place: the public key and install command of a generated key, "Start a session" (opens `/workspace?open=<sessionId>`), the way back and the host's page. Links to the Docker host preset. |
+| `/servers` | The user's servers (D-29): name, `user@address` (`:port` when not 22), the credential or "None", Edit and Duplicate. With none yet, the empty state leads to Add server and the Docker host preset. |
+| `/servers/new` | **Add server** (D-27, D-29): two sections in one form. Server: name, address, port (22), user name on the server (the `local` kind only for admins when the instance allows it, without address, user or credential), and the options behind an "Advanced" disclosure (protection, startup command, env, keepalive, scrollback, auto-reopen). Credential: generate a key (recommended), paste a key (+ passphrase), a password, a saved credential, or none (the server asks for the password in the terminal); the name defaults to `<user>@<server name>`. Validates everything first, creates a new credential through the daemon, then inserts the server, and deletes that credential again if the insert fails. The result shows in place: the public key, install command and fingerprint of a generated key (the fingerprint of a pasted one), "Start a session" (opens `/workspace?open=<sessionId>`), the way back and the server's page. `?duplicate=<id>` prefills every field from one of the user's servers (name + " (copy)", the same credential or none; another user's id gives an empty form); nothing is written until the user saves. Links to the Docker host preset. |
+| `/servers/[id]` | A server's page: edit every field (credential: a saved one or none, with a "New credential" link that returns here), Duplicate, and delete (rejected while a non-ended session came from it, §8.2). Diagnostics for SSH servers: "Test connection" (reachability, host key, probe summary; the probe needs a stored credential to sign in) and the host keys of the server's address (trust a pending key, pre-trust a fingerprint, replace after a mismatch by typing the address, revoke). A decision applies to all of the user's servers at that hostname and port (§5.9). |
+| `/servers/docker` | "Add this Docker host" preset (§13.4): a generated key plus a server `user@host.docker.internal:22` that uses it. |
 | `/credentials` | Create (password / paste private key / **generate ed25519 key** and show the public key), rename, delete (rejected while referenced by a non-ended session). Secrets are never displayed after creation. |
-| `?from=` | Return path (D-27) on `/hosts/new` and `/credentials`: a "Back to …" link to an allowlisted in-app page (`/workspace`, `/hosts`, `/hosts/new`, `/hosts/[id]`, `/credentials`, matched whole by `safeReturnPath`; anything else is dropped). The first-run panel, the host page's "New credential" link and the palette carry it. |
+| `?from=` | Return path (D-27) on `/servers/new`, `/servers/[id]` and `/credentials`: a "Back to …" link to an allowlisted in-app page (`/workspace`, `/servers`, `/servers/new`, `/servers/[id]`, `/credentials`, matched whole by `safeReturnPath`; anything else is dropped). The first-run panel, the servers list, Duplicate, the server page's "New credential" link and the palette carry it. |
 | `/activity` | The user's own session history and events. |
 | `/settings/account` | Password, TOTP enroll/disable, language, theme. |
-| `/settings/terminal` | Font, size, color scheme, cursor, clipboard (OSC 52) permission, link-opening confirmation. (Scrollback is per connection profile, §5.3.) |
+| `/settings/terminal` | Font, size, color scheme, cursor, clipboard (OSC 52) permission, link-opening confirmation. (Scrollback is set per server, §5.3.) |
 | `/admin/users` | Create users (temporary password with a forced change on first login — `must_change_password`; role; require TOTP — `totp_required`), disable/enable (Better Auth admin plugin `banned`; disabling revokes the user's auth sessions and closes their WebSockets, while their terminal sessions keep running unless the admin ticks "also terminate sessions"), reset TOTP, revoke auth sessions. |
 | `/admin/settings` | Instance settings (`instance_settings`, §9): require TOTP for everyone (`require_totp`), maximum running sessions per user (`max_running_sessions_per_user`, default 50), local direct-mode visibility (`local_shell_visible`; only effective with the daemon flag on, once direct mode ships in Phase 6). There is no idle-timeout setting: web auth sessions use the 7-day sliding expiry (§10.2). |
 | `/admin/audit` | Audit log viewer with filters. |
@@ -780,22 +783,24 @@ Bearer token: the trimmed content of the file named by `TERMDOCK_INTERNAL_TOKEN_
 
 | Method & path | Body → Result |
 |---|---|
-| `POST /internal/v1/sessions` | `{ actingUserId, profileId, label?, viewport }` → `{ sessionId }`. Snapshots the target (§9). Rejected when the user already has the maximum number of running sessions (instance setting, default 50), and for `kind: local` when direct mode is off or the acting user is not an admin. Without `label` the session takes the profile's name; a given label follows the rename rules below. |
+| `POST /internal/v1/sessions` | `{ actingUserId, serverId, label?, viewport }` → `{ sessionId }`. The server must belong to the acting user (else `404`), and so must its credential, if any. Snapshots the target from the server (§9; a local session: `localhost`, port 0, no user name) and links the session to it (`server_id`; the `created` event's detail is `{ serverId }`). Rejected when the user already has the maximum number of running sessions (instance setting, default 50), and for `kind: local` when direct mode is off or the acting user is not an admin. Without `label` the session takes the server's name; a given label follows the rename rules below. |
 | `PATCH /internal/v1/sessions/:id` | `{ actingUserId, label }` → `{ sessionId, label }` with the label as stored (D-28). Control characters and invisible formatting (bidi controls, zero-width characters) are dropped with the stripper used for terminal titles and keyboard-interactive prompts, then the label is trimmed and must keep 1–120 characters, else `400 LABEL_INVALID`. Allowed in every state, `ended` included. Audited as `session.rename` (`{ previousLabel, label }`); every WebSocket of the owner gets a `session.upsert`. |
 | `POST /internal/v1/sessions/:id/terminate` | `{ actingUserId }` → `204` (`desired_state = terminated`) |
-| `POST /internal/v1/sessions/:id/retry` | `{ actingUserId }` → `204`. Restarts the connect loop with the same `tmux_token` (reattaches the same tmux session); skips any remaining backoff wait ("Retry now"). |
-| `POST /internal/v1/sessions/:id/reopen` | `{ actingUserId }` → `{ sessionId }`. New shell, same id, new runtime; `desired_state` back to `running`. Only for `ended` sessions or sessions with protection `none`; otherwise `409 CONFLICT`. |
+| `POST /internal/v1/sessions/:id/retry` | `{ actingUserId }` → `204`. Restarts the connect loop with the same `tmux_token` (reattaches the same tmux session); skips any remaining backoff wait ("Retry now"). A session whose server was deleted → `404 NOT_FOUND` ("server was deleted"). |
+| `POST /internal/v1/sessions/:id/reopen` | `{ actingUserId }` → `{ sessionId }`. New shell, same id, new runtime; `desired_state` back to `running`. Only for `ended` sessions or sessions with protection `none`; otherwise `409 CONFLICT`. A session whose server was deleted → `404 NOT_FOUND` ("server was deleted"), nothing changes. |
 | `GET /internal/v1/sessions?actingUserId=` | → live runtime statuses (authoritative) |
 | `POST /internal/v1/credentials` | `{ actingUserId, name, kind: 'password', password }` · `{ actingUserId, name, kind: 'private_key', privateKey, passphrase? }` · `{ actingUserId, name, kind: 'generate', algorithm: 'ed25519' }` → `{ credentialId, publicKey, fingerprint }` (`publicKey`/`fingerprint` null for passwords) |
 | `PATCH /internal/v1/credentials/:id` | `{ actingUserId, name }` → `204` (rename; the only mutable field) |
 | `DELETE /internal/v1/credentials/:id` | `{ actingUserId }` → `204`; `409 CONFLICT` while referenced by a non-ended session |
-| `POST /internal/v1/hosts/:id/test` | `{ actingUserId, profileId? }` → `{ reachable, hostKey: { type, fingerprint, trusted }, probe? }`. An unknown key is recorded as `pending`, so it can then be trusted with `trust-key`. |
-| `POST /internal/v1/hosts/:id/trust-key` | `{ actingUserId, keyType, fingerprint }` → `204`. Trusts the pending key with that fingerprint; with no pending match, records a pasted pre-trust fingerprint (normalized, §5.9). |
-| `POST /internal/v1/hosts/:id/replace-key` | `{ actingUserId, keyType, fingerprint, confirmHostName }` → `204`. After a mismatch: revokes the trusted key of that type and trusts the given fingerprint; `confirmHostName` must equal the host name. |
-| `POST /internal/v1/hosts/:id/revoke-key` | `{ actingUserId, keyType }` → `204`. Marks the trusted key of that type `revoked`. |
+| `POST /internal/v1/servers/:id/test` | `{ actingUserId }` → `{ reachable, error, hostKey: { type, fingerprint, trusted }, probe, revoked? }` ("Fetch & verify", at most 10 per user and minute). Connects to the server's address; an unknown key is recorded as `pending` for that address, so it can then be trusted with `trust-key`. Only with a trusted key and a stored credential does it sign in (the server's user name and credential) and run the capability probe; without a credential it stops after the host key, so no failed login reaches the host. |
+| `POST /internal/v1/servers/:id/trust-key` | `{ actingUserId, keyType, fingerprint }` → `204`. Trusts the pending key with that fingerprint; with no pending match, records a pasted pre-trust fingerprint (normalized, §5.9). |
+| `POST /internal/v1/servers/:id/replace-key` | `{ actingUserId, keyType, fingerprint, confirmHostname }` → `204`. After a mismatch: revokes the trusted key of that type and trusts the given fingerprint; `confirmHostname` must equal the server's stored hostname (both normalized), else `400` and nothing changes. |
+| `POST /internal/v1/servers/:id/revoke-key` | `{ actingUserId, keyType }` → `204`. Marks the trusted key of that type `revoked`. |
 | `POST /internal/v1/users/:id/terminate-sessions` | `{ actingUserId }` → `{ terminated }`. Admin only (acting user must be an admin and not banned → else `403`); terminates every non-ended session of the target user (used by the admin "disable user" flow). |
 | `POST /internal/v1/auth-sessions/revoke` | `{ authSessionId? , userId? }` → `204`; closes the matching WebSockets |
 | `GET /internal/v1/health` | → `{ ok, sessions, uptimeMs, version }` |
+
+The four `servers/:id` routes need a server of the acting user (else `404`; a local server has no address → `400`). The server id only names the address and proves ownership: every host-key decision is stored for the user's normalized hostname and port, so it applies to all of that user's servers with that address, never to another user's (§5.9). Their `host_key.*` audit rows target the server of the route (`targetType: 'server'`; at connect time the session's server, or none once it is gone) and carry `{ hostname, port }` in their detail.
 
 ### 8.4 i18n
 
@@ -818,12 +823,19 @@ Conventions: `snake_case` tables and columns; UUIDv7 text ids; timestamps as int
 **Application tables**
 
 ```text
-hosts                 id, user_id→user, name, kind('ssh'|'local'), hostname, port, tags_json,
+servers               id, user_id→user, name, kind('ssh'|'local'),
+                      hostname, port, username,                    -- null only for kind 'local' (CHECK);
+                                                                   -- hostname stored normalized
+                      credential_id→credentials (nullable, ON DELETE SET NULL; null = prompt in the terminal),
+                      protection_mode('auto'|'off'), startup_command,
+                      term(default 'xterm-256color'), env_json, keepalive_interval_s(default 15),
+                      auto_reopen(default 1), scrollback_lines(default 5000),
                       created_at, updated_at
 
-known_host_keys       id, host_id→hosts, key_type, public_key_b64 (null for a pasted pre-trust
-                      until first match), fingerprint_sha256 ('SHA256:<43 chars>'),
-                      status('trusted'|'pending'|'revoked'),       -- ≤ 1 trusted per host+key_type;
+known_host_keys       id, user_id→user, hostname, port,             -- the address (D-29); no FK to servers
+                      key_type, public_key_b64 (null for a pasted pre-trust until first match),
+                      fingerprint_sha256 ('SHA256:<43 chars>'),
+                      status('trusted'|'pending'|'revoked'),       -- ≤ 1 trusted per user+address+key_type;
                       first_seen_at, decided_by→user, decided_at   -- pending expires 24 h after first_seen_at
 
 credentials           id, user_id→user, name, kind('password'|'private_key'),
@@ -831,18 +843,12 @@ credentials           id, user_id→user, name, kind('password'|'private_key'),
                       ciphertext, nonce, key_version,              -- AES-256-GCM of the JSON envelope (§10.2)
                       created_at, last_used_at
 
-connection_profiles   id, user_id→user, host_id→hosts, credential_id→credentials (nullable),
-                      name, username, protection_mode('auto'|'off'), startup_command,
-                      term(default 'xterm-256color'), env_json, keepalive_interval_s(default 15),
-                      auto_reopen(default 1), scrollback_lines(default 5000),
-                      created_at, updated_at
-
 sessions              id, user_id→user,
-                      profile_id→connection_profiles (nullable, ON DELETE SET NULL; history survives),
-                      target_kind('ssh'|'local'), target_host_id→hosts (nullable, ON DELETE SET NULL),
-                      target_hostname, target_port, target_username,
+                      server_id→servers (nullable, ON DELETE SET NULL; history survives),
+                      target_kind('ssh'|'local'),
+                      target_hostname, target_port, target_username,   -- local: 'localhost', 0, ''
                       target_credential_id→credentials (nullable, ON DELETE SET NULL),
-                      term, scrollback_lines,                      -- copied from the profile at creation
+                      term, scrollback_lines,                      -- copied from the server at creation
                       label, desired_state('running'|'terminated'), state, status,
                       protection_effective('tmux-control'|'tmux-normal'|'none'),
                       tmux_token, tmux_version, remote_identity_json,  -- session_created, pane_pid
@@ -864,14 +870,14 @@ instance_settings     key (PK), value_json, updated_at            -- e.g. instal
                                                                   -- require_totp, max_running_sessions_per_user
 ```
 
-**Live sessions vs edits and deletes.** A session snapshots its target at creation (`target_*`, plus `term` and `scrollback_lines`), so later edits to the profile's host, username or credential affect only new sessions. Launch settings (`startup_command`, `env_json`) only matter when the remote shell or tmux session is created; policies (`keepalive_interval_s`, `auto_reopen`, `protection_mode` for future reopens) are read live from the profile. Deleting a host, profile or credential referenced by a non-ended session is rejected (`409 CONFLICT`, §8.2). `desired_state` transitions are in §5.7.
+**Live sessions vs edits and deletes.** A session snapshots its target at creation (`target_*`, plus `term` and `scrollback_lines`), so later edits to the server's address, user name or credential affect only new sessions. Launch settings (`startup_command`, `env_json`) only matter when the remote shell or tmux session is created; policies (`keepalive_interval_s`, `auto_reopen`, `protection_mode` for future reopens) are read live from the server. Deleting a server or credential referenced by a non-ended session is rejected (`409 CONFLICT`, §8.2). `desired_state` transitions are in §5.7.
 
 **Write ownership** (per table). It prevents logical conflicts between the two processes; it does **not** avoid write contention, because SQLite serializes writers globally (see "Writers and lock waits" above).
 
 | Writer | Tables |
 |---|---|
 | session-manager | `sessions`; `session_events`; all of `credentials` (rows created and deleted via the internal API, `last_used_at`); all of `known_host_keys` (pending, trust, replace, revoke via the internal API); `instance_settings` keys `installation_id` and `vault_key_check`; `audit_events` for host-key, credential and session-rename events; the retention purge, which deletes old `audit_events` and `session_events` rows whoever wrote them (§10.2) |
-| web | auth tables; `hosts`; `connection_profiles`; `workspace_layouts`; `user_preferences`; every other `instance_settings` key; every other `audit_events` row |
+| web | auth tables; `servers`; `workspace_layouts`; `user_preferences`; every other `instance_settings` key; every other `audit_events` row |
 
 Both processes may read everything. WAL works across the two containers because they share a local Docker volume on the same kernel; network filesystems are not supported (documented). A daemon running on the host with web in a container (direct-mode testing, §13.3) shares the WAL safely only on a Linux host.
 
@@ -919,11 +925,11 @@ Honest limits:
 - **Terminal escape safety.** OSC 52 clipboard writes are disabled by default (per-user opt-in). Links open only after the UI's confirmation showing the full URL (the user's preference and the in-pane link panel), only for `http(s)`, with `noopener,noreferrer`: plain-text URLs through the web-links addon and OSC 8 hyperlinks through xterm's `linkHandler`, so xterm never opens one on its own. Titles are sanitized and length-capped, without controls, bidi overrides or zero-width characters (daemon and web strip the same set). No OSC passthrough to the DOM.
 - **Host keys (§5.9).** A key the owner revoked fails closed like a mismatch, also when nothing else is trusted: no first-use prompt, no in-flow accept, `trust-key` (pre-trust included) and `hostkey.decision` refuse it, and only `replace-key` (host name confirmed) can trust it again. The prompt carries `revoked: true` and the workspace says so; the event is audited as `host_key.revoked_presented`. A key that is neither trusted nor revoked is first use again (a rotated server). Host keys are verified with SHA-2 signatures only (`ssh-rsa`/SHA-1 is never offered).
 - **SSH target policy.** The daemon resolves each host name itself, through the socket's lookup, and connects only to an address that passed the check (no second resolution). Refused by default, for sessions and host tests: loopback, link-local, unspecified, multicast and the daemon's own interface addresses, IPv4-mapped forms included. Private LAN ranges and the Docker host gateway stay allowed; `TERMDOCK_SSH_ALLOW_LOCAL_TARGETS=true` allows everything. A refused session fails with `TARGET_NOT_ALLOWED` and is not retried. Host tests are limited to 10 per user per minute.
-- **Launch parameters and remote output.** Profile startup commands and environment values are single lines without C0 controls (TAB allowed), checked by the form; a value the remote command builders still refuse (a profile or probe value) fails the session with `BAD_LAUNCH_PARAMS` instead of a reconnect loop. A trailing `;` in tmux argv words is escaped as `\;`. Capability-probe stdout is read up to 64 KiB (then the channel is closed and the probe fails like a timeout), each probe value is cut to 256 characters, and `probe_json` above 16 KiB is dropped.
+- **Launch parameters and remote output.** Server startup commands and environment values are single lines without C0 controls (TAB allowed), checked by the form; a value the remote command builders still refuse (a server or probe value) fails the session with `BAD_LAUNCH_PARAMS` instead of a reconnect loop. A trailing `;` in tmux argv words is escaped as `\;`. Capability-probe stdout is read up to 64 KiB (then the channel is closed and the probe fails like a timeout), each probe value is cut to 256 characters, and `probe_json` above 16 KiB is dropped.
 - **Keyboard-interactive prompts (§5.10).** Host text is capped (name 256, instructions 2048, prompt 256, 16 prompts) and stripped of controls and invisible formatting by the daemon. The panel always shows Termdock's own title and the line "Host user@host asks:", with the host's name and instructions quoted beneath as host content, never as the panel's own words.
 - **Resource caps.** Per user: 16 WebSocket connections (the next one closes with 4429) and 64 attached channels across them (more attaches get `RATE_LIMITED`); per connection: 32 channels (one more attach closes the connection with `4400`, a client protocol error) and 64 messages in flight (`4429` beyond). A runtime whose session is not meant to run and has no attachment is evicted after 60 s idle. Compose sets `mem_limit` and `pids_limit` on every container (§13.1).
 - **Revocation.** Besides admin ban and password reset, a user's own password change, an admin TOTP reset and sign-out close the affected WebSockets at once through `auth-sessions/revoke` instead of at the next 60 s revalidation (a TOTP reset also revokes the user's auth sessions). The daemon takes the rightmost `X-Forwarded-For` value that is not a trusted proxy.
-- **Logging hygiene.** pino `redact` for passwords, keys, tickets, cookies, tokens, `authorization`, profile `env`/`policies` and `auth.response` answers; the web logger censors the same keys in structured fields and in JSON embedded in messages. Terminal input/output bytes are never logged. No terminal recording in MVP; when it comes, it is opt-in and encrypted (§18).
+- **Logging hygiene.** pino `redact` for passwords, keys, tickets, cookies, tokens, `authorization`, server `env`/`policies` and `auth.response` answers; the web logger censors the same keys in structured fields and in JSON embedded in messages. Terminal input/output bytes are never logged. No terminal recording in MVP; when it comes, it is opt-in and encrypted (§18).
 - **Audit.** `audit_events`: login success/failure and lockout, TOTP enable/disable/reset, user create/ban/unban, role change, credential create/rename/delete, session rename, host-key pending/trust/replace/revoke/mismatch and revoked key presented, local (direct-mode) session start, admin setting changes, auth-session revocation. `session_events`: created, attached, detached (with IP and user agent), connected, lost, reconnected, restored, degraded, ended. **Retention:** `TERMDOCK_EVENT_RETENTION_DAYS` (default 180; `0` keeps rows forever; otherwise 7 to 3650, anything else fails the boot). session-manager's retention job (`store/retention.ts`) deletes the rows of both tables older than that, whoever wrote them (web's audit events included: retention applies to the table), a few minutes after boot and then every 6 hours, on unref'd timers stopped at shutdown. It deletes the oldest rows first, 500 per batched-writer op, yielding between chunks (§9); both tables have a `created_at` index (`session_events_created_idx` came with migration `0002`). It logs the per-table counts and the cutoff, never row contents. A session parked in `failed` for longer than the retention loses its specific failure code (its `state_changed` events age out) and shows the generic failure text.
 - **Local direct mode.** Off unless `TERMDOCK_ENABLE_LOCAL_SHELL=true` on the daemon **and** enabled in admin settings. Admin-only (the internal API rejects `kind: local` for non-admins). Spawns shells as the daemon's OS user, which can read the master key and the DB, so enabling it gives admins effective access to the vault (§10.1). Recommended only outside containers, with a separate unprivileged UID for spawned shells (documented in the direct-mode guide). Every local session start is audited.
 - **Containers.** Both images run as a fixed shared non-root UID/GID (`10001:10001`); read-only root filesystem with `tmpfs: /tmp` (writable data volume; web also gets a tmpfs at `/app/apps/web/.next/cache`); `cap_drop: [ALL]`, `no-new-privileges`, no Docker socket mounted; memory and process limits (`TERMDOCK_DAEMON_MEM_LIMIT` 1g, `TERMDOCK_WEB_MEM_LIMIT` 768m, Caddy 256m; pids 512/256/128) (§13.1).
@@ -970,7 +976,7 @@ The skill's own rule applies: verification happens in bounded passes, never as o
 ```
 
 - **Sidebar**: sessions grouped by host, each with its status chip (§5.6), a shield for protected sessions (tooltip: "Survives restarts and network drops"; a hollow shield for compatibility mode; none plus a tooltip for unprotected; the warning "remote may kill tmux on disconnect — enable linger" when the §5.11 logind rules give no reliable protection), and uptime. Context menu: rename, open in a new tab, split right/down, terminate (confirmation), reopen (only for ended or unprotected sessions, §5.7). "Ended" collapses the last 20.
-- **New session**: command palette (`Ctrl/Cmd+K`) to search profiles. Also "New session" on a host's page.
+- **New session**: command palette (`Ctrl/Cmd+K`) to search servers, with an optional session name. "Start a session" also follows "Add server".
 - **Tabs and splits**: each tab holds a split tree (§9). Panes are resizable. **Closing a pane or tab only detaches.** The session keeps running in the sidebar. Terminating is always explicit.
 - **Background tabs**: only the active tab's panes are mounted (attached), so a background tab gets no title or bell updates until it is shown again. Accepted MVP trade-off.
 - **Layout persistence**: saved to `/api/layout` (debounced 1 s; `PUT` with `If-Match: <version>`; on `409` the client reloads and re-applies, §8.2). Opening Termdock in any browser restores tabs, splits and the attached sessions, with snapshots (fidelity per §5.3.1). Panes bound to ended sessions show "Session ended — Reopen".
@@ -1332,14 +1338,15 @@ Run before tagging every release, one step at a time (heavy steps never in paral
    **The smoke** is isolated from any real install: compose project `termdock-smoke`, throwaway named volumes, secrets from `init-secrets.sh` in a temporary directory, Caddy on `127.0.0.1:18080` / `127.0.0.1:18443`, and the test-only override [`test/release/compose.smoke.yaml`](../test/release/compose.smoke.yaml), which adds a test sshd (the already-built `termdock-test-sshd:tmux-3.4` image, test-only keys) on the edge network and moves the edge subnet off the deployment's `172.30.10.0/24`. The deploy scripts reach that stack through opt-in variables (`COMPOSE_PROJECT_NAME`, which docker compose reads itself, plus `TERMDOCK_COMPOSE_OVERRIDE`, `TERMDOCK_SECRETS_DIR` and `TERMDOCK_BACKUP_DIR`); unset, they behave exactly as before. The flow:
    1. the one-time setup token from web's log, the first admin at `/setup` (then `/setup` is a 404);
    2. sign out, sign in at `/login`;
-   3. "Add server" (D-27) in one form: a new server (the test sshd), a sign-in and the pasted test private key as a new credential (its fingerprint checked on the Credentials page); the result shows in place, and its "Start a session" lands in the workspace through `/workspace?open=<id>`, which opens that session in the focused pane and cleans the URL;
+   3. "Add server" (D-29) in one form: the server (the test sshd: name, address, port, user name) and the pasted test private key as a new credential; the result shows in place with the key's fingerprint (checked), and its "Start a session" lands in the workspace through `/workspace?open=<id>`, which opens that session in the focused pane and cleans the URL;
    4. that session: trust the host key on first use (fingerprint checked), then Connected and protected;
    5. `echo termdock-smoke-<random>`, read back from xterm's rows;
    6. rename the session through its menu's "Rename…" dialog (D-28): the new name shows on its row and its tab;
    7. restart session-manager: the pane shows "Restoring…", then Connected with the earlier output still on screen;
-   8. `deploy/scripts/rotate-master-key.sh --yes`, then a new session from the palette with the same credential connects (the credential decrypts under the new key);
-   9. terminate both sessions;
-   10. `deploy/scripts/backup.sh`: a backup file that passes the script's integrity check, checked again on the host copy (`node:sqlite`), including the renamed session's stored label.
+   8. `deploy/scripts/rotate-master-key.sh --yes`, then a new session from the server in the palette connects with the same credential (it decrypts under the new key);
+   9. Duplicate the server on its page and save the copy unchanged (same address, same saved credential); a session from the copy connects with no host-key prompt, since trust is per address (D-29);
+   10. terminate all three sessions;
+   11. `deploy/scripts/backup.sh`: a backup file that passes the script's integrity check, checked again on the host copy (`node:sqlite`): two servers at the same address with the same credential, exactly one trusted `known_host_keys` row for that address, and the renamed session's stored label.
 
    It also fails on any CSP violation the browser reports during the flow (Phase 8 H). Every check prints a PASS/FAIL line; on failure the smoke saves a screenshot and the last 100 log lines of each service to a temporary directory and prints its path. It always tears down, also on failure and Ctrl-C: `docker compose -p termdock-smoke down -v` (that project only) and the temporary secrets. The `termdock-smoke-*` images stay for the next run.
 

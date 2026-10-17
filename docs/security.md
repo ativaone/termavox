@@ -19,11 +19,12 @@ holds SSH sessions open on the server side, and lets browsers type into them. Wh
 controls a Termdock instance can reach every server its users registered. Run it, and decide
 who may use it, the way you would a jump host.
 
-Inside one instance there are two roles, `admin` and `user`. Every host, credential, connection
-profile and session belongs to exactly one user, and nothing is shared between users. Admins
-manage accounts and instance settings. Apart from the audit log, which records credential names
-and host-key events of every user, the UI does not show them other users' hosts, credentials or
-terminals; they are trusted nonetheless (see [Admins](#admins-are-trusted)).
+Inside one instance there are two roles, `admin` and `user`. Every server, credential, session
+and host-key decision belongs to exactly one user, and nothing is shared between users (two users
+who register the same machine each have their own server and decide on its host key alone).
+Admins manage accounts and instance settings. Apart from the audit log, which records credential
+names and host-key events of every user, the UI does not show them other users' servers,
+credentials or terminals; they are trusted nonetheless (see [Admins](#admins-are-trusted)).
 
 ## Components and trust boundaries
 
@@ -48,7 +49,7 @@ flowchart LR
 |---|---|---|
 | Browser | The auth-session cookie; the terminal view (xterm.js) | Untrusted. Never the source of truth for terminal state; it renders and sends input. |
 | Caddy | TLS keys and its local CA (`caddy-data` volume) | The only published service. Routes `/ws` to session-manager and everything else to web. Replaces any client `X-Forwarded-For` with the TCP peer address. Not on the `internal` network, so it cannot reach the internal API. |
-| web | `auth_secret`, `ws_secret`, `internal_token` | Control plane: sign-in, users, hosts, profiles, layout, audit view, WebSocket ticket issuer. Never holds the master key. A secret passes through web only when a user creates a credential, and web can never read one back. |
+| web | `auth_secret`, `ws_secret`, `internal_token` | Control plane: sign-in, users, servers, layout, audit view, WebSocket ticket issuer. Never holds the master key. A secret passes through web only when a user creates a credential, and web can never read one back. |
 | session-manager | `master_key`, `ws_secret`, `internal_token`; decrypted credentials, in memory, only while connecting | Data plane: SSH connections, server-side emulators, the WebSocket server, the internal API and the credential vault. Writes every credential and known-host-key row. |
 | SQLite (`termdock-data` volume) | Users and argon2id password hashes, TOTP secrets (encrypted by Better Auth), encrypted credentials, host keys, sessions, audit events | Shared by web and session-manager. Assume it can leak through backups: SSH secrets in it are ciphertext only. |
 | `deploy/secrets/` | The four secret files | Mounted read-only into the containers as Docker secrets. `master_key` is mounted into session-manager only. |
@@ -83,7 +84,7 @@ The summary table is in [plan §10.1](implementation-plan.md#101-threat-model-su
   hashes, and Better Auth encrypts TOTP secrets with web's `auth_secret`. Usernames, host names,
   fingerprints, session history and audit rows are not encrypted.
 - **Other Termdock users.** A user can only list, attach to, type into or manage their own
-  sessions, hosts, profiles and credentials, both in web and in the daemon.
+  sessions, servers, credentials and host-key decisions, both in web and in the daemon.
 - **Forged or replayed WebSocket connections.** The upgrade must carry the instance's `Origin`,
   and the first frame must present a 30-second, single-use ticket signed by web and bound to the
   user and the auth session.
@@ -111,8 +112,8 @@ These are accepted limits of the design. Plan the deployment around them.
 web holds the WebSocket ticket key and the internal API token, so an attacker who runs code in
 the web container can mint tickets for any user and drive their terminals, and can call the
 internal API as any acting user. It cannot read the master key or decrypt stored secrets, but
-it sees new credentials as users submit them. It can also point a host at an attacker-controlled
-sshd, trust that server's key through the internal API, and start a session with a stored
+it sees new credentials as users submit them. It can also point a server at an attacker-controlled
+sshd, trust that sshd's host key through the internal API, and start a session with a stored
 **password** credential: the daemon then sends the password to the attacker. Private keys are not disclosed this way, because an SSH
 public-key signature is bound to the session it was made for (plan T-09 in the
 [decision log](implementation-plan.md#22-technical-decisions-orchestrator-reversible-with-rationale)).
@@ -200,8 +201,10 @@ plugins.
   `apps/web`. Mutations are Server Actions that re-check the session and ownership.
 - The daemon re-checks ownership itself instead of relying on web's checks. Every user-scoped
   internal API call carries `actingUserId`; the daemon checks that the user exists and is not
-  disabled (else `403`) and answers a foreign session, host, profile or credential with `404`,
-  exactly like a missing one.
+  disabled (else `403`) and answers a foreign session, server or credential with `404`, exactly
+  like a missing one. Host-key decisions are looked up by the acting user (or the session's
+  owner) and an address, so one user's decisions can neither be read nor changed through
+  another user's server.
 - Every WebSocket `session.attach`, host-key decision and prompt answer is checked against the
   session's owner. A non-owner gets `FORBIDDEN` without learning whether the session exists.
 - Admin-only internal API calls (terminating another user's sessions) re-check the acting
@@ -256,13 +259,24 @@ Bodies are JSON of at most 64 KiB, validated with zod. Routes:
 
 Details: [plan §5.9](implementation-plan.md#59-host-key-verification).
 
+- **Per user and address.** Decisions are stored like OpenSSH's `known_hosts`: for one user, the
+  hostname as typed (normalized: trimmed, lowercased, IPv6 without brackets) and the port. A
+  decision made through one server applies to every server of that user with the same address;
+  a DNS name and an IP of the same machine are two addresses, and another port is another
+  address. Decisions are never shared between users, and they outlive the servers (no foreign
+  key, no purge): deleting a server and adding it again never lets a revoked key back in. A
+  session whose server was deleted never connects again through its snapshot.
 - **First use.** An unknown key is stored as `pending`, the connection is aborted, and the
   session waits in "Action required" with the key's `SHA256:` fingerprint. Only the owner's
-  explicit accept trusts exactly that key; pending keys expire after 24 h. Owners can also
-  pre-trust a fingerprint, or use **Fetch & verify** on the host page before any session exists.
+  explicit accept trusts exactly that key; pending keys expire after 24 h (the only decisions
+  with a lifetime). Owners can also pre-trust a fingerprint, or use **Fetch & verify** on the
+  server page before any session exists. Fetch & verify signs in (with the server's user name
+  and credential) only once the key is trusted; for a server without a stored credential it
+  stops after the host key, so no failed login reaches the host.
 - **Mismatch.** A key that differs from the trusted one fails the session with
   `HOST_KEY_MISMATCH`. There is no in-flow accept: the owner must use "Replace trusted key" on
-  the host page and type the host name to confirm.
+  the server page and type the server's hostname to confirm, since the change applies to every
+  one of their servers with that address.
 - **Revoked keys fail closed.** A key the owner revoked is refused like a mismatch, also when no
   other key is trusted; it is never offered as a first-use prompt and can only be trusted again
   through the replace flow. The event is audited as `host_key.revoked_presented`.

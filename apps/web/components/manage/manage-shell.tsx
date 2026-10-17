@@ -1,10 +1,11 @@
 import { getLocale, getTranslations } from 'next-intl/server';
 import type { ReactNode } from 'react';
 import { isLocale } from '../../i18n/locales.ts';
+import { ROUTES } from '../../lib/routes.ts';
 import {
   ActivityIcon,
-  HostIcon,
   KeyIcon,
+  ServerIcon,
   SettingsIcon,
   TerminalIcon,
   UsersIcon,
@@ -35,7 +36,7 @@ export async function ManageShell({
   const current = isLocale(locale) ? locale : 'en';
   const items: NavItem[] = [
     { href: '/workspace', label: t('workspace'), icon: <TerminalIcon size={16} /> },
-    { href: '/hosts', label: t('hosts'), icon: <HostIcon size={16} /> },
+    { href: ROUTES.servers, label: t('servers'), icon: <ServerIcon size={16} /> },
     { href: '/credentials', label: t('credentials'), icon: <KeyIcon size={16} /> },
     { href: '/activity', label: t('activity'), icon: <ActivityIcon size={16} /> },
     {

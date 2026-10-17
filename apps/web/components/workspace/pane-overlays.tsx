@@ -4,6 +4,7 @@ import type { SessionStatus } from '@termdock/protocol/client';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { type FormEvent, type ReactNode, useId, useRef, useState } from 'react';
+import { formatTarget } from '../../lib/servers/target.ts';
 import { END_KEYS, FAILURE_KEYS, pick } from '../../lib/sessions/reasons.ts';
 import type {
   AuthPromptRequest,
@@ -190,12 +191,12 @@ function HostKeyPanel({
           title={t('hostKey.title')}
           titleId={titleId}
         >
-          {t('hostKey.body', { host: entry.hostName })}
+          {t('hostKey.body', { server: entry.serverName })}
         </Head>
         <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 border-line border-y py-3 text-base">
           <dt className="font-semibold text-ink-muted text-sm">{t('hostKey.target')}</dt>
           <dd className="break-all text-ink">
-            {entry.username}@{entry.hostname}
+            {formatTarget(entry.username, entry.hostname, entry.port)}
           </dd>
           <dt className="font-semibold text-ink-muted text-sm">{t('hostKey.keyType')}</dt>
           <dd className="break-all font-mono text-ink text-xs leading-5">{prompt.keyType}</dd>
@@ -219,7 +220,7 @@ function HostKeyPanel({
 
 function MismatchPanel({ entry, prompt }: { entry: SessionEntry; prompt: HostKeyPrompt | null }) {
   const t = useTranslations('workspace');
-  const { hostHref } = useWorkspace();
+  const { serverHref } = useWorkspace();
   const titleId = useId();
   return (
     <Panel aria-labelledby={titleId} solid floating className="w-full max-w-[30rem]">
@@ -232,8 +233,8 @@ function MismatchPanel({ entry, prompt }: { entry: SessionEntry; prompt: HostKey
         />
         <Notice tone="danger">
           {prompt?.revoked
-            ? t('mismatch.revokedBody', { host: entry.hostName })
-            : t('mismatch.body', { host: entry.hostName })}
+            ? t('mismatch.revokedBody', { server: entry.serverName })
+            : t('mismatch.body', { server: entry.serverName })}
         </Notice>
         {prompt ? (
           <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-base">
@@ -243,10 +244,10 @@ function MismatchPanel({ entry, prompt }: { entry: SessionEntry; prompt: HostKey
             <dd className="break-all font-mono text-ink text-xs leading-5">{prompt.fingerprint}</dd>
           </dl>
         ) : null}
-        {entry.hostId ? (
+        {entry.serverId ? (
           <div>
             <Link
-              href={hostHref(entry.hostId)}
+              href={serverHref(entry.serverId)}
               className="font-medium text-accent text-base underline decoration-accent/50 underline-offset-4 hover:decoration-accent"
             >
               {t('mismatch.review')}
@@ -272,7 +273,7 @@ function AuthPanel({
   const { connection } = useWorkspace();
   const titleId = useId();
   const [offline, setOffline] = useState(false);
-  const hostName = prompt.name.trim();
+  const promptName = prompt.name.trim();
   const instructions = prompt.instructions.trim();
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -295,11 +296,11 @@ function AuthPanel({
           title={t('auth.title')}
           titleId={titleId}
         >
-          {t('auth.asks', { target: `${entry.username}@${entry.hostname}` })}
+          {t('auth.asks', { target: formatTarget(entry.username, entry.hostname, entry.port) })}
         </Head>
-        {hostName || instructions ? (
+        {promptName || instructions ? (
           <div className="flex flex-col gap-1 rounded-control bg-field px-4 py-3 text-base text-ink">
-            {hostName ? <p className="break-words font-semibold">{hostName}</p> : null}
+            {promptName ? <p className="break-words font-semibold">{promptName}</p> : null}
             {instructions ? (
               <p className="whitespace-pre-line break-words">{instructions}</p>
             ) : null}
@@ -400,7 +401,7 @@ function ReconnectingSlip({ entry, deadline }: { entry: SessionEntry; deadline: 
           ? t('overlay.reconnectingNow')
           : t('overlay.reconnectingIn', { seconds })
       }
-      body={t('overlay.reconnectingBody', { host: entry.hostName })}
+      body={t('overlay.reconnectingBody', { server: entry.serverName })}
       error={action.error}
       actions={
         <Button
@@ -421,7 +422,9 @@ function DisconnectedSlip({ entry, detail }: { entry: SessionEntry; detail: stri
   const t = useTranslations('workspace');
   const titleId = useId();
   const action = useSessionAction(entry.id);
-  const key = pick(FAILURE_KEYS, detail);
+  // Its server was deleted (plan D-29): it never connects again, so Terminate replaces Retry.
+  const serverDeleted = entry.serverId === null;
+  const key = serverDeleted ? 'serverDeleted' : pick(FAILURE_KEYS, detail);
   return (
     <ActionPanel
       status="disconnected"
@@ -431,15 +434,26 @@ function DisconnectedSlip({ entry, detail }: { entry: SessionEntry; detail: stri
       body={key ? t(`failure.${key}`) : t('failure.generic')}
       error={action.error}
       actions={
-        <Button
-          size="sm"
-          variant="primary"
-          icon={<RetryIcon size={16} />}
-          loading={action.pending === 'retry'}
-          onClick={() => void action.run('retry')}
-        >
-          {t('overlay.retry')}
-        </Button>
+        serverDeleted ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            loading={action.pending === 'terminate'}
+            onClick={() => void action.run('terminate')}
+          >
+            {t('overlay.terminate')}
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            variant="primary"
+            icon={<RetryIcon size={16} />}
+            loading={action.pending === 'retry'}
+            onClick={() => void action.run('retry')}
+          >
+            {t('overlay.retry')}
+          </Button>
+        )
       }
     />
   );
@@ -473,14 +487,17 @@ function EndedSlip({
               {t('overlay.closePane')}
             </Button>
           ) : null}
-          <Button
-            size="sm"
-            variant="primary"
-            loading={action.pending === 'reopen'}
-            onClick={() => void action.run('reopen')}
-          >
-            {t('overlay.reopen')}
-          </Button>
+          {/* A session whose server was deleted cannot be reopened (plan D-29). */}
+          {entry.serverId !== null ? (
+            <Button
+              size="sm"
+              variant="primary"
+              loading={action.pending === 'reopen'}
+              onClick={() => void action.run('reopen')}
+            >
+              {t('overlay.reopen')}
+            </Button>
+          ) : null}
         </>
       }
     />

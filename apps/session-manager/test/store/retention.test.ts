@@ -14,7 +14,7 @@ import {
 } from '../../src/store/retention.ts';
 import { SqliteSessionStore } from '../../src/store/session-store.ts';
 import type { Sqlite } from '../../src/store/sqlite.ts';
-import { insertHost, insertProfile, insertUser, type TempDb, tempDb } from './fixture.ts';
+import { insertServer, insertUser, type TempDb, tempDb } from './fixture.ts';
 
 const NOW = Date.UTC(2026, 9, 16, 12);
 const CUTOFF = NOW - 180 * DAY_MS;
@@ -41,10 +41,10 @@ async function seeded(): Promise<{ db: TempDb['db']; sqlite: Sqlite; writer: Bat
   const writer = new BatchedWriter(db);
   const store = new SqliteSessionStore(db, writer);
   const userId = insertUser(db);
-  const profileId = insertProfile(db, userId, insertHost(db, userId), null);
-  const session = await store.createFromProfile({
+  const serverId = insertServer(db, userId);
+  const session = await store.createFromServer({
     actingUserId: userId,
-    profileId,
+    serverId,
     viewport: { cols: 80, rows: 24 },
     enableLocalShell: false,
   });
@@ -121,6 +121,21 @@ describe('event retention purge (plan §10.2)', () => {
       deleted: { audit_events: 0, session_events: 0 },
       chunks: 2,
     });
+  });
+
+  it('never purges host-key decisions, however old, even for an address no server uses (D-29)', async () => {
+    const { sqlite, writer } = await seeded();
+    sqlite
+      .prepare(
+        `INSERT INTO known_host_keys (id, user_id, hostname, port, key_type, fingerprint_sha256,
+           status, first_seen_at, decided_at)
+         VALUES ('old-revoked', (SELECT id FROM user LIMIT 1), 'gone.example', 22, 'ssh-ed25519',
+           ?, 'revoked', ?, ?)`,
+      )
+      .run(`SHA256:${'G'.repeat(43)}`, CUTOFF - 400 * DAY_MS, CUTOFF - 300 * DAY_MS);
+    expect(count(sqlite, 'servers', `hostname = 'gone.example'`)).toBe(0);
+    await purgeEvents({ writer, cutoff: CUTOFF, chunkRows: 500 });
+    expect(count(sqlite, 'known_host_keys')).toBe(1);
   });
 
   it('lets writes queued during a purge commit between its chunks', async () => {

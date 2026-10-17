@@ -4,8 +4,8 @@
  */
 import type {
   EndReason,
-  ProfileProtection,
   Protection,
+  ProtectionMode,
   SessionState,
   SessionStatus,
   SessionSummary,
@@ -31,7 +31,7 @@ export class TransportError extends Error {
 
 /**
  * A launch parameter the remote command builders refuse to pass (plan §5.11 remote command rule):
- * a profile value with a line break or NUL, or a probe value (tmux path, locale) outside the
+ * a server setting with a line break or NUL, or a probe value (tmux path, locale) outside the
  * safe word set. Retrying cannot fix it, so the runtime fails the session with
  * BAD_LAUNCH_PARAMS instead of reconnecting. A RangeError, like the builders' other checks.
  */
@@ -212,19 +212,21 @@ export interface RemoteIdentity {
   panePid: number;
 }
 
-/** Target snapshotted at session creation (plan §9). */
+/**
+ * Target snapshotted from the server at session creation (plan §9, D-29): later server edits only
+ * affect new sessions. `hostname` is normalized. A local session: 'localhost', port 0, no user.
+ */
 export interface SessionTarget {
   kind: 'ssh' | 'local';
-  hostId: string | null;
   hostname: string;
   port: number;
   username: string;
   credentialId: string | null;
 }
 
-/** Live policies read from the profile at use time (plan §9). */
+/** Live policies read from the session's server at use time (plan §9). */
 export interface SessionPolicies {
-  protectionMode: ProfileProtection;
+  protectionMode: ProtectionMode;
   startupCommand: string | null;
   env: Record<string, string>;
   keepaliveIntervalS: number;
@@ -234,6 +236,8 @@ export interface SessionPolicies {
 export interface SessionRecord {
   id: string;
   userId: string;
+  /** The server the session was opened from; null once that server was deleted (history). */
+  serverId: string | null;
   label: string;
   target: SessionTarget;
   term: string;
@@ -291,7 +295,7 @@ export interface SessionStore {
   listRestorable(): Promise<SessionRecord[]>;
   /**
    * The user's sessions as listed to the UI (`sessions.list`), newest first. The store joins the
-   * host name and profile id; the registry overlays the live runtime state on top.
+   * server's current name; the registry overlays the live runtime state on top.
    */
   listForUser(userId: string): Promise<SessionSummary[]>;
   update(sessionId: string, patch: SessionRecordPatch): void;
@@ -310,26 +314,57 @@ export interface PresentedHostKey {
   publicKeyB64: string;
 }
 
+/**
+ * What a host-key decision is keyed by (plan §5.9, D-29): one user's address, the normalized
+ * hostname as typed (a DNS name or an IP) and the port, like OpenSSH's `known_hosts`. A decision
+ * applies to every server of that user with that address and is never shared between users.
+ * Stores normalize `hostname` themselves, so callers may pass it as stored or as typed.
+ */
+export interface HostKeyAddress {
+  userId: string;
+  hostname: string;
+  port: number;
+}
+
+/**
+ * An address plus the server that triggered a change there: the `host_key.*` audit row's target
+ * (`targetType: 'server'`). The route's server, or the session's server at connect time; null
+ * once that server is gone. It never scopes the decision itself.
+ */
+export interface HostKeyTarget extends HostKeyAddress {
+  serverId: string | null;
+}
+
+/** The host-key target of a session: its owner, its snapshotted address and its server. */
+export function sessionHostKeyTarget(record: SessionRecord): HostKeyTarget {
+  return {
+    userId: record.userId,
+    hostname: record.target.hostname,
+    port: record.target.port,
+    serverId: record.serverId,
+  };
+}
+
 /** Host-key trust store (plan §5.9). Only the daemon writes known_host_keys. */
 export interface HostKeyStore {
-  /** Trusted keys for a host, keyed by key type; loaded before connect. */
-  trusted(hostId: string): Promise<Map<string, PresentedHostKey>>;
+  /** Trusted keys for an address, keyed by key type; loaded before connect. */
+  trusted(address: HostKeyAddress): Promise<Map<string, PresentedHostKey>>;
   /**
-   * Fingerprints the owner revoked for a host, loaded with the trusted keys: a server presenting
-   * one fails closed like a mismatch (plan §5.9).
+   * Fingerprints the owner revoked for an address, loaded with the trusted keys: a server
+   * presenting one fails closed like a mismatch (plan §5.9).
    */
-  revoked(hostId: string): Promise<Set<string>>;
-  recordPending(hostId: string, key: PresentedHostKey): Promise<void>;
+  revoked(address: HostKeyAddress): Promise<Set<string>>;
+  recordPending(target: HostKeyTarget, key: PresentedHostKey): Promise<void>;
   /**
    * Trusts the pending key with this fingerprint; false when none matches (expired) or the
-   * fingerprint was revoked for the host.
+   * fingerprint was revoked for the address.
    */
-  trustPending(hostId: string, fingerprint: string, decidedBy: string): Promise<boolean>;
+  trustPending(target: HostKeyTarget, fingerprint: string, decidedBy: string): Promise<boolean>;
   /**
    * A presented key matched a trusted row that has no `public_key_b64` (a pasted pre-trust
    * fingerprint): store the key itself on that row.
    */
-  rememberPublicKey(hostId: string, key: PresentedHostKey): Promise<void>;
+  rememberPublicKey(address: HostKeyAddress, key: PresentedHostKey): Promise<void>;
 }
 
 /** Who owns what, for authorization checks on WS attach and internal API calls. */

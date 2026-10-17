@@ -68,43 +68,41 @@ export function insertUser(
   return id;
 }
 
-export function insertHost(
-  db: TermdockDb,
-  userId: string,
-  opts: { name?: string; kind?: 'ssh' | 'local'; port?: number } = {},
-): string {
-  const id = uuidv7();
-  const now = Date.now();
-  db.$client
-    .prepare(
-      `INSERT INTO hosts (id, user_id, name, kind, hostname, port, created_at, updated_at)
-       VALUES (?, ?, ?, ?, '127.0.0.1', ?, ?, ?)`,
-    )
-    .run(id, userId, opts.name ?? 'test host', opts.kind ?? 'ssh', opts.port ?? 22, now, now);
-  return id;
+export interface ServerOptions {
+  name?: string;
+  kind?: 'ssh' | 'local';
+  /** Stored as given (web stores it normalized); ignored for `kind: local`. */
+  hostname?: string;
+  port?: number;
+  username?: string;
+  credentialId?: string | null;
+  autoReopen?: boolean;
+  protectionMode?: 'auto' | 'off';
 }
 
-export function insertProfile(
-  db: TermdockDb,
-  userId: string,
-  hostId: string,
-  credentialId: string | null,
-  opts: { username?: string; autoReopen?: boolean; protectionMode?: 'auto' | 'off' } = {},
-): string {
+/**
+ * A server row (web-owned, plan D-29). Defaults: an ssh server 'test server' at 127.0.0.1:22 as
+ * `td`, without a credential. A local server has no address, user name or credential.
+ */
+export function insertServer(db: TermdockDb, userId: string, opts: ServerOptions = {}): string {
   const id = uuidv7();
   const now = Date.now();
+  const local = opts.kind === 'local';
   db.$client
     .prepare(
-      `INSERT INTO connection_profiles (id, user_id, host_id, credential_id, name, username,
+      `INSERT INTO servers (id, user_id, name, kind, hostname, port, username, credential_id,
          protection_mode, auto_reopen, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 'test profile', ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       id,
       userId,
-      hostId,
-      credentialId,
-      opts.username ?? 'td',
+      opts.name ?? 'test server',
+      local ? 'local' : 'ssh',
+      local ? null : (opts.hostname ?? '127.0.0.1'),
+      local ? null : (opts.port ?? 22),
+      local ? null : (opts.username ?? 'td'),
+      local ? null : (opts.credentialId ?? null),
       opts.protectionMode ?? 'auto',
       opts.autoReopen === false ? 0 : 1,
       now,

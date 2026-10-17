@@ -5,12 +5,12 @@ import { isLocale } from '../../../i18n/locales.ts';
 import { isAdminRole } from '../../../lib/admin/core.ts';
 import { getAuthRuntime, requireSession } from '../../../lib/auth/server.ts';
 import { withReturnPath } from '../../../lib/manage/return-to.ts';
-import { countHosts } from '../../../lib/repo/hosts.ts';
 import { getLayout } from '../../../lib/repo/layouts.ts';
 import { getTerminalPreferences } from '../../../lib/repo/preferences.ts';
-import { listProfilesForUser } from '../../../lib/repo/profiles.ts';
+import { listServers } from '../../../lib/repo/servers.ts';
 import { listBaySessions } from '../../../lib/repo/sessions.ts';
 import { ROUTES } from '../../../lib/routes.ts';
+import { formatTarget } from '../../../lib/servers/target.ts';
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('meta');
@@ -19,33 +19,36 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /**
  * The default landing page (plan §8.1, §11.1). Everything the first paint needs comes from the
- * server (bay rows, the saved layout, profiles for the palette, terminal preferences); the live
- * WebSocket takes over in the browser. `?s=<sessionId>` follows one of your sessions.
+ * server (bay rows, the saved layout, the servers for the palette, terminal preferences); the
+ * live WebSocket takes over in the browser. `?s=<sessionId>` follows one of your sessions.
  */
 export default async function WorkspacePage() {
   const { user } = await requireSession();
   const { db } = getAuthRuntime();
   const locale = await getLocale();
-  const profiles = listProfilesForUser(db, user.id).map(({ id, name, username, hostName }) => ({
-    id,
-    name,
-    username,
-    hostName,
+  const t = await getTranslations('workspace');
+  const servers = listServers(db, user.id).map((server) => ({
+    id: server.id,
+    name: server.name,
+    target:
+      server.kind === 'ssh' && server.hostname && server.port && server.username
+        ? formatTarget(server.username, server.hostname, server.port)
+        : t('localTarget'),
   }));
   return (
     <WorkspaceShell
       bay={listBaySessions(db, user.id)}
-      hostCount={countHosts(db, user.id)}
+      serverCount={servers.length}
       renderedAt={Date.now()}
       username={user.username ?? user.name}
       locale={isLocale(locale) ? locale : 'en'}
       workspaceHref={ROUTES.workspace}
-      hostsHref={ROUTES.hosts}
+      serversHref={ROUTES.servers}
       addServerHref={withReturnPath(ROUTES.addServer, ROUTES.workspace)}
       loginHref={ROUTES.login}
       isAdmin={isAdminRole(user.role)}
       initialLayout={getLayout(db, user.id)}
-      profiles={profiles}
+      servers={servers}
       preferences={getTerminalPreferences(db, user.id)}
     />
   );

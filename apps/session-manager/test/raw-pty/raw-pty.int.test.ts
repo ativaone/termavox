@@ -13,6 +13,9 @@ import { TestClient } from '../ws/client.ts';
 const ORIGIN = 'https://termdock.test';
 const SECRET = new TextEncoder().encode('t1-secret-t1-secret-t1-secret-t1!');
 const USER = 'user-1';
+/** Another user at the same address: host-key decisions are never shared (D-29). */
+const OTHER_USER = 'user-2';
+const ADDRESS = { hostname: '127.0.0.1', port: SSHD_PORTS['no-tmux'] };
 
 const store = new MemorySessionStore();
 const hostKeys = new MemoryHostKeyStore();
@@ -20,25 +23,19 @@ let plane: DataPlane;
 let url: string;
 const clients: TestClient[] = [];
 
-async function client(): Promise<TestClient> {
-  const c = await TestClient.connect(
-    url,
-    ORIGIN,
-    signTicket(SECRET, { uid: USER, asid: 'asid-1' }),
-  );
+async function client(uid = USER): Promise<TestClient> {
+  const c = await TestClient.connect(url, ORIGIN, signTicket(SECRET, { uid, asid: 'asid-1' }));
   clients.push(c);
   return c;
 }
 
-function createSession(id: string, hostId = 'host-trusted'): SessionRuntime {
+function createSession(id: string, userId = USER): SessionRuntime {
   const record = makeRecord({
     id,
-    userId: USER,
+    userId,
     target: {
       kind: 'ssh',
-      hostId,
-      hostname: '127.0.0.1',
-      port: SSHD_PORTS['no-tmux'],
+      ...ADDRESS,
       username: TEST_USER,
       credentialId: 'credential-1',
     },
@@ -76,7 +73,7 @@ function attach(c: TestClient, sessionId: string, cols: number, rows: number, ch
 
 beforeAll(async () => {
   await requireSshd(['no-tmux']);
-  hostKeys.trust('host-trusted', HOST_KEY);
+  hostKeys.trust({ userId: USER, ...ADDRESS }, HOST_KEY);
   plane = createDataPlane({
     publicOrigin: ORIGIN,
     ws: { host: '127.0.0.1', port: 0 },
@@ -180,8 +177,9 @@ describe('raw PTY session over WebSocket (no-tmux)', () => {
   });
 
   it('unknown host key: hostkey.prompt → accept → reconnects and becomes ready', async () => {
-    const watcher = await client();
-    const runtime = createSession('s-hostkey', 'host-untrusted');
+    // USER trusts this address's key; OTHER_USER at the same address decides alone.
+    const watcher = await client(OTHER_USER);
+    const runtime = createSession('s-hostkey', OTHER_USER);
     const prompt = await watcher.next((m) => m.type === 'hostkey.prompt', 15_000);
     expect(prompt).toEqual({
       type: 'hostkey.prompt',
@@ -191,7 +189,9 @@ describe('raw PTY session over WebSocket (no-tmux)', () => {
       mismatch: false,
     });
     expect(runtime.state).toBe('awaiting_host_key');
-    expect(hostKeys.pending.map((p) => p.hostId)).toEqual(['host-untrusted']);
+    expect(hostKeys.pending.map((p) => p.target)).toEqual([
+      { userId: OTHER_USER, ...ADDRESS, serverId: 'server-1' },
+    ]);
 
     watcher.send({
       type: 'hostkey.decision',
@@ -203,7 +203,9 @@ describe('raw PTY session over WebSocket (no-tmux)', () => {
       (m) => m.type === 'session.status' && m.sessionId === 's-hostkey' && m.status === 'connected',
       15_000,
     );
-    expect(hostKeys.trustedKeys.get('host-untrusted')?.get(HOST_KEY.type)).toEqual(HOST_KEY);
+    expect(hostKeys.trustedAt({ userId: OTHER_USER, ...ADDRESS })?.get(HOST_KEY.type)).toEqual(
+      HOST_KEY,
+    );
     await runtime.terminate();
   });
 });

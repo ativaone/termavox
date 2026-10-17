@@ -1,13 +1,13 @@
 import type { TermdockDb } from '@termdock/db';
 import {
   EndReason,
-  ProfileProtection,
   Protection,
+  ProtectionMode,
   SessionState,
   SessionStatus,
   type SessionSummary,
 } from '@termdock/protocol';
-import { ErrorCode, randomToken, TermdockError, uuidv7 } from '@termdock/shared';
+import { ErrorCode, normalizeHostname, randomToken, TermdockError, uuidv7 } from '@termdock/shared';
 import { z } from 'zod';
 import type {
   Dimensions,
@@ -16,6 +16,7 @@ import type {
   SessionRecord,
   SessionRecordPatch,
   SessionStore,
+  SessionTarget,
 } from '../core/types.ts';
 import { isAdmin, requireActingUser } from './access.ts';
 import { insertAudit } from './audit.ts';
@@ -24,8 +25,8 @@ import { maxRunningSessions } from './settings.ts';
 import { allRows, execute, getRow, parseJson, type Sqlite } from './sqlite.ts';
 
 /**
- * Policies used when the session's profile was deleted (history survives with profile_id
- * NULL): the schema defaults of `connection_profiles`.
+ * Policies used when the session's server was deleted (history survives with server_id NULL):
+ * the schema defaults of `servers`.
  */
 export const DEFAULT_POLICIES: SessionPolicies = {
   protectionMode: 'auto',
@@ -39,15 +40,24 @@ const StateColumn = SessionState.catch('failed');
 const StatusColumn = SessionStatus.catch('disconnected');
 const ProtectionColumn = Protection.nullable().catch(null);
 const EndReasonColumn = EndReason.nullable().catch(null);
-const ProtectionModeColumn = ProfileProtection.catch('auto');
+const ProtectionModeColumn = ProtectionMode.catch('auto');
 const EnvJson = z.record(z.string(), z.string());
 const RemoteIdentityJson = z.object({ sessionCreated: z.number(), panePid: z.number() });
+
+/** A local session's snapshot (plan §9): nothing reads it, the columns are NOT NULL. */
+const LOCAL_TARGET: SessionTarget = {
+  kind: 'local',
+  hostname: 'localhost',
+  port: 0,
+  username: '',
+  credentialId: null,
+};
 
 interface RecordRow {
   id: string;
   user_id: string;
+  server_id: string | null;
   target_kind: string;
-  target_host_id: string | null;
   target_hostname: string;
   target_port: number;
   target_username: string;
@@ -68,26 +78,26 @@ interface RecordRow {
   last_ready_at: number | null;
   ended_at: number | null;
   end_reason: string | null;
-  // live policies from the profile (all NULL when it was deleted)
-  p_id: string | null;
-  p_protection_mode: string | null;
-  p_startup_command: string | null;
-  p_env_json: string | null;
-  p_keepalive_interval_s: number | null;
-  p_auto_reopen: number | null;
+  // live policies from the server (all NULL when it was deleted)
+  sv_id: string | null;
+  sv_protection_mode: string | null;
+  sv_startup_command: string | null;
+  sv_env_json: string | null;
+  sv_keepalive_interval_s: number | null;
+  sv_auto_reopen: number | null;
 }
 
 const SELECT_RECORD = `
-  SELECT s.id, s.user_id, s.target_kind, s.target_host_id, s.target_hostname, s.target_port,
+  SELECT s.id, s.user_id, s.server_id, s.target_kind, s.target_hostname, s.target_port,
          s.target_username, s.target_credential_id, s.term, s.scrollback_lines, s.label,
          s.desired_state, s.state, s.status, s.protection_effective, s.tmux_token, s.tmux_version,
          s.remote_identity_json, s.cols, s.rows, s.created_at, s.last_ready_at, s.ended_at,
          s.end_reason,
-         p.id AS p_id, p.protection_mode AS p_protection_mode,
-         p.startup_command AS p_startup_command, p.env_json AS p_env_json,
-         p.keepalive_interval_s AS p_keepalive_interval_s, p.auto_reopen AS p_auto_reopen
+         sv.id AS sv_id, sv.protection_mode AS sv_protection_mode,
+         sv.startup_command AS sv_startup_command, sv.env_json AS sv_env_json,
+         sv.keepalive_interval_s AS sv_keepalive_interval_s, sv.auto_reopen AS sv_auto_reopen
     FROM sessions s
-    LEFT JOIN connection_profiles p ON p.id = s.profile_id`;
+    LEFT JOIN servers sv ON sv.id = s.server_id`;
 
 /** SessionRecordPatch field → sessions column (+ encoder). */
 const PATCH_COLUMNS: Record<string, [column: string, encode?: (value: unknown) => unknown]> = {
@@ -109,7 +119,8 @@ export const sessionWriteKey = (sessionId: string): string => `session:${session
 
 export interface CreateSessionInput {
   actingUserId: string;
-  profileId: string;
+  serverId: string;
+  /** Absent: the server's name. */
   label?: string | undefined;
   viewport: Dimensions;
   /** `TERMDOCK_ENABLE_LOCAL_SHELL` (direct mode itself arrives in Phase 6). */
@@ -162,7 +173,7 @@ export class SqliteSessionStore implements SessionStore {
     this.#now = now;
   }
 
-  /** The record with its profile's live policies, plus any queued (uncommitted) updates. */
+  /** The record with its server's live policies, plus any queued (uncommitted) updates. */
   async get(sessionId: string): Promise<SessionRecord | null> {
     const row = getRow<RecordRow>(this.#sqlite, `${SELECT_RECORD} WHERE s.id = ?`, sessionId);
     return row ? this.#withPending(toRecord(row)) : null;
@@ -179,18 +190,20 @@ export class SqliteSessionStore implements SessionStore {
   }
 
   /**
-   * Every session of the user (history included), newest first, with the host name joined.
-   * `statusDetail` is only known from history for `failed` sessions (their code, see the class
-   * comment); the registry overlays the live value of runtimes that changed state since boot.
+   * Every session of the user (history included), newest first, with the server's current name
+   * joined (the snapshotted hostname once the server is gone). `statusDetail` is only known from
+   * history for `failed` sessions (their code, see the class comment); the registry overlays the
+   * live value of runtimes that changed state since boot.
    */
   async listForUser(userId: string): Promise<SessionSummary[]> {
     const rows = allRows<{
       id: string;
       label: string;
-      profile_id: string | null;
-      target_host_id: string | null;
-      host_name: string;
+      server_id: string | null;
+      server_name: string;
+      target_kind: string;
       target_hostname: string;
+      target_port: number;
       target_username: string;
       state: string;
       status: string;
@@ -202,17 +215,16 @@ export class SqliteSessionStore implements SessionStore {
       status_detail: unknown;
     }>(
       this.#sqlite,
-      `SELECT s.id, s.label, s.profile_id, s.target_host_id,
-              COALESCE(h.name, s.target_hostname) AS host_name, s.target_hostname,
-              s.target_username, s.state, s.status, s.protection_effective, s.created_at,
-              s.last_ready_at, s.ended_at, s.end_reason,
+      `SELECT s.id, s.label, s.server_id, COALESCE(sv.name, s.target_hostname) AS server_name,
+              s.target_kind, s.target_hostname, s.target_port, s.target_username, s.state, s.status,
+              s.protection_effective, s.created_at, s.last_ready_at, s.ended_at, s.end_reason,
               CASE WHEN s.state = 'failed' THEN (
                 SELECT json_extract(e.detail_json, '$.detail') FROM session_events e
                  WHERE e.session_id = s.id AND e.type = 'state_changed'
                    AND json_extract(e.detail_json, '$.to') = 'failed'
                  ORDER BY e.created_at DESC, e.id DESC LIMIT 1
               ) END AS status_detail
-         FROM sessions s LEFT JOIN hosts h ON h.id = s.target_host_id
+         FROM sessions s LEFT JOIN servers sv ON sv.id = s.server_id
         WHERE s.user_id = ?
         ORDER BY s.created_at DESC, s.rowid DESC`,
       userId,
@@ -220,10 +232,11 @@ export class SqliteSessionStore implements SessionStore {
     return rows.map((r) => ({
       id: r.id,
       label: r.label,
-      profileId: r.profile_id,
-      hostId: r.target_host_id,
-      hostName: r.host_name,
+      serverId: r.server_id,
+      serverName: r.server_name,
+      kind: r.target_kind === 'local' ? 'local' : 'ssh',
       hostname: r.target_hostname,
+      port: r.target_port,
       username: r.target_username,
       state: StateColumn.parse(r.state),
       status: StatusColumn.parse(r.status),
@@ -272,21 +285,25 @@ export class SqliteSessionStore implements SessionStore {
   }
 
   /**
-   * Internal API `POST sessions` (plan §8.3, §9): validates the acting user, the profile, its
-   * host and credential (all owned by the acting user), the per-user running-session cap and
-   * `kind: local`, then inserts the row with the snapshotted target. Committed before it
-   * resolves, so the registry can load the session right away.
+   * Internal API `POST sessions` (plan §8.3, §9, D-29): validates the acting user, the server
+   * (owned by the acting user, else NOT_FOUND), for `kind: ssh` its credential (owned too), for
+   * `kind: local` direct mode and the admin role, and the per-user running-session cap; then
+   * inserts the row with the target snapshotted from the server (a local session: 'localhost',
+   * port 0, no user name). Committed before it resolves, so the registry can load the session
+   * right away.
    */
-  createFromProfile(input: CreateSessionInput): Promise<SessionRecord> {
+  createFromServer(input: CreateSessionInput): Promise<SessionRecord> {
     return this.#writer.run('session.create', (sqlite) => {
       const now = this.#now();
       const user = requireActingUser(sqlite, input.actingUserId, now);
-      const profile = getRow<{
+      const server = getRow<{
         id: string;
-        host_id: string;
-        credential_id: string | null;
         name: string;
-        username: string;
+        kind: string;
+        hostname: string | null;
+        port: number | null;
+        username: string | null;
+        credential_id: string | null;
         protection_mode: string;
         startup_command: string | null;
         term: string;
@@ -296,60 +313,61 @@ export class SqliteSessionStore implements SessionStore {
         scrollback_lines: number;
       }>(
         sqlite,
-        `SELECT id, host_id, credential_id, name, username, protection_mode, startup_command, term,
-                env_json, keepalive_interval_s, auto_reopen, scrollback_lines
-           FROM connection_profiles WHERE id = ? AND user_id = ?`,
-        input.profileId,
+        `SELECT id, name, kind, hostname, port, username, credential_id, protection_mode,
+                startup_command, term, env_json, keepalive_interval_s, auto_reopen, scrollback_lines
+           FROM servers WHERE id = ? AND user_id = ?`,
+        input.serverId,
         user.id,
       );
-      if (!profile) throw new TermdockError(ErrorCode.NotFound, 'profile not found');
-      const host = getRow<{ id: string; kind: string; hostname: string; port: number }>(
-        sqlite,
-        'SELECT id, kind, hostname, port FROM hosts WHERE id = ? AND user_id = ?',
-        profile.host_id,
-        user.id,
-      );
-      if (!host) throw new TermdockError(ErrorCode.NotFound, 'host not found');
-      if (host.kind === 'local') {
+      if (!server) throw new TermdockError(ErrorCode.NotFound, 'server not found');
+      let target: SessionTarget;
+      if (server.kind === 'local') {
         if (!input.enableLocalShell) {
           throw new TermdockError(ErrorCode.LocalShellDisabled, 'local shells are disabled');
         }
         if (!isAdmin(user)) {
           throw new TermdockError(ErrorCode.Forbidden, 'local sessions are admin-only');
         }
-      }
-      if (profile.credential_id) {
-        const credential = getRow(
-          sqlite,
-          'SELECT id FROM credentials WHERE id = ? AND user_id = ?',
-          profile.credential_id,
-          user.id,
-        );
-        if (!credential) throw new TermdockError(ErrorCode.NotFound, 'credential not found');
+        target = { ...LOCAL_TARGET };
+      } else {
+        // The CHECK constraint `servers_ssh_target_ck` guarantees all three for ssh rows.
+        if (server.hostname === null || server.port === null || server.username === null) {
+          throw new TermdockError(ErrorCode.Internal, 'ssh server without an address');
+        }
+        if (server.credential_id) {
+          const credential = getRow(
+            sqlite,
+            'SELECT id FROM credentials WHERE id = ? AND user_id = ?',
+            server.credential_id,
+            user.id,
+          );
+          if (!credential) throw new TermdockError(ErrorCode.NotFound, 'credential not found');
+        }
+        target = {
+          kind: 'ssh',
+          hostname: normalizeHostname(server.hostname),
+          port: server.port,
+          username: server.username,
+          credentialId: server.credential_id,
+        };
       }
       assertRunningCapacity(sqlite, user.id, null);
 
       const record: SessionRecord = {
         id: uuidv7(now),
         userId: user.id,
-        label: input.label ?? profile.name,
-        target: {
-          kind: host.kind === 'local' ? 'local' : 'ssh',
-          hostId: host.id,
-          hostname: host.hostname,
-          port: host.port,
-          username: profile.username,
-          credentialId: profile.credential_id,
-        },
-        term: profile.term,
-        scrollbackLines: profile.scrollback_lines,
+        serverId: server.id,
+        label: input.label ?? server.name,
+        target,
+        term: server.term,
+        scrollbackLines: server.scrollback_lines,
         policies: policiesOf({
-          p_id: profile.id,
-          p_protection_mode: profile.protection_mode,
-          p_startup_command: profile.startup_command,
-          p_env_json: profile.env_json,
-          p_keepalive_interval_s: profile.keepalive_interval_s,
-          p_auto_reopen: profile.auto_reopen,
+          sv_id: server.id,
+          sv_protection_mode: server.protection_mode,
+          sv_startup_command: server.startup_command,
+          sv_env_json: server.env_json,
+          sv_keepalive_interval_s: server.keepalive_interval_s,
+          sv_auto_reopen: server.auto_reopen,
         }),
         desiredState: 'running',
         state: 'new',
@@ -367,15 +385,14 @@ export class SqliteSessionStore implements SessionStore {
       };
       execute(
         sqlite,
-        `INSERT INTO sessions (id, user_id, profile_id, target_kind, target_host_id, target_hostname,
-           target_port, target_username, target_credential_id, term, scrollback_lines, label,
-           desired_state, state, status, protection_effective, tmux_token, cols, rows, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)`,
+        `INSERT INTO sessions (id, user_id, server_id, target_kind, target_hostname, target_port,
+           target_username, target_credential_id, term, scrollback_lines, label, desired_state,
+           state, status, protection_effective, tmux_token, cols, rows, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)`,
         record.id,
         record.userId,
-        profile.id,
+        record.serverId,
         record.target.kind,
-        record.target.hostId,
         record.target.hostname,
         record.target.port,
         record.target.username,
@@ -395,7 +412,7 @@ export class SqliteSessionStore implements SessionStore {
         sqlite,
         uuidv7(now),
         record.id,
-        { type: 'created', detail: { profileId: profile.id }, actorUserId: user.id },
+        { type: 'created', detail: { serverId: server.id }, actorUserId: user.id },
         now,
       );
       return record;
@@ -473,22 +490,23 @@ function insertSessionEvent(
 function policiesOf(
   row: Pick<
     RecordRow,
-    | 'p_id'
-    | 'p_protection_mode'
-    | 'p_startup_command'
-    | 'p_env_json'
-    | 'p_keepalive_interval_s'
-    | 'p_auto_reopen'
+    | 'sv_id'
+    | 'sv_protection_mode'
+    | 'sv_startup_command'
+    | 'sv_env_json'
+    | 'sv_keepalive_interval_s'
+    | 'sv_auto_reopen'
   >,
 ): SessionPolicies {
-  if (row.p_id === null) return { ...DEFAULT_POLICIES, env: {} };
-  const env = EnvJson.safeParse(parseJson(row.p_env_json));
+  if (row.sv_id === null) return { ...DEFAULT_POLICIES, env: {} };
+  const env = EnvJson.safeParse(parseJson(row.sv_env_json));
   return {
-    protectionMode: ProtectionModeColumn.parse(row.p_protection_mode),
-    startupCommand: row.p_startup_command,
+    protectionMode: ProtectionModeColumn.parse(row.sv_protection_mode),
+    startupCommand: row.sv_startup_command,
     env: env.success ? env.data : {},
-    keepaliveIntervalS: row.p_keepalive_interval_s ?? DEFAULT_POLICIES.keepaliveIntervalS,
-    autoReopen: row.p_auto_reopen === null ? DEFAULT_POLICIES.autoReopen : row.p_auto_reopen !== 0,
+    keepaliveIntervalS: row.sv_keepalive_interval_s ?? DEFAULT_POLICIES.keepaliveIntervalS,
+    autoReopen:
+      row.sv_auto_reopen === null ? DEFAULT_POLICIES.autoReopen : row.sv_auto_reopen !== 0,
   };
 }
 
@@ -497,10 +515,10 @@ function toRecord(row: RecordRow): SessionRecord {
   return {
     id: row.id,
     userId: row.user_id,
+    serverId: row.server_id,
     label: row.label,
     target: {
       kind: row.target_kind === 'local' ? 'local' : 'ssh',
-      hostId: row.target_host_id,
       hostname: row.target_hostname,
       port: row.target_port,
       username: row.target_username,

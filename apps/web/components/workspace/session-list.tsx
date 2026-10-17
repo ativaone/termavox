@@ -4,6 +4,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { type MouseEvent, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { groupIntoLanes, laneChanged } from '../../lib/sessions/lanes.ts';
+import { sessionTarget } from '../../lib/sessions/target.ts';
 import type { BayData, BaySession } from '../../lib/sessions/types.ts';
 import { SessionGroup } from '../ui/session-group.tsx';
 import { SessionRow, SessionTile } from '../ui/session-row.tsx';
@@ -115,7 +116,7 @@ export function SessionList({
                   <SessionRow
                     href={sessionHref(session.id)}
                     label={session.label}
-                    target={`${session.user}@${session.host}`}
+                    target={sessionTarget(session, t('localTarget'))}
                     status={session.status}
                     protection={session.protection}
                     protectionLabel={t(`protection.${session.protection ?? 'pending'}`)}
@@ -201,7 +202,7 @@ export function SessionRail({
               <SessionTile
                 href={sessionHref(session.id)}
                 label={session.label}
-                target={`${session.user}@${session.host}`}
+                target={sessionTarget(session, t('localTarget'))}
                 status={session.status}
                 statusLabel={t(`status.${session.status}`)}
                 followed={session.id === followedId}

@@ -40,7 +40,7 @@ export interface DaemonOverrides {
   /** Test timings. */
   registry?: DataPlaneDeps['registry'];
   wsOptions?: DataPlaneDeps['wsOptions'];
-  hostTest?: InternalApiOptions['hostTest'];
+  serverTest?: InternalApiOptions['serverTest'];
   retention?: Pick<RetentionJobOptions, 'initialDelayMs' | 'intervalMs' | 'chunkRows' | 'now'>;
 }
 
@@ -94,7 +94,7 @@ export async function startDaemon(
     const credentialProvider = new VaultCredentialProvider({ db, writer, vault });
     const credentials = new CredentialService({ db, writer, vault });
     const ownership = new SqliteOwnership(db);
-    // One policy for sessions and host tests (plan §10.2).
+    // One policy for sessions and server tests (plan §10.2).
     const targetPolicy = new TargetPolicy({ allowLocalTargets: config.sshAllowLocalTargets });
     plane = createDataPlane({
       publicOrigin: config.publicOrigin,
@@ -132,7 +132,7 @@ export async function startDaemon(
       targetPolicy,
       version: VERSION,
       logger: log,
-      ...(overrides.hostTest ? { hostTest: overrides.hostTest } : {}),
+      ...(overrides.serverTest ? { serverTest: overrides.serverTest } : {}),
     });
     const internalAddress = await internalApi.listen();
     log.info(

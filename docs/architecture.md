@@ -23,7 +23,7 @@ flowchart LR
 | Component | Responsibilities |
 |---|---|
 | **Caddy** | TLS, the only public listener. `/ws` → session-manager, everything else → web. |
-| **web** (`apps/web`) | UI, sign-in and TOTP (Better Auth), users and admin, hosts, connection profiles, workspace layout, preferences, audit view. Issues WebSocket tickets. Asks the daemon to create, terminate, rename, retry or reopen sessions and to manage credentials and host keys. |
+| **web** (`apps/web`) | UI, sign-in and TOTP (Better Auth), users and admin, servers, workspace layout, preferences, audit view. Issues WebSocket tickets. Asks the daemon to create, terminate, rename, retry or reopen sessions and to manage credentials and host keys. |
 | **session-manager** (`apps/session-manager`) | Owns every session: SSH connections, drivers, the authoritative server-side emulators, reconnection and restore. Serves the browsers' WebSockets and web's internal API. The only holder of the vault master key. |
 | **SQLite** | One database file shared by both processes. session-manager applies the migrations at boot. |
 
@@ -88,8 +88,11 @@ session has been ready before, **Restoring…** (all the setup states), **Connec
   with backoff (1 s doubling to 60 s, ±20% jitter). Terminate, or reaching `ended`, sets it to
   `terminated`; reopen sets it back. Non-retryable failures (auth rejected, host-key mismatch,
   target not allowed, bad launch parameters, …) park in `failed` until the user retries.
+- **Deleted server.** A session whose server was deleted never connects again: Retry and Reopen
+  answer `404` ("server was deleted"), and any other attempt (boot restore, a reconnect) parks
+  it in `failed` with `NOT_FOUND` before a connection is opened.
 - **Boot restore.** Every session meant to run, except parked failures, is restarted with at
-  most 4 connects at once, spaced per host. `restore_started`, `restored` and `restore_failed`
+  most 4 connects at once, spaced per address. `restore_started`, `restored` and `restore_failed`
   are recorded as session events.
 - **Graceful shutdown.** Stop accepting attachments, send `server.shutting_down` (browsers show
   "Restoring…"), detach tmux control clients cleanly so the remote tmux keeps running, flush the
@@ -123,7 +126,7 @@ start, reconnect, daemon restart, `%pause`) it captures history, screen and mode
 invisible beyond a short "Restoring…".
 
 **`none`** (`RawPtyDriver`). An interactive SSH shell with a PTY. A lost connection loses the
-shell: with the profile's `auto_reopen` (default on) the runtime opens a new shell in the same
+shell: with the server's `auto_reopen` (default on) the runtime opens a new shell in the same
 emulator after a dim banner line, keeping the old scrollback; otherwise the session ends.
 
 ## Snapshot plus live stream
@@ -183,12 +186,21 @@ call carries `actingUserId`, and the daemon re-checks ownership in the database.
 |---|---|
 | Sessions | `POST /sessions`, `GET /sessions`, `PATCH /sessions/:id` (rename), `POST /sessions/:id/terminate`, `…/retry`, `…/reopen` |
 | Credentials | `POST /credentials`, `PATCH /credentials/:id` (rename), `DELETE /credentials/:id` |
-| Hosts | `POST /hosts/:id/test`, `…/trust-key`, `…/replace-key`, `…/revoke-key` |
+| Servers | `POST /servers/:id/test`, `…/trust-key`, `…/replace-key`, `…/revoke-key` |
 | Admin | `POST /users/:id/terminate-sessions`, `POST /auth-sessions/revoke` |
 | Health | `GET /health` |
 
 Session creation and changes flow: Server Action in web → internal API → the runtime → a
-`session.upsert` on every WebSocket of that user.
+`session.upsert` on every WebSocket of that user. A session is opened from a server
+(`serverId`; one server, any number of sessions); its label defaults to the server's name.
+
+Host-key decisions are stored per user and per address, like OpenSSH's `known_hosts`: the
+normalized hostname as typed (a DNS name or an IP; `DB.Internal` and `db.internal` are one
+address, a name and an IP for the same machine are two) plus the port. The server id in the
+`servers/:id/…-key` routes only names the address and proves ownership: trusting, pre-trusting,
+replacing or revoking a key through one server applies to every server of that user with the
+same address, never to another user's. At connect time a session checks the presented key
+against its owner's decisions for its snapshotted hostname and port.
 
 ## Persistence
 
@@ -199,14 +211,18 @@ processes read everything; each table has one writer
 | Writer | Tables |
 |---|---|
 | session-manager | `sessions`, `session_events`, `credentials`, `known_host_keys`, the `installation_id` and `vault_key_check` settings, credential, host-key and session-rename audit events |
-| web | Better Auth tables (`user`, `auth_session`, `account`, `verification`, `two_factor`), `hosts`, `connection_profiles`, `workspace_layouts`, `user_preferences`, the admin instance settings, every other audit event |
+| web | Better Auth tables (`user`, `auth_session`, `account`, `verification`, `two_factor`), `servers`, `workspace_layouts`, `user_preferences`, the admin instance settings, every other audit event |
 
 SQLite serializes writers globally, so session-manager writes through an async batched writer
 with a 250 ms busy timeout plus retries, and web keeps a 5 s busy timeout: a long web
 transaction never stalls the data plane. session-manager also purges `audit_events` and
 `session_events` rows older than `TERMDOCK_EVENT_RETENTION_DAYS` (default 180) every 6 hours, in
-500-row chunks through the same writer. A session snapshots its target (host, port, username,
-credential, `TERM`, scrollback) at creation, so later profile edits only affect new sessions.
+500-row chunks through the same writer. A session snapshots its server's target (hostname, port,
+user name, credential, `TERM`, scrollback) at creation, so later server edits only affect new
+sessions; a deleted server leaves its sessions' history (`server_id` NULL) and nothing connects
+through those snapshots any more. `known_host_keys` has
+no foreign key to `servers` and nothing purges it: decisions outlive the servers, so deleting and
+re-adding a server never lets a revoked key back in. Only `pending` rows expire (24 h).
 
 ## Repository layout
 
@@ -222,7 +238,7 @@ apps/
     probe/             capability probe and tmux version parsing
     attachments/       coalescing, lag handling, size policy, wire encoding
     ws/                WebSocket server, client IP
-    internal-api/      internal API server, host test
+    internal-api/      internal API server, server test
     store/             SQLite stores and the batched writer
     vault/             master key, vault, credential service
   web/

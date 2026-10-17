@@ -17,8 +17,9 @@ export type DaemonAuditType =
 export interface AuditInput {
   type: DaemonAuditType;
   actorUserId: string | null;
-  targetType: 'credential' | 'host' | 'session';
-  targetId: string;
+  targetType: 'credential' | 'server' | 'session';
+  /** Null only for a host-key event whose server is gone (the decision outlives servers). */
+  targetId: string | null;
   /** Public data only (ids, key types, fingerprints, names, labels); never secret material. */
   detail?: Record<string, unknown>;
   at?: number;

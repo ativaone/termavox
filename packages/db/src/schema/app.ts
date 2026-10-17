@@ -1,5 +1,13 @@
 import { sql } from 'drizzle-orm';
-import { blob, index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+  blob,
+  check,
+  index,
+  integer,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
 import { user } from './auth.ts';
 
 /**
@@ -13,45 +21,6 @@ const ownerId = () =>
   text('user_id')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' });
-
-export const hosts = sqliteTable(
-  'hosts',
-  {
-    id: text('id').primaryKey(),
-    userId: ownerId(),
-    name: text('name').notNull(),
-    kind: text('kind', { enum: ['ssh', 'local'] }).notNull(),
-    hostname: text('hostname').notNull(),
-    port: integer('port').notNull().default(22),
-    tagsJson: text('tags_json').notNull().default('[]'),
-    createdAt: createdAt(),
-    updatedAt: updatedAt(),
-  },
-  (t) => [index('hosts_user_idx').on(t.userId)],
-);
-
-export const knownHostKeys = sqliteTable(
-  'known_host_keys',
-  {
-    id: text('id').primaryKey(),
-    hostId: text('host_id')
-      .notNull()
-      .references(() => hosts.id, { onDelete: 'cascade' }),
-    keyType: text('key_type').notNull(),
-    publicKeyB64: text('public_key_b64'),
-    fingerprintSha256: text('fingerprint_sha256').notNull(),
-    // pending = seen on an aborted connect, awaiting the owner's decision (expires after 24 h)
-    status: text('status', { enum: ['trusted', 'pending', 'revoked'] }).notNull(),
-    firstSeenAt: integer('first_seen_at', { mode: 'timestamp_ms' }).notNull(),
-    decidedBy: text('decided_by').references(() => user.id, { onDelete: 'set null' }),
-    decidedAt: integer('decided_at', { mode: 'timestamp_ms' }),
-  },
-  (t) => [
-    uniqueIndex('known_host_keys_trusted_uq')
-      .on(t.hostId, t.keyType)
-      .where(sql`status = 'trusted'`),
-  ],
-);
 
 export const credentials = sqliteTable(
   'credentials',
@@ -71,19 +40,26 @@ export const credentials = sqliteTable(
   (t) => [index('credentials_user_idx').on(t.userId)],
 );
 
-export const connectionProfiles = sqliteTable(
-  'connection_profiles',
+/**
+ * A server (plan D-29): everything one terminal needs, in one row, like an `ssh user@host`
+ * command line or an `~/.ssh/config` entry. Duplicates are allowed (the same machine as another
+ * user is another server). `kind: local` (direct mode) has no address, user name or credential.
+ * `hostname` is stored normalized (`normalizeHostname` in @termdock/shared).
+ */
+export const servers = sqliteTable(
+  'servers',
   {
     id: text('id').primaryKey(),
     userId: ownerId(),
-    hostId: text('host_id')
-      .notNull()
-      .references(() => hosts.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    kind: text('kind', { enum: ['ssh', 'local'] }).notNull(),
+    hostname: text('hostname'),
+    port: integer('port'),
+    username: text('username'),
+    // Null: no stored secret, the server prompts in the terminal (password / keyboard-interactive).
     credentialId: text('credential_id').references(() => credentials.id, {
       onDelete: 'set null',
     }),
-    name: text('name').notNull(),
-    username: text('username').notNull(),
     protectionMode: text('protection_mode', { enum: ['auto', 'off'] })
       .notNull()
       .default('auto'),
@@ -97,8 +73,41 @@ export const connectionProfiles = sqliteTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    index('connection_profiles_user_idx').on(t.userId),
-    index('connection_profiles_host_idx').on(t.hostId),
+    index('servers_user_idx').on(t.userId),
+    check(
+      'servers_ssh_target_ck',
+      sql`${t.kind} = 'local' OR (${t.hostname} IS NOT NULL AND ${t.port} IS NOT NULL AND ${t.username} IS NOT NULL)`,
+    ),
+  ],
+);
+
+/**
+ * Host keys a user decided on, per address (plan §5.9, D-29): the normalized hostname as typed
+ * (a DNS name or an IP) and the port, like OpenSSH's `known_hosts`. A decision applies to every
+ * server of that user with that address, and outlives the servers (no foreign key): deleting and
+ * re-adding a server never lets a revoked key back in. Never shared between users.
+ */
+export const knownHostKeys = sqliteTable(
+  'known_host_keys',
+  {
+    id: text('id').primaryKey(),
+    userId: ownerId(),
+    hostname: text('hostname').notNull(),
+    port: integer('port').notNull(),
+    keyType: text('key_type').notNull(),
+    publicKeyB64: text('public_key_b64'),
+    fingerprintSha256: text('fingerprint_sha256').notNull(),
+    // pending = seen on an aborted connect, awaiting the owner's decision (expires after 24 h)
+    status: text('status', { enum: ['trusted', 'pending', 'revoked'] }).notNull(),
+    firstSeenAt: integer('first_seen_at', { mode: 'timestamp_ms' }).notNull(),
+    decidedBy: text('decided_by').references(() => user.id, { onDelete: 'set null' }),
+    decidedAt: integer('decided_at', { mode: 'timestamp_ms' }),
+  },
+  (t) => [
+    index('known_host_keys_address_idx').on(t.userId, t.hostname, t.port),
+    uniqueIndex('known_host_keys_trusted_uq')
+      .on(t.userId, t.hostname, t.port, t.keyType)
+      .where(sql`status = 'trusted'`),
   ],
 );
 
@@ -107,12 +116,12 @@ export const sessions = sqliteTable(
   {
     id: text('id').primaryKey(),
     userId: ownerId(),
-    // Nullable so history survives profile deletion; deleting a profile with non-ended
-    // sessions is rejected by the application (409).
-    profileId: text('profile_id').references(() => connectionProfiles.id, { onDelete: 'set null' }),
-    // Target snapshotted at creation: later profile/host edits only affect new sessions.
+    // Nullable so history survives server deletion; deleting a server with non-ended sessions
+    // is rejected by the application (409).
+    serverId: text('server_id').references(() => servers.id, { onDelete: 'set null' }),
+    // Target snapshotted at creation: later server edits only affect new sessions. A local
+    // session snapshots hostname 'localhost', port 0 and an empty user name (nothing reads them).
     targetKind: text('target_kind', { enum: ['ssh', 'local'] }).notNull(),
-    targetHostId: text('target_host_id').references(() => hosts.id, { onDelete: 'set null' }),
     targetHostname: text('target_hostname').notNull(),
     targetPort: integer('target_port').notNull(),
     targetUsername: text('target_username').notNull(),
@@ -141,6 +150,7 @@ export const sessions = sqliteTable(
   },
   (t) => [
     index('sessions_user_idx').on(t.userId),
+    index('sessions_server_idx').on(t.serverId),
     index('sessions_desired_idx').on(t.desiredState),
   ],
 );

@@ -15,8 +15,11 @@ export function toBaySession(summary: SessionSummary): BaySession {
     label: summary.label,
     status: summary.status,
     protection: summary.protection,
-    user: summary.username,
-    host: summary.hostName,
+    kind: summary.kind,
+    username: summary.username,
+    hostname: summary.hostname,
+    port: summary.port,
+    serverDeleted: summary.serverId === null,
     createdAt: summary.createdAt,
     endedAt: summary.endedAt,
   };

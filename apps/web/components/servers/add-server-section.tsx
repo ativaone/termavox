@@ -1,9 +1,10 @@
 import type { ChangeEventHandler, ReactNode } from 'react';
+import { cx } from '../ui/cx.ts';
 import { Panel, PanelSection } from '../ui/panel.tsx';
 import { choiceCardClasses, radioClasses } from '../ui/radio.ts';
 
 /**
- * One numbered section of "Add server" (plan D-27): a card whose heading carries its step
+ * One numbered section of "Add server" (plan D-27, D-29): a card whose heading carries its step
  * number in a quiet pill (the first-run steps' marker; never the accent, which belongs to
  * selection), one line of context, then the section's fields under a hairline.
  */
@@ -49,7 +50,10 @@ export function AddServerSection({
   );
 }
 
-/** A radio drawn as a choice card: title (with an optional tag) over one line of help. */
+/**
+ * A radio drawn as a choice card: title (with an optional tag) over one line of help. A disabled
+ * card dims its title and keeps its help (which says why) readable.
+ */
 export function ChoiceCard({
   name,
   value,
@@ -58,6 +62,7 @@ export function ChoiceCard({
   title,
   help,
   tag,
+  disabled = false,
 }: {
   name: string;
   value: string;
@@ -66,20 +71,32 @@ export function ChoiceCard({
   title: string;
   help?: string;
   tag?: ReactNode;
+  disabled?: boolean;
 }) {
   return (
-    <label className={choiceCardClasses(checked, 'min-w-0 items-start gap-3 px-3.5 py-3')}>
+    <label
+      className={choiceCardClasses(
+        checked,
+        cx(
+          'min-w-0 items-start gap-3 px-3.5 py-3',
+          disabled && 'cursor-not-allowed hover:bg-transparent',
+        ),
+      )}
+    >
       <input
         type="radio"
         name={name}
         value={value}
         checked={checked}
         onChange={onChange}
+        disabled={disabled}
         className={radioClasses('sm', 'mt-0.5')}
       />
       <span className="flex min-w-0 flex-col gap-0.5">
         <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="font-medium text-base text-ink">{title}</span>
+          <span className={cx('font-medium text-base', disabled ? 'text-ink-faint' : 'text-ink')}>
+            {title}
+          </span>
           {tag}
         </span>
         {help ? <span className="text-pretty text-ink-muted text-sm">{help}</span> : null}

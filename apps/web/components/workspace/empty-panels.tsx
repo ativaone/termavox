@@ -4,7 +4,7 @@ import { useTranslations } from 'next-intl';
 import { useId } from 'react';
 import { withReturnPath } from '../../lib/manage/return-to.ts';
 import { ROUTES } from '../../lib/routes.ts';
-import { HostIcon } from '../icons/index.tsx';
+import { ServerIcon } from '../icons/index.tsx';
 import { ButtonLink } from '../ui/button.tsx';
 import { cx } from '../ui/cx.ts';
 import { EmptyState } from '../ui/empty-state.tsx';
@@ -12,8 +12,9 @@ import { Panel } from '../ui/panel.tsx';
 import { NewSessionButton } from './new-session-button.tsx';
 
 /**
- * First run: no host yet. Teaches the three steps of the one "Add server" page (plan D-27) and
- * offers the action that opens it; its Back and Cancel return to the workspace.
+ * First run: no server yet. Teaches the three steps (where the server is and the user name, a
+ * key or a password, then a session; plan D-29) and offers "Add your first server", whose Back
+ * and Cancel return to the workspace.
  */
 export function FirstRunPanel({ className }: { className?: string }) {
   const t = useTranslations('workspace.pane');
@@ -23,7 +24,7 @@ export function FirstRunPanel({ className }: { className?: string }) {
     <Panel aria-labelledby={titleId} className={cx('w-full max-w-[30rem] p-6 sm:p-7', className)}>
       <EmptyState
         titleId={titleId}
-        icon={<HostIcon size={22} />}
+        icon={<ServerIcon size={22} />}
         title={t('firstRunTitle')}
         body={t('firstRunBody')}
         action={
@@ -55,7 +56,7 @@ export function FirstRunPanel({ className }: { className?: string }) {
 }
 
 /**
- * Hosts exist but nothing is open in this pane: says what the pane is for. With no session at
+ * Servers exist but nothing is open in this pane: says what the pane is for. With no session at
  * all it also offers the one action that starts one (the sidebar's button keeps the shortcut).
  */
 export function PickSessionPanel({ hasSessions }: { hasSessions: boolean }) {

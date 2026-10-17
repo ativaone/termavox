@@ -24,6 +24,27 @@ A self-hosted, persistent terminal-session runtime for SSH, accessible from the 
 
 ---
 
+<p align="center">
+  <a href="docs/screenshots/README.md"><img src="docs/screenshots/workspace.png" alt="The Termdock workspace: named sessions on the left, a live shell on the right" width="900"></a>
+</p>
+
+<details>
+<summary><b>More screenshots</b> (first use, adding a server, a server's page, the phone)</summary>
+<br>
+
+| First use | Add server |
+|---|---|
+| <img src="docs/screenshots/first-run.png" alt="First use: connect your first server" width="440"> | <img src="docs/screenshots/add-server.png" alt="Add server: the server and its credential on one page" width="440"> |
+| **Server added** | **A server's page** |
+| <img src="docs/screenshots/add-server-done.png" alt="Server added: the public key and the command that installs it" width="440"> | <img src="docs/screenshots/server.png" alt="A server's page: details, diagnostics and host keys" width="440"> |
+
+| On the phone | |
+|---|---|
+| <img src="docs/screenshots/phone-sessions.png" alt="The session list on a phone" width="260"> | <img src="docs/screenshots/phone-session.png" alt="A session on a phone, with the extra-key bar and Alt armed" width="260"> |
+
+All screens, with notes: [docs/screenshots](docs/screenshots/README.md).
+</details>
+
 ## The idea
 
 In most web SSH tools, the browser tab **is** the session: close the laptop or lose Wi-Fi, and the connection dies with it. Termdock flips that around.
@@ -52,7 +73,7 @@ flowchart LR
     V["xterm.js view<br/>(renderer + keyboard)"]
   end
   subgraph T["Termdock · self-hosted"]
-    W["web<br/>Next.js control plane<br/>users · hosts · login + TOTP"]
+    W["web<br/>Next.js control plane<br/>users · servers · login + TOTP"]
     S["session-manager<br/>Node.js data plane<br/>authoritative terminal emulators"]
   end
   subgraph R["Your servers"]
@@ -67,8 +88,8 @@ flowchart LR
 Three ideas carry the design:
 
 1. **A terminal emulator lives on the server.** For every session, `session-manager` keeps an authoritative [`@xterm/headless`](https://github.com/xtermjs/xterm.js) instance fed with the raw SSH output. When a browser attaches, it receives a serialized **snapshot** of that state followed by the live byte stream, so it renders an exact copy, alternate screen and terminal modes included.
-2. **tmux protects sessions, and you never see it.** Every SSH session automatically runs inside a dedicated remote tmux server, driven through tmux's **control mode** (the same technique as iTerm2's tmux integration). tmux draws nothing: no status bar, no prefix key, and scrollback stays normal. If the network drops or Termdock restarts, it reattaches and rebuilds the screen and history from tmux. Hosts without tmux still work; the session is simply marked as *not protected*.
-3. **Sessions are owned by the service, not the browser.** The web app (control plane) manages users, hosts, credentials and layout. The session-manager (data plane) owns connections, emulators and reconnection. Deploying a new web version never drops a terminal.
+2. **tmux protects sessions, and you never see it.** Every SSH session automatically runs inside a dedicated remote tmux server, driven through tmux's **control mode** (the same technique as iTerm2's tmux integration). tmux draws nothing: no status bar, no prefix key, and scrollback stays normal. If the network drops or Termdock restarts, it reattaches and rebuilds the screen and history from tmux. Servers without tmux still work; the session is simply marked as *not protected*.
+3. **Sessions are owned by the service, not the browser.** The web app (control plane) manages users, servers, credentials and layout. The session-manager (data plane) owns connections, emulators and reconnection. Deploying a new web version never drops a terminal.
 
 ## Features (v0.1 goals)
 
@@ -76,7 +97,7 @@ Three ideas carry the design:
 - 🛡️ **Automatic, invisible tmux protection**, with auto-detection and graceful fallback.
 - 🪟 **Workspace** with a session sidebar, tabs and split panes. Your layout is saved on the server and restored in any browser.
 - 📱 **Usable from a phone**, with a responsive layout and an extra-key bar (Esc, Ctrl, Tab, arrows…).
-- 👥 **Multi-user with strict isolation**: each user sees only their own hosts, credentials and sessions.
+- 👥 **Multi-user with strict isolation**: each user sees only their own servers, credentials and sessions.
 - 🔐 **Built like a bastion**:
   - Credentials are encrypted with a key that only the data plane holds.
   - Host keys are verified with explicit trust on first use and a hard fail on mismatch.
@@ -96,7 +117,7 @@ Three ideas carry the design:
 |---|---|---|
 | 0 | Foundations, canonical contracts, de-risking spikes: emulator fidelity, tmux control protocol, state rebuild under load, flow control, lifecycle (all GO, see ADRs) | ✅ |
 | 1 | Data plane core: session runtime, WebSocket protocol, raw SSH driver, SQLite persistence, credential vault, internal API, daemon boot, dev CLI | ✅ |
-| 2 | Web control plane: login + TOTP, admin, hosts/credentials/profiles, audit, i18n (English, Brazilian Portuguese) | ✅ |
+| 2 | Web control plane: login + TOTP, admin, servers/credentials, audit, i18n (English, Brazilian Portuguese) | ✅ |
 | 3 | tmux control-mode protection end to end: restore after daemon restarts and network drops, verified on tmux 3.2a, 3.4 and 3.8 | ✅ |
 | 4 | Resilience: reconnect, host-key trust, keyboard-interactive flows | ✅ |
 | 5 | Workspace UI: sidebar, tabs, splits, mobile key bar, Docker Compose deployment | ✅ |
@@ -131,6 +152,8 @@ docker compose -f deploy/compose.yaml logs web      # the one-time token to crea
 ```
 
 Out of the box it serves `https://localhost` with a certificate from Caddy's local CA. The [installation guide](docs/guides/install.md) covers domains and TLS, backups and restore, upgrades and troubleshooting. Termdock is still pre-alpha, so keep it away from production servers for now.
+
+**Upgrading an existing install:** read the version's upgrade notes in [CHANGELOG.md](CHANGELOG.md), back up, `git pull`, then `docker compose -f deploy/compose.yaml up -d --build`. Database migrations run on their own; the full procedure is in [Upgrades](docs/guides/install.md#upgrades).
 
 ### Development
 

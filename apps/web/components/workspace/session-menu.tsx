@@ -28,7 +28,8 @@ const MENU_WIDTH = 240;
 
 /**
  * A session row's actions: open in a new tab, split right or down (desktop), retry (disconnected
- * or reconnecting), reopen (ended), rename, and terminate, set apart at the bottom. Terminate asks first,
+ * or reconnecting), reopen (ended), neither once its server was deleted, rename, and terminate,
+ * set apart at the bottom. Terminate asks first,
  * inside the menu itself (a danger slip, no modal). A native popover: it renders in the top
  * layer, closes on Escape or a click outside, and gives the focus back to its button.
  */
@@ -68,10 +69,12 @@ export function SessionMenu({
       { kind: 'down', label: t('splitDown') },
     );
   }
-  if (session.status === 'disconnected' || session.status === 'reconnecting') {
+  // A session whose server was deleted never connects again: Terminate is all that is left.
+  const reconnectable = !session.serverDeleted;
+  if (reconnectable && (session.status === 'disconnected' || session.status === 'reconnecting')) {
     items.push({ kind: 'retry', label: t('retry') });
   }
-  if (ended) items.push({ kind: 'reopen', label: t('reopen') });
+  if (reconnectable && ended) items.push({ kind: 'reopen', label: t('reopen') });
   if (actions.rename) items.push({ kind: 'rename', label: t('rename') });
   const terminable = !ended;
 

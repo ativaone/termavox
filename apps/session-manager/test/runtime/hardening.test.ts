@@ -13,7 +13,7 @@ const settle = (ms = 20) => new Promise((resolve) => setTimeout(resolve, ms));
 const realTmux = () => createDriverFactory((opts) => new TmuxControlDriver(opts));
 
 describe('launch parameters the builders refuse (M1)', () => {
-  it('a profile env value with a line break fails the session once: BAD_LAUNCH_PARAMS, no retry', async () => {
+  it('a server env value with a line break fails the session once: BAD_LAUNCH_PARAMS, no retry', async () => {
     const h = harness({
       record: {
         policies: {

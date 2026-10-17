@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import type { SessionSummary } from '@termdock/protocol';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { SessionRecord } from '../../src/core/types.ts';
+import { type SessionRecord, sessionHostKeyTarget } from '../../src/core/types.ts';
 import {
   bearerMatches,
   InternalApi,
@@ -15,14 +15,7 @@ import { SqliteHostKeyStore } from '../../src/store/host-key-store.ts';
 import { SqliteSessionStore } from '../../src/store/session-store.ts';
 import { TargetPolicy } from '../../src/transport/ssh/index.ts';
 import { CredentialService, VaultCredentialProvider } from '../../src/vault/credentials.ts';
-import {
-  insertHost,
-  insertProfile,
-  insertUser,
-  type TempDb,
-  tempDb,
-  testVault,
-} from '../store/fixture.ts';
+import { insertServer, insertUser, type TempDb, tempDb, testVault } from '../store/fixture.ts';
 
 // Spy on the constant-time primitive the bearer check must use.
 const crypto = vi.hoisted(() => ({ calls: 0 }));
@@ -78,10 +71,10 @@ let fixture: TempDb;
 let api: InternalApi;
 let base: string;
 let registry: FakeRegistry;
+let hostKeys: SqliteHostKeyStore;
 let userA: string;
 let userB: string;
-let hostA: string;
-let profileA: string;
+let serverA: string;
 let credentialA: string;
 
 async function call(
@@ -113,13 +106,14 @@ beforeEach(async () => {
   const sessions = new SqliteSessionStore(db, writer);
   const credentials = new CredentialService({ db, writer, vault });
   registry = new FakeRegistry(sessions);
+  hostKeys = new SqliteHostKeyStore(db, writer);
   api = new InternalApi({
     host: '127.0.0.1',
     port: 0,
     token: new TextEncoder().encode(TOKEN),
     db,
     sessions,
-    hostKeys: new SqliteHostKeyStore(db, writer),
+    hostKeys,
     credentials,
     credentialProvider: new VaultCredentialProvider({ db, writer, vault }),
     ownership: new SqliteOwnership(db),
@@ -133,14 +127,13 @@ beforeEach(async () => {
   base = `http://127.0.0.1:${address.port}`;
   userA = insertUser(db);
   userB = insertUser(db);
-  hostA = insertHost(db, userA, { name: 'alpha' });
   ({ credentialId: credentialA } = await credentials.create({
     actingUserId: userA,
     kind: 'password',
     name: 'pw',
     password: 'secret-a',
   }));
-  profileA = insertProfile(db, userA, hostA, credentialA);
+  serverA = insertServer(db, userA, { name: 'alpha', credentialId: credentialA });
 });
 
 afterEach(async () => {
@@ -188,10 +181,10 @@ describe('internal API auth', () => {
 });
 
 describe('internal API ownership (foreign resources are 404, like missing ones)', () => {
-  it('creates a session from the acting user’s profile and rejects user B on A’s resources', async () => {
+  it('creates a session from the acting user’s server and rejects user B on A’s resources', async () => {
     const created = await call('POST', '/sessions', {
       actingUserId: userA,
-      profileId: profileA,
+      serverId: serverA,
       viewport: { cols: 100, rows: 30 },
     });
     expect(created.status).toBe(201);
@@ -199,16 +192,28 @@ describe('internal API ownership (foreign resources are 404, like missing ones)'
     expect(registry.created[0]).toMatchObject({
       id: sessionId,
       userId: userA,
-      target: { kind: 'ssh', hostId: hostA, username: 'td', credentialId: credentialA },
+      serverId: serverA,
+      label: 'alpha',
+      target: {
+        kind: 'ssh',
+        hostname: '127.0.0.1',
+        port: 22,
+        username: 'td',
+        credentialId: credentialA,
+      },
       cols: 100,
       rows: 30,
       state: 'new',
     });
 
+    // A's server through B, even with B's own credentials around: 404 like a missing one.
     const asB = { actingUserId: userB };
     const viewport = { cols: 80, rows: 24 };
+    expect((await call('POST', '/sessions', { ...asB, serverId: serverA, viewport })).json).toEqual(
+      { code: 'NOT_FOUND', message: 'server not found' },
+    );
     expect(
-      (await call('POST', '/sessions', { ...asB, profileId: profileA, viewport })).status,
+      (await call('POST', '/sessions', { ...asB, serverId: 'missing', viewport })).status,
     ).toBe(404);
     expect((await call('POST', `/sessions/${sessionId}/terminate`, asB)).status).toBe(404);
     expect((await call('POST', `/sessions/${sessionId}/retry`, asB)).status).toBe(404);
@@ -217,10 +222,22 @@ describe('internal API ownership (foreign resources are 404, like missing ones)'
       (await call('PATCH', `/credentials/${credentialA}`, { ...asB, name: 'mine' })).status,
     ).toBe(404);
     expect((await call('DELETE', `/credentials/${credentialA}`, asB)).status).toBe(404);
+    const keyBody = { ...asB, keyType: 'ssh-ed25519', fingerprint: `SHA256:${'B'.repeat(43)}` };
+    expect((await call('POST', `/servers/${serverA}/trust-key`, keyBody)).status).toBe(404);
     expect(
-      (await call('POST', `/hosts/${hostA}/revoke-key`, { ...asB, keyType: 'ssh-ed25519' })).status,
+      (
+        await call('POST', `/servers/${serverA}/replace-key`, {
+          ...keyBody,
+          confirmHostname: '127.0.0.1',
+        })
+      ).status,
     ).toBe(404);
-    expect((await call('POST', `/hosts/${hostA}/test`, asB)).status).toBe(404);
+    expect(
+      (await call('POST', `/servers/${serverA}/revoke-key`, { ...asB, keyType: 'ssh-ed25519' }))
+        .status,
+    ).toBe(404);
+    expect((await call('POST', `/servers/${serverA}/test`, asB)).status).toBe(404);
+    expect(registry.created).toHaveLength(1);
     expect((await call('GET', `/sessions?actingUserId=${userB}`)).json).toEqual({ sessions: [] });
     expect(registry.actions).toEqual([]);
 
@@ -241,7 +258,7 @@ describe('internal API ownership (foreign resources are 404, like missing ones)'
   it('refuses to delete a credential referenced by a non-ended session (409)', async () => {
     const created = await call('POST', '/sessions', {
       actingUserId: userA,
-      profileId: profileA,
+      serverId: serverA,
       viewport: { cols: 80, rows: 24 },
     });
     const sessionId = created.json?.sessionId as string;
@@ -255,25 +272,41 @@ describe('internal API ownership (foreign resources are 404, like missing ones)'
     expect(
       (await call('DELETE', `/credentials/${credentialA}`, { actingUserId: userA })).status,
     ).toBe(404);
+    // The server keeps existing without a credential (the FK sets it null): it prompts now.
+    expect(
+      fixture.db.$client.prepare('SELECT credential_id FROM servers WHERE id = ?').get(serverA),
+    ).toEqual({ credential_id: null });
   });
 
-  it('rejects local hosts while direct mode is off and enforces the running-session cap', async () => {
+  it('rejects local servers while direct mode is off and enforces the running-session cap', async () => {
     const { db } = fixture;
-    const local = insertProfile(db, userA, insertHost(db, userA, { kind: 'local' }), null);
+    const local = insertServer(db, userA, { kind: 'local' });
     const viewport = { cols: 80, rows: 24 };
     const rejected = await call('POST', '/sessions', {
       actingUserId: userA,
-      profileId: local,
+      serverId: local,
       viewport,
     });
     expect(rejected).toMatchObject({ status: 403, json: { code: 'LOCAL_SHELL_DISABLED' } });
+    // A local server has no address, so no host keys and nothing to test.
+    const keyBody = { actingUserId: userA, keyType: 'ssh-ed25519' };
+    expect(
+      await call('POST', `/servers/${local}/trust-key`, {
+        ...keyBody,
+        fingerprint: `SHA256:${'L'.repeat(43)}`,
+      }),
+    ).toMatchObject({ status: 400, json: { code: 'BAD_REQUEST' } });
+    expect((await call('POST', `/servers/${local}/revoke-key`, keyBody)).status).toBe(400);
+    expect((await call('POST', `/servers/${local}/test`, { actingUserId: userA })).status).toBe(
+      400,
+    );
 
     db.$client
       .prepare(
         "INSERT INTO instance_settings (key, value_json, updated_at) VALUES ('max_running_sessions_per_user', '1', 0)",
       )
       .run();
-    const body = { actingUserId: userA, profileId: profileA, viewport };
+    const body = { actingUserId: userA, serverId: serverA, viewport };
     expect((await call('POST', '/sessions', body)).status).toBe(201);
     expect(await call('POST', '/sessions', body)).toMatchObject({
       status: 429,
@@ -299,12 +332,12 @@ describe('internal API session labels (D-28)', () => {
         .all() as Array<Record<string, string>>
     ).map((r) => ({ ...r, detail_json: JSON.parse(r.detail_json!) }));
 
-  it('creates with a cleaned label, or with the profile name when none is given', async () => {
+  it('creates with a cleaned label, or with the server name when none is given', async () => {
     const create = async (extra: Record<string, unknown>) =>
-      call('POST', '/sessions', { actingUserId: userA, profileId: profileA, viewport, ...extra });
+      call('POST', '/sessions', { actingUserId: userA, serverId: serverA, viewport, ...extra });
     const plain = await create({});
     expect(plain.status).toBe(201);
-    expect(labelOf(plain.json?.sessionId as string)).toBe('test profile');
+    expect(labelOf(plain.json?.sessionId as string)).toBe('alpha');
 
     const dirty = await create({ label: '  \u202Edeploy\u200B \x1b[31mlogs\x07\uFEFF  ' });
     expect(dirty.status).toBe(201);
@@ -325,7 +358,7 @@ describe('internal API session labels (D-28)', () => {
   it('renames in any state for the owner only, cleaning, auditing and publishing the label', async () => {
     const created = await call('POST', '/sessions', {
       actingUserId: userA,
-      profileId: profileA,
+      serverId: serverA,
       viewport,
     });
     const sessionId = created.json?.sessionId as string;
@@ -342,7 +375,7 @@ describe('internal API session labels (D-28)', () => {
         actor_user_id: userA,
         target_type: 'session',
         target_id: sessionId,
-        detail_json: { previousLabel: 'test profile', label: 'build box' },
+        detail_json: { previousLabel: 'alpha', label: 'build box' },
       },
     ]);
     // The same label again: nothing to write, audit or publish.
@@ -372,7 +405,7 @@ describe('internal API session labels (D-28)', () => {
       json: { sessionId, label: 'archived' },
     });
     expect(renameAudits().map((a) => a.detail_json)).toEqual([
-      { previousLabel: 'test profile', label: 'build box' },
+      { previousLabel: 'alpha', label: 'build box' },
       { previousLabel: 'build box', label: 'z'.repeat(120) },
       { previousLabel: 'z'.repeat(120), label: 'archived' },
     ]);
@@ -383,7 +416,7 @@ describe('internal API admin: terminate a user’s sessions', () => {
   it('lets only an admin terminate every non-ended session of the target user', async () => {
     const viewport = { cols: 80, rows: 24 };
     const create = async () =>
-      (await call('POST', '/sessions', { actingUserId: userA, profileId: profileA, viewport })).json
+      (await call('POST', '/sessions', { actingUserId: userA, serverId: serverA, viewport })).json
         ?.sessionId as string;
     const live = await create();
     const ended = await create();
@@ -412,35 +445,204 @@ describe('internal API admin: terminate a user’s sessions', () => {
   });
 });
 
-describe('internal API host tests and host keys', () => {
-  it('reports a refused target as a result and allows 10 host tests per user and minute (L4)', async () => {
-    // hostA points at 127.0.0.1: refused by the default target policy, without connecting.
+describe('internal API server tests and host keys', () => {
+  const fp = (c: string) => `SHA256:${c.repeat(43)}`;
+  const keyRows = () =>
+    fixture.db.$client
+      .prepare(
+        'SELECT user_id, hostname, port, key_type, fingerprint_sha256, status FROM known_host_keys ORDER BY rowid',
+      )
+      .all();
+  const hostKeyAudits = () =>
+    (
+      fixture.db.$client
+        .prepare(
+          "SELECT type, target_type, target_id, detail_json FROM audit_events WHERE type LIKE 'host_key.%' ORDER BY rowid",
+        )
+        .all() as Array<{
+        type: string;
+        target_type: string;
+        target_id: string | null;
+        detail_json: string;
+      }>
+    ).map((r) => ({ ...r, detail_json: JSON.parse(r.detail_json) as Record<string, unknown> }));
+  const trustKey = (serverId: string, fingerprint: string, actingUserId = userA) =>
+    call('POST', `/servers/${serverId}/trust-key`, {
+      actingUserId,
+      keyType: 'ssh-ed25519',
+      fingerprint,
+    });
+  const revokeKey = (serverId: string, actingUserId = userA) =>
+    call('POST', `/servers/${serverId}/revoke-key`, { actingUserId, keyType: 'ssh-ed25519' });
+  const replaceKey = (serverId: string, fingerprint: string, confirmHostname: string) =>
+    call('POST', `/servers/${serverId}/replace-key`, {
+      actingUserId: userA,
+      keyType: 'ssh-ed25519',
+      fingerprint,
+      confirmHostname,
+    });
+
+  it('reports a refused target as a result and allows 10 server tests per user and minute (L4)', async () => {
+    // serverA points at 127.0.0.1: refused by the default target policy, without connecting.
     for (let i = 0; i < 10; i++) {
-      expect(await call('POST', `/hosts/${hostA}/test`, { actingUserId: userA })).toEqual({
+      expect(await call('POST', `/servers/${serverA}/test`, { actingUserId: userA })).toEqual({
         status: 200,
         json: { reachable: false, error: 'TARGET_NOT_ALLOWED', hostKey: null, probe: null },
       });
     }
-    expect(await call('POST', `/hosts/${hostA}/test`, { actingUserId: userA })).toMatchObject({
+    expect(await call('POST', `/servers/${serverA}/test`, { actingUserId: userA })).toMatchObject({
       status: 429,
       json: { code: 'RATE_LIMITED' },
     });
     // Per user: another user still has their own budget.
-    const hostB = insertHost(fixture.db, userB);
-    expect((await call('POST', `/hosts/${hostB}/test`, { actingUserId: userB })).status).toBe(200);
+    const serverB = insertServer(fixture.db, userB);
+    expect((await call('POST', `/servers/${serverB}/test`, { actingUserId: userB })).status).toBe(
+      200,
+    );
   });
 
-  it('refuses to trust a revoked key again; replace-key with the confirmed name does (M2)', async () => {
-    const fingerprint = `SHA256:${'R'.repeat(43)}`;
-    const body = { actingUserId: userA, keyType: 'ssh-ed25519', fingerprint };
-    expect((await call('POST', `/hosts/${hostA}/trust-key`, body)).status).toBe(204);
-    const revoke = { actingUserId: userA, keyType: 'ssh-ed25519' };
-    expect((await call('POST', `/hosts/${hostA}/revoke-key`, revoke)).status).toBe(204);
-    const refused = await call('POST', `/hosts/${hostA}/trust-key`, body);
+  it('refuses to trust a revoked key again; replace-key with the confirmed hostname does (M2)', async () => {
+    const fingerprint = fp('R');
+    expect((await trustKey(serverA, fingerprint)).status).toBe(204);
+    expect((await revokeKey(serverA)).status).toBe(204);
+    const refused = await trustKey(serverA, fingerprint);
     expect(refused).toMatchObject({ status: 409, json: { code: 'CONFLICT' } });
     expect(refused.json?.message).toMatch(/revoked/);
-    const replace = { ...body, confirmHostName: 'alpha' };
-    expect((await call('POST', `/hosts/${hostA}/replace-key`, replace)).status).toBe(204);
-    expect((await call('POST', `/hosts/${hostA}/trust-key`, body)).status).toBe(204); // idempotent
+    expect((await replaceKey(serverA, fingerprint, '127.0.0.1')).status).toBe(204);
+    expect((await trustKey(serverA, fingerprint)).status).toBe(204); // idempotent
+  });
+
+  it("a decision through one server applies to the user's other servers with that address, not to another user's", async () => {
+    const { db } = fixture;
+    // Same machine, same address, another login: a second server of user A.
+    const asRoot = insertServer(db, userA, { name: 'alpha as root', username: 'root' });
+    const serverB = insertServer(db, userB, { name: 'alpha' });
+    const address = { userId: userA, hostname: '127.0.0.1', port: 22 };
+
+    expect((await trustKey(serverA, fp('A'))).status).toBe(204);
+    // Through the other server: the same decision, already made.
+    expect((await trustKey(asRoot, fp('A'))).status).toBe(204);
+    expect(await trustKey(asRoot, fp('C'))).toMatchObject({
+      status: 409,
+      json: { code: 'CONFLICT' },
+    });
+    expect(keyRows()).toEqual([
+      {
+        user_id: userA,
+        hostname: '127.0.0.1',
+        port: 22,
+        key_type: 'ssh-ed25519',
+        fingerprint_sha256: fp('A'),
+        status: 'trusted',
+      },
+    ]);
+    // A session opened from that other server checks against it at connect time.
+    const created = await call('POST', '/sessions', {
+      actingUserId: userA,
+      serverId: asRoot,
+      viewport: { cols: 80, rows: 24 },
+    });
+    expect(created.status).toBe(201);
+    const record = registry.created.at(-1)!;
+    expect(record).toMatchObject({ serverId: asRoot, target: { username: 'root' } });
+    expect((await hostKeys.trusted(sessionHostKeyTarget(record))).get('ssh-ed25519')).toMatchObject(
+      { fingerprint: fp('A') },
+    );
+
+    // User B at the very same address decides alone: no conflict, and A's decision is untouched.
+    expect((await hostKeys.trusted({ ...address, userId: userB })).size).toBe(0);
+    expect((await trustKey(serverB, fp('B'), userB)).status).toBe(204);
+    expect((await hostKeys.trusted(address)).get('ssh-ed25519')?.fingerprint).toBe(fp('A'));
+    expect((await revokeKey(serverB, userB)).status).toBe(204);
+    expect((await hostKeys.trusted(address)).size).toBe(1);
+
+    // A revoke through the other server is the revoke of the address, for both of A's servers.
+    expect((await revokeKey(asRoot)).status).toBe(204);
+    expect((await revokeKey(serverA)).status).toBe(404);
+    expect(await trustKey(serverA, fp('A'))).toMatchObject({ status: 409 });
+
+    // Each audit row names the server the route was called with, and the address.
+    expect(
+      hostKeyAudits().map((a) => [a.type, a.target_type, a.target_id, a.detail_json.hostname]),
+    ).toEqual([
+      ['host_key.trust', 'server', serverA, '127.0.0.1'],
+      ['host_key.trust', 'server', serverB, '127.0.0.1'],
+      ['host_key.revoke', 'server', serverB, '127.0.0.1'],
+      ['host_key.revoke', 'server', asRoot, '127.0.0.1'],
+    ]);
+  });
+
+  it('`DB.Internal` and `db.internal` share one trust decision; the same IP on another port does not', async () => {
+    const { db } = fixture;
+    // Web stores hostnames normalized; the daemon normalizes again where they enter host keys.
+    const upper = insertServer(db, userA, { hostname: 'DB.Internal' });
+    const lower = insertServer(db, userA, { hostname: 'db.internal' });
+    const ip = insertServer(db, userA, { hostname: '10.0.0.12', port: 22 });
+    const ipOtherPort = insertServer(db, userA, { hostname: '10.0.0.12', port: 2222 });
+
+    expect((await trustKey(upper, fp('X'))).status).toBe(204);
+    expect((await trustKey(lower, fp('X'))).status).toBe(204); // already trusted
+    expect((await trustKey(lower, fp('Y'))).status).toBe(409); // the one decision conflicts
+    // Replacing through either confirms with the address in any spelling.
+    expect((await replaceKey(lower, fp('Y'), 'DB.INTERNAL')).status).toBe(204);
+    expect(
+      (await hostKeys.trusted({ userId: userA, hostname: 'DB.Internal', port: 22 })).get(
+        'ssh-ed25519',
+      )?.fingerprint,
+    ).toBe(fp('Y'));
+
+    expect((await trustKey(ip, fp('X'))).status).toBe(204);
+    expect((await trustKey(ipOtherPort, fp('Y'))).status).toBe(204); // another address
+    expect((await revokeKey(ipOtherPort)).status).toBe(204);
+    expect((await hostKeys.trusted({ userId: userA, hostname: '10.0.0.12', port: 22 })).size).toBe(
+      1,
+    );
+    expect(
+      keyRows()
+        .map((r) => `${(r as { hostname: string }).hostname}:${(r as { port: number }).port}`)
+        .sort(),
+    ).toEqual(['10.0.0.12:22', '10.0.0.12:2222', 'db.internal:22', 'db.internal:22']);
+  });
+
+  it('a revoked key stays revoked after its server is deleted and added again', async () => {
+    const { db } = fixture;
+    const first = insertServer(db, userA, { name: 'gateway', hostname: '10.0.0.5' });
+    expect((await trustKey(first, fp('K'))).status).toBe(204);
+    expect((await revokeKey(first)).status).toBe(204);
+    const before = keyRows();
+
+    db.$client.prepare('DELETE FROM servers WHERE id = ?').run(first);
+    expect(keyRows()).toEqual(before);
+    expect((await trustKey(first, fp('K'))).status).toBe(404); // the server is gone
+
+    const again = insertServer(db, userA, { name: 'gateway', hostname: '10.0.0.5' });
+    const refused = await trustKey(again, fp('K'));
+    expect(refused).toMatchObject({ status: 409, json: { code: 'CONFLICT' } });
+    expect(refused.json?.message).toMatch(/revoked/);
+    expect(await hostKeys.revoked({ userId: userA, hostname: '10.0.0.5', port: 22 })).toEqual(
+      new Set([fp('K')]),
+    );
+    expect(keyRows()).toEqual(before);
+  });
+
+  it('replace-key with a wrong confirmHostname is 400 and changes nothing', async () => {
+    expect((await trustKey(serverA, fp('A'))).status).toBe(204);
+    const rows = keyRows();
+    const audits = hostKeyAudits();
+    // The server's name (the old confirmation), another address, or a port suffix: all refused.
+    for (const confirmHostname of ['alpha', '127.0.0.2', '127.0.0.1:22']) {
+      expect(await replaceKey(serverA, fp('B'), confirmHostname)).toMatchObject({
+        status: 400,
+        json: { code: 'BAD_REQUEST' },
+      });
+    }
+    expect((await replaceKey(serverA, fp('B'), '')).status).toBe(400); // schema: min 1
+    expect(keyRows()).toEqual(rows);
+    expect(hostKeyAudits()).toEqual(audits);
+    // The stored hostname, typed with stray spaces, confirms.
+    expect((await replaceKey(serverA, fp('B'), ' 127.0.0.1 ')).status).toBe(204);
+    expect((await hostKeys.trusted({ userId: userA, hostname: '127.0.0.1', port: 22 })).size).toBe(
+      1,
+    );
   });
 });

@@ -6,16 +6,16 @@ import { safeReturnPath } from './return-to.ts';
  * The raw value is read only through `safeReturnPath`; anything it drops gives null.
  */
 export type ReturnPage =
-  | { page: 'workspace' | 'hosts' | 'addServer' | 'credentials'; href: string }
-  | { page: 'host'; href: string; hostId: string };
+  | { page: 'workspace' | 'servers' | 'addServer' | 'credentials'; href: string }
+  | { page: 'server'; href: string; serverId: string };
 
 export function returnPageOf(raw: unknown): ReturnPage | null {
   const href = safeReturnPath(raw);
   if (!href) return null;
   if (href === ROUTES.workspace) return { page: 'workspace', href };
-  if (href === ROUTES.hosts) return { page: 'hosts', href };
+  if (href === ROUTES.servers) return { page: 'servers', href };
   if (href === ROUTES.addServer) return { page: 'addServer', href };
   if (href === ROUTES.credentials) return { page: 'credentials', href };
-  const hostId = href.slice(`${ROUTES.hosts}/`.length);
-  return { page: 'host', href, hostId };
+  const serverId = href.slice(`${ROUTES.servers}/`.length);
+  return { page: 'server', href, serverId };
 }

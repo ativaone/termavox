@@ -8,6 +8,13 @@ All notable changes to Termdock are recorded here. The format follows
 
 The first release, v0.1.0, is being prepared.
 
+### Upgrade notes
+
+- Development builds of `main` from before servers replaced hosts and connection profiles
+  (plan D-29) cannot be migrated: start from an empty database as described in the
+  installation guide, [Upgrades](docs/guides/install.md#upgrades), "When the notes say the data
+  cannot be migrated".
+
 ### Added
 
 - Persistent SSH sessions owned by the server: closing the browser, losing the network or
@@ -20,15 +27,20 @@ The first release, v0.1.0, is being prepared.
   server and restored in any browser. Several browsers can attach to one session at once.
 - Session names: give a session a name when you open it and rename it later from its menu or by
   double-clicking its tab; every attached browser sees the new name.
-- One "Add server" form for the server, the sign-in profile and the credential (generate a key,
-  paste one, a password or a saved credential). Once the server is added it shows the public key
-  with the command that installs it and starts a session in one click.
+- Servers: one entry holds the address, the user name, the credential and the connection
+  options (tmux protection, startup command, environment, keepalive, scrollback, auto-reopen),
+  like an `ssh user@host` command line. Duplicate copies a server to change its user or key.
+  Credentials are stored on their own and reused across servers.
+- "Add server" sets up a server and its credential on one page (generate a key, paste one, a
+  password, a saved credential or none), then shows the public key with the command that
+  installs it and starts a session in one click.
 - Phone support: responsive layout and an extra-key bar (Esc, Tab, Ctrl, Alt, arrows, paste).
-- Multi-user with strict per-user isolation of hosts, credentials, profiles and sessions.
+- Multi-user with strict per-user isolation of servers, credentials, host keys and sessions.
 - SSH authentication with private keys (with passphrase), passwords and keyboard-interactive
   prompts (OTP/2FA) relayed to the browser.
-- Host-key trust on first use with an explicit decision, hard failure on mismatch, and host
-  diagnostics to test, replace or revoke keys.
+- Host-key trust on first use with an explicit decision, hard failure on mismatch, and server
+  diagnostics to test, replace or revoke keys. Decisions are kept per address, like
+  `known_hosts`, so they cover every server you add for the same address.
 - Web sign-in with username and password plus optional TOTP (admins can require it), backup
   codes, rate limits and lockout.
 - Administration: users, roles, instance settings and an audit log; per-user activity history.

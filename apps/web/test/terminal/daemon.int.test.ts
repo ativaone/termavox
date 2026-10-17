@@ -104,13 +104,10 @@ beforeAll(async () => {
   }>('test/daemon/harness.ts');
   const store = await load<{
     insertUser(db: unknown): string;
-    insertHost(db: unknown, userId: string, opts: { name: string; port: number }): string;
-    insertProfile(
+    insertServer(
       db: unknown,
       userId: string,
-      hostId: string,
-      credentialId: string,
-      opts: { username: string },
+      opts: { name: string; port: number; username: string; credentialId: string },
     ): string;
     insertAuthSession(db: unknown, userId: string, expiresAt: number): string;
   }>('test/store/fixture.ts');
@@ -125,29 +122,29 @@ beforeAll(async () => {
   daemon = await fixture.boot();
   const { db } = daemon;
   userId = store.insertUser(db);
-  const hostId = store.insertHost(db, userId, {
-    name: 'no-tmux',
-    port: sshd.SSHD_PORTS['no-tmux'],
-  });
+  // The server points at its credential (a foreign key), so the credential comes first.
   const { credentialId } = await daemon.credentials.create({
     actingUserId: userId,
     kind: 'private_key',
     name: 'test key',
     privateKey: sshd.USER_KEY,
   });
-  const trusted = await fixture.api(daemon, 'POST', `/hosts/${hostId}/trust-key`, {
+  const serverId = store.insertServer(db, userId, {
+    name: 'no-tmux',
+    port: sshd.SSHD_PORTS['no-tmux'],
+    username: sshd.TEST_USER,
+    credentialId,
+  });
+  const trusted = await fixture.api(daemon, 'POST', `/servers/${serverId}/trust-key`, {
     actingUserId: userId,
     keyType: sshd.HOST_KEY.type,
     fingerprint: sshd.HOST_KEY.fingerprint.slice('SHA256:'.length),
   });
   expect(trusted.status).toBe(204);
-  const profileId = store.insertProfile(db, userId, hostId, credentialId, {
-    username: sshd.TEST_USER,
-  });
   asid = store.insertAuthSession(db, userId, Date.now() + 3_600_000);
   const created = await fixture.api(daemon, 'POST', '/sessions', {
     actingUserId: userId,
-    profileId,
+    serverId,
     viewport: VIEWPORT,
   });
   expect(created.status).toBe(201);

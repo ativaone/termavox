@@ -6,8 +6,6 @@ import {
   CreateSessionRequest,
   CreateSessionResponse,
   HealthResponse,
-  HostTestRequest,
-  HostTestResponse,
   INTERNAL_API_PREFIX,
   ListSessionsResponse,
   RenameCredentialRequest,
@@ -16,6 +14,8 @@ import {
   ReplaceHostKeyRequest,
   RevokeAuthSessionsRequest,
   RevokeHostKeyRequest,
+  ServerTestRequest,
+  ServerTestResponse,
   TerminateUserSessionsRequest,
   TerminateUserSessionsResponse,
   TrustHostKeyRequest,
@@ -81,34 +81,34 @@ export interface InternalApiClientOptions {
   token: string;
   /** Default time budget per call. */
   timeoutMs?: number;
-  /** Budget for `hosts/:id/test` (SSH handshake up to 10 s plus the probe up to 15 s). */
-  hostTestTimeoutMs?: number;
+  /** Budget for `servers/:id/test` (SSH handshake up to 10 s plus the probe up to 15 s). */
+  serverTestTimeoutMs?: number;
   fetch?: typeof fetch;
 }
 
 export const DEFAULT_TIMEOUT_MS = 5_000;
-export const HOST_TEST_TIMEOUT_MS = 30_000;
+export const SERVER_TEST_TIMEOUT_MS = 30_000;
 
 type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 
 export type CreateSessionInput = z.input<typeof CreateSessionRequest>;
 export type CreateCredentialInput = z.input<typeof CreateCredentialRequest>;
 export type CreateCredentialResult = z.infer<typeof CreateCredentialResponse>;
-export type HostTestResult = z.infer<typeof HostTestResponse>;
+export type ServerTestResult = z.infer<typeof ServerTestResponse>;
 export type LiveSessions = z.infer<typeof ListSessionsResponse>;
 
 export class InternalApiClient {
   readonly #base: string;
   readonly #authorization: string;
   readonly #timeoutMs: number;
-  readonly #hostTestTimeoutMs: number;
+  readonly #serverTestTimeoutMs: number;
   readonly #fetch: typeof fetch;
 
   constructor(options: InternalApiClientOptions) {
     this.#base = options.baseUrl.replace(/\/+$/, '') + INTERNAL_API_PREFIX;
     this.#authorization = `Bearer ${options.token}`;
     this.#timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-    this.#hostTestTimeoutMs = options.hostTestTimeoutMs ?? HOST_TEST_TIMEOUT_MS;
+    this.#serverTestTimeoutMs = options.serverTestTimeoutMs ?? SERVER_TEST_TIMEOUT_MS;
     this.#fetch = options.fetch ?? fetch;
   }
 
@@ -164,48 +164,47 @@ export class InternalApiClient {
     return this.#call('DELETE', `/credentials/${seg(credentialId)}`, body, null);
   }
 
-  // ── hosts ─────────────────────────────────────────────────────────────────
+  // ── servers (plan D-29) ───────────────────────────────────────────────────
 
-  async testHost(
-    hostId: string,
-    actingUserId: string,
-    profileId?: string,
-  ): Promise<HostTestResult> {
-    const body = request(HostTestRequest, {
-      actingUserId,
-      ...(profileId ? { profileId } : {}),
-    });
+  /**
+   * "Test connection": connects to the server's address, records an unknown host key as pending
+   * for that address, and probes with the server's own user name and credential.
+   */
+  async testServer(serverId: string, actingUserId: string): Promise<ServerTestResult> {
+    const body = request(ServerTestRequest, { actingUserId });
     return this.#call(
       'POST',
-      `/hosts/${seg(hostId)}/test`,
+      `/servers/${seg(serverId)}/test`,
       body,
-      HostTestResponse,
-      this.#hostTestTimeoutMs,
+      ServerTestResponse,
+      this.#serverTestTimeoutMs,
     );
   }
 
+  /** Host-key decisions are stored for the server's address (every server of the user there). */
   async trustHostKey(
-    hostId: string,
+    serverId: string,
     input: { actingUserId: string; keyType: string; fingerprint: string },
   ): Promise<void> {
     const body = request(TrustHostKeyRequest, input);
-    return this.#call('POST', `/hosts/${seg(hostId)}/trust-key`, body, null);
+    return this.#call('POST', `/servers/${seg(serverId)}/trust-key`, body, null);
   }
 
+  /** `confirmHostname` must equal the server's stored hostname. */
   async replaceHostKey(
-    hostId: string,
-    input: { actingUserId: string; keyType: string; fingerprint: string; confirmHostName: string },
+    serverId: string,
+    input: { actingUserId: string; keyType: string; fingerprint: string; confirmHostname: string },
   ): Promise<void> {
     const body = request(ReplaceHostKeyRequest, input);
-    return this.#call('POST', `/hosts/${seg(hostId)}/replace-key`, body, null);
+    return this.#call('POST', `/servers/${seg(serverId)}/replace-key`, body, null);
   }
 
   async revokeHostKey(
-    hostId: string,
+    serverId: string,
     input: { actingUserId: string; keyType: string },
   ): Promise<void> {
     const body = request(RevokeHostKeyRequest, input);
-    return this.#call('POST', `/hosts/${seg(hostId)}/revoke-key`, body, null);
+    return this.#call('POST', `/servers/${seg(serverId)}/revoke-key`, body, null);
   }
 
   // ── admin / system ────────────────────────────────────────────────────────

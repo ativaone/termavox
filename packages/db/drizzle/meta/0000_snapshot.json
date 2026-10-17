@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "34ba9285-7838-4543-839e-ddb00bff78e3",
+  "id": "e1fbc73c-996a-4f43-b33e-bab9cde09e5f",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "audit_events": {
@@ -88,182 +88,6 @@
         }
       },
       "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "connection_profiles": {
-      "name": "connection_profiles",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "host_id": {
-          "name": "host_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "credential_id": {
-          "name": "credential_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "username": {
-          "name": "username",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "protection_mode": {
-          "name": "protection_mode",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'auto'"
-        },
-        "startup_command": {
-          "name": "startup_command",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "term": {
-          "name": "term",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'xterm-256color'"
-        },
-        "env_json": {
-          "name": "env_json",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'{}'"
-        },
-        "keepalive_interval_s": {
-          "name": "keepalive_interval_s",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 15
-        },
-        "auto_reopen": {
-          "name": "auto_reopen",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": true
-        },
-        "scrollback_lines": {
-          "name": "scrollback_lines",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 5000
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "connection_profiles_user_idx": {
-          "name": "connection_profiles_user_idx",
-          "columns": [
-            "user_id"
-          ],
-          "isUnique": false
-        },
-        "connection_profiles_host_idx": {
-          "name": "connection_profiles_host_idx",
-          "columns": [
-            "host_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "connection_profiles_user_id_user_id_fk": {
-          "name": "connection_profiles_user_id_user_id_fk",
-          "tableFrom": "connection_profiles",
-          "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "connection_profiles_host_id_hosts_id_fk": {
-          "name": "connection_profiles_host_id_hosts_id_fk",
-          "tableFrom": "connection_profiles",
-          "tableTo": "hosts",
-          "columnsFrom": [
-            "host_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "connection_profiles_credential_id_credentials_id_fk": {
-          "name": "connection_profiles_credential_id_credentials_id_fk",
-          "tableFrom": "connection_profiles",
-          "tableTo": "credentials",
-          "columnsFrom": [
-            "credential_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
@@ -377,103 +201,6 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "hosts": {
-      "name": "hosts",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "hostname": {
-          "name": "hostname",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "port": {
-          "name": "port",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 22
-        },
-        "tags_json": {
-          "name": "tags_json",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'[]'"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "hosts_user_idx": {
-          "name": "hosts_user_idx",
-          "columns": [
-            "user_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "hosts_user_id_user_id_fk": {
-          "name": "hosts_user_id_user_id_fk",
-          "tableFrom": "hosts",
-          "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
     "instance_settings": {
       "name": "instance_settings",
       "columns": {
@@ -515,9 +242,23 @@
           "notNull": true,
           "autoincrement": false
         },
-        "host_id": {
-          "name": "host_id",
+        "user_id": {
+          "name": "user_id",
           "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "hostname": {
+          "name": "hostname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "port": {
+          "name": "port",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -573,10 +314,21 @@
         }
       },
       "indexes": {
+        "known_host_keys_address_idx": {
+          "name": "known_host_keys_address_idx",
+          "columns": [
+            "user_id",
+            "hostname",
+            "port"
+          ],
+          "isUnique": false
+        },
         "known_host_keys_trusted_uq": {
           "name": "known_host_keys_trusted_uq",
           "columns": [
-            "host_id",
+            "user_id",
+            "hostname",
+            "port",
             "key_type"
           ],
           "isUnique": true,
@@ -584,12 +336,12 @@
         }
       },
       "foreignKeys": {
-        "known_host_keys_host_id_hosts_id_fk": {
-          "name": "known_host_keys_host_id_hosts_id_fk",
+        "known_host_keys_user_id_user_id_fk": {
+          "name": "known_host_keys_user_id_user_id_fk",
           "tableFrom": "known_host_keys",
-          "tableTo": "hosts",
+          "tableTo": "user",
           "columnsFrom": [
-            "host_id"
+            "user_id"
           ],
           "columnsTo": [
             "id"
@@ -614,6 +366,181 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
+    },
+    "servers": {
+      "name": "servers",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "hostname": {
+          "name": "hostname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "port": {
+          "name": "port",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "username": {
+          "name": "username",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "credential_id": {
+          "name": "credential_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "protection_mode": {
+          "name": "protection_mode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'auto'"
+        },
+        "startup_command": {
+          "name": "startup_command",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "term": {
+          "name": "term",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'xterm-256color'"
+        },
+        "env_json": {
+          "name": "env_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'{}'"
+        },
+        "keepalive_interval_s": {
+          "name": "keepalive_interval_s",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 15
+        },
+        "auto_reopen": {
+          "name": "auto_reopen",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "scrollback_lines": {
+          "name": "scrollback_lines",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 5000
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "servers_user_idx": {
+          "name": "servers_user_idx",
+          "columns": [
+            "user_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "servers_user_id_user_id_fk": {
+          "name": "servers_user_id_user_id_fk",
+          "tableFrom": "servers",
+          "tableTo": "user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "servers_credential_id_credentials_id_fk": {
+          "name": "servers_credential_id_credentials_id_fk",
+          "tableFrom": "servers",
+          "tableTo": "credentials",
+          "columnsFrom": [
+            "credential_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "servers_ssh_target_ck": {
+          "name": "servers_ssh_target_ck",
+          "value": "\"servers\".\"kind\" = 'local' OR (\"servers\".\"hostname\" IS NOT NULL AND \"servers\".\"port\" IS NOT NULL AND \"servers\".\"username\" IS NOT NULL)"
+        }
+      }
     },
     "session_events": {
       "name": "session_events",
@@ -690,6 +617,13 @@
             "created_at"
           ],
           "isUnique": false
+        },
+        "session_events_created_idx": {
+          "name": "session_events_created_idx",
+          "columns": [
+            "created_at"
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -728,8 +662,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "profile_id": {
-          "name": "profile_id",
+        "server_id": {
+          "name": "server_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -740,13 +674,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
-        },
-        "target_host_id": {
-          "name": "target_host_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
           "autoincrement": false
         },
         "target_hostname": {
@@ -905,6 +832,13 @@
           ],
           "isUnique": false
         },
+        "sessions_server_idx": {
+          "name": "sessions_server_idx",
+          "columns": [
+            "server_id"
+          ],
+          "isUnique": false
+        },
         "sessions_desired_idx": {
           "name": "sessions_desired_idx",
           "columns": [
@@ -927,25 +861,12 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "sessions_profile_id_connection_profiles_id_fk": {
-          "name": "sessions_profile_id_connection_profiles_id_fk",
+        "sessions_server_id_servers_id_fk": {
+          "name": "sessions_server_id_servers_id_fk",
           "tableFrom": "sessions",
-          "tableTo": "connection_profiles",
+          "tableTo": "servers",
           "columnsFrom": [
-            "profile_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "sessions_target_host_id_hosts_id_fk": {
-          "name": "sessions_target_host_id_hosts_id_fk",
-          "tableFrom": "sessions",
-          "tableTo": "hosts",
-          "columnsFrom": [
-            "target_host_id"
+            "server_id"
           ],
           "columnsTo": [
             "id"
@@ -1332,9 +1253,40 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "verified": {
+          "name": "verified",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "failed_verification_count": {
+          "name": "failed_verification_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "locked_until": {
+          "name": "locked_until",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "two_factor_user_idx": {
+          "name": "two_factor_user_idx",
+          "columns": [
+            "user_id"
+          ],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
         "two_factor_user_id_user_id_fk": {
           "name": "two_factor_user_id_user_id_fk",

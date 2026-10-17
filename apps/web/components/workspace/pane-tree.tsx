@@ -12,6 +12,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { sessionTarget } from '../../lib/sessions/target.ts';
 import {
   type LayoutAction,
   type LeafNode,
@@ -294,7 +295,7 @@ function EmptyPane({ place, tab }: { place: PanePlace; tab: Tab }) {
                         {session.label}
                       </span>
                       <span className="truncate text-ink-muted text-xs">
-                        {session.username}@{session.hostName}
+                        {sessionTarget(session, t('localTarget'))}
                       </span>
                     </span>
                     <StatusChip status={session.status} label={t(`status.${session.status}`)} />

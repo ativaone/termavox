@@ -3,7 +3,7 @@ import { z } from 'zod';
 /**
  * Per-user terminal preferences (`user_preferences.terminal_json`, plan §8.1 /settings/terminal).
  * Rendering-only options: nothing here changes buffer state, so the server emulator ignores them
- * (scrollback is per connection profile). Browser-safe: the terminal client reads the same
+ * (scrollback is set per server). Browser-safe: the terminal client reads the same
  * schema, fonts and colour schemes.
  */
 
