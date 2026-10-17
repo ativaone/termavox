@@ -19,10 +19,14 @@ release notes or the delivery report.
    sign-in: the prompt appears in the browser (secret answers masked), a correct answer
    connects, and after letting a prompt expire the next attempt prompts again.
 6. **Backup → restore on a scratch install.** On a throwaway install (never a real one):
-   `deploy/scripts/backup.sh`, change something (add a host), then
-   `deploy/scripts/restore.sh --yes <backup>`: the change is gone, users, hosts and sessions
+   `deploy/scripts/backup.sh`, change something (add a server), then
+   `deploy/scripts/restore.sh --yes <backup>`: the change is gone, users, servers and sessions
    metadata are back, and a protected session resumes.
-7. **CHANGELOG and version.** `CHANGELOG.md` moves the release out of `[Unreleased]` with the
+7. **Screenshots, when the UI changed significantly.** Refresh `docs/screenshots/` (the images
+   its README and the project README show) from a real run: desktop 1440×900 at 1x, phone
+   390×844 at 2x, default font hinting. Otherwise optional: worth doing only when a capture run
+   happens anyway.
+8. **CHANGELOG and version.** `CHANGELOG.md` moves the release out of `[Unreleased]` with the
    date; the `version` fields match the tag; the upgrade notes mention anything operators must
    do.
-8. **Tag.** Create the annotated tag `vX.Y.Z` on the tested commit and push it.
+9. **Tag.** Create the annotated tag `vX.Y.Z` on the tested commit and push it.
