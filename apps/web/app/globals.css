@@ -128,8 +128,38 @@
     font-size: 100%;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
+    /*
+     * Plus Jakarta Sans ships `prep` and `gasp` tables, so FreeType takes its hinted path and
+     * Chromium rounds every advance to whole pixels at 1x: the 0.170 em space (2.4 px at 14 px)
+     * became 2 px and words ran together. geometricPrecision keeps fractional advances.
+     */
+    text-rendering: geometricPrecision;
     -webkit-tap-highlight-color: transparent;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(255 255 255 / 0.18) transparent;
+  }
+
+  /*
+   * The face's space glyph is narrow by design (0.170 em; Archivo's is 0.200, Inter's 0.28), so
+   * words stay tight even with exact advances. A small em-relative word space, declared on every
+   * element so it follows each element's own font size, brings it to ~0.23 em. Terminals keep
+   * their cell grid: never inherit it there.
+   */
+  *,
+  ::before,
+  ::after {
+    word-spacing: 0.06em;
+  }
+
+  [data-terminal],
+  [data-terminal] *,
+  .terminal-text,
+  .terminal-text * {
+    word-spacing: normal;
+    text-rendering: auto;
   }
 
   body {
@@ -159,16 +189,22 @@
     text-decoration-thickness: 1px;
   }
 
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: rgb(255 255 255 / 0.18) transparent;
-  }
-
   h1,
   h2,
   h3 {
     text-wrap: balance;
   }
+}
+
+/*
+ * Data: compact live values (durations, ages, counts). Plus Jakarta Sans has no alternate "1"
+ * (its GSUB carries calt ccmp dnom frac liga locl numr pnum tnum only, and the tabular one is
+ * still a bare stroke), so "<1m" read as "<lm". JetBrains Mono's digits are unambiguous.
+ */
+@utility font-data {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
 /* The ground with its two static edge glows (magenta top-right, violet bottom-left). Only shell

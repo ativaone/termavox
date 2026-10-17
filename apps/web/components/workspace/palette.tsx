@@ -8,6 +8,7 @@ import type { SessionActionResult } from '../../lib/sessions/action-result.ts';
 import { filterPalette } from '../../lib/workspace/palette.ts';
 import { ArrowDownIcon, ArrowUpIcon, PlusIcon, SearchIcon } from '../icons/index.tsx';
 import { cx } from '../ui/cx.ts';
+import { CONTROL_BASE, CONTROL_SIZE_COMPACT } from '../ui/field.tsx';
 import { Kbd } from '../ui/kbd.tsx';
 import { Notice } from '../ui/notice.tsx';
 import { Spinner } from '../ui/spinner.tsx';
@@ -41,21 +42,25 @@ type Option =
 export function CommandPalette({
   sessions,
   profiles,
-  hostsHref,
+  addServerHref,
   onJump,
   onCreate,
   onClose,
 }: {
   sessions: readonly PaletteSession[];
   profiles: readonly PaletteProfile[];
-  hostsHref: string;
+  /** The Add server form, carrying the way back here (plan D-27). */
+  addServerHref: string;
   onJump(sessionId: string): void;
-  onCreate(profileId: string): Promise<SessionActionResult>;
+  /** Starts a session from a profile, with an optional name (empty: the default label). */
+  onCreate(profileId: string, label: string): Promise<SessionActionResult>;
   onClose(): void;
 }) {
   const t = useTranslations('workspace.palette');
   const ts = useTranslations('workspace.status');
   const inputId = useId();
+  const nameId = useId();
+  const [name, setName] = useState('');
   const listId = useId();
   const sessionsHeading = useId();
   const profilesHeading = useId();
@@ -123,10 +128,20 @@ export function CommandPalette({
     setBusy(option.key);
     setError(null);
     try {
-      const result = await onCreate(option.profile.id);
+      const result = await onCreate(option.profile.id, name.trim());
       if (!result.ok) setError(result.message);
     } finally {
       setBusy(null);
+    }
+  };
+  // Enter in the name field starts the highlighted profile; Escape closes the palette.
+  const onNameKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      onClose();
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      void choose(active);
     }
   };
 
@@ -280,7 +295,7 @@ export function CommandPalette({
               {t.rich('noProfiles', {
                 link: (chunks) => (
                   <Link
-                    href={hostsHref}
+                    href={addServerHref}
                     className="font-medium text-accent underline decoration-accent/50 underline-offset-4 hover:decoration-accent"
                   >
                     {chunks}
@@ -290,6 +305,30 @@ export function CommandPalette({
             </p>
           ) : null}
         </div>
+        {active?.kind === 'profile' ? (
+          <div className="flex shrink-0 items-center gap-3 border-line border-t px-4 py-2.5">
+            <label htmlFor={nameId} className="shrink-0 font-semibold text-ink text-sm">
+              {t('name')}
+            </label>
+            <input
+              id={nameId}
+              type="text"
+              value={name}
+              placeholder={active.profile.name}
+              aria-describedby={`${nameId}-help`}
+              maxLength={1024}
+              autoComplete="off"
+              spellCheck={false}
+              readOnly={busy !== null}
+              onChange={(event) => setName(event.target.value)}
+              onKeyDown={onNameKeyDown}
+              className={cx(CONTROL_BASE, CONTROL_SIZE_COMPACT, 'flex-1')}
+            />
+            <span id={`${nameId}-help`} className="shrink-0 text-ink-muted text-xs max-sm:hidden">
+              {t('nameHelp')}
+            </span>
+          </div>
+        ) : null}
         {error ? (
           <div className="shrink-0 px-3 pb-3">
             <Notice tone="danger">{error}</Notice>

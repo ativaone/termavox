@@ -166,10 +166,12 @@ function ProbeReport({ result }: { result: NonNullable<DiagnosticsState['result'
       <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 border-line border-y text-base">
         {rows.map(([label, value]) => (
           <div key={label} className="contents">
-            <dt className="border-line border-t py-2 text-ink-muted text-sm first:border-t-0">
+            <dt className="border-line border-t py-2 text-ink-muted text-sm [div:first-child>&]:border-t-0">
               {label}
             </dt>
-            <dd className="break-words border-line border-t py-2 text-ink">{value}</dd>
+            <dd className="break-words border-line border-t py-2 text-ink [div:first-child>&]:border-t-0">
+              {value}
+            </dd>
           </div>
         ))}
       </dl>

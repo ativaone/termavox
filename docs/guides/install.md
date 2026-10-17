@@ -118,6 +118,10 @@ Open `/setup` (the log line contains the full URL), enter the token, and choose 
 
 The token lives only in web's memory (and in that log line). If you lose it, `docker compose -f deploy/compose.yaml restart web` logs a new one. Treat the logs as sensitive until setup is done.
 
+## 6. Add your first server
+
+Sign in. The empty workspace offers **Add your first server**, which opens one page with three sections: the server (a name and its address), the sign-in (the user name on that server) and the credential (generate a new key, paste a private key, or a password). Nothing is saved until you submit it. For a generated key, the page then shows the public key and a one-line command that adds it to `~/.ssh/authorized_keys` on the server. **Start a session** opens it in the workspace, where the first connection shows the server's host key fingerprint for you to check and trust.
+
 ## Domain and TLS
 
 - **`TERMDOCK_TLS=auto`** (default) uses Caddy's automatic HTTPS. For `localhost` and IP addresses, Caddy issues certificates from its own local CA, which is the same as `tls internal`. For a public domain, it obtains a Let's Encrypt or ZeroSSL certificate over ACME. That needs ports 80 and 443 reachable from the internet.
@@ -137,7 +141,7 @@ HSTS (`max-age=31536000`) is sent for every name except `localhost`. HSTS applie
 
 ## The "This Docker host" preset
 
-session-manager can reach the Docker host itself as `host.docker.internal`. Compose maps that name to the host gateway (`extra_hosts: host.docker.internal:host-gateway`). The "Add this Docker host" preset on `/hosts` (Phase 6) creates a host `host.docker.internal:22`, generates an ed25519 key, and shows the `authorized_keys` line to install for the host user. The first connection goes through the normal host-key trust flow.
+session-manager can reach the Docker host itself as `host.docker.internal`. Compose maps that name to the host gateway (`extra_hosts: host.docker.internal:host-gateway`). The "Add this Docker host" preset (`/hosts/docker`, linked from the hosts list and the Add server page) creates a host `host.docker.internal:22`, generates an ed25519 key, and shows the `authorized_keys` line to install for the host user. The first connection goes through the normal host-key trust flow.
 
 On the host, `sshd` must accept connections from the container network. By default it listens on all addresses, which is enough. If a firewall such as `ufw` filters incoming traffic, allow port 22 from the compose `edge` subnet:
 

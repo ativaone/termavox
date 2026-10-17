@@ -2,6 +2,8 @@
 
 import { useTranslations } from 'next-intl';
 import { useId } from 'react';
+import { withReturnPath } from '../../lib/manage/return-to.ts';
+import { ROUTES } from '../../lib/routes.ts';
 import { HostIcon } from '../icons/index.tsx';
 import { ButtonLink } from '../ui/button.tsx';
 import { cx } from '../ui/cx.ts';
@@ -9,8 +11,11 @@ import { EmptyState } from '../ui/empty-state.tsx';
 import { Panel } from '../ui/panel.tsx';
 import { NewSessionButton } from './new-session-button.tsx';
 
-/** First run: no host yet. Teaches the three steps and offers the one action that starts them. */
-export function FirstRunPanel({ hostsHref, className }: { hostsHref: string; className?: string }) {
+/**
+ * First run: no host yet. Teaches the three steps of the one "Add server" page (plan D-27) and
+ * offers the action that opens it; its Back and Cancel return to the workspace.
+ */
+export function FirstRunPanel({ className }: { className?: string }) {
   const t = useTranslations('workspace.pane');
   const titleId = useId();
   const steps = [t('firstRunStep1'), t('firstRunStep2'), t('firstRunStep3')];
@@ -22,8 +27,11 @@ export function FirstRunPanel({ hostsHref, className }: { hostsHref: string; cla
         title={t('firstRunTitle')}
         body={t('firstRunBody')}
         action={
-          // No prefetch: the host pages arrive with the management surfaces.
-          <ButtonLink href={hostsHref} prefetch={false} variant="primary" size="lg">
+          <ButtonLink
+            href={withReturnPath(ROUTES.addServer, ROUTES.workspace)}
+            variant="primary"
+            size="lg"
+          >
             {t('firstRunCta')}
           </ButtonLink>
         }

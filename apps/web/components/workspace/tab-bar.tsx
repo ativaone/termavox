@@ -25,6 +25,7 @@ import {
 import { Button } from '../ui/button.tsx';
 import { cx } from '../ui/cx.ts';
 import { StateLamp } from '../ui/status-chip.tsx';
+import { useRenameSession } from './hooks.ts';
 import type { PaneMeta } from './workspace-context.tsx';
 
 /** Room kept beside a revealed tab: the edge cue (20 px) plus a peek of its neighbour. */
@@ -34,6 +35,8 @@ const WHEEL_LINE = 16;
 
 interface TabView {
   tab: Tab;
+  /** The focused pane's session (the one the label names), if any. */
+  sessionId: string | null;
   label: string;
   title: string | null;
   session: SessionLabel | undefined;
@@ -52,6 +55,7 @@ function viewOf(
   const session = current.sessionId ? sessions.get(current.sessionId) : undefined;
   return {
     tab,
+    sessionId: current.sessionId ?? null,
     label: session?.label ?? (current.sessionId ? fallback.loading : fallback.empty),
     title: paneMeta[current.id]?.title ?? null,
     session,
@@ -110,6 +114,7 @@ export function TabBar({
   canSplit,
   revealKey = 0,
   trailing,
+  onRenameError,
 }: {
   layout: WorkspaceLayout;
   /** Label and status per session (server-rendered until live data arrives). */
@@ -122,8 +127,34 @@ export function TabBar({
   /** Changes whenever a session is followed or a tab selected, even the already active one. */
   revealKey?: number;
   trailing?: ReactNode;
+  /** A rename the daemon refused (shown by the shell's notice bar). */
+  onRenameError?(message: string): void;
 }) {
   const t = useTranslations('workspace');
+  const rename = useRenameSession();
+  // Inline rename (plan D-28): double-click a tab's label to edit it in place.
+  const [editing, setEditing] = useState<{ tabId: string; value: string } | null>(null);
+  /** Escape sets this before the input blurs, so the blur does not save. */
+  const cancelled = useRef(false);
+  /** The edit field mounts once per edit: take the keyboard and select the current name. */
+  const mountEdit = (element: HTMLInputElement | null) => {
+    if (element && document.activeElement !== element) {
+      element.focus();
+      element.select();
+    }
+  };
+  const startEdit = (view: TabView) => {
+    if (!view.sessionId || !view.session) return;
+    cancelled.current = false;
+    setEditing({ tabId: view.tab.id, value: view.label });
+  };
+  const finishEdit = async (view: TabView, save: boolean) => {
+    const state = editing;
+    setEditing(null);
+    if (!save || !state || !view.sessionId || state.value === view.label) return;
+    const result = await rename(view.sessionId, state.value);
+    if (!result.ok) onRenameError?.(result.message);
+  };
   const refs = useRef(new Map<string, HTMLButtonElement>());
   const items = useRef(new Map<string, HTMLLIElement>());
   const stripRef = useRef<HTMLUListElement>(null);
@@ -277,49 +308,83 @@ export function TabBar({
                         : 'text-ink-muted hover:bg-surface hover:text-ink',
                     )}
                   >
-                    <button
-                      ref={(element) => {
-                        if (element) refs.current.set(view.tab.id, element);
-                        else refs.current.delete(view.tab.id);
-                      }}
-                      type="button"
-                      aria-current={active ? 'true' : undefined}
-                      onClick={() => onSelect(view.tab.id)}
-                      className="flex min-w-0 flex-1 items-center gap-2 ps-2.5 pe-1 text-start focus-visible:outline-2 focus-visible:outline-focus focus-visible:-outline-offset-2"
-                    >
-                      {status ? (
-                        <StateLamp status={status} />
-                      ) : (
-                        <span
-                          aria-hidden="true"
-                          className="size-2 shrink-0 rounded-pill bg-line-strong"
+                    {editing?.tabId === view.tab.id ? (
+                      <span className="flex min-w-0 flex-1 items-center gap-2 ps-2.5 pe-1">
+                        {status ? <StateLamp status={status} /> : null}
+                        <input
+                          ref={mountEdit}
+                          type="text"
+                          value={editing.value}
+                          aria-label={t('tabs.renameLabel', { label: view.label })}
+                          maxLength={1024}
+                          autoComplete="off"
+                          spellCheck={false}
+                          onChange={(event) =>
+                            setEditing({ tabId: view.tab.id, value: event.target.value })
+                          }
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault();
+                              void finishEdit(view, true);
+                            } else if (event.key === 'Escape') {
+                              event.preventDefault();
+                              cancelled.current = true;
+                              void finishEdit(view, false);
+                            }
+                          }}
+                          onBlur={() => {
+                            if (!cancelled.current) void finishEdit(view, true);
+                          }}
+                          className="h-6 min-w-0 flex-1 rounded-sm border border-accent bg-field px-1.5 font-semibold text-ink text-sm outline-none"
                         />
-                      )}
-                      <span className="min-w-0 truncate font-semibold text-sm">{view.label}</span>
-                      {view.title ? (
-                        <span className="min-w-0 flex-1 truncate text-ink-muted text-xs">
-                          {view.title}
-                        </span>
-                      ) : (
-                        <span className="flex-1" />
-                      )}
-                      {view.panes > 1 ? (
-                        <span
-                          aria-hidden="true"
-                          className="shrink-0 rounded-pill bg-surface-raised px-1.5 font-semibold text-2xs text-ink-muted tabular-nums"
-                        >
-                          {view.panes}
-                        </span>
-                      ) : null}
-                      {view.bell ? (
-                        <BellIcon size={14} className="shrink-0 text-attention" />
-                      ) : null}
-                      <span className="sr-only">
-                        {status ? `, ${t(`status.${status}`)}` : ''}
-                        {view.panes > 1 ? `, ${t('tabs.panes', { count: view.panes })}` : ''}
-                        {view.bell ? `, ${t('tabs.bell')}` : ''}
                       </span>
-                    </button>
+                    ) : (
+                      <button
+                        ref={(element) => {
+                          if (element) refs.current.set(view.tab.id, element);
+                          else refs.current.delete(view.tab.id);
+                        }}
+                        type="button"
+                        aria-current={active ? 'true' : undefined}
+                        onClick={() => onSelect(view.tab.id)}
+                        onDoubleClick={() => startEdit(view)}
+                        title={view.sessionId ? t('tabs.renameHint') : undefined}
+                        className="flex min-w-0 flex-1 items-center gap-2 ps-2.5 pe-1 text-start focus-visible:outline-2 focus-visible:outline-focus focus-visible:-outline-offset-2"
+                      >
+                        {status ? (
+                          <StateLamp status={status} />
+                        ) : (
+                          <span
+                            aria-hidden="true"
+                            className="size-2 shrink-0 rounded-pill bg-line-strong"
+                          />
+                        )}
+                        <span className="min-w-0 truncate font-semibold text-sm">{view.label}</span>
+                        {view.title ? (
+                          <span className="min-w-0 flex-1 truncate text-ink-muted text-xs">
+                            {view.title}
+                          </span>
+                        ) : (
+                          <span className="flex-1" />
+                        )}
+                        {view.panes > 1 ? (
+                          <span
+                            aria-hidden="true"
+                            className="shrink-0 rounded-pill bg-surface-raised px-1.5 font-data font-semibold text-2xs text-ink-muted"
+                          >
+                            {view.panes}
+                          </span>
+                        ) : null}
+                        {view.bell ? (
+                          <BellIcon size={14} className="shrink-0 text-attention" />
+                        ) : null}
+                        <span className="sr-only">
+                          {status ? `, ${t(`status.${status}`)}` : ''}
+                          {view.panes > 1 ? `, ${t('tabs.panes', { count: view.panes })}` : ''}
+                          {view.bell ? `, ${t('tabs.bell')}` : ''}
+                        </span>
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={(event) => close(event, index)}

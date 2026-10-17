@@ -16,9 +16,14 @@ The first release, v0.1.0, is being prepared.
 - Automatic, invisible tmux protection through tmux control mode (tmux ≥ 3.2), with
   auto-detection and a graceful unprotected fallback. Protected sessions survive daemon
   restarts and network drops ("Restoring…").
-- Workspace with session lanes, tabs and split panes; the layout is saved on the server and
-  restored in any browser. Several browsers can attach to one session at once.
-- Phone support: responsive layout and an extra-key bar (Esc, Tab, Ctrl, arrows, paste).
+- Workspace with a collapsible session list, tabs and split panes; the layout is saved on the
+  server and restored in any browser. Several browsers can attach to one session at once.
+- Session names: give a session a name when you open it and rename it later from its menu or by
+  double-clicking its tab; every attached browser sees the new name.
+- One "Add server" form for the server, the sign-in profile and the credential (generate a key,
+  paste one, a password or a saved credential). Once the server is added it shows the public key
+  with the command that installs it and starts a session in one click.
+- Phone support: responsive layout and an extra-key bar (Esc, Tab, Ctrl, Alt, arrows, paste).
 - Multi-user with strict per-user isolation of hosts, credentials, profiles and sessions.
 - SSH authentication with private keys (with passphrase), passwords and keyboard-interactive
   prompts (OTP/2FA) relayed to the browser.

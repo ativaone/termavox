@@ -1,4 +1,4 @@
-import { type InputHTMLAttributes, type ReactNode, useId } from 'react';
+import { type InputHTMLAttributes, type ReactNode, type Ref, useId } from 'react';
 import { cx } from './cx.ts';
 import { CONTROL_CLASSES, Field, fieldIds } from './field.tsx';
 
@@ -10,6 +10,7 @@ export interface TextFieldProps extends Omit<InputHTMLAttributes<HTMLInputElemen
   /** Monospace value (codes, keys). */
   mono?: boolean;
   fieldClassName?: string;
+  ref?: Ref<HTMLInputElement>;
 }
 
 export function TextField({
@@ -22,6 +23,7 @@ export function TextField({
   className,
   fieldClassName,
   type = 'text',
+  ref,
   ...input
 }: TextFieldProps) {
   const autoId = useId();
@@ -37,6 +39,7 @@ export function TextField({
       className={fieldClassName}
     >
       <input
+        ref={ref}
         id={id}
         type={type}
         aria-invalid={error ? true : undefined}

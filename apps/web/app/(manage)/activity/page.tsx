@@ -315,7 +315,7 @@ export default async function ActivityPage({
                       {isKnownEvent(row.type) ? t(`type.${row.type}`) : row.type}
                     </span>
                     {count > 1 ? (
-                      <span className="rounded-xs bg-surface-raised px-1 font-semibold text-2xs text-ink-muted tabular-nums">
+                      <span className="rounded-pill bg-surface-raised px-1.5 font-data font-semibold text-2xs text-ink-muted">
                         <span aria-hidden="true">×{count}</span>
                         <span className="sr-only">{t('events.repeated', { count })}</span>
                       </span>

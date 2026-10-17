@@ -296,7 +296,7 @@ export default async function HostPage({
                               <DisclosureSummary className="font-medium text-ink text-sm">
                                 {td('replace.title')}
                               </DisclosureSummary>
-                              <div className="mt-3 rounded-control border border-line-strong px-4 py-3">
+                              <div className="mt-3 rounded-control border border-line bg-surface px-4 py-3">
                                 <ReplaceKeyForm
                                   hostId={host.id}
                                   hostName={host.name}

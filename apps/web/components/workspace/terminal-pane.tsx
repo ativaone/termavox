@@ -4,7 +4,7 @@ import '@xterm/xterm/css/xterm.css';
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTerminalChannel } from '../../lib/terminal/react.ts';
-import { ctrlChar } from '../../lib/workspace/keys.ts';
+import { altChar, ctrlChar } from '../../lib/workspace/keys.ts';
 import { cleanTitle } from '../../lib/workspace/title.ts';
 import { cx } from '../ui/cx.ts';
 import { type LinkPrompt, PaneOverlays } from './pane-overlays.tsx';
@@ -118,25 +118,30 @@ export function TerminalPane({
     terminal.options.cursorBlink = cursorBlink;
   }, [terminal, cursorStyle, cursorBlink]);
 
-  // Keyboard: the palette shortcut never reaches the shell, and a sticky Ctrl from the phone key
-  // bar turns the next printable key into its control byte.
-  const { ctrlArmed, consumeCtrl } = ws;
+  // Keyboard: the palette shortcut never reaches the shell, and the sticky modifiers from the
+  // phone key bar apply to the next key: Ctrl masks a printable key into its control byte, Alt
+  // sends the key behind an ESC prefix (both: the masked byte behind ESC).
+  const { ctrlArmed, consumeCtrl, altArmed, consumeAlt } = ws;
   useEffect(() => {
     if (!terminal || !channel) return;
+    const armed = (key: string): string | null => {
+      if (!ctrlArmed.current && !altArmed.current) return null;
+      const base = ctrlArmed.current ? ctrlChar(key) : key.length === 1 ? key : null;
+      if (base === null) return null;
+      return altArmed.current ? altChar(base) : base;
+    };
+    const consume = () => {
+      if (ctrlArmed.current) consumeCtrl();
+      if (altArmed.current) consumeAlt();
+    };
     terminal.attachCustomKeyEventHandler((event) => {
       if (isPaletteShortcut(event)) return false;
-      if (
-        ctrlArmed.current &&
-        event.type === 'keydown' &&
-        !event.ctrlKey &&
-        !event.altKey &&
-        !event.metaKey
-      ) {
-        const masked = ctrlChar(event.key);
-        if (masked) {
+      if (event.type === 'keydown' && !event.ctrlKey && !event.altKey && !event.metaKey) {
+        const bytes = armed(event.key);
+        if (bytes) {
           event.preventDefault();
-          channel.input(masked);
-          consumeCtrl();
+          channel.input(bytes);
+          consume();
           return false;
         }
       }
@@ -145,19 +150,19 @@ export function TerminalPane({
     // Soft keyboards often report keydown as "Unidentified" and deliver text as input events.
     const textarea = terminal.textarea;
     const onBeforeInput = (event: InputEvent) => {
-      if (!ctrlArmed.current || event.inputType !== 'insertText' || !event.data) return;
-      const masked = ctrlChar(event.data);
-      if (!masked) return;
+      if (event.inputType !== 'insertText' || !event.data) return;
+      const bytes = armed(event.data);
+      if (!bytes) return;
       event.preventDefault();
-      channel.input(masked);
-      consumeCtrl();
+      channel.input(bytes);
+      consume();
     };
     textarea?.addEventListener('beforeinput', onBeforeInput, true);
     return () => {
       terminal.attachCustomKeyEventHandler(() => true);
       textarea?.removeEventListener('beforeinput', onBeforeInput, true);
     };
-  }, [terminal, channel, ctrlArmed, consumeCtrl]);
+  }, [terminal, channel, ctrlArmed, consumeCtrl, altArmed, consumeAlt]);
 
   // Clipboard preferences: copy on select, right-click paste, OSC 52 writes (opt-in).
   const { copyOnSelect, rightClickPaste, allowOsc52Write } = preferences;

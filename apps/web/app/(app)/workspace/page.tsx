@@ -4,6 +4,7 @@ import { WorkspaceShell } from '../../../components/workspace/workspace-shell.ts
 import { isLocale } from '../../../i18n/locales.ts';
 import { isAdminRole } from '../../../lib/admin/core.ts';
 import { getAuthRuntime, requireSession } from '../../../lib/auth/server.ts';
+import { withReturnPath } from '../../../lib/manage/return-to.ts';
 import { countHosts } from '../../../lib/repo/hosts.ts';
 import { getLayout } from '../../../lib/repo/layouts.ts';
 import { getTerminalPreferences } from '../../../lib/repo/preferences.ts';
@@ -40,6 +41,7 @@ export default async function WorkspacePage() {
       locale={isLocale(locale) ? locale : 'en'}
       workspaceHref={ROUTES.workspace}
       hostsHref={ROUTES.hosts}
+      addServerHref={withReturnPath(ROUTES.addServer, ROUTES.workspace)}
       loginHref={ROUTES.login}
       isAdmin={isAdminRole(user.role)}
       initialLayout={getLayout(db, user.id)}

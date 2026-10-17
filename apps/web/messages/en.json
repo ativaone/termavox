@@ -32,7 +32,7 @@
     "workspace": "Workspace",
     "notFound": "Page not found",
     "hosts": "Hosts",
-    "hostNew": "Add a host",
+    "hostNew": "Add server",
     "dockerHost": "Add this Docker host",
     "credentials": "Credentials",
     "activity": "Activity",
@@ -164,7 +164,7 @@
       "shortcut": "Shortcut",
       "emptyTitle": "No sessions yet",
       "emptyBody": "Start one with New session. It keeps running until you end it.",
-      "noHosts": "Sessions appear here once you add a host."
+      "noHosts": "Sessions appear here once you add a server."
     },
     "lane": {
       "action_required": "Action required",
@@ -215,6 +215,8 @@
       "panes": "{count, plural, one {# pane} other {# panes}}",
       "bell": "bell rang",
       "closeLabel": "Close tab {label}. Sessions keep running.",
+      "renameHint": "Double-click to rename",
+      "renameLabel": "Rename {label}",
       "splitRight": "Split right",
       "splitDown": "Split down"
     },
@@ -222,12 +224,12 @@
       "label": "Terminal panes",
       "emptyTitle": "Pick a session",
       "emptyBody": "Choose a session in the list to open it here. Closing a tab only detaches; the session keeps running on the server.",
-      "firstRunTitle": "Add your first host",
-      "firstRunBody": "Termdock holds SSH sessions open on the server, so you can close the browser and come back to the same screen.",
-      "firstRunStep1": "Add a host and the credential that reaches it.",
-      "firstRunStep2": "Check its host key fingerprint and trust it.",
-      "firstRunStep3": "Start a session. It runs until you end it.",
-      "firstRunCta": "Add a host",
+      "firstRunTitle": "Connect your first server",
+      "firstRunBody": "Termdock holds SSH sessions open on the server, so you can close the browser and come back to the same screen. Setting up a server takes one page:",
+      "firstRunStep1": "Where the server is: a name and its address.",
+      "firstRunStep2": "How you sign in: the user name and a key or password.",
+      "firstRunStep3": "Start a session. It keeps running until you end it.",
+      "firstRunCta": "Add your first server",
       "noSessionsTitle": "Start a session",
       "noSessionsBody": "Your hosts are ready. Start a session and it will appear in the bay.",
       "resize": "Resize panes",
@@ -249,6 +251,7 @@
       "esc": "Esc",
       "tab": "Tab",
       "ctrl": "Ctrl",
+      "alt": "Alt",
       "up": "Up arrow",
       "down": "Down arrow",
       "left": "Left arrow",
@@ -264,6 +267,12 @@
       "terminalSettings": "Terminal settings",
       "language": "Language…",
       "cancel": "Cancel"
+    },
+    "rename": {
+      "title": "Rename session",
+      "label": "Name",
+      "help": "Everyone who sees this session sees the new name, in the list and on tabs.",
+      "save": "Save"
     },
     "sidebar": {
       "collapse": "Collapse the session list",
@@ -352,6 +361,7 @@
       "splitDown": "Split down",
       "retry": "Retry now",
       "reopen": "Reopen",
+      "rename": "Rename…",
       "terminate": "Terminate…",
       "terminateQuestion": "Terminate {label}? The shell and everything running in it stop. This can't be undone.",
       "terminateConfirm": "Terminate session",
@@ -367,7 +377,9 @@
       "starting": "Starting…",
       "noMatch": "Nothing matches “{query}”.",
       "nothing": "No sessions or profiles yet.",
-      "noProfiles": "Sessions start from a connection profile. <link>Add one on a host's page.</link>",
+      "noProfiles": "Sessions start from a connection profile. <link>Add a server to create one.</link>",
+      "name": "Name",
+      "nameHelp": "Optional. Empty uses the profile name.",
       "hintMove": "to move",
       "hintChoose": "to open",
       "keyUp": "Up arrow",
@@ -431,7 +443,7 @@
   "hosts": {
     "title": "Hosts",
     "intro": "Servers Termdock connects to. Each host has connection profiles that say who to log in as.",
-    "add": "Add a host",
+    "add": "Add server",
     "kind": {
       "ssh": "SSH",
       "local": "Local"
@@ -447,7 +459,7 @@
     },
     "empty": {
       "title": "No hosts yet",
-      "body": "A host is a server Termdock reaches over SSH. Add one, check its host key, then create a profile to start sessions.",
+      "body": "A host is a server Termdock reaches over SSH. Add server asks where it is, how you sign in and which key or password to use, all on one page.",
       "dockerHelp": "Running Termdock in Docker on the server you want to reach? “Add this Docker host” creates the host and a dedicated key for you."
     },
     "notice": {
@@ -474,10 +486,111 @@
       "notFound": "This host no longer exists.",
       "hostInUse": "This host still has running sessions. Terminate them first, then delete the host."
     },
-    "new": {
-      "title": "Add a host",
-      "intro": "Give the server a name you'll recognise and the address Termdock uses to reach it.",
-      "submit": "Add host"
+    "back": {
+      "workspace": "Back to the workspace",
+      "hosts": "Back to hosts",
+      "host": "Back to {name}",
+      "addServer": "Back to Add server",
+      "credentials": "Back to credentials"
+    },
+    "addServer": {
+      "title": "Add server",
+      "intro": "Where the server is, how you sign in and which key or password to use, on one page.",
+      "submit": "Add server",
+      "nothingSaved": "Nothing is saved until you add the server.",
+      "cancel": "Cancel",
+      "optional": "(optional)",
+      "fixFields": "{count, plural, one {# field above needs attention.} other {# fields above need attention.}} Nothing was saved.",
+      "docker": {
+        "title": "Termdock runs in Docker on this server?",
+        "body": "Add the machine that runs Docker in one step, with a key made for it.",
+        "cta": "Add this Docker host"
+      },
+      "server": {
+        "title": "Server",
+        "intro": "The machine Termdock connects to.",
+        "choice": "Which server",
+        "new": "New server",
+        "newHelp": "Enter its name and address",
+        "existing": "A server I already added",
+        "existingHelp": "Add another sign-in to it",
+        "pick": "Server",
+        "pickHelp": "The new sign-in is added to this server."
+      },
+      "signIn": {
+        "title": "Sign-in",
+        "intro": "The account Termdock logs in as. This creates a new connection profile.",
+        "username": "User name on the server",
+        "usernameHelp": "The account Termdock logs in as, e.g. deploy or ubuntu.",
+        "name": "Profile name",
+        "nameHelp": "Shown when you start a session. Leave it empty to use the user name.",
+        "advanced": "Advanced",
+        "advancedHelp": "Session protection, startup command, environment, keepalive, scrollback and reopening. The defaults suit most servers."
+      },
+      "credential": {
+        "title": "Credential",
+        "intro": "The key or password Termdock signs in with. Secrets go to the session service once and are never shown again.",
+        "local": "A local shell runs as the session service's own user, so it needs no credential.",
+        "choice": "Sign in with",
+        "recommended": "Recommended",
+        "choices": {
+          "generate": "Generate a new key",
+          "private_key": "Paste a private key",
+          "password": "Password",
+          "saved": "Use a saved credential"
+        },
+        "choiceHelp": {
+          "generate": "A new ed25519 key; you add its public key to the server",
+          "private_key": "An OpenSSH or PEM key you already have",
+          "password": "Termdock answers the server's password prompt",
+          "saved": "A key or password you stored before"
+        },
+        "pick": "Saved credential",
+        "name": "Credential name",
+        "nameHelp": "Leave it empty to name it {example}.",
+        "exampleUser": "user",
+        "exampleServer": "server",
+        "generateNote": "The private key never leaves the session service. Once the server is added, you get the public key and the command that installs it.",
+        "reenter": "Secrets are never sent back to the browser, so enter it again."
+      },
+      "error": {
+        "hostRequired": "Pick a server.",
+        "hostMissing": "This server no longer exists. Pick another one.",
+        "credentialRequired": "Pick a saved credential.",
+        "credentialMissing": "This credential no longer exists. Pick another one.",
+        "saveFailed": "The server could not be added, and nothing was saved. Try again.",
+        "leftover": "The server could not be added, and the new credential {name} could not be removed. Delete it on the Credentials page.",
+        "unavailable": "The session service is not responding, so nothing was added. Try again in a moment.",
+        "timeout": "The session service took too long, so the server was not added. Check your credentials before you try again.",
+        "notFound": "Your account was not found.",
+        "conflict": "The credential could not be created. Try again.",
+        "forbidden": "Your account isn't allowed to do that.",
+        "limit": "Too many requests. Wait a moment.",
+        "rejected": "The session service rejected the request. Check the fields and try again.",
+        "generic": "Something went wrong, and nothing was added. Try again."
+      },
+      "done": {
+        "title": "Server added",
+        "body": "Termdock signs in to {server} as {username}.",
+        "bodyLocal": "{server} opens a local shell.",
+        "profile": "profile {name}",
+        "kind": {
+          "generate": "New key",
+          "private_key": "Pasted key",
+          "password": "Password",
+          "saved": "Saved credential"
+        },
+        "keyTitle": "Install the key on the server",
+        "keyIntro": "Before the first session, add the public key for {username} on the server. It is shown here once, so copy it now.",
+        "command": "Run this as {username} on the server",
+        "copyCommand": "Copy command",
+        "publicKey": "Or add this line to ~/.ssh/authorized_keys",
+        "copyKey": "Copy public key",
+        "fingerprint": "Key fingerprint:",
+        "trust": "The first session shows the server's host key fingerprint. Check it and trust it once.",
+        "start": "Start a session",
+        "openHost": "Open {server}"
+      }
     },
     "form": {
       "name": "Name",
@@ -541,7 +654,7 @@
         "credentialNone": "None (prompt in the terminal)",
         "credentialEmpty": "You have no credentials yet.",
         "credentialHelp": "The key or password Termdock uses for this login.",
-        "credentialManage": "Manage credentials",
+        "credentialNew": "New credential",
         "protection": "Session protection",
         "protectionAuto": "Auto (recommended)",
         "protectionAutoHelp": "When the host has tmux 3.2 or newer, Termdock runs the shell inside tmux, invisibly. The session then survives Termdock restarts and network drops, with the same screen when you return. Without tmux the session runs unprotected and says so.",
@@ -1168,7 +1281,8 @@
         "host_key_replace": "Host key replaced",
         "host_key_revoke": "Host key revoked",
         "host_key_mismatch": "Host key mismatch",
-        "host_key_revoked_presented": "Revoked host key presented"
+        "host_key_revoked_presented": "Revoked host key presented",
+        "session_rename": "Session renamed"
       },
       "details": {
         "key": {
@@ -1189,7 +1303,9 @@
           "keyType": "Key type",
           "fingerprint": "Fingerprint",
           "previousFingerprint": "Previous fingerprint",
-          "source": "Source"
+          "source": "Source",
+          "previousLabel": "Previous name",
+          "label": "New name"
         },
         "value": {
           "stage": {
@@ -1232,7 +1348,8 @@
         "on": "On",
         "off": "Off",
         "seconds": "{count} s",
-        "change": "{setting}: {from} → {to}"
+        "change": "{setting}: {from} → {to}",
+        "rename": "{from} → {to}"
       }
     }
   }

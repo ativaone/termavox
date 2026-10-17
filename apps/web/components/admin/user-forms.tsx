@@ -12,7 +12,7 @@ import type { ManageState } from '../../lib/manage/forms.ts';
 import { buttonClasses } from '../ui/button.tsx';
 import { Checkbox } from '../ui/checkbox.tsx';
 import { cx } from '../ui/cx.ts';
-import { FormMessage, Notice } from '../ui/notice.tsx';
+import { DANGER_SLIP_CLASSES, FormMessage, Notice } from '../ui/notice.tsx';
 import { PasswordField } from '../ui/password-field.tsx';
 import { Select } from '../ui/select.tsx';
 import { SubmitButton } from '../ui/submit-button.tsx';
@@ -140,10 +140,7 @@ export function BanControl({
             >
               {t('disable')}
             </summary>
-            <form
-              action={action}
-              className="mt-3 flex max-w-[34rem] flex-col gap-3 rounded-control bg-danger-soft px-3 py-3 text-base text-ink"
-            >
+            <form action={action} className={cx(DANGER_SLIP_CLASSES, 'mt-3 max-w-[34rem]')}>
               <input type="hidden" name="userId" value={userId} />
               <input type="hidden" name="banned" value="1" />
               <p className="text-pretty">{t('question', { username })}</p>

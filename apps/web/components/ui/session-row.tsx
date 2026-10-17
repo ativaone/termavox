@@ -134,8 +134,8 @@ export function SessionRow({
           <ProtectionMark protection={protection} />
           <span className="sr-only">{protectionLabel}</span>
         </span>
-        <span className="flex min-w-9 items-center justify-end font-medium text-ink-muted text-xs tabular-nums">
-          <span aria-hidden="true" className="truncate">
+        <span className="flex min-w-10 items-center justify-end font-data font-medium text-ink-muted text-xs">
+          <span aria-hidden="true" className="whitespace-nowrap">
             {time}
           </span>
           <span className="sr-only">{timeLabel}</span>
@@ -169,6 +169,8 @@ export function SessionTile({
   statusLabel,
   followed = false,
   onClick,
+  onContextMenu,
+  menu,
 }: {
   href: string;
   label: string;
@@ -177,8 +179,11 @@ export function SessionTile({
   statusLabel: string;
   followed?: boolean;
   onClick?: MouseEventHandler<HTMLAnchorElement>;
+  onContextMenu?: MouseEventHandler<HTMLDivElement>;
+  /** The tile's actions control, shown at its corner on hover or focus. */
+  menu?: ReactNode;
 }) {
-  return (
+  const link = (
     <Link
       href={href}
       scroll={false}
@@ -201,5 +206,20 @@ export function SessionTile({
       </span>
       <StateLamp status={status} size="sm" className="absolute end-1 bottom-1" />
     </Link>
+  );
+  if (!menu) return link;
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: the context menu mirrors the actions button, which stays the accessible way in
+    <div onContextMenu={onContextMenu} className="group/tile relative" data-status={status}>
+      {link}
+      <span
+        className={cx(
+          'absolute -end-1 -top-1 rounded-sm bg-surface-solid opacity-0 transition-opacity duration-(--duration-step) ease-(--ease-out)',
+          'group-hover/tile:opacity-100 focus-within:opacity-100 has-[[aria-expanded=true]]:opacity-100',
+        )}
+      >
+        {menu}
+      </span>
+    </div>
   );
 }

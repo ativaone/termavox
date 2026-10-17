@@ -22,7 +22,6 @@ export interface SidebarProps {
   isAdmin: boolean;
   locale: Locale;
   hostCount: number;
-  hostsHref: string;
   data: BayData;
   followedId: string | null;
   renderedAt: number;
@@ -76,7 +75,6 @@ export function Sidebar({
   isAdmin,
   locale,
   hostCount,
-  hostsHref,
   data,
   followedId,
   renderedAt,
@@ -102,7 +100,7 @@ export function Sidebar({
     list = rail ? null : (
       <>
         <p className="px-2.5 text-ink-muted text-sm max-md:hidden">{t('bay.noHosts')}</p>
-        <FirstRunPanel hostsHref={hostsHref} className="md:hidden" />
+        <FirstRunPanel className="md:hidden" />
       </>
     );
   } else if (data.sessions.length === 0) {
@@ -119,6 +117,8 @@ export function Sidebar({
         followedId={followedId}
         sessionHref={sessionHref}
         onFollow={onFollow}
+        menuActions={menuActions}
+        desktop={desktop}
       />
     );
   } else {

@@ -31,6 +31,7 @@ import {
   LayoutSync,
   type StoredLayout,
 } from '../../lib/workspace/layout-sync.ts';
+import { resolveOpenParam } from '../../lib/workspace/open-param.ts';
 import {
   activeLeaf,
   canOpenTab,
@@ -64,6 +65,7 @@ import { KeyBar } from './key-bar.tsx';
 import { NEW_SESSION_EVENT } from './new-session-button.tsx';
 import { CommandPalette, type PaletteProfile, type PaletteSession } from './palette.tsx';
 import { PaneTree } from './pane-tree.tsx';
+import { RenameDialog, type RenameTarget } from './rename-dialog.tsx';
 import { SESSION_LIST_ID, Sidebar } from './sidebar.tsx';
 import { useSidebarMode } from './sidebar-preference.ts';
 import { TabBar } from './tab-bar.tsx';
@@ -90,6 +92,8 @@ export interface WorkspaceShellProps {
   locale: Locale;
   workspaceHref: string;
   hostsHref: string;
+  /** The Add server form, carrying the way back to the workspace (plan D-27). */
+  addServerHref: string;
   loginHref: string;
   /** Shows the Admin entry in the account menu. */
   isAdmin?: boolean;
@@ -198,6 +202,7 @@ export function WorkspaceShell({
   locale,
   workspaceHref,
   hostsHref,
+  addServerHref,
   loginHref,
   isAdmin = false,
   initialLayout,
@@ -208,7 +213,12 @@ export function WorkspaceShell({
   const tc = useTranslations('common');
   const isDesktop = useIsDesktop();
   const hydrated = useHydrated();
-  const urlSession = useSearchParams().get('s');
+  const searchParams = useSearchParams();
+  const urlSession = searchParams.get('s');
+  const openParam = resolveOpenParam(
+    searchParams,
+    serverBay.sessions.map((s) => s.id),
+  );
 
   // ── connection and layout ─────────────────────────────────────────────────
   const [connection] = useState(() => new TermdockConnection());
@@ -501,11 +511,18 @@ export function WorkspaceShell({
     }
   };
 
-  const createFromProfile = async (profileId: string): Promise<SessionActionResult> => {
+  const createFromProfile = async (
+    profileId: string,
+    label: string,
+  ): Promise<SessionActionResult> => {
     const target = palette?.target ?? null;
     let result: SessionActionResult;
     try {
-      result = await createSession({ profileId, viewport: createViewport(target) });
+      result = await createSession({
+        profileId,
+        ...(label ? { label } : {}),
+        viewport: createViewport(target),
+      });
     } catch {
       return { ok: false, code: 'UNAVAILABLE', message: t('notice.actionFailed') };
     }
@@ -513,16 +530,36 @@ export function WorkspaceShell({
     return result;
   };
 
-  // ── deep link on desktop: /workspace?s=<id> opens (or focuses) that session once ──
+  // ── deep links, handled once after hydration ──────────────────────────────
+  // /workspace?s=<id> (desktop) opens or focuses that session; /workspace?open=<id> (plan D-27,
+  // where the Add server form sends the browser) shows it exactly as clicking its row does, on
+  // a phone by becoming ?s=<id>. Either way the URL is cleaned in place, with no history entry.
   const handledUrl = useRef(false);
   useEffect(() => {
-    if (!hydrated || !isDesktop || handledUrl.current) return;
+    if (!hydrated || handledUrl.current) return;
+    if (openParam.present) {
+      handledUrl.current = true;
+      if (!openParam.sessionId) {
+        window.history.replaceState(null, '', workspaceHref);
+      } else if (isDesktop) {
+        follow(openParam.sessionId, false);
+        window.history.replaceState(null, '', workspaceHref);
+      } else {
+        window.history.replaceState(null, '', stripHref(openParam.sessionId));
+      }
+      return;
+    }
+    if (!isDesktop) return;
     handledUrl.current = true;
     if (urlSession && serverBay.sessions.some((s) => s.id === urlSession)) {
       follow(urlSession, false);
       window.history.replaceState(null, '', workspaceHref);
     }
-  }, [hydrated, isDesktop, urlSession, serverBay.sessions, follow, workspaceHref]);
+  }, [hydrated, isDesktop, urlSession, openParam, serverBay.sessions, follow, workspaceHref]);
+
+  // ── rename (plan D-28): one dialog for every row, tile and phone-list menu ──
+  const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
+  const closeRename = useCallback(() => setRenameTarget(null), []);
 
   // ── phone key bar ──────────────────────────────────────────────────────────
   const [ctrl, setCtrl] = useState(false);
@@ -532,13 +569,21 @@ export function WorkspaceShell({
     setCtrl(armed);
   }, []);
   const consumeCtrl = useCallback(() => changeCtrl(false), [changeCtrl]);
+  const [alt, setAlt] = useState(false);
+  const altArmed = useRef(false);
+  const changeAlt = useCallback((armed: boolean) => {
+    altArmed.current = armed;
+    setAlt(armed);
+  }, []);
+  const consumeAlt = useCallback(() => changeAlt(false), [changeAlt]);
   const [phoneNotice, setPhoneNotice] = useState<string | null>(null);
-  const onKey = (key: TerminalKey, modifiers: { ctrl: boolean }) => {
+  const onKey = (key: TerminalKey, modifiers: { ctrl: boolean; alt: boolean }) => {
     const handle = handles.current.get(PHONE_PANE);
     if (!handle) return;
     handle.channel.input(
       encodeKey(key, {
         ctrl: modifiers.ctrl,
+        alt: modifiers.alt,
         applicationCursor: handle.terminal.modes.applicationCursorKeysMode,
       }),
     );
@@ -576,6 +621,8 @@ export function WorkspaceShell({
       focusRequest,
       ctrlArmed,
       consumeCtrl,
+      altArmed,
+      consumeAlt,
       registerPane,
       onPaneFocus,
       setPaneMeta,
@@ -595,6 +642,7 @@ export function WorkspaceShell({
       isDesktop,
       focusRequest,
       consumeCtrl,
+      consumeAlt,
       registerPane,
       onPaneFocus,
       setPaneMeta,
@@ -638,11 +686,7 @@ export function WorkspaceShell({
   } else {
     desktopPanes = (
       <div className="flex h-full w-full flex-col items-center justify-center gap-3 overflow-auto rounded-row border border-line bg-pane p-4">
-        {firstRun ? (
-          <FirstRunPanel hostsHref={hostsHref} />
-        ) : (
-          <PickSessionPanel hasSessions={bay.sessions.length > 0} />
-        )}
+        {firstRun ? <FirstRunPanel /> : <PickSessionPanel hasSessions={bay.sessions.length > 0} />}
       </div>
     );
   }
@@ -650,6 +694,7 @@ export function WorkspaceShell({
   const menuActions = (session: BaySession) => ({
     openInTab: () => openInNewTab(session.id),
     split: (direction: 'row' | 'column') => splitActive(direction, session.id),
+    rename: () => setRenameTarget({ sessionId: session.id, label: session.label }),
     run: (kind: SessionActionKind) => sessionAction(kind, session.id),
   });
 
@@ -669,7 +714,6 @@ export function WorkspaceShell({
           isAdmin={isAdmin}
           locale={locale}
           hostCount={hostCount}
-          hostsHref={hostsHref}
           data={bay}
           followedId={followedId}
           renderedAt={renderedAt}
@@ -726,6 +770,7 @@ export function WorkspaceShell({
               canSplit={current !== null}
               revealKey={focusRequest?.seq ?? 0}
               trailing={<ConnectionChip connection={connection} />}
+              onRenameError={setNotice}
             />
           </div>
 
@@ -773,7 +818,14 @@ export function WorkspaceShell({
                   </Notice>
                 </div>
               ) : null}
-              <KeyBar ctrl={ctrl} onCtrlChange={changeCtrl} onKey={onKey} onPaste={onPaste} />
+              <KeyBar
+                ctrl={ctrl}
+                alt={alt}
+                onCtrlChange={changeCtrl}
+                onAltChange={changeAlt}
+                onKey={onKey}
+                onPaste={onPaste}
+              />
             </>
           ) : null}
         </main>
@@ -782,12 +834,13 @@ export function WorkspaceShell({
           <CommandPalette
             sessions={paletteSessions}
             profiles={profiles}
-            hostsHref={hostsHref}
+            addServerHref={addServerHref}
             onJump={(sessionId) => jumpTo(sessionId, palette.target)}
             onCreate={createFromProfile}
             onClose={closePalette}
           />
         ) : null}
+        <RenameDialog target={renameTarget} onClose={closeRename} />
       </div>
     </WorkspaceProvider>
   );

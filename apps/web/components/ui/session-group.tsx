@@ -41,7 +41,7 @@ function GroupCount({
       <span
         aria-hidden="true"
         className={cx(
-          'min-w-5 rounded-pill px-1.5 text-center font-semibold text-2xs leading-4.5 tabular-nums',
+          'min-w-5 rounded-pill px-1.5 text-center font-data font-semibold text-2xs leading-4.5',
           attention ? 'bg-attention text-on-accent' : 'bg-surface-raised text-ink-muted',
         )}
       >

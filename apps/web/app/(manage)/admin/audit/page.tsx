@@ -49,6 +49,7 @@ const KNOWN_TYPES = new Set([
   'host_key.revoke',
   'host_key.mismatch',
   'host_key.revoked_presented',
+  'session.rename',
 ]);
 
 /** Message keys cannot contain dots (next-intl nesting), so `auth.lockout` reads `auth_lockout`. */
@@ -76,7 +77,8 @@ type AuditTypeKey =
   | 'host_key_replace'
   | 'host_key_revoke'
   | 'host_key_mismatch'
-  | 'host_key_revoked_presented';
+  | 'host_key_revoked_presented'
+  | 'session_rename';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -107,6 +109,8 @@ const DETAIL_KEYS = [
   'fingerprint',
   'previousFingerprint',
   'source',
+  'previousLabel',
+  'label',
 ] as const;
 type DetailKey = (typeof DETAIL_KEYS)[number];
 const isDetailKey = (key: string): key is DetailKey =>
@@ -206,6 +210,14 @@ export default async function AdminAuditPage({
         from: settingValue(detail.from),
         to: settingValue(detail.to),
       });
+    }
+    // A rename reads as "previous → new" (plan D-28), never as two labelled fields.
+    if (row.type === 'session.rename' || row.type === 'credential.rename') {
+      const from = typeof detail.previousLabel === 'string' ? detail.previousLabel : null;
+      const to = typeof detail.label === 'string' ? detail.label : null;
+      if (from !== null && to !== null) {
+        return t('details.rename', { from: from.slice(0, 80), to: to.slice(0, 80) });
+      }
     }
     const parts: string[] = [];
     for (const [key, value] of Object.entries(detail)) {

@@ -51,7 +51,7 @@ function Preview({
       <figcaption className="font-semibold text-ink text-sm">{label}</figcaption>
       <div
         aria-hidden="true"
-        className="overflow-x-auto rounded-xs px-3 py-2.5"
+        className="terminal-text overflow-x-auto rounded-sm px-3 py-2.5"
         style={{
           background: theme.background,
           color: theme.foreground,

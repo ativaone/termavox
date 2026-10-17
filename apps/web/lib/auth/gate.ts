@@ -3,17 +3,9 @@ import type { TermdockDb } from '@termdock/db';
 import type { AuthSession, TermdockAuth } from './auth.ts';
 import { hasAnyUser, isTotpRequiredInstanceWide } from './queries.ts';
 import { type AuthRequirement, isBanned, pendingRequirement } from './requirements.ts';
+import { AUTH_ROUTES } from './routes.ts';
 
-/**
- * Where the gate sends a browser. The pages arrive with the UI phase; renaming one only touches
- * this table.
- */
-export const AUTH_ROUTES = {
-  login: '/login',
-  setup: '/setup',
-  changePassword: '/login/change-password',
-  enrollTotp: '/login/enroll-totp',
-} as const;
+export { AUTH_ROUTES } from './routes.ts';
 
 const REQUIREMENT_ROUTE: Record<AuthRequirement, string> = {
   'password-change': AUTH_ROUTES.changePassword,

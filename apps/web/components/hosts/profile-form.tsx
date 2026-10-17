@@ -12,6 +12,8 @@ import {
   SCROLLBACK_MAX,
   SCROLLBACK_MIN,
 } from '../../lib/manage/forms.ts';
+import { withReturnPath } from '../../lib/manage/return-to.ts';
+import { ROUTES } from '../../lib/routes.ts';
 import { CloseIcon, PlusIcon } from '../icons/index.tsx';
 import { Button, ButtonLink } from '../ui/button.tsx';
 import { Checkbox } from '../ui/checkbox.tsx';
@@ -34,6 +36,26 @@ export interface ProfileFormValues {
   autoReopen: boolean;
   scrollbackLines: number;
 }
+
+/** A new profile's behaviour (the host page and "Add server" share these defaults). */
+export const PROFILE_DEFAULTS: ProfileOptionsValues = {
+  protectionMode: 'auto',
+  startupCommand: '',
+  env: [],
+  keepaliveIntervalS: 15,
+  autoReopen: true,
+  scrollbackLines: 5000,
+};
+
+export type ProfileOptionsValues = Pick<
+  ProfileFormValues,
+  | 'protectionMode'
+  | 'startupCommand'
+  | 'env'
+  | 'keepaliveIntervalS'
+  | 'autoReopen'
+  | 'scrollbackLines'
+>;
 
 interface EnvRow {
   id: number;
@@ -58,10 +80,12 @@ function parseEnvValue(json: string | undefined): Array<{ key: string; value: st
 /** Environment variables as key/value rows (sent as parallel `envKey` / `envValue` fields). */
 function EnvEditor({
   initial,
+  prefix,
   error,
   errorPrefix,
 }: {
   initial: Array<{ key: string; value: string }>;
+  prefix: string;
   error?: string;
   errorPrefix: string;
 }) {
@@ -81,7 +105,7 @@ function EnvEditor({
           {rows.map((row, index) => (
             <li key={row.id} className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)_2.75rem] gap-2">
               <input
-                name="envKey"
+                name={`${prefix}envKey`}
                 aria-label={t('envKey', { n: index + 1 })}
                 placeholder={t('envKeyPlaceholder')}
                 defaultValue={row.key}
@@ -91,7 +115,7 @@ function EnvEditor({
                 className="h-11 min-w-0 rounded-control border border-line-strong bg-field px-3 font-mono text-ink text-md placeholder:text-ink-muted focus-visible:border-focus focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-1"
               />
               <input
-                name="envValue"
+                name={`${prefix}envValue`}
                 aria-label={t('envValue', { n: index + 1 })}
                 placeholder={t('envValuePlaceholder')}
                 defaultValue={row.value}
@@ -129,6 +153,133 @@ function EnvEditor({
 }
 
 /**
+ * How sessions from a profile behave: tmux protection, startup command, environment, keepalive,
+ * scrollback and auto-reopen, as three hairline-divided groups. Shared by the profile form on
+ * the host page and the "Advanced" disclosure of "Add server", whose inputs carry a `prefix`.
+ * `values` (echoed after a failed submit) and `fields` (errors) use the prefixed names.
+ */
+export function ProfileOptionsFields({
+  initial,
+  values,
+  fields,
+  errorPrefix,
+  prefix = '',
+}: {
+  initial: ProfileOptionsValues;
+  values: Record<string, string>;
+  fields?: Record<string, string>;
+  errorPrefix: string;
+  prefix?: string;
+}) {
+  const t = useTranslations('hosts.profile.form');
+  const n = (name: string) => `${prefix}${name}`;
+  const str = (name: string, fallback: string | number) =>
+    values[n(name)] !== undefined ? (values[n(name)] as string) : String(fallback);
+  const [mode, setMode] = useState<'auto' | 'off'>(
+    values[n('protectionMode')] === 'off' || values[n('protectionMode')] === 'auto'
+      ? (values[n('protectionMode')] as 'auto' | 'off')
+      : initial.protectionMode,
+  );
+  const echoedEnv = values[n('env')];
+  const env = parseEnvValue(echoedEnv) ?? initial.env;
+
+  return (
+    <>
+      <fieldset className="flex flex-col gap-2.5 border-line border-t pt-5">
+        <legend className="float-left mb-2 w-full font-semibold text-ink text-sm">
+          {t('protection')}
+        </legend>
+        <label className="flex cursor-pointer items-start gap-3">
+          <input
+            type="radio"
+            name={n('protectionMode')}
+            value="auto"
+            checked={mode === 'auto'}
+            onChange={() => setMode('auto')}
+            className={radioClasses('md', 'mt-0.5')}
+          />
+          <span className="flex flex-col gap-0.5">
+            <span className="font-medium text-base text-ink">{t('protectionAuto')}</span>
+            <span className="max-w-[60ch] text-ink-muted text-sm">{t('protectionAutoHelp')}</span>
+          </span>
+        </label>
+        <label className="flex cursor-pointer items-start gap-3">
+          <input
+            type="radio"
+            name={n('protectionMode')}
+            value="off"
+            checked={mode === 'off'}
+            onChange={() => setMode('off')}
+            className={radioClasses('md', 'mt-0.5')}
+          />
+          <span className="flex flex-col gap-0.5">
+            <span className="font-medium text-base text-ink">{t('protectionOff')}</span>
+            <span className="max-w-[60ch] text-ink-muted text-sm">{t('protectionOffHelp')}</span>
+          </span>
+        </label>
+      </fieldset>
+
+      <div className="flex flex-col gap-5 border-line border-t pt-5">
+        <TextField
+          name={n('startupCommand')}
+          label={t('startup')}
+          help={t('startupHelp')}
+          defaultValue={str('startupCommand', initial.startupCommand)}
+          error={fields?.[n('startupCommand')]}
+          errorPrefix={errorPrefix}
+          maxLength={1000}
+          mono
+          autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
+        />
+        <EnvEditor
+          key={echoedEnv ?? 'initial'}
+          initial={env}
+          prefix={prefix}
+          error={fields?.[n('env')]}
+          errorPrefix={errorPrefix}
+        />
+      </div>
+
+      <div className="grid gap-5 border-line border-t pt-5 sm:grid-cols-2">
+        <TextField
+          name={n('keepaliveIntervalS')}
+          label={t('keepalive')}
+          help={t('keepaliveHelp', { min: KEEPALIVE_MIN, max: KEEPALIVE_MAX })}
+          defaultValue={str('keepaliveIntervalS', initial.keepaliveIntervalS)}
+          error={fields?.[n('keepaliveIntervalS')]}
+          errorPrefix={errorPrefix}
+          inputMode="numeric"
+          className="tabular-nums"
+        />
+        <TextField
+          name={n('scrollbackLines')}
+          label={t('scrollback')}
+          help={t('scrollbackHelp', { min: SCROLLBACK_MIN, max: SCROLLBACK_MAX })}
+          defaultValue={str('scrollbackLines', initial.scrollbackLines)}
+          error={fields?.[n('scrollbackLines')]}
+          errorPrefix={errorPrefix}
+          inputMode="numeric"
+          className="tabular-nums"
+        />
+        <Checkbox
+          name={n('autoReopen')}
+          label={t('autoReopen')}
+          help={t('autoReopenHelp')}
+          defaultChecked={
+            values[n('autoReopen')] !== undefined
+              ? values[n('autoReopen')] === 'on'
+              : initial.autoReopen
+          }
+          className="sm:col-span-2"
+        />
+      </div>
+    </>
+  );
+}
+
+/**
  * Create or edit a connection profile: who to log in as, with which credential, and how the
  * session behaves (tmux protection, startup command, environment, keepalive, auto-reopen,
  * scrollback). Edits apply to new sessions; running ones keep what they started with.
@@ -149,8 +300,6 @@ export function ProfileForm({
   const [state, action] = useActionState(saveProfile, {} as ManageState);
   const errorPrefix = tf('errorPrefix');
   const values = state.values ?? {};
-  const [mode, setMode] = useState<'auto' | 'off'>(initial.protectionMode);
-  const env = parseEnvValue(values.env) ?? initial.env;
   const str = (name: string, fallback: string | number) =>
     values[name] !== undefined ? values[name] : String(fallback);
 
@@ -199,102 +348,22 @@ export function ProfileForm({
         />
         <p className="text-ink-muted text-sm">
           {credentials.length === 0 ? t('credentialEmpty') : t('credentialHelp')}{' '}
+          {/* Comes back here afterwards (plan D-27); the select then lists the new credential. */}
           <Link
-            href="/credentials"
-            className="font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink"
+            href={withReturnPath(ROUTES.credentials, `${ROUTES.hosts}/${hostId}`)}
+            className="inline-flex items-center gap-1 font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink"
           >
-            {t('credentialManage')}
+            {t('credentialNew')}
           </Link>
         </p>
       </div>
 
-      <fieldset className="flex flex-col gap-2.5 border-line border-t pt-5">
-        <legend className="float-left mb-2 w-full font-semibold text-ink text-sm">
-          {t('protection')}
-        </legend>
-        <label className="flex cursor-pointer items-start gap-3">
-          <input
-            type="radio"
-            name="protectionMode"
-            value="auto"
-            checked={mode === 'auto'}
-            onChange={() => setMode('auto')}
-            className={radioClasses('md', 'mt-0.5')}
-          />
-          <span className="flex flex-col gap-0.5">
-            <span className="font-medium text-base text-ink">{t('protectionAuto')}</span>
-            <span className="max-w-[60ch] text-ink-muted text-sm">{t('protectionAutoHelp')}</span>
-          </span>
-        </label>
-        <label className="flex cursor-pointer items-start gap-3">
-          <input
-            type="radio"
-            name="protectionMode"
-            value="off"
-            checked={mode === 'off'}
-            onChange={() => setMode('off')}
-            className={radioClasses('md', 'mt-0.5')}
-          />
-          <span className="flex flex-col gap-0.5">
-            <span className="font-medium text-base text-ink">{t('protectionOff')}</span>
-            <span className="max-w-[60ch] text-ink-muted text-sm">{t('protectionOffHelp')}</span>
-          </span>
-        </label>
-      </fieldset>
-
-      <div className="flex flex-col gap-5 border-line border-t pt-5">
-        <TextField
-          name="startupCommand"
-          label={t('startup')}
-          help={t('startupHelp')}
-          defaultValue={str('startupCommand', initial.startupCommand)}
-          error={state.fields?.startupCommand}
-          errorPrefix={errorPrefix}
-          maxLength={1000}
-          mono
-          autoComplete="off"
-          autoCapitalize="none"
-          spellCheck={false}
-        />
-        <EnvEditor
-          key={values.env ?? 'initial'}
-          initial={env}
-          error={state.fields?.env}
-          errorPrefix={errorPrefix}
-        />
-      </div>
-
-      <div className="grid gap-5 border-line border-t pt-5 sm:grid-cols-2">
-        <TextField
-          name="keepaliveIntervalS"
-          label={t('keepalive')}
-          help={t('keepaliveHelp', { min: KEEPALIVE_MIN, max: KEEPALIVE_MAX })}
-          defaultValue={str('keepaliveIntervalS', initial.keepaliveIntervalS)}
-          error={state.fields?.keepaliveIntervalS}
-          errorPrefix={errorPrefix}
-          inputMode="numeric"
-          className="tabular-nums"
-        />
-        <TextField
-          name="scrollbackLines"
-          label={t('scrollback')}
-          help={t('scrollbackHelp', { min: SCROLLBACK_MIN, max: SCROLLBACK_MAX })}
-          defaultValue={str('scrollbackLines', initial.scrollbackLines)}
-          error={state.fields?.scrollbackLines}
-          errorPrefix={errorPrefix}
-          inputMode="numeric"
-          className="tabular-nums"
-        />
-        <Checkbox
-          name="autoReopen"
-          label={t('autoReopen')}
-          help={t('autoReopenHelp')}
-          defaultChecked={
-            values.autoReopen !== undefined ? values.autoReopen === 'on' : initial.autoReopen
-          }
-          className="sm:col-span-2"
-        />
-      </div>
+      <ProfileOptionsFields
+        initial={initial}
+        values={values}
+        fields={state.fields}
+        errorPrefix={errorPrefix}
+      />
 
       <div className="flex flex-wrap items-center gap-2 border-line border-t pt-5">
         <SubmitButton size="lg">{initial.id ? t('save') : t('create')}</SubmitButton>

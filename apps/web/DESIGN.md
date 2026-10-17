@@ -82,10 +82,11 @@ typography:
     fontWeight: 600
     lineHeight: "1rem"
   data:
-    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "JetBrains Mono, ui-monospace, monospace"
     fontSize: "0.75rem"
     fontWeight: 500
     lineHeight: "1rem"
+    letterSpacing: "-0.01em"
     fontFeature: "'tnum'"
   code:
     fontFamily: "JetBrains Mono, ui-monospace, monospace"
@@ -291,9 +292,11 @@ A dark restrained palette: violet-tinted neutrals, one cyan accent, magenta for 
 ## Typography
 
 **Body Font:** Plus Jakarta Sans (variable, 200–800), self-hosted through `next/font`, with `ui-sans-serif, system-ui` fallback. The latin subset covers every Portuguese diacritic.
-**Mono Font:** JetBrains Mono, only for codes, keys, fingerprints and the terminal (the terminal font is a user preference).
+**Mono Font:** JetBrains Mono for codes, keys, fingerprints, the terminal (the terminal font is a user preference) and the Data role.
 
 **Character:** one geometric sans in sentence case, regular for reading, medium for values, semibold for names and controls. No condensed or uppercase voice, no display face.
+
+**Rendering:** the face ships `prep` and `gasp` tables, so FreeType takes its hinted path and Chromium rounds every advance to whole pixels at 1×; its space glyph is 0.170 em (2.4 px at 14 px), which rounded to 2 px and ran words together ("Addthis Dockerhost"). `html` therefore sets `text-rendering: geometricPrecision` (fractional advances, as the earlier Archivo build also needed), and every element carries `word-spacing: 0.06em` (declared per element, so it follows each element's own size), which brings the word space to about 0.23 em. Terminals and the terminal preview reset both (`[data-terminal]`, `.terminal-text`): the cell grid never inherits them.
 
 ### Hierarchy
 - **Title** (600, 1.375rem / 1.75rem, -0.01em): page titles, auth card headings, empty-state headings.
@@ -303,12 +306,14 @@ A dark restrained palette: violet-tinted neutrals, one cyan accent, magenta for 
 - **Label** (600, 0.8125rem): field labels. **Help** (400, 0.8125rem): help and error text.
 - **Row label** (600, 0.8125rem / 1rem): session labels in rows, tabs, the palette and pane captions, with `user@host` beneath in Data.
 - **Group label** (600, 0.75rem, `ink-muted`): group headers, column labels, menu group labels.
-- **Data** (500, 0.75rem, tabular figures): uptimes, ages, counts, status words.
+- **Data** (JetBrains Mono 500, 0.75rem, tabular figures, −0.01em; the `font-data` utility): uptimes, ages, counts (group and pane counts, the activity `×n` well, numeric table cells). Plus Jakarta Sans has no alternate "1" (its GSUB carries only `calt ccmp dnom frac liga locl numr pnum tnum`, and the tabular one is still a bare stroke), so "<1m" read as "<lm"; the mono digits are unambiguous. Status words, dates and sentences stay in the sans.
 
 ### Named Rules
 **The Tabular Rule.** Every live value (uptime, age, count, code) is set in tabular figures so changing digits never shift.
 
 **The Two Sizes Rule.** A row, tab or chip uses at most two sizes; rank comes from weight and ink level (`ink` over `ink-muted`), never from a third size.
+
+**The Mono Is Data Rule.** JetBrains Mono appears where a value is read as data or measurement (durations, counts, codes, keys, fingerprints, addresses), never as a costume for prose or labels.
 
 ## Layout
 
@@ -376,14 +381,15 @@ An 8 px lamp beside the status word in data size and `ink-muted` (Connecting…,
 - **Account menu:** the avatar (a cyan-to-violet pill with the user's initial), the name and a gear open a 248 px solid card: Settings (Account settings, Terminal settings, and Language…, which opens a small modal dialog with the languages as choice cards and Apply), Admin for administrators, and Sign out (a form post). The language is a rare setting: it never gets its own group or inline choices in the menu. The rail and the phone header show the avatar alone.
 - **Tabs:** 32 px, 10 px-cornered segments with the lamp, the label, the OSC title in muted ink, a pane-count pill and a magenta bell when a hidden pane rang; the active tab is `surface-raised` with ink text and a 2 px cyan underline. Tabs scroll in their own strip; the split controls and the connection state sit outside it, and an edge with tabs under it shows a chevron cue with the Edge shadow.
 - **Section tabs** (Settings, Admin, Activity views): 40 px links under the page heading with the cyan underline on the current one.
-- **Phone extra-key bar:** Esc, Tab, sticky Ctrl, four arrows, pipe and paste as 44 px `surface-raised` keys on `ground-deep`; armed Ctrl turns cyan.
+- **Phone extra-key bar:** Esc, Tab, sticky Ctrl, sticky Alt, four arrows, pipe and paste as 44 px `surface-raised` keys on `ground-deep` that share the width (ten keys fit 390 px); an armed modifier turns cyan. Ctrl masks the next key into its control byte, Alt sends it behind an ESC prefix (D-17).
 - **Kbd:** 20 px key caps with a faint line and `surface-raised` fill, muted on surfaces and inheriting the colour inside a primary button.
 
 ### Live workspace (panes, overlays, palette)
 - **Panes:** a 12 px-cornered, lined, near-black frame. In a split, each pane carries a 28 px caption (lamp, label, state word, OSC title, close); the focused pane gets the 2 px cyan top rule and full strength, the others dim slightly (`brightness .78`), never fade. Dividers are the 8 px gap; hovering draws a `line-strong` grip, dragging or focusing turns it cyan.
 - **In-pane states** never replace the terminal's last screen. Progress (Connecting…, Restoring…) is a solid pill chip with a cyan spinner in the pane's top corner; Reconnecting is a solid card docked at the top (countdown, Retry now); Disconnected and Ended are docked at the bottom (reason, Retry or Reopen) so the last output stays readable; a decision (host key, keyboard-interactive sign-in, a link to open) is a centred solid card over a flat scrim. Every card's title row carries the lamp before the title and, when the title does not name the state, the state word trailing on the same row. Fingerprints use 12 px mono.
-- **Row actions:** the 28 px menu cell at the end of every row (and right-click on the row) opens a solid 240 px menu: open in a new tab, split right or down, retry, reopen, then terminate, set apart by a spaced separator. Terminate swaps the menu for a danger slip with the question and the destructive button; no modal.
-- **Command palette:** a solid 36rem card floating near the top of the pane area (Ctrl/⌘K outside terminals, Ctrl+Shift+K inside): a cyan search mark and a borderless field over a grouped list of open sessions (lamp, label, target, status chip) and profiles (a cyan plus, name, target); the highlighted row takes `accent-soft` inside `accent-ring`; key hints sit in a lined footer. It never blocks the workspace: Escape or a click outside closes it and the focus returns where it was.
+- **Row actions:** the 28 px menu cell at the end of every row (and right-click on the row; on a rail tile the menu button shows at its corner on hover or focus) opens a solid 240 px menu: open in a new tab, split right or down, retry, reopen, rename, then terminate, set apart by a spaced separator. Terminate swaps the menu for a danger slip with the question and the destructive button; no modal.
+- **Rename (plan D-28):** "Rename…" opens a small solid dialog (the language dialog's shape): the current name prefilled and selected, Enter saves, Escape cancels, the daemon's refusal (a name of only spaces) as an inline danger notice. A tab's label renames in place on double-click: the label becomes a field in the tab, Enter or blur saves, Escape cancels; a refusal shows in the workspace notice bar. Every viewer sees the new name in the list and on the tabs.
+- **Command palette:** a solid 36rem card floating near the top of the pane area (Ctrl/⌘K outside terminals, Ctrl+Shift+K inside): a cyan search mark and a borderless field over a grouped list of open sessions (lamp, label, target, status chip) and profiles (a cyan plus, name, target); the highlighted row takes `accent-soft` inside `accent-ring`; key hints sit in a lined footer. While a profile is highlighted, a compact Name field sits above the footer (placeholder: the profile's name; empty keeps the default label); Enter in it starts the session. With no profile at all, the footer links to the Add server form, carrying the way back to the workspace. It never blocks the workspace: Escape or a click outside closes it and the focus returns where it was.
 
 ### Management pages (hosts, credentials, activity, settings, admin)
 - **Page header:** the title in Title size, one line of context in `ink-muted`, page actions on the trailing edge (primary cyan, secondary raised).
@@ -391,6 +397,15 @@ An 8 px lamp beside the status word in data size and `ink-muted` (Connecting…,
 - **Tag:** a 20 px pill in sentence case for the state of a record that is not a session: `success-soft`, `warning-soft`, `danger-soft`, `info-soft` with the matching lamp or accent text, or `surface-raised` with muted text; the word always carries the meaning.
 - **Confirm action:** a destructive action behind a native disclosure; the first press opens a `danger-soft` slip that names exactly what will happen, the destructive button inside it submits, and a server refusal shows in the same slip.
 - **Success after a redirect:** a success notice at the top of the page, from a whitelisted `?done=` key.
+- **Back to where you came from:** a page reached with `?from=` (plan D-27) shows a quiet sm "Back to …" link with a left arrow above its title, named after that page; after its job is done the same destination becomes a large button (primary when it is the next step).
+
+### Add server form
+One page that sets up a server end to end (plan D-27), in a 46rem column with a narrow aside for the Docker host preset (below the form on phones).
+- **Three numbered cards, 24 px apart:** Server, Sign-in, Credential. Each heading carries its step number in a 24 px `surface-raised` pill with muted tabular digits (the first-run marker, never the accent), one line of context, then the fields under a hairline.
+- **Choices are choice cards:** new server or one already added side by side (one column below 40rem); the three or four credential choices stacked in one column, with a neutral "Recommended" tag on "Generate a new key". Fields of an unchosen card are not rendered; a local shell replaces the credential card's body with its one-line intro.
+- **Advanced profile options** sit behind a native disclosure inside Sign-in, with the host page's three hairline-divided groups; it opens itself when one of them has an error.
+- **Submit row on the ground:** a large primary "Add server" and a quiet Cancel over a muted "Nothing is saved until you add the server." (in the form, not the page intro, so it leaves with the form); a refused submit shows a danger notice counting the fields to fix above the row and moves focus to the first one. Secrets are never echoed: a short muted line asks for the key or password again.
+- **Result in place:** the same column becomes one card: a success notice, a definition list of what was created (Server, Sign-in, Credential), the install command and public key in code wells with copy buttons for a generated key, then "Start a session" (primary) beside the large secondary way back, and a text link to the host.
 
 ## Do's and Don'ts
 

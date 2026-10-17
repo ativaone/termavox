@@ -15,18 +15,20 @@ import type { SessionActionKind } from './workspace-context.tsx';
 export interface SessionMenuActions {
   openInTab(): void;
   split(direction: 'row' | 'column'): void;
+  /** Opens the rename dialog for this session (plan D-28). */
+  rename?(): void;
   run(kind: SessionActionKind): Promise<SessionActionResult>;
 }
 
 type Item =
-  | { kind: 'tab' | 'right' | 'down'; label: string }
+  | { kind: 'tab' | 'right' | 'down' | 'rename'; label: string }
   | { kind: SessionActionKind; label: string };
 
 const MENU_WIDTH = 240;
 
 /**
  * A session row's actions: open in a new tab, split right or down (desktop), retry (disconnected
- * or reconnecting), reopen (ended), and terminate, set apart at the bottom. Terminate asks first,
+ * or reconnecting), reopen (ended), rename, and terminate, set apart at the bottom. Terminate asks first,
  * inside the menu itself (a danger slip, no modal). A native popover: it renders in the top
  * layer, closes on Escape or a click outside, and gives the focus back to its button.
  */
@@ -70,6 +72,7 @@ export function SessionMenu({
     items.push({ kind: 'retry', label: t('retry') });
   }
   if (ended) items.push({ kind: 'reopen', label: t('reopen') });
+  if (actions.rename) items.push({ kind: 'rename', label: t('rename') });
   const terminable = !ended;
 
   const { show, relayout } = menu;
@@ -109,6 +112,10 @@ export function SessionMenu({
       case 'down':
         menu.hide();
         actions.split(item.kind === 'right' ? 'row' : 'column');
+        return;
+      case 'rename':
+        menu.hide();
+        actions.rename?.();
         return;
       case 'terminate':
         setConfirming(true);

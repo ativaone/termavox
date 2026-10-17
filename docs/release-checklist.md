@@ -7,7 +7,7 @@ release notes or the delivery report.
 1. **Automated routine.** `pnpm test:release` passed on this exact commit (T0, every T1 file,
    OSV scan, image builds, smoke). Keep its summary table.
 2. **Real phone.** On an actual phone (not emulation), sign in, open a session, type with the
-   on-screen keyboard and the extra-key bar (Esc, Tab, Ctrl, arrows, paste), rotate the
+   on-screen keyboard and the extra-key bar (Esc, Tab, Ctrl, Alt, arrows, paste), rotate the
    screen, lock the phone for a minute and come back: the session is still there.
 3. **Both locales.** Switch en ↔ pt-BR (the corner control on the sign-in page; account menu →
    Language… once signed in); walk sign-in, the workspace, hosts and admin pages in each; no

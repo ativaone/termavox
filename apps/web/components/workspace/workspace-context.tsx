@@ -53,6 +53,9 @@ export interface WorkspaceContextValue {
   /** Sticky Ctrl from the phone key bar: the next printable key becomes its control byte. */
   ctrlArmed: RefObject<boolean>;
   consumeCtrl(): void;
+  /** Sticky Alt from the phone key bar: the next key goes out behind an ESC prefix (D-17). */
+  altArmed: RefObject<boolean>;
+  consumeAlt(): void;
   registerPane(paneId: string, handle: PaneHandle | null): void;
   /** Focus moved into a pane: it becomes the tab's active pane. */
   onPaneFocus(place: PanePlace): void;

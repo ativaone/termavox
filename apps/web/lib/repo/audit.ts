@@ -142,13 +142,14 @@ export function listAuditEvents(
   const rows = sqlite
     .prepare(
       `SELECT a.id, a.type, a.actor_user_id, actor.username AS actor_name, a.target_type,
-              a.target_id, COALESCE(tu.username, th.name, tc.name) AS target_name,
+              a.target_id, COALESCE(tu.username, th.name, tc.name, tsn.label) AS target_name,
               a.detail_json, a.ip, a.user_agent, a.created_at
          FROM audit_events a
          LEFT JOIN user actor ON actor.id = a.actor_user_id
          LEFT JOIN user tu ON a.target_type = 'user' AND tu.id = a.target_id
          LEFT JOIN hosts th ON a.target_type = 'host' AND th.id = a.target_id
          LEFT JOIN credentials tc ON a.target_type = 'credential' AND tc.id = a.target_id
+         LEFT JOIN sessions tsn ON a.target_type = 'session' AND tsn.id = a.target_id
          ${where.sql}
         ORDER BY a.created_at DESC, a.id DESC
         LIMIT ? OFFSET ?`,

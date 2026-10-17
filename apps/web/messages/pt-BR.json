@@ -32,7 +32,7 @@
     "workspace": "Área de trabalho",
     "notFound": "Página não encontrada",
     "hosts": "Hosts",
-    "hostNew": "Adicionar host",
+    "hostNew": "Adicionar servidor",
     "dockerHost": "Adicionar este host Docker",
     "credentials": "Credenciais",
     "activity": "Atividade",
@@ -164,7 +164,7 @@
       "shortcut": "Atalho",
       "emptyTitle": "Nenhuma sessão ainda",
       "emptyBody": "Comece uma em Nova sessão. Ela continua rodando até você encerrá-la.",
-      "noHosts": "As sessões aparecem aqui depois que você adicionar um host."
+      "noHosts": "As sessões aparecem aqui depois que você adicionar um servidor."
     },
     "lane": {
       "action_required": "Ação necessária",
@@ -215,6 +215,8 @@
       "panes": "{count, plural, one {# painel} other {# painéis}}",
       "bell": "sinal sonoro",
       "closeLabel": "Fechar a aba {label}. As sessões continuam rodando.",
+      "renameHint": "Clique duas vezes para renomear",
+      "renameLabel": "Renomear {label}",
       "splitRight": "Dividir à direita",
       "splitDown": "Dividir abaixo"
     },
@@ -222,12 +224,12 @@
       "label": "Painéis de terminal",
       "emptyTitle": "Escolha uma sessão",
       "emptyBody": "Escolha uma sessão na lista para abri-la aqui. Fechar uma aba só desanexa; a sessão continua rodando no servidor.",
-      "firstRunTitle": "Adicione seu primeiro host",
-      "firstRunBody": "O Termdock mantém as sessões SSH abertas no servidor, então você pode fechar o navegador e voltar para a mesma tela.",
-      "firstRunStep1": "Adicione um host e a credencial que dá acesso a ele.",
-      "firstRunStep2": "Confira a impressão digital da chave do host e confie nela.",
-      "firstRunStep3": "Inicie uma sessão. Ela roda até você encerrá-la.",
-      "firstRunCta": "Adicionar host",
+      "firstRunTitle": "Conecte seu primeiro servidor",
+      "firstRunBody": "O Termdock mantém as sessões SSH abertas no servidor, então você pode fechar o navegador e voltar para a mesma tela. Configurar um servidor leva uma página só:",
+      "firstRunStep1": "Onde fica o servidor: um nome e o endereço.",
+      "firstRunStep2": "Como você entra: o usuário e uma chave ou senha.",
+      "firstRunStep3": "Inicie uma sessão. Ela continua rodando até você encerrá-la.",
+      "firstRunCta": "Adicionar seu primeiro servidor",
       "noSessionsTitle": "Inicie uma sessão",
       "noSessionsBody": "Seus hosts estão prontos. Inicie uma sessão e ela aparecerá no quadro.",
       "resize": "Redimensionar painéis",
@@ -249,6 +251,7 @@
       "esc": "Esc",
       "tab": "Tab",
       "ctrl": "Ctrl",
+      "alt": "Alt",
       "up": "Seta para cima",
       "down": "Seta para baixo",
       "left": "Seta para a esquerda",
@@ -264,6 +267,12 @@
       "terminalSettings": "Configurações do terminal",
       "language": "Idioma…",
       "cancel": "Cancelar"
+    },
+    "rename": {
+      "title": "Renomear sessão",
+      "label": "Nome",
+      "help": "Todos que veem esta sessão veem o novo nome, na lista e nas abas.",
+      "save": "Salvar"
     },
     "sidebar": {
       "collapse": "Recolher a lista de sessões",
@@ -352,6 +361,7 @@
       "splitDown": "Dividir abaixo",
       "retry": "Tentar agora",
       "reopen": "Reabrir",
+      "rename": "Renomear…",
       "terminate": "Encerrar…",
       "terminateQuestion": "Encerrar {label}? O shell e tudo o que roda nele param. Isso não pode ser desfeito.",
       "terminateConfirm": "Encerrar sessão",
@@ -367,7 +377,9 @@
       "starting": "Iniciando…",
       "noMatch": "Nada corresponde a “{query}”.",
       "nothing": "Ainda não há sessões nem perfis.",
-      "noProfiles": "Sessões começam a partir de um perfil de conexão. <link>Adicione um na página de um host.</link>",
+      "noProfiles": "Sessões começam a partir de um perfil de conexão. <link>Adicione um servidor para criar um.</link>",
+      "name": "Nome",
+      "nameHelp": "Opcional. Vazio usa o nome do perfil.",
       "hintMove": "para mover",
       "hintChoose": "para abrir",
       "keyUp": "Seta para cima",
@@ -431,7 +443,7 @@
   "hosts": {
     "title": "Hosts",
     "intro": "Servidores aos quais o Termdock se conecta. Cada host tem perfis de conexão que dizem com qual usuário entrar.",
-    "add": "Adicionar host",
+    "add": "Adicionar servidor",
     "kind": {
       "ssh": "SSH",
       "local": "Local"
@@ -447,7 +459,7 @@
     },
     "empty": {
       "title": "Nenhum host ainda",
-      "body": "Um host é um servidor que o Termdock acessa por SSH. Adicione um, confira a chave do host e crie um perfil para iniciar sessões.",
+      "body": "Um host é um servidor que o Termdock acessa por SSH. Adicionar servidor pergunta onde ele fica, como você entra e qual chave ou senha usar, tudo em uma página.",
       "dockerHelp": "Está rodando o Termdock no Docker, no próprio servidor que quer acessar? “Adicionar este host Docker” cria o host e uma chave dedicada para você."
     },
     "notice": {
@@ -474,10 +486,111 @@
       "notFound": "Este host não existe mais.",
       "hostInUse": "Este host ainda tem sessões em execução. Encerre-as antes de excluir o host."
     },
-    "new": {
-      "title": "Adicionar host",
-      "intro": "Dê ao servidor um nome fácil de reconhecer e o endereço que o Termdock usa para alcançá-lo.",
-      "submit": "Adicionar host"
+    "back": {
+      "workspace": "Voltar à área de trabalho",
+      "hosts": "Voltar aos hosts",
+      "host": "Voltar para {name}",
+      "addServer": "Voltar para Adicionar servidor",
+      "credentials": "Voltar às credenciais"
+    },
+    "addServer": {
+      "title": "Adicionar servidor",
+      "intro": "Onde fica o servidor, como você entra e qual chave ou senha usar, tudo em uma página.",
+      "submit": "Adicionar servidor",
+      "nothingSaved": "Nada é salvo até você adicionar o servidor.",
+      "cancel": "Cancelar",
+      "optional": "(opcional)",
+      "fixFields": "{count, plural, one {# campo acima precisa de atenção.} other {# campos acima precisam de atenção.}} Nada foi salvo.",
+      "docker": {
+        "title": "O Termdock roda no Docker neste servidor?",
+        "body": "Adicione a máquina que roda o Docker em um passo, com uma chave feita para ela.",
+        "cta": "Adicionar este host Docker"
+      },
+      "server": {
+        "title": "Servidor",
+        "intro": "A máquina à qual o Termdock se conecta.",
+        "choice": "Qual servidor",
+        "new": "Servidor novo",
+        "newHelp": "Informe o nome e o endereço",
+        "existing": "Um servidor que já adicionei",
+        "existingHelp": "Adicione outro acesso a ele",
+        "pick": "Servidor",
+        "pickHelp": "O novo acesso é adicionado a este servidor."
+      },
+      "signIn": {
+        "title": "Acesso",
+        "intro": "A conta com que o Termdock entra. Isto cria um novo perfil de conexão.",
+        "username": "Usuário no servidor",
+        "usernameHelp": "A conta com que o Termdock entra, por exemplo deploy ou ubuntu.",
+        "name": "Nome do perfil",
+        "nameHelp": "Aparece quando você inicia uma sessão. Se ficar vazio, usa o nome do usuário.",
+        "advanced": "Avançado",
+        "advancedHelp": "Proteção da sessão, comando inicial, ambiente, keepalive, histórico e reabertura. Os padrões servem para a maioria dos servidores."
+      },
+      "credential": {
+        "title": "Credencial",
+        "intro": "A chave ou senha com que o Termdock entra. Os segredos vão uma única vez para o serviço de sessões e nunca mais aparecem.",
+        "local": "Um shell local roda com o usuário do próprio serviço de sessões, então não precisa de credencial.",
+        "choice": "Entrar com",
+        "recommended": "Recomendado",
+        "choices": {
+          "generate": "Gerar uma chave nova",
+          "private_key": "Colar uma chave privada",
+          "password": "Senha",
+          "saved": "Usar uma credencial salva"
+        },
+        "choiceHelp": {
+          "generate": "Uma nova chave ed25519; você adiciona a chave pública ao servidor",
+          "private_key": "Uma chave OpenSSH ou PEM que você já tem",
+          "password": "O Termdock responde quando o servidor pedir a senha",
+          "saved": "Uma chave ou senha que você guardou antes"
+        },
+        "pick": "Credencial salva",
+        "name": "Nome da credencial",
+        "nameHelp": "Se ficar vazio, ela se chama {example}.",
+        "exampleUser": "usuário",
+        "exampleServer": "servidor",
+        "generateNote": "A chave privada nunca sai do serviço de sessões. Depois que o servidor for adicionado, você recebe a chave pública e o comando que a instala.",
+        "reenter": "Segredos nunca voltam para o navegador, então informe de novo."
+      },
+      "error": {
+        "hostRequired": "Escolha um servidor.",
+        "hostMissing": "Este servidor não existe mais. Escolha outro.",
+        "credentialRequired": "Escolha uma credencial salva.",
+        "credentialMissing": "Esta credencial não existe mais. Escolha outra.",
+        "saveFailed": "Não foi possível adicionar o servidor, e nada foi salvo. Tente de novo.",
+        "leftover": "Não foi possível adicionar o servidor, e a nova credencial {name} não pôde ser removida. Exclua-a na página Credenciais.",
+        "unavailable": "O serviço de sessões não está respondendo, então nada foi adicionado. Tente de novo daqui a pouco.",
+        "timeout": "O serviço de sessões demorou demais, então o servidor não foi adicionado. Confira suas credenciais antes de tentar de novo.",
+        "notFound": "Sua conta não foi encontrada.",
+        "conflict": "Não foi possível criar a credencial. Tente de novo.",
+        "forbidden": "Sua conta não tem permissão para isso.",
+        "limit": "Muitas solicitações. Aguarde um pouco.",
+        "rejected": "O serviço de sessões recusou a solicitação. Confira os campos e tente de novo.",
+        "generic": "Algo deu errado, e nada foi adicionado. Tente de novo."
+      },
+      "done": {
+        "title": "Servidor adicionado",
+        "body": "O Termdock entra em {server} como {username}.",
+        "bodyLocal": "{server} abre um shell local.",
+        "profile": "perfil {name}",
+        "kind": {
+          "generate": "Chave nova",
+          "private_key": "Chave colada",
+          "password": "Senha",
+          "saved": "Credencial salva"
+        },
+        "keyTitle": "Instale a chave no servidor",
+        "keyIntro": "Antes da primeira sessão, adicione a chave pública para {username} no servidor. Ela aparece aqui só uma vez; copie agora.",
+        "command": "Rode isto como {username} no servidor",
+        "copyCommand": "Copiar comando",
+        "publicKey": "Ou adicione esta linha ao ~/.ssh/authorized_keys",
+        "copyKey": "Copiar chave pública",
+        "fingerprint": "Impressão digital da chave:",
+        "trust": "A primeira sessão mostra a impressão digital da chave do servidor. Confira e confie nela uma vez.",
+        "start": "Iniciar uma sessão",
+        "openHost": "Abrir {server}"
+      }
     },
     "form": {
       "name": "Nome",
@@ -541,7 +654,7 @@
         "credentialNone": "Nenhuma (pedir no terminal)",
         "credentialEmpty": "Você ainda não tem credenciais.",
         "credentialHelp": "A chave ou senha que o Termdock usa neste login.",
-        "credentialManage": "Gerenciar credenciais",
+        "credentialNew": "Nova credencial",
         "protection": "Proteção da sessão",
         "protectionAuto": "Automática (recomendada)",
         "protectionAutoHelp": "Quando o host tem tmux 3.2 ou mais recente, o Termdock roda o shell dentro do tmux, de forma invisível. Assim a sessão sobrevive a reinícios do Termdock e a quedas de rede, com a mesma tela quando você voltar. Sem tmux, a sessão roda desprotegida e avisa isso.",
@@ -1168,7 +1281,8 @@
         "host_key_replace": "Chave de host substituída",
         "host_key_revoke": "Chave de host revogada",
         "host_key_mismatch": "Chave de host divergente",
-        "host_key_revoked_presented": "Chave de host revogada apresentada"
+        "host_key_revoked_presented": "Chave de host revogada apresentada",
+        "session_rename": "Sessão renomeada"
       },
       "details": {
         "key": {
@@ -1189,7 +1303,9 @@
           "keyType": "Tipo de chave",
           "fingerprint": "Impressão digital",
           "previousFingerprint": "Impressão digital anterior",
-          "source": "Origem"
+          "source": "Origem",
+          "previousLabel": "Nome anterior",
+          "label": "Novo nome"
         },
         "value": {
           "stage": {
@@ -1232,7 +1348,8 @@
         "on": "Ativado",
         "off": "Desativado",
         "seconds": "{count} s",
-        "change": "{setting}: {from} → {to}"
+        "change": "{setting}: {from} → {to}",
+        "rename": "{from} → {to}"
       }
     }
   }

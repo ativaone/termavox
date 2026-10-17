@@ -4,7 +4,9 @@ import { useTranslations } from 'next-intl';
 import { useActionState, useState } from 'react';
 import type { CredentialCreateState, CredentialKind } from '../../lib/actions/credential-states.ts';
 import { createCredential } from '../../lib/actions/credentials.ts';
-import { Button } from '../ui/button.tsx';
+import { installCommand } from '../../lib/manage/install-command.ts';
+import { ArrowLeftIcon } from '../icons/index.tsx';
+import { Button, ButtonLink } from '../ui/button.tsx';
 import { CopyButton } from '../ui/copy-button.tsx';
 import { cx } from '../ui/cx.ts';
 import { CONTROL_BASE, Field, fieldIds } from '../ui/field.tsx';
@@ -16,17 +18,13 @@ import { TextField } from '../ui/text-field.tsx';
 
 const KINDS: CredentialKind[] = ['generate', 'private_key', 'password'];
 
-function installCommand(publicKey: string): string {
-  const quoted = `'${publicKey.replaceAll("'", `'\\''`)}'`;
-  return `mkdir -p ~/.ssh && chmod 700 ~/.ssh && printf '%s\\n' ${quoted} >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys`;
-}
-
 /**
  * New credential: generate an ed25519 key (recommended; the public key is shown once), paste a
  * private key (optional passphrase), or store a password. Secrets go to the session service and
- * are never shown again, nor echoed back after a failed submit.
+ * are never shown again, nor echoed back after a failed submit. With `back` (the page that sent
+ * the user here, plan D-27), the success state leads back there first.
  */
-export function CreateCredential() {
+export function CreateCredential({ back }: { back?: { href: string; label: string } | null }) {
   const t = useTranslations('credentials.create');
   const tf = useTranslations('common.field');
   const [state, action] = useActionState(createCredential, {} as CredentialCreateState);
@@ -68,8 +66,22 @@ export function CreateCredential() {
             <code className="break-all font-mono text-ink">{created.fingerprint}</code>
           </p>
         ) : null}
-        <div>
-          <Button variant="secondary" onClick={() => setDismissed(state.savedAt)}>
+        <div className="flex flex-wrap items-center gap-2">
+          {back ? (
+            <ButtonLink
+              href={back.href}
+              variant="primary"
+              size="lg"
+              icon={<ArrowLeftIcon size={18} />}
+            >
+              {back.label}
+            </ButtonLink>
+          ) : null}
+          <Button
+            variant="secondary"
+            size={back ? 'lg' : 'md'}
+            onClick={() => setDismissed(state.savedAt)}
+          >
             {t('done.another')}
           </Button>
         </div>

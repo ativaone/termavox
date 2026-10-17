@@ -87,7 +87,7 @@ export function Td({
         'px-3 py-3 align-middle first:ps-5 last:pe-5 sm:first:ps-6 sm:last:pe-6',
         'max-md:flex max-md:min-w-0 max-md:items-baseline max-md:gap-2 max-md:px-0 max-md:py-0.5 max-md:first:ps-0 max-md:last:pe-0',
         primary && 'max-md:pb-1.5',
-        numeric && 'md:text-end',
+        numeric && 'font-data text-sm md:text-end',
         className,
       )}
       {...props}

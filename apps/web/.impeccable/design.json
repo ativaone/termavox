@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-16T21:44:49.440Z",
+  "generatedAt": "2026-10-17T00:15:06.530Z",
   "title": "Design System: Termdock",
   "extensions": {
     "colorMeta": {
@@ -340,7 +340,7 @@
       },
       "data": {
         "displayName": "Data",
-        "purpose": "Uptimes, ages, counts and status words, tabular figures."
+        "purpose": "Uptimes, ages and counts in JetBrains Mono (the sans has no unambiguous 1), tabular figures."
       },
       "code": {
         "displayName": "Code",
@@ -457,7 +457,7 @@
       "refersTo": "session-row",
       "description": "The signature row: lamp, label over user@host, protection mark, uptime; the followed row carries the reading light in place.",
       "html": "<div class=\"ds-rows\"><a class=\"ds-row\" href=\"#\"><span class=\"ds-lamp ds-lamp-connected\"></span><span class=\"ds-row-text\"><span class=\"ds-row-label\">api-1</span><span class=\"ds-row-target\">td@api-prod</span></span><span class=\"ds-row-time\">3h 42m</span></a><a class=\"ds-row ds-row-followed\" href=\"#\"><span class=\"ds-lamp ds-lamp-connected\"></span><span class=\"ds-row-text\"><span class=\"ds-row-label\">psql</span><span class=\"ds-row-target\">td@db-primary</span></span><span class=\"ds-row-time\">2d 5h</span></a><a class=\"ds-row\" href=\"#\"><span class=\"ds-lamp ds-lamp-action\"></span><span class=\"ds-row-text\"><span class=\"ds-row-label\">web-1</span><span class=\"ds-row-target\">td@staging</span></span><span class=\"ds-row-time\">4m</span></a></div>",
-      "css": ".ds-rows { display: flex; flex-direction: column; gap: 2px; width: 264px; font-family: \"Plus Jakarta Sans\", system-ui, sans-serif; } .ds-row { position: relative; display: grid; grid-template-columns: 8px minmax(0,1fr) auto; align-items: center; gap: 10px; height: 48px; padding: 0 10px; border-radius: 12px; color: #f2f0fb; text-decoration: none; transition: background-color 120ms cubic-bezier(0.16,1,0.3,1); } .ds-row:hover { background: rgb(255 255 255 / 0.08); } .ds-row-followed, .ds-row-followed:hover { background: rgb(76 201 255 / 0.14); box-shadow: 0 0 0 1px rgb(76 201 255 / 0.55), 0 0 22px -6px rgb(76 201 255 / 0.55); } .ds-lamp { width: 8px; height: 8px; border-radius: 999px; } .ds-lamp-connected { background: #3ddc97; } .ds-lamp-action { background: #ff5fae; } .ds-row-text { display: flex; flex-direction: column; min-width: 0; } .ds-row-label { font: 600 0.8125rem/1rem inherit; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ds-row-target { font: 400 0.75rem/1rem inherit; color: #aba7cb; } .ds-row-time { font: 500 0.75rem/1rem inherit; color: #aba7cb; font-variant-numeric: tabular-nums; } .ds-row:focus-visible { outline: 2px solid #7fd9ff; outline-offset: 1px; }"
+      "css": ".ds-rows { display: flex; flex-direction: column; gap: 2px; width: 264px; font-family: \"Plus Jakarta Sans\", system-ui, sans-serif; } .ds-row { position: relative; display: grid; grid-template-columns: 8px minmax(0,1fr) auto; align-items: center; gap: 10px; height: 48px; padding: 0 10px; border-radius: 12px; color: #f2f0fb; text-decoration: none; transition: background-color 120ms cubic-bezier(0.16,1,0.3,1); } .ds-row:hover { background: rgb(255 255 255 / 0.08); } .ds-row-followed, .ds-row-followed:hover { background: rgb(76 201 255 / 0.14); box-shadow: 0 0 0 1px rgb(76 201 255 / 0.55), 0 0 22px -6px rgb(76 201 255 / 0.55); } .ds-lamp { width: 8px; height: 8px; border-radius: 999px; } .ds-lamp-connected { background: #3ddc97; } .ds-lamp-action { background: #ff5fae; } .ds-row-text { display: flex; flex-direction: column; min-width: 0; } .ds-row-label { font: 600 0.8125rem/1rem inherit; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ds-row-target { font: 400 0.75rem/1rem inherit; color: #aba7cb; } .ds-row-time { font: 500 0.75rem/1rem \"JetBrains Mono\", ui-monospace, monospace; letter-spacing: -0.01em; color: #aba7cb; font-variant-numeric: tabular-nums; } .ds-row:focus-visible { outline: 2px solid #7fd9ff; outline-offset: 1px; }"
     },
     {
       "name": "Navigation Row",

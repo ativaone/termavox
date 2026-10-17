@@ -93,10 +93,10 @@ export default async function AdminUserPage({
               <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 text-base">
                 {facts.map(([label, value]) => (
                   <div key={label} className="contents">
-                    <dt className="border-line border-t py-2 text-ink-muted text-sm first:border-t-0">
+                    <dt className="border-line border-t py-2 text-ink-muted text-sm [div:first-child>&]:border-t-0">
                       {label}
                     </dt>
-                    <dd className="break-words border-line border-t py-2 text-ink tabular-nums">
+                    <dd className="break-words border-line border-t py-2 text-ink tabular-nums [div:first-child>&]:border-t-0">
                       {value}
                     </dd>
                   </div>

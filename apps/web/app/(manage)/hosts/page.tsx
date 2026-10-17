@@ -12,6 +12,7 @@ import { Panel } from '../../../components/ui/panel.tsx';
 import { Tag } from '../../../components/ui/tag.tsx';
 import { getAuthRuntime, requireSession } from '../../../lib/auth/server.ts';
 import { type HostSummary, listHosts } from '../../../lib/repo/hosts.ts';
+import { ROUTES } from '../../../lib/routes.ts';
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('meta');
@@ -36,7 +37,12 @@ function NoHosts({
     <Panel aria-labelledby={titleId} className="max-w-[36rem] p-6 sm:p-7">
       <EmptyState titleId={titleId} icon={<HostIcon size={22} />} title={title} body={body}>
         <div className="flex flex-wrap items-center gap-2">
-          <ButtonLink href="/hosts/new" variant="primary" size="lg" icon={<PlusIcon size={18} />}>
+          <ButtonLink
+            href={ROUTES.addServer}
+            variant="primary"
+            size="lg"
+            icon={<PlusIcon size={18} />}
+          >
             {add}
           </ButtonLink>
           <ButtonLink href="/hosts/docker" variant="secondary" size="lg">
@@ -75,7 +81,7 @@ export default async function HostsPage({
               <ButtonLink href="/hosts/docker" variant="secondary">
                 {t('docker.cta')}
               </ButtonLink>
-              <ButtonLink href="/hosts/new" variant="primary" icon={<PlusIcon size={16} />}>
+              <ButtonLink href={ROUTES.addServer} variant="primary" icon={<PlusIcon size={16} />}>
                 {t('add')}
               </ButtonLink>
             </>

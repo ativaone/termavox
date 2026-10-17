@@ -13,9 +13,11 @@ import {
 import { cx } from '../ui/cx.ts';
 
 const KEY_CLASSES =
-  'inline-flex h-11 min-w-9 flex-1 select-none items-center justify-center gap-1.5 rounded-control px-1 ' +
-  'bg-surface-raised font-semibold text-ink text-sm transition-colors duration-(--duration-step) ease-(--ease-out) ' +
-  'active:bg-surface-pressed focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus';
+  'inline-flex h-11 min-w-8 flex-1 select-none items-center justify-center gap-1 rounded-control px-0.5 ' +
+  'font-semibold text-sm transition-colors duration-(--duration-step) ease-(--ease-out) ' +
+  'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus';
+const KEY_RESTING = 'bg-surface-raised text-ink active:bg-surface-pressed';
+const KEY_ARMED = 'bg-accent text-on-accent active:bg-accent-strong';
 
 function Key({
   label,
@@ -37,7 +39,7 @@ function Key({
       onPointerDown={(event) => event.preventDefault()}
       onMouseDown={(event) => event.preventDefault()}
       onClick={onPress}
-      className={cx(KEY_CLASSES, pressed && 'bg-accent text-on-accent active:bg-accent-strong')}
+      className={cx(KEY_CLASSES, pressed ? KEY_ARMED : KEY_RESTING)}
     >
       {children}
     </button>
@@ -45,27 +47,33 @@ function Key({
 }
 
 /**
- * Phone extra-key bar (plan §11.2): Esc, Tab, sticky Ctrl, arrows, pipe and paste. Ctrl is
- * owned by the workspace (`ctrl` / `onCtrlChange`) because it also applies to the next key typed
- * on the soft keyboard. Keys never take the focus from the terminal; armed Ctrl lights cyan.
+ * Phone extra-key bar (plan §11.2, D-17): Esc, Tab, sticky Ctrl and Alt, arrows, pipe and paste.
+ * Ctrl and Alt are owned by the workspace (`ctrl` / `alt` and their change handlers) because they
+ * also apply to the next key typed on the soft keyboard. Keys never take the focus from the
+ * terminal; an armed modifier lights cyan.
  */
 export function KeyBar({
   ctrl,
+  alt,
   onCtrlChange,
+  onAltChange,
   onKey,
   onPaste,
   className,
 }: {
   ctrl: boolean;
+  alt: boolean;
   onCtrlChange(armed: boolean): void;
-  onKey(key: TerminalKey, modifiers: { ctrl: boolean }): void;
+  onAltChange(armed: boolean): void;
+  onKey(key: TerminalKey, modifiers: { ctrl: boolean; alt: boolean }): void;
   onPaste(): void;
   className?: string;
 }) {
   const t = useTranslations('workspace.keybar');
   const send = (key: TerminalKey) => () => {
-    onKey(key, { ctrl });
+    onKey(key, { ctrl, alt });
     onCtrlChange(false);
+    onAltChange(false);
   };
   return (
     <fieldset
@@ -79,6 +87,9 @@ export function KeyBar({
       <Key onPress={send('Tab')}>{t('tab')}</Key>
       <Key pressed={ctrl} onPress={() => onCtrlChange(!ctrl)}>
         {t('ctrl')}
+      </Key>
+      <Key pressed={alt} onPress={() => onAltChange(!alt)}>
+        {t('alt')}
       </Key>
       <Key label={t('left')} onPress={send('ArrowLeft')}>
         <ArrowLeftIcon size={18} />

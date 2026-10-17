@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
 import { CreateCredential } from '../../../components/credentials/create-credential.tsx';
 import { RenameCredential } from '../../../components/credentials/rename-credential.tsx';
-import { KeyIcon } from '../../../components/icons/index.tsx';
+import { ArrowLeftIcon, KeyIcon } from '../../../components/icons/index.tsx';
 import { DoneNotice, param } from '../../../components/manage/done-notice.tsx';
 import { ButtonLink } from '../../../components/ui/button.tsx';
 import { ConfirmAction } from '../../../components/ui/confirm-action.tsx';
@@ -13,6 +13,7 @@ import { Panel, PanelSection } from '../../../components/ui/panel.tsx';
 import { Tag } from '../../../components/ui/tag.tsx';
 import { deleteCredential } from '../../../lib/actions/credentials.ts';
 import { getAuthRuntime, requireSession } from '../../../lib/auth/server.ts';
+import { backLinkFrom } from '../../../lib/manage/back-link.ts';
 import { listCredentials } from '../../../lib/repo/credentials.ts';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -31,9 +32,18 @@ export default async function CredentialsPage({
   const credentials = listCredentials(getAuthRuntime().db, user.id);
   const search = await searchParams;
   const renaming = param(search.rename);
+  // Reached from another page (e.g. a host's profile form): offer the way back there (D-27).
+  const back = await backLinkFrom(search.from, user.id);
 
   return (
     <>
+      {back ? (
+        <div className="-mb-3 -ms-3">
+          <ButtonLink href={back.href} variant="quiet" size="sm" icon={<ArrowLeftIcon size={16} />}>
+            {back.label}
+          </ButtonLink>
+        </div>
+      ) : null}
       <PageHeader title={t('title')} description={t('intro')} />
       <DoneNotice
         done={search.done}
@@ -135,7 +145,7 @@ export default async function CredentialsPage({
             />
           </PanelSection>
           <PanelSection ruled>
-            <CreateCredential />
+            <CreateCredential back={back} />
           </PanelSection>
         </Panel>
       </div>

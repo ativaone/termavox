@@ -1,7 +1,7 @@
 import type { SessionSummary } from '@termdock/protocol/client';
 import { describe, expect, it } from 'vitest';
 import { toBayData } from '../../lib/sessions/live.ts';
-import { ctrlChar, encodeKey } from '../../lib/workspace/keys.ts';
+import { altChar, ctrlChar, encodeKey } from '../../lib/workspace/keys.ts';
 import { filterPalette, matchScore } from '../../lib/workspace/palette.ts';
 
 describe('phone key bar encoding (plan §11.2)', () => {
@@ -32,6 +32,21 @@ describe('phone key bar encoding (plan §11.2)', () => {
     expect(encodeKey('Escape')).toBe('\x1b');
     expect(encodeKey('Tab')).toBe('\t');
     expect(encodeKey('Escape', { ctrl: true })).toBe('\x1b');
+  });
+
+  it('sends Alt as an ESC prefix (D-17), arrows with modifier 3, both modifiers with 7', () => {
+    expect(altChar('b')).toBe('\x1bb');
+    expect(altChar('.')).toBe('\x1b.');
+    expect(altChar('é')).toBe('\x1bé');
+    expect(altChar('')).toBeNull();
+    expect(altChar('abc')).toBeNull();
+    expect(encodeKey('Tab', { alt: true })).toBe('\x1b\t');
+    expect(encodeKey('|', { alt: true })).toBe('\x1b|');
+    expect(encodeKey('|', { alt: true, ctrl: true })).toBe('\x1b\x1c');
+    expect(encodeKey('Escape', { alt: true })).toBe('\x1b');
+    expect(encodeKey('ArrowUp', { alt: true })).toBe('\x1b[1;3A');
+    expect(encodeKey('ArrowLeft', { alt: true, applicationCursor: true })).toBe('\x1b[1;3D');
+    expect(encodeKey('ArrowDown', { alt: true, ctrl: true })).toBe('\x1b[1;7B');
   });
 });
 

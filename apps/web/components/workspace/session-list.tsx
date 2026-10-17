@@ -175,9 +175,15 @@ export function SessionRail({
   followedId,
   sessionHref,
   onFollow,
-}: Pick<SessionListProps, 'data' | 'followedId' | 'sessionHref' | 'onFollow'>) {
+  menuActions,
+  desktop = true,
+}: Pick<
+  SessionListProps,
+  'data' | 'followedId' | 'sessionHref' | 'onFollow' | 'menuActions' | 'desktop'
+>) {
   const t = useTranslations('workspace');
   const groups = groupIntoLanes(data.sessions).filter((group) => group.status !== 'ended');
+  const [menuSignal, setMenuSignal] = useState<{ id: string; n: number } | null>(null);
   return (
     <div className="flex flex-col items-center gap-2">
       {groups.map((group, index) => (
@@ -207,6 +213,24 @@ export function SessionRail({
                         onFollow(session.id);
                       }
                     : undefined
+                }
+                onContextMenu={
+                  menuActions
+                    ? (event) => {
+                        event.preventDefault();
+                        setMenuSignal((m) => ({ id: session.id, n: (m?.n ?? 0) + 1 }));
+                      }
+                    : undefined
+                }
+                menu={
+                  menuActions ? (
+                    <SessionMenu
+                      session={session}
+                      desktop={desktop}
+                      actions={menuActions(session)}
+                      openSignal={menuSignal?.id === session.id ? menuSignal.n : 0}
+                    />
+                  ) : undefined
                 }
               />
             </li>
