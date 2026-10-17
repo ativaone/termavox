@@ -78,8 +78,15 @@ export class InternalApiError extends Error {
   }
 }
 
+/** Also matches another bundle layer's copy of the class (see isTermdockError in @termdock/shared). */
 export function isInternalApiError(err: unknown): err is InternalApiError {
-  return err instanceof InternalApiError;
+  return (
+    err instanceof InternalApiError ||
+    (err instanceof Error &&
+      err.name === 'InternalApiError' &&
+      typeof (err as { status?: unknown }).status === 'number' &&
+      typeof (err as { kind?: unknown }).kind === 'string')
+  );
 }
 
 export interface InternalApiClientOptions {

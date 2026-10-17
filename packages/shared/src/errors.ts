@@ -44,3 +44,18 @@ export class TermdockError extends Error {
     this.details = details;
   }
 }
+
+/**
+ * Recognizes a TermdockError from any copy of this module. Next bundles a server module once per
+ * layer, so an error thrown by the web's auth runtime (built at boot by instrumentation and kept
+ * on globalThis) is an instance of another TermdockError class than the one a Server Action
+ * imports, and `instanceof` alone misses it.
+ */
+export function isTermdockError(err: unknown): err is TermdockError {
+  return (
+    err instanceof TermdockError ||
+    (err instanceof Error &&
+      err.name === 'TermdockError' &&
+      typeof (err as { code?: unknown }).code === 'string')
+  );
+}

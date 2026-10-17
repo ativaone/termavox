@@ -400,15 +400,27 @@ async function setupAdmin(page: CdpPage, password: string): Promise<void> {
   await setLocaleCookie(page);
   await page.navigate(`${BASE}/setup`);
   await page.waitHydrated(`$('input[name=token]')?.closest('form')`, 'the setup form');
-  await page.fill(`$('input[name=token]')`, token, 'setup token');
-  await page.fill(`$('input[name=username]')`, ADMIN.username, 'username');
-  await page.fill(`$('input[name=email]')`, ADMIN.email, 'email');
-  await page.fill(`$('input[name=password]')`, password, 'password');
-  await page.fill(`$('input[name=confirm]')`, password, 'confirmation');
-  await page.click(
-    `$('input[name=token]').closest('form').querySelector('button[type=submit]')`,
-    'Create administrator',
+  const submit = async (value: string, label: string) => {
+    // Every field again: the form resets after each answer of its action.
+    await page.fill(`$('input[name=token]')`, value, label);
+    await page.fill(`$('input[name=username]')`, ADMIN.username, 'username');
+    await page.fill(`$('input[name=email]')`, ADMIN.email, 'email');
+    await page.fill(`$('input[name=password]')`, password, 'password');
+    await page.fill(`$('input[name=confirm]')`, password, 'confirmation');
+    await page.click(
+      `$('input[name=token]').closest('form').querySelector('button[type=submit]')`,
+      'Create administrator',
+    );
+  };
+  // A stale token is answered on the form, not with an error page: the error comes from the auth
+  // runtime's bundle layer, which a plain `instanceof` in the Server Action misses.
+  await submit(`${token}x`, 'a wrong setup token');
+  await page.waitFor(
+    `location.pathname === '/setup' && document.body.innerText.includes(${js(en.auth.setup.error.token)})`,
+    'the wrong-token message on the setup form',
   );
+  pass('1 setup', 'a wrong setup token is reported on the form');
+  await submit(token, 'setup token');
   await page.waitFor(`location.pathname === '/workspace'`, 'the workspace after setup', 60_000);
   pass('1 setup', `first admin "${ADMIN.username}" created at /setup and signed in`);
   const status = await page.evaluate<number>(

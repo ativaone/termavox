@@ -1,6 +1,6 @@
 'use server';
 
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import { ErrorCode, isTermdockError, type TermdockError } from '@termdock/shared';
 import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
@@ -41,7 +41,7 @@ function deps(): AdminDeps {
 
 /** Maps the guard's errors to Next navigation; returns other TermdockErrors to the caller. */
 function guard(err: unknown): TermdockError {
-  if (!(err instanceof TermdockError)) throw err;
+  if (!isTermdockError(err)) throw err;
   if (err.code === ErrorCode.NotFound && err.message === 'not found') notFound();
   if (err.code === ErrorCode.Unauthenticated) redirect(ROUTES.login);
   return err;

@@ -1,7 +1,7 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { InternalApiClient, InternalApiError } from '../lib/internal-api.ts';
+import { InternalApiClient, InternalApiError, isInternalApiError } from '../lib/internal-api.ts';
 
 const SOCKET = 'td-a1b2c3d4-abcdefghijk2';
 const LISTED = {
@@ -170,6 +170,22 @@ describe('internal API client error mapping', () => {
 
     const closed = new InternalApiClient({ baseUrl: 'http://127.0.0.1:1', token: TOKEN });
     expect(await failure(closed.health())).toMatchObject({ kind: 'unavailable', status: 0 });
+  });
+
+  it('recognizes the error class of another bundle layer by its shape', () => {
+    const otherCopy = Object.assign(new Error('busy'), {
+      name: 'InternalApiError',
+      kind: 'conflict',
+      status: 409,
+      code: 'CONFLICT',
+    });
+    expect(otherCopy instanceof InternalApiError).toBe(false);
+    expect(isInternalApiError(otherCopy)).toBe(true);
+    expect(isInternalApiError(new InternalApiError('timeout', 0, 'TIMEOUT', 'slow'))).toBe(true);
+    expect(isInternalApiError(Object.assign(new Error('x'), { name: 'InternalApiError' }))).toBe(
+      false,
+    );
+    expect(isInternalApiError(new Error('boom'))).toBe(false);
   });
 });
 

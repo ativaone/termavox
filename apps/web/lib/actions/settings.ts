@@ -1,6 +1,6 @@
 'use server';
 
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import { ErrorCode, isTermdockError } from '@termdock/shared';
 import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
@@ -81,7 +81,7 @@ export async function changePasswordInSettings(
       revokeConnections,
     );
   } catch (err) {
-    if (!(err instanceof TermdockError)) throw err;
+    if (!isTermdockError(err)) throw err;
     const code = err.details?.betterAuthCode;
     if (err.code === ErrorCode.Unauthenticated) unauthenticated = true;
     else if (code === 'INVALID_PASSWORD') return { fields: { currentPassword: t('current') } };

@@ -111,12 +111,12 @@ The first run builds both images, which takes a while. When all three services s
 While no user exists, web logs a **one-time setup token** at startup:
 
 ```bash
-docker compose -f deploy/compose.yaml logs web | grep -i "setup token"
+docker compose -f deploy/compose.yaml logs web | grep "setup token:" | tail -n 1
 ```
 
 Open `/setup` (the log line contains the full URL), enter the token, and choose the admin's username, email and password. Setup closes as soon as the first admin exists, and no token is generated after that.
 
-The token lives only in web's memory (and in that log line). If you lose it, `docker compose -f deploy/compose.yaml restart web` logs a new one. Treat the logs as sensitive until setup is done.
+The token lives only in web's memory (and in that log line), so every start of web logs a new one and the earlier one stops working: after an `up -d --build` or a restart, copy the token again. If you lose it, `docker compose -f deploy/compose.yaml restart web` logs a new one. Treat the logs as sensitive until setup is done.
 
 ## 6. Add your first server
 
