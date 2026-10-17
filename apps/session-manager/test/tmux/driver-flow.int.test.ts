@@ -1,6 +1,6 @@
 // T1, spike S4: flow control (core tmux images; TD_TMUX_IMAGES to override).
-// The runtime stops reading the control channel during an endless `yes` (pauseOutput):
-//  - alone on the session, tmux stops reading the pane (yes blocks): nothing is lost and the
+// The runtime stops reading the control channel during a `yes` flood (pauseOutput):
+//  - alone on the session, tmux stops reading the pane (the flood blocks): nothing is lost and the
 //    daemon reads nothing while paused; a %pause may still come if tmux holds blocks older than
 //    pause-after when it writes again (observed on 3.2a);
 //  - with a second client keeping the pane busy, tmux pauses our pane (%pause) and discards its
@@ -10,13 +10,14 @@
 // pause length.
 // Precondition: docker compose -f test/sshd/compose.yaml up -d --build
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { TmuxControlDriver } from '../../src/drivers/tmux-control/index.ts';
+import { remoteCommand, TmuxControlDriver } from '../../src/drivers/tmux-control/index.ts';
 import { requireSshd, sshdTransport } from '../ssh/sshd.ts';
 import { compareEmulators, unknownModesFor } from './compare.ts';
 import {
   DIMS,
   drainClient,
   driverOptions,
+  execBytes,
   killServerQuietly,
   memoryMiB,
   newSocket,
@@ -32,11 +33,20 @@ import {
 
 const IMAGES = selectedImages(['tmux-3.2a', 'tmux-edge']);
 /** Alone, tmux simply stops the pane; with a busy second client, %pause needs the age to pass
- * pause-after while tmux still has blocks to write (3.8 sometimes needed more than 2 s). */
+ * pause-after while tmux still has blocks to write (3.8 sometimes needed more than 2 s, and a
+ * loaded machine more than one busy hold). */
 const PAUSE_MS = { alone: 2_000, busy: 3_500 };
 if (process.env.TD_S4_PAUSE_MS) PAUSE_MS.alone = PAUSE_MS.busy = Number(process.env.TD_S4_PAUSE_MS);
 const enc = (s: string): Uint8Array => new TextEncoder().encode(s);
-const YES = `yes "$(printf 'S4 \\303\\251\\344\\270\\255 \\033[0m')"\r`;
+/**
+ * The flood: `yes` of a UTF-8 line (é中 + SGR reset) in batches of whole lines until `stopFlag`
+ * exists, then a marker line. Never stopped with ^C: the tty then discards the output tmux has not
+ * read yet, so the stream can end inside a character, which tmux 3.8 draws as U+FFFD while xterm
+ * drops it (a diff that depends only on timing).
+ */
+const flood = (stopFlag: string): string =>
+  `l="$(printf 'S4 \\303\\251\\344\\270\\255 \\033[0m')"; ` +
+  `until [ -e ${stopFlag} ]; do yes "$l" | head -n 20000; done; echo S4-stopped-$((6*7))\r`;
 
 beforeAll(() => requireSshd(IMAGES));
 
@@ -56,6 +66,7 @@ describe.each(IMAGES)('S4 flow control (%s)', (image) => {
   it('paused channel: alone the pane stops; with a busy second client %pause → continue + rebuild', async () => {
     const socket = newSocket();
     sockets.push(socket);
+    const stopFlag = `/tmp/${socket}.stop`;
     const transport = new TrackingTransport(sshdTransport(image));
     await transport.connect(AbortSignal.timeout(15_000));
     let drain: { close(): Promise<void> } | null = null;
@@ -65,7 +76,7 @@ describe.each(IMAGES)('S4 flow control (%s)', (image) => {
       runtime.driver = driver;
       await driver.start(runtime, DIMS);
       await runtime.quiet(300);
-      driver.input(enc(YES));
+      driver.input(enc(flood(stopFlag)));
       await waitUntil(() => runtime.outputBytes > 1_000_000, 20_000, 'the flood');
 
       /** Holds the channel for `ms`, sampling memory and what queues locally. */
@@ -100,7 +111,7 @@ describe.each(IMAGES)('S4 flow control (%s)', (image) => {
         expect(p.peak.rss - p.before.rss).toBeLessThan(64);
       };
 
-      // Alone: tmux stops reading the pane (yes blocks), nothing is lost, the flow resumes.
+      // Alone: tmux stops reading the pane (the flood blocks), nothing is lost, the flow resumes.
       const alone = await pause(PAUSE_MS.alone);
       await waitUntil(
         () => driver.stats.receivedBytes > alone.received + 1_000_000,
@@ -109,23 +120,43 @@ describe.each(IMAGES)('S4 flow control (%s)', (image) => {
       );
       report(`alone, paused ${PAUSE_MS.alone} ms`, alone, 'flowing');
 
-      // A second client keeps the pane busy: tmux pauses our pane after pause-after.
+      // A second client keeps the pane busy: tmux pauses our pane once the oldest block queued for
+      // it is older than pause-after. Blocks only age once the path to the daemon is full, which
+      // can outlast one hold on a loaded machine: a hold without %pause is repeated (at most 3).
       drain = await drainClient(env, socket);
       const pausesBefore = driver.stats.pauses;
-      const busy = await pause(PAUSE_MS.busy);
-      await waitUntil(
-        () => driver.stats.pauses > pausesBefore && driver.stats.rebuilds > busy.rebuilds,
-        20_000,
-        '%pause → continue + rebuild',
-      );
-      report(`busy second client, paused ${PAUSE_MS.busy} ms`, busy, 'rebuilt');
+      const rebuildsBefore = driver.stats.rebuilds;
+      const paused = (): boolean => driver.stats.pauses > pausesBefore;
+      for (let hold = 1; ; hold++) {
+        const busy = await pause(PAUSE_MS.busy);
+        // A %pause sent during the hold arrives behind the backlog (an SSH window, tmux buffers).
+        await waitUntil(
+          () => paused() || driver.stats.receivedBytes > busy.received + 8 * 1024 * 1024,
+          20_000,
+          '%pause or the flow',
+        );
+        const label = `busy second client, paused ${PAUSE_MS.busy} ms (hold ${hold})`;
+        if (paused()) {
+          await waitUntil(
+            () => driver.stats.rebuilds > rebuildsBefore,
+            20_000,
+            'continue + rebuild',
+          );
+          report(label, busy, 'rebuilt');
+          break;
+        }
+        report(`${label}, no %pause`, busy, 'flowing');
+        if (hold === 3) throw new Error('no %pause after 3 holds with a busy second client');
+      }
 
-      driver.input(enc('\x03')); // ^C stops yes
+      // The flood ends after a whole batch; the marker proves the driver applied all of it.
+      await execBytes(env.transport, remoteCommand(`touch ${stopFlag}`));
+      await waitUntil(() => /^S4-stopped-42$/m.test(runtime.text()), 20_000, 'the flood to stop');
       await runtime.quiet(500);
       const reference = await referenceFromTmux(env, socket);
       const result = compareEmulators(
-        reference,
         runtime.emulator,
+        reference,
         unknownModesFor(env.probe.tmuxVersion!),
       );
       console.log(

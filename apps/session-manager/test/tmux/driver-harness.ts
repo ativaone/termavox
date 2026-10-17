@@ -18,6 +18,7 @@ import type {
 import {
   type LaunchOptions,
   launchCommand,
+  launchScript,
   parseCapture,
   rebuild,
   remoteCommand,
@@ -242,7 +243,7 @@ export async function killServerQuietly(env: TmuxEnv, socket: string): Promise<v
   await execBytes(
     env.transport,
     remoteCommand(
-      `${env.probe.tmuxPath} -L ${socket} kill-server 2>/dev/null; rm -f /tmp/${socket}.raw "/tmp/tmux-$(id -u)/${socket}"; true`,
+      `${env.probe.tmuxPath} -L ${socket} kill-server 2>/dev/null; rm -f /tmp/${socket}.raw /tmp/${socket}.stop "/tmp/tmux-$(id -u)/${socket}"; true`,
     ),
   ).catch(() => {});
 }
@@ -311,24 +312,42 @@ export async function observedSession(
 /**
  * A second control client that reads everything and keeps nothing: with it attached, tmux keeps
  * reading the pane even when the driver's client is not (tmux stops reading a pane only when
- * every attached client is a control client with a full output buffer).
+ * every attached client is a control client with a full output buffer). Its output goes to
+ * /dev/null in the container, so the test process allocates nothing for it (S4 bounds this
+ * process's memory while the driver's channel is held). Resolves once tmux lists it as attached;
+ * it stays attached until close() ends its stdin.
  */
 export async function drainClient(
   env: TmuxEnv,
   socket: string,
 ): Promise<{ close(): Promise<void> }> {
-  const channel = await env.transport.exec(launchCommand(launchOptions(env, socket, null)));
+  const controlClients = async (): Promise<number> => {
+    const r = await tmuxExec(env, socket, "list-clients -F '#{client_control_mode}'");
+    return r.stdout.split('\n').filter((line) => line === '1').length;
+  };
+  const before = await controlClients();
+  const script = `${launchScript(launchOptions(env, socket, null))} >/dev/null`;
+  const channel = await env.transport.exec(remoteCommand(script));
   const done = (async () => {
     for await (const _chunk of channel.stdout) {
-      // discard
+      // nothing arrives: tmux writes to /dev/null
     }
   })();
-  return {
-    close: async () => {
-      channel.end();
-      await done;
-    },
+  const close = async (): Promise<void> => {
+    channel.end();
+    await done;
   };
+  try {
+    const deadline = Date.now() + 15_000;
+    while ((await controlClients()) <= before) {
+      if (Date.now() > deadline) throw new Error('drain client: not attached within 15 s');
+      await sleep(100);
+    }
+  } catch (err) {
+    await close();
+    throw err;
+  }
+  return { close };
 }
 
 /** Local TCP proxy to an sshd container whose connections can be dropped abruptly. */
