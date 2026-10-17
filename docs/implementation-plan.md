@@ -1332,13 +1332,14 @@ Run before tagging every release, one step at a time (heavy steps never in paral
    **The smoke** is isolated from any real install: compose project `termdock-smoke`, throwaway named volumes, secrets from `init-secrets.sh` in a temporary directory, Caddy on `127.0.0.1:18080` / `127.0.0.1:18443`, and the test-only override [`test/release/compose.smoke.yaml`](../test/release/compose.smoke.yaml), which adds a test sshd (the already-built `termdock-test-sshd:tmux-3.4` image, test-only keys) on the edge network and moves the edge subnet off the deployment's `172.30.10.0/24`. The deploy scripts reach that stack through opt-in variables (`COMPOSE_PROJECT_NAME`, which docker compose reads itself, plus `TERMDOCK_COMPOSE_OVERRIDE`, `TERMDOCK_SECRETS_DIR` and `TERMDOCK_BACKUP_DIR`); unset, they behave exactly as before. The flow:
    1. the one-time setup token from web's log, the first admin at `/setup` (then `/setup` is a 404);
    2. sign out, sign in at `/login`;
-   3. a credential (the imported test private key; its fingerprint checked), a host and a profile;
-   4. a session: trust the host key on first use (fingerprint checked), then Connected and protected;
+   3. "Add server" (D-27) in one form: a new server (the test sshd), a sign-in and the pasted test private key as a new credential (its fingerprint checked on the Credentials page); the result shows in place, and its "Start a session" lands in the workspace through `/workspace?open=<id>`, which opens that session in the focused pane and cleans the URL;
+   4. that session: trust the host key on first use (fingerprint checked), then Connected and protected;
    5. `echo termdock-smoke-<random>`, read back from xterm's rows;
-   6. restart session-manager: the pane shows "Restoring…", then Connected with the earlier output still on screen;
-   7. `deploy/scripts/rotate-master-key.sh --yes`, then a new session with the same credential connects (the credential decrypts under the new key);
-   8. terminate both sessions;
-   9. `deploy/scripts/backup.sh`: a backup file that passes the script's integrity check, checked again on the host copy (`node:sqlite`).
+   6. rename the session through its menu's "Rename…" dialog (D-28): the new name shows on its row and its tab;
+   7. restart session-manager: the pane shows "Restoring…", then Connected with the earlier output still on screen;
+   8. `deploy/scripts/rotate-master-key.sh --yes`, then a new session from the palette with the same credential connects (the credential decrypts under the new key);
+   9. terminate both sessions;
+   10. `deploy/scripts/backup.sh`: a backup file that passes the script's integrity check, checked again on the host copy (`node:sqlite`), including the renamed session's stored label.
 
    It also fails on any CSP violation the browser reports during the flow (Phase 8 H). Every check prints a PASS/FAIL line; on failure the smoke saves a screenshot and the last 100 log lines of each service to a temporary directory and prints its path. It always tears down, also on failure and Ctrl-C: `docker compose -p termdock-smoke down -v` (that project only) and the temporary secrets. The `termdock-smoke-*` images stay for the next run.
 

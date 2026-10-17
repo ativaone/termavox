@@ -46,7 +46,13 @@ const APP_IMAGES = [`${PROJECT}-web`, `${PROJECT}-session-manager`];
 const PROJECT_LABEL = `label=com.docker.compose.project=${PROJECT}`;
 
 const ADMIN = { username: 'smokeadmin', email: 'smoke-admin@example.test' };
-const NAMES = { credential: 'smoke-key', host: 'smoke-sshd', profile: 'smoke-profile' };
+const NAMES = {
+  credential: 'smoke-key',
+  host: 'smoke-sshd',
+  profile: 'smoke-profile',
+  /** The first session's name after the rename check (no "-p-": palette ids stay unambiguous). */
+  renamed: 'smoke-renamed',
+};
 const LABELS = {
   restoring: en.workspace.status.restoring,
   connecting: en.workspace.status.connecting,
@@ -54,8 +60,12 @@ const LABELS = {
   trust: en.workspace.hostKey.accept,
   terminate: en.workspace.menu.terminate,
   terminateConfirm: en.workspace.menu.terminateConfirm,
+  rename: en.workspace.menu.rename,
+  renameSave: en.workspace.rename.save,
+  tabs: en.workspace.tabs.label,
   protected: en.workspace.protection['tmux-control'],
 };
+const ADD_SERVER = en.hosts.addServer;
 
 // ── output ──────────────────────────────────────────────────────────────────
 
@@ -241,6 +251,23 @@ function portFree(port: number): Promise<boolean> {
   });
 }
 
+/** Polls a Node-side probe until it returns a truthy value; the timeout error names `label`. */
+async function until<T>(
+  probe: () => T | null | undefined | false | '',
+  label: string,
+  timeoutMs = 60_000,
+): Promise<T> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const value = probe();
+    if (value) return value;
+    if (Date.now() >= deadline) {
+      throw new Error(`timed out after ${Math.round(timeoutMs / 1000)} s waiting for ${label}`);
+    }
+    await sleep(150);
+  }
+}
+
 // ── page helpers ────────────────────────────────────────────────────────────
 
 const stripOf = (sessionId: string) =>
@@ -407,80 +434,134 @@ async function signIn(page: CdpPage, password: string): Promise<void> {
   check('2 sign-in', true, `signed out, then signed in as "${ADMIN.username}" at /login`);
 }
 
-async function addHostAndProfile(page: CdpPage): Promise<void> {
-  // 3. Credential (the imported test key), host (the smoke sshd), profile.
+async function addServer(page: CdpPage): Promise<string> {
+  // 3. "Add server" in one form: a new server (the smoke sshd), sign-in td as the smoke profile,
+  // the test key pasted as a new credential. Then "Start a session" on the result, which lands
+  // in the workspace through /workspace?open=<id>; returns that session's id.
   const privateKey = readFileSync(join(KEYS, 'id_ed25519'), 'utf8');
   const userKeyFp = fingerprint(readFileSync(join(KEYS, 'id_ed25519.pub'), 'utf8'));
-  await page.navigate(`${BASE}/credentials`);
-  await page.waitHydrated(
-    `$('input[name=kind][value=private_key]')?.closest('form')`,
-    'the credential form',
-  );
-  await page.click(`$('input[name=kind][value=private_key]')`, 'the "Paste a key" option');
-  await page.waitFor(`!!$('textarea[name=privateKey]')`, 'the private key field');
-  await page.fill(`$('input[name=name]')`, NAMES.credential, 'credential name');
-  await page.evaluate(
-    `(() => { const el = $('textarea[name=privateKey]'); const set = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set; set.call(el, ${js(privateKey)}); el.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`,
-  );
+  await page.navigate(`${BASE}/hosts/new`);
+  const form = `$('input[name="host.hostname"]')?.closest('form')`;
+  const field = (selector: string) => `${form}.querySelector(${js(selector)})`;
+  await page.waitHydrated(form, 'the Add server form');
+  await page.fill(field('input[name="host.name"]'), NAMES.host, 'server name');
+  await page.fill(field('input[name="host.hostname"]'), SSHD_SERVICE, 'hostname');
+  await page.fill(field('input[name="host.port"]'), '22', 'port');
+  await page.fill(field('input[name="profile.username"]'), 'td', 'user name on the server');
+  await page.fill(field('input[name="profile.name"]'), NAMES.profile, 'profile name');
   await page.click(
-    `$('textarea[name=privateKey]').closest('form').querySelector('button[type=submit]')`,
-    'Save key',
+    field('input[name="credential.mode"][value=private_key]'),
+    `the "${ADD_SERVER.credential.choices.private_key}" option`,
   );
-  const shownFp = await page.waitFor<string>(
-    `text(byText('p', ${js(en.credentials.create.done.title.replace('{name}', NAMES.credential))})) && text($$('code').find((c) => text(c).startsWith('SHA256:')))`,
-    'the saved credential and its fingerprint',
-    60_000,
+  await page.waitFor(
+    `!!${field('textarea[name="credential.privateKey"]')}`,
+    'the private key field',
+  );
+  await page.evaluate(
+    `(() => { const el = ${field('textarea[name="credential.privateKey"]')}; const set = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set; set.call(el, ${js(privateKey)}); el.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`,
+  );
+  await page.fill(field('input[name="credential.name"]'), NAMES.credential, 'credential name');
+  const protection = await page.evaluate<string>(
+    `${field('input[name="profile.protectionMode"]:checked')}?.value ?? ''`,
   );
   check(
-    '3 host',
-    shownFp === userKeyFp,
-    `credential "${NAMES.credential}" imported (${shownFp}, the test key)`,
+    '3 add server',
+    protection === 'auto',
+    'the sign-in keeps the default session protection (auto)',
+    `profile.protectionMode: "${protection}"`,
+  );
+  await page.click(field('button[type=submit]'), ADD_SERVER.submit);
+
+  // The result replaces the form in place; a refusal keeps the form with its errors.
+  const done = `$(${js(`section[aria-label=${js(ADD_SERVER.done.title)}]`)})`;
+  const outcome = await page.waitFor<string>(
+    `(() => { if (${done}) return 'done'; const f = ${form}; if (!f) return ''; const errors = $$('[role=alert]', f).map(text).filter(Boolean); const invalid = $$('[aria-invalid="true"]', f).map((el) => el.name); return errors.length || invalid.length ? errors.concat(invalid).join('; ') : ''; })()`,
+    'the Add server result',
+    60_000,
+  );
+  check('3 add server', outcome === 'done', `"${ADD_SERVER.done.title}" shown in place`, outcome);
+  await page.waitHydrated(done, 'the Add server result');
+  const shown = await page.evaluate<{ notice: string; rows: string[][]; hostHref: string }>(
+    `(() => { const d = ${done}; return { notice: text($('[role=status]', d)), rows: $$('dd', d).map((dd) => [...dd.children].map(text)), hostHref: byText('a', ${js(ADD_SERVER.done.openHost.replace('{server}', NAMES.host))}, d)?.getAttribute('href') ?? '' }; })()`,
+  );
+  const expected = [
+    [NAMES.host, `${SSHD_SERVICE}:22`],
+    ['td', ADD_SERVER.done.profile.replace('{name}', NAMES.profile)],
+    [NAMES.credential, ADD_SERVER.done.kind.private_key],
+  ];
+  const body = ADD_SERVER.done.body.replace('{server}', NAMES.host).replace('{username}', 'td');
+  const hostId = decodeURIComponent(/^\/hosts\/([^/?#]+)$/.exec(shown.hostHref)?.[1] ?? '');
+  check(
+    '3 add server',
+    shown.notice.includes(body) && js(shown.rows) === js(expected) && hostId.length > 0,
+    `server "${NAMES.host}" → ${SSHD_SERVICE}:22 (${hostId}), sign-in td as profile "${NAMES.profile}" ` +
+      `and credential "${NAMES.credential}" (${ADD_SERVER.done.kind.private_key}) added in one form`,
+    `notice "${shown.notice}", rows ${js(shown.rows)}, host link "${shown.hostHref}"`,
+  );
+
+  // The result names no fingerprint for a pasted key: read it from the credentials list.
+  const listedFp = await page.evaluate<string>(
+    `fetch('/credentials', { cache: 'no-store' }).then((r) => r.text()).then((html) => { const doc = new DOMParser().parseFromString(html, 'text/html'); const row = $$('tr', doc).find((tr) => $$('span', tr).some((s) => text(s) === ${js(NAMES.credential)})); return text($$('code', row ?? doc.createElement('tr')).find((c) => text(c).startsWith('SHA256:'))); })`,
+  );
+  check(
+    '3 add server',
+    listedFp === userKeyFp,
+    `credential "${NAMES.credential}" is listed with ${listedFp || 'no fingerprint'} (the test key)`,
     `expected ${userKeyFp}`,
   );
 
-  await page.navigate(`${BASE}/hosts/new`);
-  await page.waitHydrated(`$('input[name=hostname]')?.closest('form')`, 'the host form');
-  await page.fill(`$('input[name=name]')`, NAMES.host, 'host name');
-  await page.fill(`$('input[name=hostname]')`, SSHD_SERVICE, 'hostname');
-  await page.fill(`$('input[name=port]')`, '22', 'port');
-  await page.click(
-    `$('input[name=hostname]').closest('form').querySelector('button[type=submit]')`,
-    'Add host',
-  );
-  const hostId = await page.waitFor<string>(
-    `(() => { const m = /^\\/hosts\\/([^/]+)$/.exec(location.pathname); return m && m[1] !== 'new' ? decodeURIComponent(m[1]) : ''; })()`,
-    'the new host page',
-    60_000,
-  );
-  pass('3 host', `host "${NAMES.host}" → ${SSHD_SERVICE}:22 added (${hostId})`);
-
-  await page.navigate(`${BASE}/hosts/${encodeURIComponent(hostId)}?profile=new#profile-form`);
-  const form = `$('input[name=username]')?.closest('form')`;
-  await page.waitHydrated(form, 'the profile form');
-  await page.fill(`${form}.querySelector('input[name=name]')`, NAMES.profile, 'profile name');
-  await page.fill(`${form}.querySelector('input[name=username]')`, 'td', 'login user');
-  const selected = await page.evaluate<boolean>(
-    `(() => { const s = ${form}.querySelector('select[name=credentialId]'); const o = [...s.options].find((x) => x.textContent.trim() === ${js(NAMES.credential)}); if (!o) return false; s.value = o.value; s.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`,
-  );
-  check('3 host', selected, `credential "${NAMES.credential}" offered in the profile form`);
-  await page.click(`${form}.querySelector('button[type=submit]')`, 'Create profile');
+  // "Start a session": a Server Action that redirects to /workspace?open=<id>; the workspace
+  // cleans that from the URL at once, so every URL the page goes through is recorded here.
+  const urls: string[] = [];
+  const offs = [
+    page.on('Page.navigatedWithinDocument', (params) => urls.push(String(params.url))),
+    page.on('Page.frameNavigated', (params) => {
+      const frame = params.frame as { url?: string; parentId?: string };
+      if (!frame.parentId) urls.push(String(frame.url));
+    }),
+  ];
+  let openUrl: URL;
+  try {
+    await page.click(
+      `byText('button', ${js(ADD_SERVER.done.start)}, ${done})`,
+      ADD_SERVER.done.start,
+    );
+    openUrl = await until(
+      () =>
+        urls
+          .map((u) => new URL(u, BASE))
+          .find((u) => u.pathname === '/workspace' && u.searchParams.has('open')),
+      'the redirect to /workspace?open=<session id>',
+    );
+  } finally {
+    for (const off of offs) off();
+  }
+  const sessionId = openUrl.searchParams.get('open') ?? '';
   await page.waitFor(
-    `location.search.includes('done=profileCreated')`,
-    'the created profile',
+    `location.pathname === '/workspace' && !new URLSearchParams(location.search).has('open')`,
+    'the workspace, with ?open= cleaned from the URL',
     60_000,
   );
-  pass('3 host', `profile "${NAMES.profile}" (td, ${NAMES.credential}, protection auto) added`);
+  await page.waitHydrated(stripOf(sessionId), `the row of session ${sessionId}`, 60_000);
+  const followed = await page.waitFor<boolean>(
+    `${stripOf(sessionId)}?.querySelector('a')?.getAttribute('aria-current') === 'true'`,
+    `session ${sessionId} to be followed (shown in the focused pane)`,
+  );
+  const ids = await stripIds(page);
+  check(
+    '3 add server',
+    followed && ids.length === 1 && ids[0] === sessionId,
+    `"${ADD_SERVER.done.start}" led to /workspace?open=${sessionId}: the workspace opened it in ` +
+      'the focused pane and cleaned the URL',
+    `sessions on the page: ${ids.join(', ')}`,
+  );
+  return sessionId;
 }
 
-async function firstSession(page: CdpPage, marker: string): Promise<string> {
-  // 4. Start a session, trust the host key on first use, wait for Connected.
+async function firstSession(page: CdpPage, sessionId: string, marker: string): Promise<void> {
+  // 4. The session opened by "Start a session": trust the host key on first use, wait for
+  // Connected and protected.
   const hostFp = fingerprint(readFileSync(join(KEYS, 'ssh_host_ed25519_key.pub'), 'utf8'));
-  await page.navigate(`${BASE}/workspace`);
-  await page.waitHydrated(
-    `$$('button').find((b) => text(b).startsWith(${js(LABELS.newSession)}))`,
-    'the workspace',
-  );
-  const sessionId = await startSession(page);
   const trust = `byText('button', ${js(LABELS.trust)})`;
   await page.waitFor(`visible(${trust})`, 'the host-key prompt', 90_000);
   const shown = await page.evaluate<string>(
@@ -512,7 +593,47 @@ async function firstSession(page: CdpPage, marker: string): Promise<string> {
   await typeLine(page, `echo ${marker}`);
   await waitForRow(page, marker, `the output line "${marker}"`);
   pass('5 command', `typed "echo ${marker}"; the output row reads "${marker}"`);
-  return sessionId;
+}
+
+async function renameSession(page: CdpPage, sessionId: string): Promise<void> {
+  // 6. Rename the followed session through its row menu's "Rename…" dialog; the new name shows
+  // on its row and on its (active) tab.
+  const strip = stripOf(sessionId);
+  await page.click(
+    `${strip}?.querySelector('button[aria-haspopup=menu]')`,
+    `the actions menu of ${sessionId}`,
+  );
+  await page.click(
+    `$$('[role=menuitem]').find((b) => visible(b) && text(b) === ${js(LABELS.rename)})`,
+    LABELS.rename,
+  );
+  const input = `$('dialog[open] input[name=label]')`;
+  await page.waitFor(`visible(${input}) && !!${input}.value`, 'the rename dialog, prefilled');
+  const before = await page.evaluate<string>(`${input}.value`);
+  await page.fill(input, NAMES.renamed, 'the new session name');
+  await page.click(
+    `$$('dialog[open] button').find((b) => visible(b) && text(b) === ${js(LABELS.renameSave)})`,
+    LABELS.renameSave,
+  );
+  await page.waitFor(`!$('dialog[open]')`, 'the rename dialog to close');
+  const names = `(() => { const leaves = (el) => (el ? $$('span', el).filter((s) => s.children.length === 0).map(text) : []); return { row: leaves(${strip}), tab: leaves($(${js(`nav[aria-label=${js(LABELS.tabs)}] button[aria-current="true"]`)})) }; })()`;
+  let seen: { row: string[]; tab: string[] } = { row: [], tab: [] };
+  try {
+    seen = await page.waitFor(
+      `(() => { const n = ${names}; return n.row.includes(${js(NAMES.renamed)}) && n.tab.includes(${js(NAMES.renamed)}) ? n : null; })()`,
+      `the new name "${NAMES.renamed}" on the row and the tab`,
+      30_000,
+    );
+  } catch {
+    seen = await page.evaluate(names);
+  }
+  check(
+    '6 rename',
+    seen.row.includes(NAMES.renamed) && seen.tab.includes(NAMES.renamed),
+    `session ${sessionId} renamed "${before}" → "${NAMES.renamed}" in the "${LABELS.rename}" dialog; ` +
+      'its row and its tab show the new name',
+    `row: ${seen.row.join(' | ')}; tab: ${seen.tab.join(' | ')}`,
+  );
 }
 
 /** Records every strip status and pane progress chip into window.__smokeTrace. */
@@ -540,12 +661,12 @@ async function readTrace(
 }
 
 async function restartAndRestore(page: CdpPage, sessionId: string, marker: string): Promise<void> {
-  // 6. Restart session-manager; the protected session comes back with its screen.
+  // 7. Restart session-manager; the protected session comes back with its screen.
   await startTrace(page, sessionId);
   const started = Date.now();
   const restart = await compose(['restart', 'session-manager'], true);
   check(
-    '6 restore',
+    '7 restore',
     restart.code === 0,
     'session-manager container restarted',
     `exit ${restart.code}`,
@@ -566,27 +687,34 @@ async function restartAndRestore(page: CdpPage, sessionId: string, marker: strin
     .join(' → ');
   info(`status trace: ${summary}`);
   check(
-    '6 restore',
+    '7 restore',
     firstRestoring >= 0 && lastEntry?.s === 'connected' && lastEntry.c === '',
     'the pane showed "Restoring…", then the session was Connected again',
     summary,
   );
-  const rows = await page.evaluate<string[]>(ROWS);
+  // "Connected" can show a moment before xterm has drawn the restored snapshot (its writes are
+  // asynchronous), so give the rows a few seconds rather than reading them once.
+  const restored = await page
+    .waitFor<boolean>(`${ROWS}.some((row) => row.trim() === ${js(marker)})`, 'the rows', 10_000)
+    .then(
+      () => true,
+      () => false,
+    );
   check(
-    '6 restore',
-    rows.some((row) => row.trim() === marker),
+    '7 restore',
+    restored,
     `the earlier output "${marker}" is still on screen after the restart`,
   );
 }
 
 async function rotateAndReconnect(page: CdpPage, firstId: string, marker: string): Promise<string> {
-  // 7. Rotate the master key, then a new session with the same (re-encrypted) credential.
+  // 8. Rotate the master key, then a new session with the same (re-encrypted) credential.
   const keyFile = join(secretsDir, 'master_key');
   const before = sha256(readFileSync(keyFile));
   await startTrace(page, firstId);
   const rotate = await deployScript('rotate-master-key.sh', ['--yes']);
   check(
-    '7 rotate',
+    '8 rotate',
     rotate.code === 0,
     'rotate-master-key.sh --yes finished',
     `exit ${rotate.code}`,
@@ -594,7 +722,7 @@ async function rotateAndReconnect(page: CdpPage, firstId: string, marker: string
   const after = sha256(readFileSync(keyFile));
   const old = existsSync(`${keyFile}.old`) ? sha256(readFileSync(`${keyFile}.old`)) : '';
   check(
-    '7 rotate',
+    '8 rotate',
     after !== before && old === before,
     'master_key replaced; the previous key kept as master_key.old',
   );
@@ -605,21 +733,21 @@ async function rotateAndReconnect(page: CdpPage, firstId: string, marker: string
     120_000,
   );
   await waitConnected(page, firstId, 'the first session after the rotation restart');
-  pass('7 rotate', 'the first (protected) session was restored on the new key');
+  pass('8 rotate', 'the first (protected) session was restored on the new key');
   const secondId = await startSession(page);
   await waitConnected(page, secondId, 'the second session');
   const trustPrompt = await page.evaluate<boolean>(
     `visible(byText('button', ${js(LABELS.trust)}))`,
   );
-  check('7 rotate', !trustPrompt, `new session ${secondId} Connected with the stored credential`);
+  check('8 rotate', !trustPrompt, `new session ${secondId} Connected with the stored credential`);
   await typeLine(page, `echo ${marker}`);
   await waitForRow(page, marker, `the output line "${marker}"`);
-  pass('7 rotate', `the credential decrypts under the new key: "echo ${marker}" answered`);
+  pass('8 rotate', `the credential decrypts under the new key: "echo ${marker}" answered`);
   return secondId;
 }
 
 async function terminate(page: CdpPage, ids: string[]): Promise<void> {
-  // 8. Terminate every session through its strip menu.
+  // 9. Terminate every session through its strip menu.
   for (const id of ids) {
     const strip = stripOf(id);
     await page.click(
@@ -632,28 +760,28 @@ async function terminate(page: CdpPage, ids: string[]): Promise<void> {
     );
     await page.click(`byText('button', ${js(LABELS.terminateConfirm)})`, 'Terminate session');
     await page.waitFor(`${strip}?.dataset.status === 'ended'`, `session ${id} to end`, 60_000);
-    pass('8 terminate', `session ${id} terminated (Ended)`);
+    pass('9 terminate', `session ${id} terminated (Ended)`);
   }
 }
 
-async function backup(ids: string[]): Promise<void> {
-  // 9. An online backup through backup.sh, checked independently.
+async function backup(ids: string[], renamedId: string): Promise<void> {
+  // 10. An online backup through backup.sh, checked independently.
   const dest = join(backupDir, 'smoke');
   const result = await deployScript('backup.sh', [dest]);
   const file = result.stdout.trim().split('\n').at(-1) ?? '';
   check(
-    '9 backup',
+    '10 backup',
     result.code === 0 && existsSync(file),
     `backup.sh wrote ${file}`,
     `exit ${result.code}`,
   );
   check(
-    '9 backup',
+    '10 backup',
     result.stderr.includes('integrity_check: ok'),
     "backup.sh's own integrity check passed inside the container",
   );
   check(
-    '9 backup',
+    '10 backup',
     readFileSync(file).subarray(0, 15).toString() === 'SQLite format 3',
     'the file is a SQLite database',
   );
@@ -662,18 +790,19 @@ async function backup(ids: string[]): Promise<void> {
     const integrity = db.prepare('PRAGMA integrity_check').get() as Record<string, unknown>;
     const count = (table: string) =>
       Number((db.prepare(`SELECT count(*) AS n FROM ${table}`).get() as { n: number }).n);
-    const sessions = db.prepare('SELECT id, desired_state FROM sessions').all() as Array<{
+    const sessions = db.prepare('SELECT id, desired_state, label FROM sessions').all() as Array<{
       id: string;
       desired_state: string;
+      label: string;
     }>;
     check(
-      '9 backup',
+      '10 backup',
       Object.values(integrity)[0] === 'ok',
       'PRAGMA integrity_check on the host copy: ok',
     );
     const counts = `users ${count('user')}, hosts ${count('hosts')}, credentials ${count('credentials')}, profiles ${count('connection_profiles')}, sessions ${sessions.length}`;
     check(
-      '9 backup',
+      '10 backup',
       count('user') === 1 &&
         count('hosts') === 1 &&
         count('credentials') === 1 &&
@@ -681,6 +810,13 @@ async function backup(ids: string[]): Promise<void> {
         sessions.length === ids.length &&
         sessions.every((s) => ids.includes(s.id) && s.desired_state === 'terminated'),
       `the backup holds this run's data (${counts}; both sessions terminated)`,
+    );
+    const stored = sessions.find((s) => s.id === renamedId)?.label;
+    check(
+      '10 backup',
+      stored === NAMES.renamed,
+      `the rename is stored: session ${renamedId} is labelled "${NAMES.renamed}"`,
+      `label: "${stored}"`,
     );
   } finally {
     db.close();
@@ -785,8 +921,9 @@ async function main(): Promise<number> {
 
     await setupAdmin(page, password);
     await signIn(page, password);
-    await addHostAndProfile(page);
-    const firstId = await firstSession(page, markers[0] ?? '');
+    const firstId = await addServer(page);
+    await firstSession(page, firstId, markers[0] ?? '');
+    await renameSession(page, firstId);
     await restartAndRestore(page, firstId, markers[0] ?? '');
     const secondId = await rotateAndReconnect(page, firstId, markers[1] ?? '');
     await terminate(page, [secondId, firstId]);
@@ -799,7 +936,7 @@ async function main(): Promise<number> {
     await browser.close();
     browser = null;
     info('Chromium stopped (flow finished)');
-    await backup([firstId, secondId]);
+    await backup([firstId, secondId], firstId);
   } catch (err) {
     failed = true;
     // Interrupted: the signal handler tears down; the browser it closed is not a finding.
