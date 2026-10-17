@@ -11,6 +11,7 @@ import {
   TestConnection,
   TrustKeyButton,
 } from '../../../../components/servers/diagnostics.tsx';
+import { RemoteSessions } from '../../../../components/servers/remote-sessions.tsx';
 import { ServerForm } from '../../../../components/servers/server-form.tsx';
 import { ButtonLink } from '../../../../components/ui/button.tsx';
 import { ConfirmAction } from '../../../../components/ui/confirm-action.tsx';
@@ -47,7 +48,8 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 
 /**
  * A server's page (plan D-29, §8.1 /servers/[id]): edit every field, test the connection, decide
- * on the host keys of its address, duplicate it, delete it (refused while sessions from it run).
+ * on the host keys of its address, find the Termdock sessions left running on it (D-30, SSH
+ * only), duplicate it, delete it (refused while sessions from it run).
  */
 export default async function ServerPage({
   params,
@@ -64,6 +66,7 @@ export default async function ServerPage({
   if (!server) notFound();
   const t = await getTranslations('servers');
   const td = await getTranslations('servers.diagnostics');
+  const tr = await getTranslations('servers.remote');
   const back = await backLinkFrom(search.from, user.id);
   const keys = listServerHostKeys(db, user.id, server.id);
   const credentials = listCredentials(db, user.id).map((c) => ({ id: c.id, name: c.name }));
@@ -119,7 +122,7 @@ export default async function ServerPage({
         }}
       />
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,28rem)] lg:grid-rows-[auto_1fr]">
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,28rem)] lg:grid-rows-[auto_auto_1fr]">
         <Panel aria-labelledby="server-settings-title" className="lg:col-start-1">
           <PanelSection>
             <SectionHeading
@@ -156,7 +159,7 @@ export default async function ServerPage({
 
         <Panel
           aria-labelledby="diagnostics-title"
-          className="lg:col-start-2 lg:row-span-2 lg:row-start-1"
+          className="lg:col-start-2 lg:row-span-3 lg:row-start-1"
         >
           <span id="diagnostics" className="sr-only" />
           <PanelSection>
@@ -256,6 +259,25 @@ export default async function ServerPage({
             </PanelSection>
           )}
         </Panel>
+
+        {ssh ? (
+          <Panel aria-labelledby="remote-sessions-title" className="lg:col-start-1">
+            <span id="remote-sessions" className="sr-only" />
+            <PanelSection>
+              <SectionHeading
+                id="remote-sessions-title"
+                title={tr('title')}
+                description={tr.rich('intro', {
+                  target: `${ssh.username}@${formatEndpoint(ssh.hostname, ssh.port)}`,
+                  mono: (chunks) => <span className="break-all font-mono text-sm">{chunks}</span>,
+                })}
+              />
+            </PanelSection>
+            <PanelSection ruled>
+              <RemoteSessions serverId={server.id} username={ssh.username} />
+            </PanelSection>
+          </Panel>
+        ) : null}
 
         <Panel aria-labelledby="server-delete-title" className="lg:col-start-1">
           <PanelSection className="flex flex-col gap-3">

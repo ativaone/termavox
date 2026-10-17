@@ -315,6 +315,60 @@ describe('TermdockConnection', () => {
     expect(connection.getSnapshot().sessions).toBe(before);
   });
 
+  it('keeps a pending remote cleanup while the tab lives, until the session is reopened', async () => {
+    const server = new FakeServer();
+    server.sessions = [summary('a'), summary('b')];
+    const { connection } = setup(server);
+    connection.connect();
+    await until(() => connection.getSnapshot().sessionsLoaded);
+    const entry = (id: string) => connection.getSnapshot().sessions.find((e) => e.id === id);
+    const status = (id: string, extra: Record<string, unknown>) =>
+      server.last.deliver(JSON.stringify({ type: 'session.status', sessionId: id, ...extra }));
+    // Plan D-30: the session ended, but its tmux on the server could not be ended now.
+    status('a', { status: 'ended', state: 'ended', remoteCleanup: 'pending' });
+    status('b', { status: 'ended', state: 'ended' });
+    expect(entry('a')).toMatchObject({ status: 'ended', remoteCleanup: true });
+    expect(entry('b')).toMatchObject({ remoteCleanup: false });
+    // Not part of the summary: a later upsert or list (reconnect) keeps it.
+    const ended = { state: 'ended', status: 'ended', endReason: 'user_terminated' } as const;
+    server.last.deliver(JSON.stringify({ type: 'session.upsert', session: summary('a', ended) }));
+    server.last.deliver(JSON.stringify({ type: 'sessions.list', sessions: [summary('a', ended)] }));
+    expect(entry('a')).toMatchObject({ remoteCleanup: true });
+    // Reopened: the line goes away and does not come back with a plain end.
+    status('a', { status: 'connecting', state: 'connecting' });
+    expect(entry('a')).toMatchObject({ remoteCleanup: false });
+    status('a', { status: 'ended', state: 'ended' });
+    expect(entry('a')).toMatchObject({ remoteCleanup: false });
+  });
+
+  it('shows one remote-sessions notice per server; a dismissed one stays quiet', async () => {
+    const server = new FakeServer();
+    const { connection } = setup(server);
+    connection.connect();
+    await until(() => connection.getSnapshot().sessionsLoaded);
+    const found = (serverId: string, serverName: string, count: number) =>
+      server.last.deliver(
+        JSON.stringify({ type: 'server.remote_sessions', serverId, serverName, count }),
+      );
+    found('s1', 'build', 2);
+    found('s2', 'db', 1);
+    found('s1', 'build box', 3); // the same server again: updated in place, not repeated
+    expect(connection.getSnapshot().remoteSessions).toEqual([
+      { serverId: 's1', serverName: 'build box', count: 3 },
+      { serverId: 's2', serverName: 'db', count: 1 },
+    ]);
+    connection.dismissRemoteSessions('s1');
+    expect(connection.getSnapshot().remoteSessions.map((n) => n.serverId)).toEqual(['s2']);
+    // Dismissed for the rest of the tab's life, across a reconnect too.
+    server.last.serverClose(1006);
+    await until(() => connection.getSnapshot().status === 'open' && server.sockets.length === 2);
+    found('s1', 'build box', 4);
+    expect(connection.getSnapshot().remoteSessions.map((n) => n.serverId)).toEqual(['s2']);
+    const before = connection.getSnapshot();
+    connection.dismissRemoteSessions('unknown');
+    expect(connection.getSnapshot()).toBe(before);
+  });
+
   it('4401 surfaces as unauthenticated and does not reconnect', async () => {
     const server = new FakeServer();
     const { connection, ticketCalls } = setup(server);

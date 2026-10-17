@@ -10,11 +10,13 @@ import type {
   RenameSessionResult,
   SessionActionFailure,
   SessionActionResult,
+  TerminateAllResult,
 } from '../sessions/action-result.ts';
 
 /**
- * Session lifecycle Server Actions (plan §8.2): create, rename, terminate, retry and reopen go to
- * the daemon's internal API as the signed-in user (`actingUserId`), which re-validates ownership.
+ * Session lifecycle Server Actions (plan §8.2): create, rename, terminate (one or all, D-30), retry
+ * and reopen go to the daemon's internal API as the signed-in user (`actingUserId`), which
+ * re-validates ownership.
  * The UI then follows the session through `session.upsert` / `session.status` on the WebSocket.
  * Called programmatically by the workspace (palette, sidebar menu, pane overlays).
  *
@@ -127,6 +129,27 @@ export async function terminateSession(sessionId: string): Promise<SessionAction
     return { ok: true };
   } catch (err) {
     return failure(err);
+  }
+}
+
+/**
+ * "End all sessions" (plan D-30): every session of the signed-in user that has not ended starts
+ * ending, on its server too (a protected session's tmux is ended there, or as soon as Termdock can
+ * reach the server again). Resolves once each one is ending; the ends arrive on the WebSocket as
+ * `session.status`.
+ *
+ * @returns `{ ok: true, terminated }` (how many started ending), or a failure: `FORBIDDEN`,
+ *   `UNAVAILABLE` / `TIMEOUT` / `BAD_RESPONSE` (message `manage.sessionError.*`).
+ */
+export async function terminateAllSessions(): Promise<TerminateAllResult> {
+  const { user } = await requireSession();
+  try {
+    const { terminated } = await getInternalApi().terminateAllSessions(user.id);
+    return { ok: true, terminated };
+  } catch (err) {
+    if (!isInternalApiError(err)) throw err;
+    const t = await getTranslations('manage.sessionError');
+    return { ok: false, code: err.code, message: t(serviceErrorKey(err)) };
   }
 }
 

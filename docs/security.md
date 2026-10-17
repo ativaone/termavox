@@ -94,7 +94,8 @@ The summary table is in [plan §10.1](implementation-plan.md#101-threat-model-su
   keys that fail closed, and SHA-2 host-key signatures only.
 - **Hostile output from a remote host.** Terminal titles, hyperlinks, clipboard writes, terminal
   queries and keyboard-interactive prompt text are filtered or framed (see
-  [Terminal escape handling](#terminal-escape-handling)).
+  [Terminal escape handling](#terminal-escape-handling)), and the scan for leftover tmux servers
+  reads only numbers through a strict parser (see [Remote tmux leftovers](#remote-tmux-leftovers)).
 - **Using the daemon to reach its own machine.** SSH targets on loopback, link-local,
   multicast, unspecified or the daemon's own addresses are refused by default.
 - **Script injection in the UI.** A strict, nonce-based Content-Security-Policy.
@@ -209,6 +210,9 @@ plugins.
   session's owner. A non-owner gets `FORBIDDEN` without learning whether the session exists.
 - Admin-only internal API calls (terminating another user's sessions) re-check the acting
   user's role in the database.
+- Remote tmux leftovers: a session that runs in Termdock, whoever owns it, and every ended
+  session of another user are never listed, ended or adopted from a server page (see
+  [Remote tmux leftovers](#remote-tmux-leftovers)).
 
 ### WebSocket tickets
 
@@ -297,6 +301,36 @@ minute.
 `TERMDOCK_SSH_ALLOW_LOCAL_TARGETS=true` turns the policy off, for example when session-manager
 runs outside Docker and should reach an sshd on the same machine. See the
 [installation guide](guides/install.md#ssh-targets).
+
+### Remote tmux leftovers
+
+Details: [plan §6.12](implementation-plan.md#612-remote-leftovers-d-30). A protected session's
+tmux server keeps running on its server while Termdock is down; Termdock ends the ones it
+forgot (a session ended while not connected, a database reset) and lists the rest on the server
+page with **End** and **Adopt**.
+
+- **Who may touch what.** The daemon classifies every Termdock tmux server it finds against the
+  session records of all users. One that belongs to a session that runs in Termdock (any user's)
+  or to an ended session of another user is never listed, ended or adopted. Only the acting
+  user's own ended sessions are ended automatically, and only once they ended at least 60 s ago
+  (a Reopen in between wins); every kill is classified again against the database right before
+  it runs. End and Adopt refuse (`409`) what they may not touch, and two adoptions of one
+  server cannot both succeed (the check runs inside the insert's transaction).
+- **Host output is untrusted.** The scan reports a socket name and three numbers per tmux server
+  (created, last activity, attached clients): no session name, pane command or title is read.
+  The parser caps the output (64 KiB), the line length and the number of entries (200), and
+  drops every name that is not exactly `td-<prefix>-<token>`; the script itself skips names with
+  characters that could break the line format. A scan never starts, kills or removes anything.
+- **Same sign-in rules, never a prompt.** The one-shot connection that ends a terminated
+  session's tmux, the background sweep (on a session's own connection) and the server page's
+  calls use the stored credential and the user's trusted key for the address. The one-shot
+  cleanup fails closed on an unknown, mismatched or revoked key and records nothing as pending;
+  the server page records an unknown key as pending, exactly like Fetch & verify. A server
+  without a stored credential is not contacted at all (`CREDENTIAL_REQUIRED`), so no failed
+  login reaches the host.
+- **Bounded.** At most 4 one-shot cleanups run at once in the process, one sweep per user,
+  address and user name every 15 minutes, and 20 server-page lists or ends per user and minute;
+  every remote step has a timeout.
 
 ### Keyboard-interactive prompts
 
@@ -393,10 +427,13 @@ From [`deploy/compose.yaml`](../deploy/compose.yaml) and the Dockerfiles:
     `user.role_change`, `user.sessions_terminate`, `admin_setting.change`;
   - written by session-manager: `credential.create`, `credential.rename`, `credential.delete`,
     `host_key.pending`, `host_key.trust`, `host_key.replace`, `host_key.revoke`,
-    `host_key.mismatch`, `host_key.revoked_presented`, `session.rename`.
+    `host_key.mismatch`, `host_key.revoked_presented`, `session.rename`,
+    `remote_session.terminated` and `remote_session.adopted` (the server, the tmux socket name
+    and how it was classified).
 - `session_events`, shown to each user at `/activity`: creation, state changes, attach and
   detach (with client IP and user agent), connection loss, protection selected or degraded,
-  restore and reopen, host-key and prompt events.
+  restore and reopen, host-key and prompt events, and remote tmux cleanups
+  (`remote_cleanup`, `remote_cleanup_failed` with its code, `adopt_target_gone`).
 - Rows carry public data only (ids, names, roles, fingerprints, setting values), never a
   password, code or key. Client IPs come from Caddy's `X-Forwarded-For`; session-manager believes
   it only from `TERMDOCK_TRUSTED_PROXIES` and takes the rightmost value that is not a trusted

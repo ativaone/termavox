@@ -4,13 +4,20 @@ import { TargetPolicy } from '../transport/ssh/index.ts';
 import { WsServer, type WsServerOptions } from '../ws/server.ts';
 import type { AuthSessionValidator } from '../ws/types.ts';
 import { createDriverFactory, type TmuxControlDriverOptions } from './driver-factory.ts';
-import { SessionRegistry, type SessionRegistryOptions } from './session-registry.ts';
+import { RemoteSweeper } from './remote-sessions.ts';
+import {
+  type RestoreSummary,
+  SessionRegistry,
+  type SessionRegistryOptions,
+} from './session-registry.ts';
+import type { UserNotifier } from './session-runtime.ts';
 import { SshTransportFactory, type TransportFactory } from './transport-factory.ts';
 import type {
   CredentialProvider,
   Driver,
   HostKeyStore,
   OwnershipCheck,
+  RemoteSessionLookup,
   SessionStore,
 } from './types.ts';
 
@@ -21,6 +28,8 @@ export interface DataPlaneDeps {
   wsSecret: Uint8Array;
   installationId: string;
   store: SessionStore;
+  /** Session lookups of the leftover sweep (plan D-30); without it sessions never sweep. */
+  remoteLookup?: RemoteSessionLookup;
   hostKeys: HostKeyStore;
   credentials: CredentialProvider;
   ownership: OwnershipCheck;
@@ -32,15 +41,15 @@ export interface DataPlaneDeps {
   targetPolicy?: TargetPolicy;
   logger?: Logger;
   /** Test timings. */
-  registry?: Pick<SessionRegistryOptions, 'runtime' | 'restoreHostSpacingMs'>;
+  registry?: Pick<SessionRegistryOptions, 'runtime' | 'restoreHostSpacingMs' | 'terminateAnswerMs'>;
   wsOptions?: Pick<WsServerOptions, 'helloTimeoutMs' | 'revalidateIntervalMs' | 'nonces'>;
 }
 
 export interface DataPlane {
   registry: SessionRegistry;
   ws: WsServer;
-  /** Listens for WebSockets, then restores sessions in the background. */
-  start(): Promise<{ address: AddressInfo; restored: Promise<void> }>;
+  /** Listens for WebSockets, then restores sessions in the background (null if that failed). */
+  start(): Promise<{ address: AddressInfo; restored: Promise<RestoreSummary | null> }>;
   /** Graceful shutdown (plan §5.8). */
   shutdown(): Promise<void>;
 }
@@ -49,6 +58,9 @@ export interface DataPlane {
 export function createDataPlane(deps: DataPlaneDeps): DataPlane {
   const logger = deps.logger ?? silentLogger();
   let ws: WsServer | null = null;
+  const notifier: UserNotifier = {
+    sendToUser: (userId, message) => ws?.sendToUser(userId, message),
+  };
   const registry = new SessionRegistry({
     store: deps.store,
     hostKeys: deps.hostKeys,
@@ -60,9 +72,19 @@ export function createDataPlane(deps: DataPlaneDeps): DataPlane {
         targetPolicy: deps.targetPolicy ?? new TargetPolicy({ allowLocalTargets: false }),
       }),
     drivers: createDriverFactory(deps.tmuxControl),
-    notifier: { sendToUser: (userId, message) => ws?.sendToUser(userId, message) },
+    notifier,
     installationId: deps.installationId,
     logger,
+    ...(deps.remoteLookup
+      ? {
+          sweeper: new RemoteSweeper({
+            lookup: deps.remoteLookup,
+            notifier,
+            installationId: deps.installationId,
+            logger,
+          }),
+        }
+      : {}),
     ...deps.registry,
   });
   ws = new WsServer({
@@ -83,8 +105,9 @@ export function createDataPlane(deps: DataPlaneDeps): DataPlane {
     ws: server,
     async start() {
       const address = await server.listen();
-      const restored = registry.restore().catch((err) => {
+      const restored = registry.restore().catch((err: unknown) => {
         logger.error({ err }, 'boot restore failed');
+        return null;
       });
       return { address, restored };
     },

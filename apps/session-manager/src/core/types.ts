@@ -249,6 +249,13 @@ export interface SessionRecord {
   protection: Protection | null;
   /** Base of the per-session tmux socket name (plan §6.3). */
   tmuxToken: string;
+  /**
+   * The full socket name of a session adopted from a remote leftover (plan D-30); null for every
+   * other session, whose socket is `td-<installation prefix>-<tmuxToken>`.
+   */
+  tmuxSocket: string | null;
+  /** Absolute tmux path from the last stored probe (`probe_json` → `tmux_path`), if any. */
+  tmuxPath: string | null;
   tmuxVersion: string | null;
   remoteIdentity: RemoteIdentity | null;
   cols: number;
@@ -294,6 +301,13 @@ export interface SessionStore {
   /** desired_state = running, excluding sessions whose last state is a non-retryable failure. */
   listRestorable(): Promise<SessionRecord[]>;
   /**
+   * Boot (plan §5.8): a session still `terminating` was being ended when the previous daemon
+   * stopped (its remote tmux cleanup was cut short). It ends now (`user_terminated`), never
+   * restored; a leftover tmux is ended by the next connection to its server (plan D-30).
+   * Resolves with how many sessions it ended.
+   */
+  endInterruptedTerminations(): Promise<number>;
+  /**
    * The user's sessions as listed to the UI (`sessions.list`), newest first. The store joins the
    * server's current name; the registry overlays the live runtime state on top.
    */
@@ -305,6 +319,29 @@ export interface SessionStore {
    * the maximum number of sessions, not counting `sessionId`.
    */
   assertRunningCapacity(userId: string, sessionId: string): Promise<void>;
+}
+
+/**
+ * A session a remote tmux socket name belongs to (plan D-30): matched by its `tmux_socket`, or,
+ * without one, by this installation's prefix plus its `tmux_token`. State and end time include
+ * writes still queued in the batched writer.
+ */
+export interface SocketOwner {
+  sessionId: string;
+  userId: string;
+  label: string;
+  socket: string;
+  state: SessionState;
+  endedAt: number | null;
+}
+
+/** Session lookups of the remote leftover scan (plan D-30); SQLite in production. */
+export interface RemoteSessionLookup {
+  /** Every session (of any user) whose socket is one of `sockets`. */
+  socketOwners(sockets: readonly string[], ownPrefix: string): Promise<SocketOwner[]>;
+  /** The server's current name, or null when it is gone. */
+  serverName(serverId: string): Promise<string | null>;
+  appendEvent(sessionId: string, event: SessionEventInput): void;
 }
 
 /** A host key as presented by the server (same shape as transport/ssh HostKeyInfo). */

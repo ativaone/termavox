@@ -53,8 +53,12 @@ export interface TmuxControlDriverOptions {
   startupCommand: string | null;
   env: Record<string, string>;
   previousIdentity: RemoteIdentity | null;
-  /** Called after every (re)attach with the observed identity; `rebooted` = previous identity existed and differs. */
-  onIdentity(identity: RemoteIdentity, rebooted: boolean): void;
+  /**
+   * Called after every (re)attach with the observed identity; `rebooted` = previous identity
+   * existed and differs; `created` = the launch created the session (an adopted session's tmux
+   * was gone, plan D-30).
+   */
+  onIdentity(identity: RemoteIdentity, rebooted: boolean, created?: boolean): void;
   /** Default 5. */
   pauseAfterSeconds?: number;
 }
@@ -297,7 +301,7 @@ export class TmuxControlDriver implements Driver {
         (previous.sessionCreated !== identity.sessionCreated ||
           previous.panePid !== identity.panePid);
       // The runtime writes the "remote host restarted" banner itself when rebooted is true.
-      this.#opts.onIdentity(identity, rebooted);
+      this.#opts.onIdentity(identity, rebooted, created);
       if (created && typedStartup !== null) this.#typeStartup(typedStartup);
       await this.#command(refreshClientPauseAfter(this.#opts.pauseAfterSeconds ?? 5));
       await this.#command(refreshClientSize(dims.cols, dims.rows));

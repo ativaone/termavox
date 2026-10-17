@@ -267,6 +267,49 @@ export function killServerCommand(opts: { tmuxPath: string; socket: string }): s
   );
 }
 
+/**
+ * What the leftover scan reports of one tmux server after its socket name (plan D-30): `1` when
+ * the session is `main` (so no session name leaves the host), then `session_created`,
+ * `session_activity` (epoch seconds) and `session_attached` (clients). Numbers only: no pane
+ * command, title or other host text is read.
+ */
+export const SCAN_SESSION_FORMAT =
+  '#{?#{==:#{session_name},main},1,0} #{session_created} #{session_activity} #{session_attached}';
+/** Answering servers one scan reports at most; the script prints one more to show the cut. */
+export const SCAN_MAX_SERVERS = 200;
+
+/**
+ * Remote command listing this user's Termdock tmux servers (plan D-30): every socket file
+ * `${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)/td-*` whose server answers `list-sessions` gives one line
+ * `<socket>\t<created>\t<activity>\t<attached>` for its `main` session, or its first session if
+ * there is no `main`. A name with anything outside [a-z0-9-] is skipped (it could break the line
+ * format), and so is a socket whose server does not answer. Nothing is started, killed or
+ * removed: `list-sessions` never starts a server. Stops after SCAN_MAX_SERVERS + 1 lines; always
+ * exits 0. Run without a PTY, like every remote command (§5.11).
+ */
+export function scanSocketsCommand(opts: { tmuxPath: string }): string {
+  assertAbsolutePath(opts.tmuxPath);
+  return remoteCommand(
+    `t=${opts.tmuxPath}; d="\${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)"; [ -d "$d" ] || exit 0; n=0; ` +
+      `for f in "$d"/td-*; do [ -S "$f" ] || continue; s=\${f##*/}; ` +
+      `expr "x$s" : 'x[a-z0-9-]*$' >/dev/null || continue; ` +
+      `l=$("$t" -L "$s" list-sessions -F '${SCAN_SESSION_FORMAT}' 2>/dev/null) || continue; ` +
+      `m=$(printf '%s\\n' "$l" | grep '^1 ' | head -n 1); ` +
+      `[ -n "$m" ] || m=$(printf '%s\\n' "$l" | head -n 1); [ -n "$m" ] || continue; ` +
+      `set -f; set -- $m; set +f; printf '%s\\t%s\\t%s\\t%s\\n' "$s" "$2" "$3" "$4"; ` +
+      `n=$((n+1)); [ $n -gt ${SCAN_MAX_SERVERS} ] && break; done; exit 0`,
+  );
+}
+
+/** Remote command whose exit status tells whether the tmux server of `socket` answers (0). */
+export function serverAnswersCommand(opts: { tmuxPath: string; socket: string }): string {
+  assertAbsolutePath(opts.tmuxPath);
+  assertSocket(opts.socket);
+  return remoteCommand(
+    `exec ${opts.tmuxPath} -L ${opts.socket} list-sessions -F x >/dev/null 2>&1`,
+  );
+}
+
 // Control-mode commands (written to the control client's stdin, one per line).
 
 export function refreshClientSize(cols: number, rows: number): string {

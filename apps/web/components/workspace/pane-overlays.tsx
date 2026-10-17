@@ -478,7 +478,17 @@ function EndedSlip({
       titleId={titleId}
       inline
       title={t('overlay.endedTitle')}
-      body={key ? t(`endReason.${key}`) : t('endReason.unknown')}
+      body={
+        <>
+          <span className="block">{key ? t(`endReason.${key}`) : t('endReason.unknown')}</span>
+          {/* Plan D-30: its tmux is still running on the server until the next connection. */}
+          {entry.remoteCleanup ? (
+            <span className="mt-1 block">
+              {t('overlay.remoteCleanup', { server: entry.serverName })}
+            </span>
+          ) : null}
+        </>
+      }
       error={action.error}
       actions={
         <>

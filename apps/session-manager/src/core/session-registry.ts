@@ -2,6 +2,8 @@ import type { ServerMessage, SessionSummary } from '@termdock/protocol';
 import { ErrorCode, TermdockError } from '@termdock/shared';
 import { type Logger, silentLogger } from '../config/logger.ts';
 import type { DriverFactory } from './driver-factory.ts';
+import { forEachLimit, Limiter, settleWithin } from './limiter.ts';
+import type { RemoteSweeper } from './remote-sessions.ts';
 import {
   SessionRuntime,
   type SessionRuntimeOptions,
@@ -21,6 +23,23 @@ export const SHUTDOWN_BUDGET_MS = 20_000;
  * free it. A later attach simply loads the session again.
  */
 export const RUNTIME_IDLE_TTL_MS = 60_000;
+/**
+ * A terminate answers within this long (web's internal API calls time out after 5 s): a remote
+ * cleanup still running then (plan D-30) ends the session later, through `session.status`.
+ */
+export const TERMINATE_ANSWER_MS = 3_000;
+/** One-shot remote cleanups (plan D-30) running at once in the process: no SSH storms. */
+export const REMOTE_CLEANUP_CONCURRENCY = 4;
+/** Terminations "End all sessions" and the admin's terminate-sessions start at once. */
+export const TERMINATE_ALL_CONCURRENCY = 4;
+
+/** What boot restore did (plan §5.8). */
+export interface RestoreSummary {
+  /** Sessions it started (reattached, for tmux-protected ones). */
+  restored: number;
+  /** Sessions left `terminating` by the previous daemon, ended instead. */
+  endedInterrupted: number;
+}
 
 export interface SessionRegistryOptions {
   store: SessionStore;
@@ -34,11 +53,21 @@ export interface SessionRegistryOptions {
   restoreHostSpacingMs?: number;
   /** Default RUNTIME_IDLE_TTL_MS. */
   idleTtlMs?: number;
+  /** Default TERMINATE_ANSWER_MS. */
+  terminateAnswerMs?: number;
+  /** Background leftover sweep (plan D-30) handed to every runtime; absent: none. */
+  sweeper?: RemoteSweeper;
   /** Extra runtime options (timings in tests). */
   runtime?: Partial<
     Pick<
       SessionRuntimeOptions,
-      'promptTimeoutMs' | 'resizeDebounceMs' | 'lagPollMs' | 'ingestPollMs' | 'random' | 'now'
+      | 'promptTimeoutMs'
+      | 'resizeDebounceMs'
+      | 'lagPollMs'
+      | 'ingestPollMs'
+      | 'random'
+      | 'now'
+      | 'cleanupConnectTimeoutMs'
     >
   >;
 }
@@ -74,12 +103,16 @@ export class SessionRegistry {
   /** Registry operations in progress per session: their runtime is never evicted meanwhile. */
   readonly #pins = new Map<string, number>();
   readonly #idleTtlMs: number;
+  readonly #terminateAnswerMs: number;
+  /** Shared by every runtime's one-shot remote cleanup (plan D-30). */
+  readonly #cleanups = new Limiter(REMOTE_CLEANUP_CONCURRENCY);
   readonly #log: Logger;
   #closed = false;
 
   constructor(options: SessionRegistryOptions) {
     this.#options = options;
     this.#idleTtlMs = options.idleTtlMs ?? RUNTIME_IDLE_TTL_MS;
+    this.#terminateAnswerMs = options.terminateAnswerMs ?? TERMINATE_ANSWER_MS;
     this.#log = options.logger ?? silentLogger();
   }
 
@@ -96,10 +129,21 @@ export class SessionRegistry {
     return this.#load(sessionId);
   }
 
-  /** Boot restore: start every restorable session (desired running, not a final failure). */
-  async restore(): Promise<void> {
+  /**
+   * Boot restore: end the sessions the previous daemon was still terminating, then start every
+   * restorable session (desired running, not a final failure).
+   */
+  async restore(): Promise<RestoreSummary> {
+    // Never restored either way (desired terminated): a failure here must not stop the restore.
+    const endedInterrupted = await this.#options.store
+      .endInterruptedTerminations()
+      .catch((err: unknown) => {
+        this.#log.error({ err }, 'ending interrupted terminations failed');
+        return 0;
+      });
     const records = await this.#options.store.listRestorable();
     const queue = records.filter((r) => !this.#runtimes.has(r.id));
+    const restored = queue.length;
     for (const record of queue) this.#pendingRestore.add(record.id);
     const spacing = this.#options.restoreHostSpacingMs ?? RESTORE_HOST_SPACING_MS;
     const nextStart = new Map<string, number>();
@@ -133,6 +177,7 @@ export class SessionRegistry {
     };
     const workers = Math.max(1, this.#options.restoreConcurrency ?? RESTORE_CONCURRENCY);
     await Promise.all(Array.from({ length: workers }, worker));
+    return { restored, endedInterrupted };
   }
 
   /**
@@ -150,10 +195,52 @@ export class SessionRegistry {
     return runtime;
   }
 
+  /**
+   * Terminates a session; resolves once it ended or after TERMINATE_ANSWER_MS, whichever comes
+   * first (a remote cleanup may take longer, plan D-30: the end then arrives as `session.status`).
+   */
   async terminate(sessionId: string, actingUserId: string): Promise<void> {
-    await this.#pinned(sessionId, async () => {
+    const { done } = await this.#beginTerminate(sessionId, actingUserId);
+    await settleWithin(done, this.#terminateAnswerMs);
+  }
+
+  /**
+   * "End all sessions" (plan D-30) and the admin's terminate-sessions: every non-ended session of
+   * `userId` starts ending (TERMINATE_ALL_CONCURRENCY at a time; each is `terminating` from its
+   * start), then the answer waits for the ends up to TERMINATE_ANSWER_MS in total. Remote
+   * cleanups continue after it, REMOTE_CLEANUP_CONCURRENCY at a time. Resolves with how many
+   * sessions are ending; sessions that ended or vanished meanwhile are not counted.
+   */
+  async terminateAll(userId: string): Promise<number> {
+    const startedAt = Date.now();
+    const live = (await this.listForUser(userId)).filter((s) => s.state !== 'ended');
+    const ending: Array<Promise<void>> = [];
+    await forEachLimit(live, TERMINATE_ALL_CONCURRENCY, async (session) => {
+      try {
+        ending.push((await this.#beginTerminate(session.id, userId)).done);
+      } catch (err) {
+        // Removed meanwhile (not found): nothing left to terminate.
+        if (!(err instanceof TermdockError && err.code === ErrorCode.NotFound)) {
+          this.#log.warn({ err, sessionId: session.id }, 'terminate failed');
+        }
+      }
+    });
+    const left = this.#terminateAnswerMs - (Date.now() - startedAt);
+    if (left > 0) await settleWithin(Promise.allSettled(ending), left);
+    return ending.length;
+  }
+
+  /**
+   * Starts a terminate: resolves as soon as the session is `terminating` (the runtime's
+   * synchronous part ran), with the rest of the work in `done`. The pin only covers the start:
+   * a runtime that is still terminating is never idle, so it is not evicted meanwhile.
+   */
+  #beginTerminate(sessionId: string, actingUserId: string): Promise<{ done: Promise<void> }> {
+    return this.#pinned(sessionId, async () => {
       const runtime = await this.#owned(sessionId, actingUserId);
-      await runtime.terminate();
+      const done = runtime.terminate();
+      done.catch((err) => this.#log.warn({ err, sessionId }, 'terminate failed'));
+      return { done };
     });
   }
 
@@ -175,6 +262,15 @@ export class SessionRegistry {
 
   async #reopen(sessionId: string, actingUserId: string): Promise<{ sessionId: string }> {
     const old = await this.#owned(sessionId, actingUserId);
+    // A terminate still ending the remote tmux (plan D-30) gets a moment to finish; if it is still
+    // running after that, the session is not ended yet and Reopen is refused below.
+    const terminating = old.state === 'terminating' ? old.terminating : null;
+    if (terminating) {
+      await settleWithin(
+        terminating.catch(() => {}),
+        this.#terminateAnswerMs,
+      );
+    }
     if (old.state !== 'ended' && old.protection !== 'none') {
       throw new TermdockError(
         ErrorCode.Conflict,
@@ -196,6 +292,9 @@ export class SessionRegistry {
       endedAt: null,
       endReason: null,
       protection: null,
+      // A new shell is a new tmux session: compared with the old identity it would read as a
+      // remote reboot (§6.10). A surviving tmux server (D-30) is attached either way.
+      remoteIdentity: null,
     };
     this.#options.store.update(sessionId, patch);
     this.#options.store.appendEvent(sessionId, { type: 'reopened', actorUserId: actingUserId });
@@ -292,6 +391,8 @@ export class SessionRegistry {
       logger: this.#log,
       onSummaryChange: () => void this.#publishUpsert(record),
       onIdle: () => this.#scheduleEviction(record.id),
+      cleanupSlot: (task, signal) => this.#cleanups.run(task, signal),
+      ...(this.#options.sweeper ? { sweeper: this.#options.sweeper } : {}),
       ...this.#options.runtime,
       ...extra,
     });

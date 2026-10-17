@@ -41,6 +41,7 @@ export interface DaemonOverrides {
   registry?: DataPlaneDeps['registry'];
   wsOptions?: DataPlaneDeps['wsOptions'];
   serverTest?: InternalApiOptions['serverTest'];
+  remoteSessions?: InternalApiOptions['remoteSessions'];
   retention?: Pick<RetentionJobOptions, 'initialDelayMs' | 'intervalMs' | 'chunkRows' | 'now'>;
 }
 
@@ -102,6 +103,7 @@ export async function startDaemon(
       wsSecret,
       installationId,
       store: sessions,
+      remoteLookup: sessions,
       hostKeys,
       credentials: credentialProvider,
       ownership,
@@ -130,9 +132,11 @@ export async function startDaemon(
       connections: plane.ws,
       enableLocalShell: config.enableLocalShell,
       targetPolicy,
+      installationId,
       version: VERSION,
       logger: log,
       ...(overrides.serverTest ? { serverTest: overrides.serverTest } : {}),
+      ...(overrides.remoteSessions ? { remoteSessions: overrides.remoteSessions } : {}),
     });
     const internalAddress = await internalApi.listen();
     log.info(
@@ -147,8 +151,14 @@ export async function startDaemon(
       },
       'session-manager ready',
     );
-    const restoreDone = restored.then(() => {
-      log.info({ sessions: plane?.registry.size ?? 0 }, 'boot restore finished');
+    const restoreDone = restored.then((summary) => {
+      if (!summary) return;
+      // Plan §5.8: how many sessions boot restore reattached (started), and how many the previous
+      // daemon left ending (ended now; their tmux, if any is left, goes at the next connection).
+      log.info(
+        { restored: summary.restored, endedInterrupted: summary.endedInterrupted },
+        'boot restore finished',
+      );
     });
     const retention = new RetentionJob({
       writer,
@@ -173,6 +183,15 @@ export async function startDaemon(
           .catch((err) => log.warn({ err }, 'data plane shutdown failed'));
         // Runtimes persist their last states during the data plane shutdown: flush after it.
         const drained = await writer.close(Math.max(1_000, deadline - Date.now()));
+        // Plan §5.8: protected sessions survive the stop on their servers, by design (D-30).
+        try {
+          log.info(
+            { sessions: sessions.countReattachable() },
+            'tmux-protected sessions keep running on their servers; the next start reattaches them',
+          );
+        } catch (err) {
+          log.warn({ err }, 'could not count the sessions that keep running');
+        }
         db.$client.close();
         lock.release();
         log.info({ drained }, 'shutdown complete');

@@ -274,6 +274,12 @@
       "help": "Everyone who sees this session sees the new name, in the list and on tabs.",
       "save": "Save"
     },
+    "endAll": {
+      "open": "End all sessions…",
+      "title": "End all sessions?",
+      "body": "{count, plural, one {# session ends, and the programs running in it stop on its server.} other {# sessions end, and the programs running in them stop on their servers.}} This can't be undone.",
+      "confirm": "{count, plural, one {End # session} other {End # sessions}}"
+    },
     "sidebar": {
       "collapse": "Collapse the session list",
       "expand": "Expand the session list"
@@ -285,12 +291,13 @@
       "reconnectingBody": "The connection to {server} dropped. Termdock keeps trying.",
       "retryNow": "Retry now",
       "retry": "Retry",
-      "terminate": "Terminate",
+      "terminate": "End",
       "disconnectedTitle": "Disconnected",
       "endedTitle": "Session ended",
       "reopen": "Reopen",
       "closePane": "Close pane",
       "goneBody": "This session no longer exists.",
+      "remoteCleanup": "Its tmux on {server} couldn't be ended now. The next connection to this server ends it.",
       "waitTitle": "Waiting for the server's prompt",
       "waitBody": "The sign-in prompt expired or hasn't arrived yet. Retry to ask the server again.",
       "rebootTitle": "The server restarted",
@@ -337,7 +344,7 @@
       "generic": "The connection failed and won't be retried automatically."
     },
     "endReason": {
-      "userTerminated": "The session was terminated.",
+      "userTerminated": "The session was ended.",
       "shellExited": "The shell exited.",
       "connectionLost": "The connection dropped and the session wasn't protected.",
       "serviceRestarted": "Termdock restarted and the session wasn't protected.",
@@ -363,9 +370,9 @@
       "retry": "Retry now",
       "reopen": "Reopen",
       "rename": "Rename…",
-      "terminate": "Terminate…",
-      "terminateQuestion": "Terminate {label}? The shell and everything running in it stop. This can't be undone.",
-      "terminateConfirm": "Terminate session",
+      "terminate": "End…",
+      "terminateQuestion": "End {label}? The shell and everything running in it stop. This can't be undone.",
+      "terminateConfirm": "End session",
       "cancel": "Cancel"
     },
     "palette": {
@@ -402,6 +409,11 @@
       "tabLimit": "You have 32 tabs open. Close one to open another.",
       "paneLimit": "This tab can't hold more panes. Open the session in a new tab instead.",
       "actionFailed": "Termdock didn't answer. Check your connection and try again."
+    },
+    "remoteSessions": {
+      "title": "Sessions found on {server}",
+      "body": "{count, plural, one {A Termdock session that this Termdock doesn't run is still running there.} other {# Termdock sessions that this Termdock doesn't run are still running there.}}",
+      "review": "Review on the server page"
     },
     "localTarget": "This server (direct mode)"
   },
@@ -500,7 +512,7 @@
       "invalid": "Check this field.",
       "kindLocal": "Local shells are not available on this installation.",
       "notFound": "This server no longer exists.",
-      "inUse": "Sessions from this server are still running. Terminate them first, then delete the server."
+      "inUse": "Sessions from this server are still running. End them first, then delete the server."
     },
     "back": {
       "workspace": "Back to the workspace",
@@ -649,7 +661,7 @@
     "delete": {
       "title": "Delete server",
       "intro": "Deletes the server. Session history is kept, and so are the host keys you decided on for its address.",
-      "blocked": "{count, plural, one {# session from this server is still running. Terminate it} other {# sessions from this server are still running. Terminate them}} before you delete the server.",
+      "blocked": "{count, plural, one {# session from this server is still running. End it} other {# sessions from this server are still running. End them}} before you delete the server.",
       "toWorkspace": "Go to the workspace",
       "label": "Delete server…",
       "question": "Delete {name}? This can't be undone.",
@@ -758,6 +770,45 @@
         "testLimit": "Too many checks in the last minute. Wait a moment, then try again.",
         "rejected": "The session service rejected the request.",
         "generic": "Something went wrong. Try again."
+      }
+    },
+    "remote": {
+      "title": "Sessions on this server",
+      "intro": "Termdock sessions running on this server as <mono>{target}</mono> that this Termdock does not run: from another Termdock installation, or from this one before its database was reset.",
+      "check": "Check now",
+      "help": "Connects to the server as {user} and lists them. Sessions you already ended in Termdock that are still running there are ended right away.",
+      "checkFailed": "Couldn't check the server",
+      "checkedAt": "Checked",
+      "empty": "No other Termdock sessions are running on this server as {user}.",
+      "cleaned": "{count, plural, one {# session you had already ended in Termdock was still running here and is ended now.} other {# sessions you had already ended in Termdock were still running here and are ended now.}}",
+      "truncated": "The server has more Termdock sessions than Termdock reads at once, so some aren't listed. End or adopt some, then check again.",
+      "listLabel": "Sessions found on this server",
+      "origin": {
+        "ended": "Ended in Termdock",
+        "unknown": "This installation, no record",
+        "other": "Other or earlier installation"
+      },
+      "created": "Created",
+      "lastActivity": "Last activity",
+      "clients": "Attached clients",
+      "notReported": "Not reported",
+      "clientsCount": "{count, plural, =0 {None} one {# client} other {# clients}}",
+      "inUse": "{count, plural, one {A client is} other {# clients are}} attached right now: someone may be using this session, from another Termdock or a terminal on the server.",
+      "actionsHelp": "Adopt opens one in the workspace as a session of this server. A session you had ended opens in the workspace, where Reopen brings it back. End stops the programs running in it.",
+      "adopt": "Adopt",
+      "openEnded": "Open in workspace",
+      "adoptQuestion": "Someone is attached to this session right now. Adopting opens it here too, and what you type reaches the same programs. Adopt it anyway?",
+      "adoptConfirm": "Adopt anyway",
+      "end": "End…",
+      "endQuestion": "End this session? The programs running in it on the server stop. This can't be undone.",
+      "endConfirm": "End session",
+      "cancel": "Cancel",
+      "endedNotice": "Session ended on the server.",
+      "goneNotice": "That session had already ended.",
+      "error": {
+        "running": "This session runs in Termdock now, so it can't be ended or adopted here. Check again to update the list.",
+        "untrusted": "Termdock doesn't trust this server's host key yet and never asks here. Run Test connection, trust the key, then check again.",
+        "noCredential": "This server has no stored credential, so Termdock can't sign in without asking for a password. Give the server a credential to check it here."
       }
     },
     "docker": {
@@ -880,7 +931,7 @@
       "privateKeyRequired": "Paste the private key.",
       "privateKeyLong": "This key is too long.",
       "privateKeyInvalid": "This key could not be read. Check the whole key was pasted and the passphrase is right.",
-      "inUse": "A running session uses this credential. Terminate it first, then delete the credential.",
+      "inUse": "A running session uses this credential. End it first, then delete the credential.",
       "unavailable": "The session service is not responding. Nothing was saved; try again in a moment.",
       "timeout": "The session service took too long. Check the list before you try again.",
       "notFound": "This credential no longer exists.",

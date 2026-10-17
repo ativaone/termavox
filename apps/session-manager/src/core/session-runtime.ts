@@ -27,6 +27,7 @@ import type { KeyboardInteractiveRequest } from '../transport/ssh/index.ts';
 import { backoffDelay } from './backoff.ts';
 import { type DriverFactory, tmuxSocketName } from './driver-factory.ts';
 import { type ProtectionChoice, selectProtection } from './protection.ts';
+import { endRemoteServer, type RemoteSweeper } from './remote-sessions.ts';
 import type { TransportFactory, TransportHooks } from './transport-factory.ts';
 import {
   type AttachmentClient,
@@ -57,7 +58,30 @@ export const INGEST_HIGH_WATER = 8 * 1024 * 1024;
 export const INGEST_LOW_WATER = 1024 * 1024;
 const INGEST_POLL_MS = 10;
 const PROBE_TIMEOUT_MS = 15_000;
+/**
+ * The one-shot remote cleanup of a terminate while not connected (plan D-30): connect bound
+ * (the factory's handshake timeout can be 110 s for a credential that may prompt), probe bound
+ * (only when no tmux path is stored) and kill bound.
+ */
+export const CLEANUP_CONNECT_TIMEOUT_MS = 10_000;
+const CLEANUP_PROBE_TIMEOUT_MS = 8_000;
+const CLEANUP_KILL_TIMEOUT_MS = 5_000;
+/** Bounds the whole cleanup once it runs, should a step hang despite its own bound. */
+const CLEANUP_TOTAL_TIMEOUT_MS = 25_000;
 const MAX_TITLE_LENGTH = 256;
+
+/**
+ * Hooks of a cleanup connection (plan D-30): it changes no session state and never asks anyone
+ * anything. An unknown host key simply fails it (nothing is recorded as pending: only a session's
+ * own connect does that), and a keyboard-interactive round is answered with nothing at once.
+ */
+const CLEANUP_HOOKS: TransportHooks = {
+  onHostKey: () => {},
+  onKeyboardInteractive: () => Promise.resolve(null),
+};
+
+/** Runs a remote cleanup when the process-wide limit allows (the registry's limiter). */
+export type CleanupSlot = <T>(task: () => Promise<T>, signal: AbortSignal) => Promise<T>;
 /**
  * Written before a new shell starts in an emulator that kept the previous screen: leave the
  * alternate screen, soft reset (DECSTR), and turn off mouse reporting and bracketed paste that
@@ -87,6 +111,8 @@ export interface SessionRuntimeOptions {
   random?: () => number;
   now?: () => number;
   promptTimeoutMs?: number;
+  /** Default CLEANUP_CONNECT_TIMEOUT_MS (tests). */
+  cleanupConnectTimeoutMs?: number;
   resizeDebounceMs?: number;
   lagPollMs?: number;
   ingestPollMs?: number;
@@ -97,6 +123,10 @@ export interface SessionRuntimeOptions {
   onSummaryChange?: () => void;
   /** The runtime may have become `idle`: the registry schedules its eviction. */
   onIdle?: () => void;
+  /** Background leftover sweep after `ready` (plan D-30); absent: no sweep. */
+  sweeper?: RemoteSweeper;
+  /** Bounds the concurrent remote cleanups of the process (plan D-30); default: unbounded. */
+  cleanupSlot?: CleanupSlot;
 }
 
 /** Live fields the registry overlays on stored session summaries. */
@@ -144,11 +174,14 @@ export class SessionRuntime implements SessionHost {
   readonly #random: () => number;
   readonly #now: () => number;
   readonly #promptTimeoutMs: number;
+  readonly #cleanupConnectTimeoutMs: number;
   readonly #lagPollMs: number | undefined;
   readonly #ingestPollMs: number;
   readonly #restored: boolean;
   readonly #onSummaryChange: () => void;
   readonly #onIdle: () => void;
+  readonly #sweeper: RemoteSweeper | null;
+  readonly #cleanupSlot: CleanupSlot;
 
   #state: SessionState;
   /** `detail` of the latest state change in this process (undefined before the first one). */
@@ -158,9 +191,12 @@ export class SessionRuntime implements SessionHost {
   #protection: Protection | null;
   #closed = false;
   #started = false;
-  #terminating = false;
+  /** The terminate of this runtime, once requested (a second request shares it). */
+  #terminateRun: Promise<void> | null = null;
   /** terminate() is still tearing the remote down. */
   #terminateInFlight = false;
+  /** The terminate's one-shot remote cleanup (plan D-30), aborted by shutdown(). */
+  #cleanup: { abort: AbortController; transport: Transport | null } | null = null;
 
   // connect loop
   #generation = 0;
@@ -207,11 +243,14 @@ export class SessionRuntime implements SessionHost {
     this.#random = options.random ?? Math.random;
     this.#now = options.now ?? Date.now;
     this.#promptTimeoutMs = options.promptTimeoutMs ?? PROMPT_TIMEOUT_MS;
+    this.#cleanupConnectTimeoutMs = options.cleanupConnectTimeoutMs ?? CLEANUP_CONNECT_TIMEOUT_MS;
     this.#lagPollMs = options.lagPollMs;
     this.#ingestPollMs = options.ingestPollMs ?? INGEST_POLL_MS;
     this.#restored = options.restored ?? false;
     this.#onSummaryChange = options.onSummaryChange ?? (() => {});
     this.#onIdle = options.onIdle ?? (() => {});
+    this.#sweeper = options.sweeper ?? null;
+    this.#cleanupSlot = options.cleanupSlot ?? ((task) => task());
     this.#seq = options.initialSeq ?? 0;
     this.#state = this.#record.state;
     this.#wasReady = this.#record.lastReadyAt !== null;
@@ -268,6 +307,11 @@ export class SessionRuntime implements SessionHost {
 
   get attachmentCount(): number {
     return this.#attachments.size;
+  }
+
+  /** The terminate in progress or done, if one was requested. */
+  get terminating(): Promise<void> | null {
+    return this.#terminateRun;
   }
 
   /**
@@ -337,9 +381,23 @@ export class SessionRuntime implements SessionHost {
     this.#kick();
   }
 
-  async terminate(): Promise<void> {
-    if (this.#state === 'ended' || this.#terminating || this.#closed) return;
-    this.#terminating = true;
+  /**
+   * Ends the session (`user_terminated`). The state is `terminating` from the first, synchronous
+   * part of this call (`desired_state = terminated` is written with it), so boot never restores
+   * the session whatever happens next. A live driver kills its tmux server itself. Without one, a
+   * `tmux-control` session's tmux still runs on the server: a one-shot connection ends it (plan
+   * D-30); if that fails the session ends anyway, with `remoteCleanup: 'pending'` on its `ended`
+   * status, and the next connection to that server as that user ends the leftover. A second call
+   * shares the first one's promise.
+   */
+  terminate(): Promise<void> {
+    if (this.#terminateRun) return this.#terminateRun;
+    if (this.#state === 'ended' || this.#closed) return Promise.resolve();
+    this.#terminateRun = this.#terminate();
+    return this.#terminateRun;
+  }
+
+  async #terminate(): Promise<void> {
     this.#terminateInFlight = true;
     try {
       this.#desired = 'terminated';
@@ -350,7 +408,10 @@ export class SessionRuntime implements SessionHost {
       this.#stopActivity();
       if (driver) await driver.terminate().catch((err) => this.#warn('driver terminate', err));
       if (transport) await closeQuietly(transport);
-      this.#end('user_terminated');
+      // `none` leaves nothing behind; `null` never launched tmux.
+      const cleaned =
+        driver !== null || this.#protection !== 'tmux-control' || (await this.#remoteCleanup());
+      this.#end('user_terminated', cleaned ? {} : { remoteCleanup: 'pending' });
     } finally {
       this.#terminateInFlight = false;
       this.#maybeIdle();
@@ -361,13 +422,110 @@ export class SessionRuntime implements SessionHost {
   async shutdown(): Promise<void> {
     if (this.#closed) return;
     this.#closed = true;
+    // A terminate still ending the remote tmux (plan D-30) gives up at once: the session ends
+    // with its cleanup pending, recorded before the daemon's last writer flush.
+    const cleanup = this.#cleanup;
+    if (cleanup) {
+      cleanup.abort.abort(new TransportError('SHUTTING_DOWN', 'the daemon is shutting down', true));
+      if (cleanup.transport) void closeQuietly(cleanup.transport);
+    }
     const driver = this.#driver;
     const transport = this.#transport;
     this.#stopActivity();
     if (driver) await driver.detach().catch((err) => this.#warn('driver detach', err));
     if (transport) await closeQuietly(transport);
+    if (this.#terminateRun) await this.#terminateRun.catch(() => {});
     for (const attachment of this.#attachments.values()) attachment.dispose();
     this.#policy.dispose();
+  }
+
+  /**
+   * The one-shot remote cleanup of a terminate while not connected (plan D-30): a connection of
+   * its own through the transport factory (the session's host-key decisions and credential,
+   * never prompting, never recording a pending key), the tmux path from the stored probe (a probe
+   * only when none is stored), `killServerCommand` on the session's socket, close. Every step is
+   * bounded, and shutdown() aborts it. Resolves with whether the tmux server was ended; a failure
+   * is recorded as `remote_cleanup_failed { code }`.
+   */
+  async #remoteCleanup(): Promise<boolean> {
+    const cleanup = { abort: new AbortController(), transport: null as Transport | null };
+    this.#cleanup = cleanup;
+    const { signal } = cleanup.abort;
+    try {
+      // An abort ends the task at once (its slot is free again), whatever step it was in.
+      await this.#cleanupSlot(() => untilAborted(this.#cleanupRemote(cleanup), signal), signal);
+      this.#event('remote_cleanup');
+      return true;
+    } catch (err) {
+      // An abort (connect bound, shutdown) wins over whatever the cut connection then threw.
+      const code = cleanupFailureCode(signal.aborted ? signal.reason : err);
+      this.#event('remote_cleanup_failed', { code });
+      this.#log.info({ code }, 'remote tmux not ended; the next connection to its server ends it');
+      return false;
+    } finally {
+      if (this.#cleanup === cleanup) this.#cleanup = null;
+      if (cleanup.transport) await closeQuietly(cleanup.transport);
+    }
+  }
+
+  async #cleanupRemote(cleanup: {
+    abort: AbortController;
+    transport: Transport | null;
+  }): Promise<void> {
+    const { signal } = cleanup.abort;
+    signal.throwIfAborted();
+    const total = setTimeout(
+      () =>
+        cleanup.abort.abort(new TransportError('REMOTE_TIMEOUT', 'remote cleanup timed out', true)),
+      CLEANUP_TOTAL_TIMEOUT_MS,
+    );
+    try {
+      await this.#cleanupSteps(cleanup);
+    } finally {
+      clearTimeout(total);
+    }
+  }
+
+  async #cleanupSteps(cleanup: {
+    abort: AbortController;
+    transport: Transport | null;
+  }): Promise<void> {
+    const { signal } = cleanup.abort;
+    // The server link and the stored probe as they are now (writes still queued included).
+    const fresh = await this.#store.get(this.sessionId).catch(() => null);
+    if (fresh) {
+      this.#record.serverId = fresh.serverId;
+      this.#record.policies = fresh.policies;
+      this.#record.tmuxPath ??= fresh.tmuxPath;
+    }
+    // Like every connect (plan D-29): nothing connects through a deleted server's snapshot.
+    if (this.#record.serverId === null) {
+      throw new TermdockError(ErrorCode.NotFound, 'server was deleted');
+    }
+    const timer = setTimeout(
+      () =>
+        cleanup.abort.abort(
+          new TransportError(ErrorCode.HostUnreachable, 'cleanup connect timed out', true),
+        ),
+      this.#cleanupConnectTimeoutMs,
+    );
+    let transport: Transport;
+    try {
+      transport = await this.#transports.create(this.#record, CLEANUP_HOOKS);
+      cleanup.transport = transport;
+      signal.throwIfAborted();
+      await transport.connect(signal);
+    } finally {
+      clearTimeout(timer);
+    }
+    signal.throwIfAborted();
+    let tmuxPath = this.#record.tmuxPath;
+    if (!tmuxPath) {
+      tmuxPath = (await runProbe(transport, CLEANUP_PROBE_TIMEOUT_MS)).tmuxPath;
+      signal.throwIfAborted();
+      if (!tmuxPath) throw new TransportError('TMUX_NOT_FOUND', 'no tmux on the server', false);
+    }
+    await endRemoteServer(transport, tmuxPath, this.#socket, CLEANUP_KILL_TIMEOUT_MS);
   }
 
   /** Hands the attachments and the seq over to a replacement runtime (reopen). */
@@ -594,6 +752,7 @@ export class SessionRuntime implements SessionHost {
         probe: storableProbe(probe.raw),
         tmuxVersion: probe.tmuxVersionRaw,
       });
+      this.#record.tmuxPath = probe.tmuxPath;
       const choice = this.#chooseProtection(probe);
       await this.#ensureEmulatorMode(choice.protection !== 'tmux-control');
       if (gen !== this.#generation) return 'stopped';
@@ -619,6 +778,7 @@ export class SessionRuntime implements SessionHost {
       }
       this.#markReady();
       this.#onPolicyChange();
+      this.#sweepAfterReady(transport, probe, gen);
       return 'ready';
     } catch (err) {
       if (gen !== this.#generation) return 'stopped';
@@ -798,6 +958,32 @@ export class SessionRuntime implements SessionHost {
     };
   }
 
+  /**
+   * Plan D-30: the attempt's own connection looks for leftover tmux servers of this user on the
+   * server (an extra exec channel), detached from the session. Generation-guarded: the sweep
+   * stops once this attempt is over.
+   */
+  #sweepAfterReady(transport: Transport, probe: ProbeResult, gen: number): void {
+    const { serverId, target } = this.#record;
+    if (!this.#sweeper || !probe.tmuxPath || serverId === null || target.kind !== 'ssh') return;
+    try {
+      this.#sweeper.sweep(
+        {
+          userId: this.userId,
+          serverId,
+          hostname: target.hostname,
+          port: target.port,
+          username: target.username,
+        },
+        transport,
+        probe.tmuxPath,
+        () => gen === this.#generation && this.#transport === transport,
+      );
+    } catch (err) {
+      this.#warn('remote sweep', err);
+    }
+  }
+
   #setProtection(protection: Protection): void {
     this.#protection = protection;
     this.#store.update(this.sessionId, { protection });
@@ -809,13 +995,13 @@ export class SessionRuntime implements SessionHost {
     if (protection === 'tmux-control' && this.#drivers.tmuxControl) {
       return this.#drivers.tmuxControl({
         probe,
-        socket: tmuxSocketName(this.#installationId, this.#record.tmuxToken),
+        socket: this.#socket,
         scrollbackLines: this.#record.scrollbackLines,
         startupCommand: policies.startupCommand,
         env: policies.env,
         previousIdentity: this.#record.remoteIdentity,
-        onIdentity: (identity, rebooted) => {
-          if (gen === this.#generation) this.#onIdentity(identity, rebooted);
+        onIdentity: (identity, rebooted, created) => {
+          if (gen === this.#generation) this.#onIdentity(identity, rebooted, created === true);
         },
       });
     }
@@ -826,9 +1012,20 @@ export class SessionRuntime implements SessionHost {
     });
   }
 
-  #onIdentity(identity: RemoteIdentity, rebooted: boolean): void {
+  /** The session's tmux socket (plan §6.3): its own, or the adopted server's (plan D-30). */
+  get #socket(): string {
+    return this.#record.tmuxSocket ?? tmuxSocketName(this.#installationId, this.#record.tmuxToken);
+  }
+
+  #onIdentity(identity: RemoteIdentity, rebooted: boolean, created: boolean): void {
+    const firstAttach = this.#record.remoteIdentity === null;
     this.#record.remoteIdentity = identity;
     this.#store.update(this.sessionId, { remoteIdentity: identity });
+    // An adopted session (plan D-30) whose first attach found no tmux session to attach to: the
+    // launch created one, and that new shell stays; the event says why the old screen is gone.
+    if (firstAttach && created && this.#record.tmuxSocket !== null) {
+      this.#event('adopt_target_gone');
+    }
     if (!rebooted) return;
     // Out of band (ADR-0003 decisions): the emulator mirrors tmux's screen, so a banner written
     // into it would move the cursor away from tmux's and vanish at the next rebuild. The UI shows
@@ -934,7 +1131,10 @@ export class SessionRuntime implements SessionHost {
 
   // ── state ───────────────────────────────────────────────────────────────────
 
-  #setState(state: SessionState, extra: { detail?: string; retryInMs?: number } = {}): void {
+  #setState(
+    state: SessionState,
+    extra: { detail?: string; retryInMs?: number; remoteCleanup?: 'pending' } = {},
+  ): void {
     const from = this.#state;
     if (from === state && extra.detail === undefined && extra.retryInMs === undefined) return;
     this.#state = state;
@@ -953,6 +1153,7 @@ export class SessionRuntime implements SessionHost {
       state,
       ...(extra.detail !== undefined ? { detail: extra.detail } : {}),
       ...(extra.retryInMs !== undefined ? { retryInMs: extra.retryInMs } : {}),
+      ...(extra.remoteCleanup !== undefined ? { remoteCleanup: extra.remoteCleanup } : {}),
     });
   }
 
@@ -960,7 +1161,8 @@ export class SessionRuntime implements SessionHost {
     this.#setState('failed', { detail: code });
   }
 
-  #end(reason: EndReason): void {
+  /** `remoteCleanup`: the session's tmux could not be ended now (plan D-30; live status only). */
+  #end(reason: EndReason, extra: { remoteCleanup?: 'pending' } = {}): void {
     const now = this.#now();
     this.#desired = 'terminated';
     this.#record.endedAt = now;
@@ -972,7 +1174,8 @@ export class SessionRuntime implements SessionHost {
       endedAt: now,
       endReason: reason,
     });
-    this.#setState('ended', { detail: reason });
+    // The detail stays the EndReason: the web reads it as such.
+    this.#setState('ended', { detail: reason, ...extra });
     this.#onSummaryChange();
     this.#maybeIdle();
   }
@@ -1210,6 +1413,37 @@ async function closeQuietly(transport: Transport): Promise<void> {
   } catch {
     // Already closed or never connected.
   }
+}
+
+/** `work`, or the signal's reason as soon as it aborts (a late failure of `work` is ignored). */
+function untilAborted<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
+  work.catch(() => {});
+  if (signal.aborted) return Promise.reject(signal.reason);
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = (): void => reject(signal.reason);
+    signal.addEventListener('abort', onAbort, { once: true });
+    work.then(
+      (value) => {
+        signal.removeEventListener('abort', onAbort);
+        resolve(value);
+      },
+      (err: unknown) => {
+        signal.removeEventListener('abort', onAbort);
+        reject(err);
+      },
+    );
+  });
+}
+
+/**
+ * The code of a failed remote cleanup (plan D-30): the connect, auth or host-key error code
+ * (HOST_UNREACHABLE also for the connect bound, HOST_KEY_REJECTED for an unknown key, AUTH_TIMEOUT
+ * for a sign-in that would need a prompt), NOT_FOUND for a deleted server, SHUTTING_DOWN,
+ * TMUX_NOT_FOUND, REMOTE_TIMEOUT or CHANNEL_FAILED for the kill itself; INTERNAL otherwise.
+ */
+function cleanupFailureCode(err: unknown): string {
+  const code = (err as { code?: unknown } | null | undefined)?.code;
+  return typeof code === 'string' ? code : ErrorCode.Internal;
 }
 
 function describeError(err: unknown): { name?: string; code?: string; message: string } {

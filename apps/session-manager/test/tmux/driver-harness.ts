@@ -356,6 +356,10 @@ export class TcpProxy {
   readonly #pairs = new Set<{ client: Socket; upstream: Socket }>();
   /** sshd sides kept open by abandonAll() (closed by close()). */
   readonly #abandoned = new Set<Socket>();
+  /** Connections accepted while held, not forwarded yet. */
+  readonly #held = new Set<Socket>();
+  #holding = false;
+  #upstreamPort = 0;
   port = 0;
 
   private constructor(server: Server) {
@@ -365,20 +369,50 @@ export class TcpProxy {
   static async start(image: SshdImage): Promise<TcpProxy> {
     const proxy = new TcpProxy(
       createServer((client) => {
-        const upstream = netConnect({ host: '127.0.0.1', port: SSHD_PORTS[image] });
-        const pair = { client, upstream };
-        proxy.#pairs.add(pair);
-        for (const s of [client, upstream]) {
-          s.on('close', () => proxy.#pairs.delete(pair));
-          s.on('error', () => {});
+        client.on('error', () => {});
+        if (!proxy.#holding) {
+          proxy.#forward(client);
+          return;
         }
-        client.pipe(upstream);
-        upstream.pipe(client);
+        proxy.#held.add(client);
+        client.on('close', () => proxy.#held.delete(client));
       }),
     );
+    proxy.#upstreamPort = SSHD_PORTS[image];
     await new Promise<void>((resolve) => proxy.#server.listen(0, '127.0.0.1', resolve));
     proxy.port = (proxy.#server.address() as { port: number }).port;
     return proxy;
+  }
+
+  #forward(client: Socket): void {
+    const upstream = netConnect({ host: '127.0.0.1', port: this.#upstreamPort });
+    const pair = { client, upstream };
+    this.#pairs.add(pair);
+    for (const s of [client, upstream]) {
+      s.on('close', () => this.#pairs.delete(pair));
+      s.on('error', () => {});
+    }
+    client.pipe(upstream);
+    upstream.pipe(client);
+  }
+
+  /** New connections are accepted but not forwarded (no SSH banner) until release(). */
+  hold(): void {
+    this.#holding = true;
+  }
+
+  /** Forwards the held connections that are still open, and every new one. */
+  release(): void {
+    this.#holding = false;
+    for (const client of this.#held) {
+      this.#held.delete(client);
+      if (!client.destroyed) this.#forward(client);
+    }
+  }
+
+  /** Connections waiting in hold() right now. */
+  get heldCount(): number {
+    return this.#held.size;
   }
 
   /** Simulated daemon death or network drop: both sides of every connection vanish at once. */
@@ -406,6 +440,7 @@ export class TcpProxy {
 
   async close(): Promise<void> {
     this.dropAll();
+    for (const s of this.#held) s.destroy();
     for (const s of this.#abandoned) s.destroy();
     await new Promise<void>((resolve) => this.#server.close(() => resolve()));
   }

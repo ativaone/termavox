@@ -238,18 +238,23 @@ Termdock is built from the source you check out, so an upgrade is: new source, n
 5. **Check it.** `docker compose -f deploy/compose.yaml ps` shows every service `healthy` after a minute; `docker compose -f deploy/compose.yaml logs session-manager` shows the migrations it applied, if any.
 6. **Optionally reclaim disk.** `docker image prune` removes the previous images.
 
-What users notice: web restarts freely. A session-manager restart keeps protected (tmux) sessions: browsers show "Restoring…", and the sessions come back as they were. Unprotected sessions end.
+What users notice: web restarts freely. Protected (tmux) sessions keep running on their servers across the upgrade, and session-manager reattaches them when it starts again: browsers show "Restoring…", and the sessions come back as they were. Unprotected sessions end.
 
 **Going back.** Check out the previous version, rebuild (step 4), and restore the backup from step 2 with `deploy/scripts/restore.sh` if the new version already migrated the database.
 
 **When the notes say the data cannot be migrated.** This happens only before v1.0, when the data model changes without a migration path. The notes say so explicitly. Then start from an empty database instead of step 4:
 
-```bash
-docker compose -f deploy/compose.yaml down -v
-docker compose -f deploy/compose.yaml up -d --build
-```
+1. **While the old version still runs, end all sessions:** in the workspace, **End all sessions…** at the foot of the session list (each user with running sessions does this in their own workspace). Otherwise the tmux of every protected session keeps running on its server, and the new database knows nothing about it. If you skip it, the new version lists those sessions on each server's page, under **Sessions on this server** → **Check now**, where you can adopt or end them.
+2. **Delete the database and start the new version:**
 
-`down -v` deletes the database volume (users, servers, credentials, session history) and the certificate volume; the secret files stay. Then create the first admin again with a new setup token ([step 5](#5-create-the-first-admin)), as on a new install.
+   ```bash
+   docker compose -f deploy/compose.yaml down
+   docker volume rm termdock_termdock-data
+   docker compose -f deploy/compose.yaml up -d --build
+   ```
+
+   `docker volume rm termdock_termdock-data` deletes only the database volume (users, servers, credentials, session history). The certificate volumes (with Caddy's local CA) and the secret files stay, so browsers and phones that already trust that CA keep working.
+3. **Create the first admin again** with a new setup token ([step 5](#5-create-the-first-admin)), as on a new install.
 
 ## Day-to-day operations
 

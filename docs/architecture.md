@@ -35,6 +35,7 @@ and detach. WebSockets terminate on session-manager, never on Next.js.
 
 ```text
 SessionRegistry            every runtime of the process; boot restore; idle eviction
+├── RemoteSweeper          after a session is ready: leftover tmux servers on its server
 └── SessionRuntime         one per session (the SessionHost boundary): state machine, seq,
     │                      size policy, attachments, snapshots
     ├── Emulator           @xterm/headless + serialize addon + mode tracker (the authority)
@@ -96,7 +97,12 @@ session has been ready before, **Restoring…** (all the setup states), **Connec
   are recorded as session events.
 - **Graceful shutdown.** Stop accepting attachments, send `server.shutting_down` (browsers show
   "Restoring…"), detach tmux control clients cleanly so the remote tmux keeps running, flush the
-  batched writer.
+  batched writer, and log how many tmux-protected sessions keep running on their servers.
+- **Terminate while not connected.** A protected session's tmux still runs on its server: the
+  daemon connects just to end it (same host-key and credential rules, never prompting). If it
+  cannot, the session ends anyway and the next connection to that server as that user ends the
+  leftover; tmux servers no session record knows are listed on the server page with End and
+  Adopt ([plan §6.12](implementation-plan.md#612-remote-leftovers-d-30)).
 - A runtime whose session is not meant to run and has no viewer is freed after 60 s.
 
 ## Protection modes and restore
@@ -184,9 +190,9 @@ call carries `actingUserId`, and the daemon re-checks ownership in the database.
 
 | Area | Routes under `/internal/v1` |
 |---|---|
-| Sessions | `POST /sessions`, `GET /sessions`, `PATCH /sessions/:id` (rename), `POST /sessions/:id/terminate`, `…/retry`, `…/reopen` |
+| Sessions | `POST /sessions`, `GET /sessions`, `PATCH /sessions/:id` (rename), `POST /sessions/:id/terminate`, `…/retry`, `…/reopen`, `POST /sessions/terminate-all` |
 | Credentials | `POST /credentials`, `PATCH /credentials/:id` (rename), `DELETE /credentials/:id` |
-| Servers | `POST /servers/:id/test`, `…/trust-key`, `…/replace-key`, `…/revoke-key` |
+| Servers | `POST /servers/:id/test`, `…/trust-key`, `…/replace-key`, `…/revoke-key`, `…/remote-sessions`, `…/remote-sessions/terminate`, `…/remote-sessions/adopt` |
 | Admin | `POST /users/:id/terminate-sessions`, `POST /auth-sessions/revoke` |
 | Health | `GET /health` |
 
@@ -210,7 +216,7 @@ processes read everything; each table has one writer
 
 | Writer | Tables |
 |---|---|
-| session-manager | `sessions`, `session_events`, `credentials`, `known_host_keys`, the `installation_id` and `vault_key_check` settings, credential, host-key and session-rename audit events |
+| session-manager | `sessions`, `session_events`, `credentials`, `known_host_keys`, the `installation_id` and `vault_key_check` settings, credential, host-key, session-rename and remote-session audit events |
 | web | Better Auth tables (`user`, `auth_session`, `account`, `verification`, `two_factor`), `servers`, `workspace_layouts`, `user_preferences`, the admin instance settings, every other audit event |
 
 SQLite serializes writers globally, so session-manager writes through an async batched writer
@@ -231,14 +237,15 @@ apps/
   session-manager/src/
     main.ts            boot and shutdown
     config/            environment (zod) and logger (pino)
-    core/              types, SessionRegistry, SessionRuntime, protection, backoff, factories
+    core/              types, SessionRegistry, SessionRuntime, protection, backoff, factories,
+                       remote tmux leftovers (scan, classification, sweep)
     transport/ssh/     ssh2 transport, host-key check, keyboard-interactive, target policy
     drivers/           raw-pty/, tmux-control/ (parser, correlator, commands, rebuild, boundary)
     emulator/          headless emulator wrapper and serialize view
     probe/             capability probe and tmux version parsing
     attachments/       coalescing, lag handling, size policy, wire encoding
     ws/                WebSocket server, client IP
-    internal-api/      internal API server, server test
+    internal-api/      internal API server, server test, remote sessions
     store/             SQLite stores and the batched writer
     vault/             master key, vault, credential service
   web/

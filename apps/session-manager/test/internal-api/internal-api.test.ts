@@ -31,6 +31,7 @@ vi.mock('node:crypto', async (importOriginal) => {
 });
 
 const TOKEN = randomBytes(32).toString('base64url');
+const INSTALLATION_ID = '0190f2b1-7c3a-7d4e-8f00-123456789abc';
 
 /** Registry stand-in: records creations and serves the stored summaries. */
 class FakeRegistry implements SessionControl {
@@ -45,6 +46,12 @@ class FakeRegistry implements SessionControl {
   }
   async terminate(id: string, user: string) {
     this.actions.push(`terminate ${id} ${user}`);
+  }
+  /** Like the registry: every non-ended session of the user, terminated as its owner. */
+  async terminateAll(user: string) {
+    const live = (await this.store.listForUser(user)).filter((s) => s.state !== 'ended');
+    for (const session of live) await this.terminate(session.id, user);
+    return live.length;
   }
   async retry(id: string, user: string) {
     this.actions.push(`retry ${id} ${user}`);
@@ -121,6 +128,7 @@ beforeEach(async () => {
     connections: { revoke: () => 0 },
     enableLocalShell: false,
     targetPolicy: new TargetPolicy({ allowLocalTargets: false }),
+    installationId: INSTALLATION_ID,
     version: 'test',
   });
   const address = await api.listen();

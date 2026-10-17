@@ -15,6 +15,11 @@ export const ErrorCode = {
   AuthRejected: 'AUTH_REJECTED',
   AuthTimeout: 'AUTH_TIMEOUT',
   CredentialInvalid: 'CREDENTIAL_INVALID',
+  /**
+   * The server has no stored credential, and the daemon needs to sign in without a person
+   * answering a prompt (remote leftovers, plan D-30): nothing is contacted.
+   */
+  CredentialRequired: 'CREDENTIAL_REQUIRED',
   LocalShellDisabled: 'LOCAL_SHELL_DISABLED',
   /** A launch parameter (server or probe value) cannot be passed to the remote safely. */
   BadLaunchParams: 'BAD_LAUNCH_PARAMS',

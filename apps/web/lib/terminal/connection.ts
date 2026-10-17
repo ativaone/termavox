@@ -56,6 +56,11 @@ export interface ConnectionError {
 export type HostKeyPrompt = Extract<ServerMessage, { type: 'hostkey.prompt' }>;
 export type AuthPromptRequest = Extract<ServerMessage, { type: 'auth.prompt' }>;
 export type ServerError = Extract<ServerMessage, { type: 'error' }>;
+/** Termdock tmux servers a session's connection found that this installation does not run. */
+export type RemoteSessionsNotice = Omit<
+  Extract<ServerMessage, { type: 'server.remote_sessions' }>,
+  'type'
+>;
 
 export interface SessionEntry extends SessionSummary {
   /**
@@ -68,6 +73,13 @@ export interface SessionEntry extends SessionSummary {
   statusAt: number | null;
   /** Latched when a status carried `detail: 'remote_rebooted'`; see acknowledgeRemoteReboot. */
   remoteRebooted: boolean;
+  /**
+   * The session ended but its tmux on the server could not be ended yet (`session.status` with
+   * `remoteCleanup: 'pending'`, plan D-30); the next connection to that server ends it. Live only:
+   * not in the summary, so kept from the previous entry while the tab lives, until the session
+   * leaves `ended` (reopened).
+   */
+  remoteCleanup: boolean;
 }
 
 export interface ConnectionState {
@@ -94,6 +106,11 @@ export interface ConnectionState {
   readonly shuttingDown: { expectedBackInMs: number | null } | null;
   /** The latest `error` message not scoped to a channel (e.g. a refused host-key decision). */
   readonly lastError: ServerError | null;
+  /**
+   * `server.remote_sessions` (plan D-30), one notice per server in arrival order; a newer message
+   * for a server already shown updates it. Dismissed servers stay quiet while the tab lives.
+   */
+  readonly remoteSessions: readonly RemoteSessionsNotice[];
 }
 
 export interface TermdockConnectionOptions {
@@ -136,6 +153,7 @@ const INITIAL_STATE: ConnectionState = {
   authPrompts: {},
   shuttingDown: null,
   lastError: null,
+  remoteSessions: [],
 };
 
 function toEntry(summary: SessionSummary, previous?: SessionEntry): SessionEntry {
@@ -151,6 +169,7 @@ function toEntry(summary: SessionSummary, previous?: SessionEntry): SessionEntry
       ? previous.remoteRebooted ||
         (summary.statusDetail === 'remote_rebooted' && previous.detail !== 'remote_rebooted')
       : summary.statusDetail === 'remote_rebooted',
+    remoteCleanup: summary.state === 'ended' && (previous?.remoteCleanup ?? false),
   };
 }
 
@@ -193,6 +212,8 @@ export class TermdockConnection {
   #pingTimer: ReturnType<typeof setInterval> | null = null;
   #receivedSincePing = true;
   #nextChannel = 1;
+  /** Servers whose `server.remote_sessions` notice the user dismissed in this tab. */
+  readonly #dismissedServers = new Set<string>();
 
   constructor(options: TermdockConnectionOptions = {}) {
     // Resolved on first connect, so constructing during server rendering is harmless.
@@ -294,6 +315,15 @@ export class TermdockConnection {
     this.#patchSession(sessionId, (entry) =>
       entry.remoteRebooted ? { ...entry, remoteRebooted: false } : entry,
     );
+  }
+
+  /** Hides a server's remote-sessions notice for the rest of the tab's life. */
+  dismissRemoteSessions(serverId: string): void {
+    this.#dismissedServers.add(serverId);
+    const { remoteSessions } = this.#store.getSnapshot();
+    if (remoteSessions.some((n) => n.serverId === serverId)) {
+      this.#store.update({ remoteSessions: remoteSessions.filter((n) => n.serverId !== serverId) });
+    }
   }
 
   // ── connection lifecycle ────────────────────────────────────────────────────
@@ -515,6 +545,9 @@ export class TermdockConnection {
             retryInMs: retryInMs ?? null,
             statusAt: this.#now(),
             remoteRebooted: entry.remoteRebooted || detail === 'remote_rebooted',
+            remoteCleanup:
+              message.state === 'ended' &&
+              (message.remoteCleanup === 'pending' || entry.remoteCleanup),
           })),
           hostKeyPrompts: keepHostKey
             ? state.hostKeyPrompts
@@ -531,6 +564,17 @@ export class TermdockConnection {
       case 'auth.prompt':
         this.#store.update({ authPrompts: { ...state.authPrompts, [message.sessionId]: message } });
         return;
+      case 'server.remote_sessions': {
+        const { serverId, serverName, count } = message;
+        if (this.#dismissedServers.has(serverId)) return;
+        const notice = { serverId, serverName, count };
+        const index = state.remoteSessions.findIndex((n) => n.serverId === serverId);
+        const remoteSessions = [...state.remoteSessions];
+        if (index < 0) remoteSessions.push(notice);
+        else remoteSessions[index] = notice;
+        this.#store.update({ remoteSessions });
+        return;
+      }
       case 'server.shutting_down':
         this.#store.update({
           shuttingDown: { expectedBackInMs: message.expectedBackInMs ?? null },

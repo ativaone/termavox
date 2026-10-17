@@ -85,6 +85,7 @@ Other protocols (RDP/VNC); Agent mode (outbound agent on target servers); RBAC a
 | D-27 | *(Sections and profiles superseded by D-29 on 2026-10-17; the one-form setup and the return links stand.)* **First use and server setup in one form.** "Add server" has clearly separated sections (host, sign-in profile, credential). Each section lets the user pick an existing item or create a new one (generate a key, paste a key, or a password), and the form creates whatever is missing at once. The host, profile and credential pages remain for management, and every cross-link returns to where the user came from. The first-run guidance follows the same path. **As built:** the server and the credential sections offer an existing item; the sign-in section always creates a new connection profile, because picking an existing profile would leave nothing to add. The form validates all three sections before writing anything, creates a new credential first through the daemon (the step most likely to fail), then the host and profile in one SQLite transaction, and deletes that credential again if the transaction fails. | Owner, 2026-10-16 |
 | D-28 | **Workspace UX changes:** sessions take an optional name when opened and can be renamed later (all viewers see the new name, in the list and on tabs); an account menu (name + gear) holds settings and sign-out, replacing the footer sign-out icon and the language selector; the language is a rare setting, so the menu only has a "Language…" item under Settings that opens a dialog (also on the account settings page); the session list collapses to a narrow rail from a toggle at its left; the active session is marked by fill and outline, never by shifting it sideways. | Owner, 2026-10-16 |
 | D-29 | **Servers replace hosts and connection profiles.** The owner found the host → profile → credential split confusing in practice. One **server** holds everything an `ssh user@host` command line would: name, address, port, the user name on the server, which credential (or none: the server prompts in the terminal) and the connection options (tmux protection, startup command, TERM, environment, keepalive, auto-reopen, scrollback). Duplicates are expected: the same machine as another user is another server, made with **Duplicate**. Credentials stay separate and reusable. A session is a terminal opened from a server; a server can have many. **Host-key decisions are kept per user and per address** (the normalized hostname as typed plus the port, like `known_hosts`): they apply to every server of that user with that address, are never shared between users, and outlive the servers, so deleting and re-adding a server never lets a revoked key back in. "Add server" has two sections (server, credential). Pre-release clean slate: one fresh initial migration, no migration from the old tables. | Owner, 2026-10-17 |
+| D-30 | **Remote tmux leftovers are found and ended.** A protected session's tmux keeps running on its server while Termdock is down, by design (§5.8): the next start reattaches it. It is left behind only when Termdock forgets it: a database reset, or a session ended while it was not connected. (1) **Ending a session reaches the server:** when the session is not connected, the daemon connects just to end its tmux (the same host-key and credential rules, never prompting); if it cannot, the session ends anyway and the next connection to that server as that user ends the leftover. (2) **Leftovers are found on connect:** after a session connects, and when the server page asks, the daemon lists that user's `td-*` tmux servers on the server. Those of sessions the user already ended are ended at once; those no session record knows (another Termdock installation, or this one before a database reset) are listed on the server page with **End** and **Adopt** (a new session of that server attached to it). Sessions that run in Termdock, and other users' sessions, are never listed, ended or adopted. The installation id stays in the database: telling "this installation before a reset" from "another installation" is left to the user. (3) **End all sessions** in the workspace, a step before any database reset in the upgrade guide, and a shutdown log line saying how many sessions keep running. No time-based expiry: the owner may keep sessions for months. | Owner, 2026-10-17 |
 
 ### 2.2 Technical decisions (orchestrator; reversible, with rationale)
 
@@ -446,18 +447,25 @@ A session's effective protection is fixed at creation. If a later reconnect find
 1. Take the **data directory lock**, `<data dir>/session-manager.lock` (`store/data-dir-lock.ts` over `tryFileLock` in `packages/db`). The lock file is a tiny SQLite database that holds no data: a connection in `locking_mode = EXCLUSIVE` runs one write transaction and keeps its exclusive lock until it closes. These are POSIX record locks, so the kernel drops them when the process exits, however it exits (no stale lock, no pid check), and they hold across containers that mount the same volume. A second session-manager, or `vault rotate` (§10.2), on the same data directory refuses to start while the lock is held. web does not take it: it never writes credential ciphertexts or the vault key check.
 2. Open the DB (`busy_timeout` 250 ms, §9) and apply the migrations; ensure an `installationId` exists.
 3. Load the vault KEK; fail fast if it is missing or wrong (checked against a stored key-check value, at its key version).
-4. For every session with `desired_state = running`, except those whose last state is a non-retryable `failed` (they wait for the user's Retry), create a runtime and start it with concurrency 4 and per-host spacing (avoids SSH connection storms).
-5. Mark the start in `session_events` (`restore_started` / `restored` / `restore_failed`).
-6. Start the event retention job (§10.2): the first purge runs a few minutes after boot, then every 6 hours.
+4. End every session still `terminating`: the previous daemon stopped in the middle of its terminate (below). It becomes `ended` (`user_terminated`, with its `state_changed` event) and is never restored; a tmux it left on its server is ended by the next connection to that server as that user (§6.12).
+5. For every session with `desired_state = running`, except those whose last state is a non-retryable `failed` (they wait for the user's Retry), create a runtime and start it with concurrency 4 and per-host spacing (avoids SSH connection storms).
+6. Mark the start in `session_events` (`restore_started` / `restored` / `restore_failed`). One info log line says how many sessions boot restore started (reattached, for tmux-protected ones) and how many interrupted terminations step 4 ended.
+7. Start the event retention job (§10.2): the first purge runs a few minutes after boot, then every 6 hours.
 
 **SIGTERM (graceful; the daemon's internal shutdown budget is 25 s, inside compose's `stop_grace_period: 30s`)**
 
 1. Stop the retention job: no purge chunk starts after this.
 2. Stop accepting attachments.
 3. Notify clients (`server.shutting_down`) so they display "Restoring…" instead of an error.
-4. For `tmux-control` sessions, detach the control client cleanly (send an empty line, wait for `%exit`) so the remote tmux keeps running.
-5. Persist states and flush the batched writer (§9); close transports.
+4. For `tmux-control` sessions, detach the control client cleanly (send an empty line, wait for `%exit`) so the remote tmux keeps running. A terminate still running its one-shot remote cleanup (below) is aborted at once: the session ends with its cleanup pending, before the final flush.
+5. Persist states and flush the batched writer (§9); close transports. One info log line says how many tmux-protected sessions keep running on their servers (desired running, not parked as failed): the next start reattaches them (D-30).
 6. Close the DB and release the data directory lock.
+
+**Terminate while not connected (D-30)**
+
+- A live driver kills its own tmux server (§6.10). Without one (the session is reconnecting, waits for a host-key decision or a prompt, failed, or was loaded from history), a `tmux-control` session's tmux still runs on the server, so the runtime opens a one-shot connection just to end it. It goes through the session's transport factory (the owner's host-key decisions for the session's address, the stored credential) with hooks of its own: no state change, an unknown host key fails it (nothing is recorded as pending: only a session's own connect does that), a mismatched or revoked key fails closed (audited as at any connect), and a keyboard-interactive round is answered with nothing at once, so it never prompts. The connect is bounded at 10 s (the handshake timeout for a credential that may prompt is 110 s); the tmux path comes from the stored probe (`probe_json`, a probe runs only when none is stored, 8 s); `killServerCommand` (§6.3) runs on the session's socket (5 s); the connection closes. The whole cleanup is bounded at 25 s, and at most 4 run at once in the process (no SSH storms). Protection `none` leaves nothing behind and `null` never launched tmux: no cleanup.
+- The session stays `terminating` meanwhile: `desired_state = terminated` is written first, so boot never restores it, and the runtime is not idle, so it is not evicted. Success → session event `remote_cleanup`. Any failure (connect, sign-in, host key, a bound, the kill, a deleted server) → the session ends anyway, with event `remote_cleanup_failed { code }`, and the `session.status` of its `ended` transition carries `remoteCleanup: 'pending'` (its `detail` stays the end reason). The next connection to that server as that user ends the leftover (§6.12).
+- `POST /sessions/:id/terminate` answers within 3 s (web's internal API calls time out after 5 s); a cleanup still running then ends the session later, through `session.status`. A second terminate shares the first; Retry does nothing to a session that is ending; Reopen waits up to 3 s for a running cleanup and answers `409` while the session is not ended yet.
 
 ### 5.9 Host key verification
 
@@ -649,7 +657,7 @@ tmux's own emulator answers the application's queries, so both the server emulat
 | User runs `tmux` inside the session | Works: `TMUX` is unset in our pane, and theirs uses the default socket. |
 | `%exit` received | `%exit` also happens on `detach-client`, "too far behind" and tmux server death, so it does not by itself mean the shell exited. Before declaring `ended`, confirm with a fresh exec `<tmux_path> -L <socket> has-session -t main`: non-zero → `ended` (reason `shell_exited`); zero → reattach (the session lives on). |
 | Exec channel EOF without `%exit` | Transport-loss path (§5.7): reconnect and reattach. |
-| Terminate requested | `kill-server` on our socket, then close the transport. |
+| Terminate requested | `kill-server` on our socket, then close the transport. Not connected: a one-shot connection does it (§5.8, D-30). |
 
 ### 6.11 Normal-mode fallback (Phase 7)
 
@@ -671,6 +679,47 @@ set -g aggressive-resize off ; set -g detach-on-destroy on
 ```
 
 The conf is written once to `~/.cache/termdock/<socket>.conf` via exec; this is the only file Termdock writes on remotes, and it is documented. Known limitations: browser scrollback while connected is unreliable, and after a restart only the visible screen is exact (history best-effort via `capture-pane` before attach). The UI badge shows "Protected (compatibility mode)".
+
+### 6.12 Remote leftovers (D-30)
+
+A protected session's tmux server outlives Termdock by design (§5.8). It is left behind only when Termdock forgets it: a database reset, or a terminate whose remote cleanup failed (§5.8). The daemon finds these servers and ends or offers them (`core/remote-sessions.ts`, `internal-api/remote-sessions.ts`).
+
+**Scan.** `scanSocketsCommand` (`drivers/tmux-control/commands.ts`), sent as one line through the remote command rule (§5.11) on an exec channel without a PTY (`t` = the probe's tmux path):
+
+```sh
+d="${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)"; [ -d "$d" ] || exit 0; n=0
+for f in "$d"/td-*; do
+  [ -S "$f" ] || continue; s=${f##*/}
+  expr "x$s" : 'x[a-z0-9-]*$' >/dev/null || continue   # nothing that could split a line
+  l=$("$t" -L "$s" list-sessions -F '#{?#{==:#{session_name},main},1,0} #{session_created} #{session_activity} #{session_attached}' 2>/dev/null) || continue
+  m=$(printf '%s\n' "$l" | grep '^1 ' | head -n 1)
+  [ -n "$m" ] || m=$(printf '%s\n' "$l" | head -n 1); [ -n "$m" ] || continue
+  set -f; set -- $m; set +f; printf '%s\t%s\t%s\t%s\n' "$s" "$2" "$3" "$4"
+  n=$((n+1)); [ $n -gt 200 ] && break
+done; exit 0
+```
+
+- One line per socket whose server answers: its name, `session_created`, `session_activity` (epoch seconds) and `session_attached` (clients), for the session `main`, or the first one if there is no `main`. Only numbers leave the host: no session name, pane command or title is read. A socket whose server does not answer is skipped; nothing is started (`list-sessions` never starts a server), killed or removed. Verified on tmux 3.2a, 3.4 and edge (T1).
+- **Parser** (untrusted host output, §10.2): stdout read up to 64 KiB (beyond: `truncated`, the partial last line dropped), lines over 256 characters dropped, exactly four tab-separated fields, a name matching `REMOTE_SOCKET_PATTERN` (`td-` + 1–8 of `[a-z0-9]` + `-` + 12 of `[a-z2-7]`; anything else is ignored), no duplicate; times seconds → ms (null when absent, zero or not a number), an unreadable client count 0; at most 200 entries (`truncated`).
+
+**Classification** against the session records of every user, with this installation's prefix computed by the same code that names the sockets (`tmuxSocketPrefix`, §6.3). A session's socket is its `tmux_socket` (adopted, §9) or `td-<prefix>-<tmux_token>`. In order:
+
+1. it belongs to a session that is not `ended`, of any user → hidden, never touched;
+2. it belongs to an ended session of another user → hidden, never touched;
+3. it belongs to an ended session of the acting user → a **leftover**, ended at once (below); listed with origin `ended` (and its session id and label) only when that fails;
+4. no record: this installation's prefix → `unknown`; any other prefix → `other` (another installation, or this one before a database reset: the installation id lives in the database, so telling them apart is left to the user).
+
+**Safety rules.** Right before each leftover kill the socket is classified again (writes still queued in the batched writer included) and skipped unless it still belongs only to an ended session of the acting user that ended at least 60 s ago: Reopen keeps the tmux token and `new-session -A` reattaches a surviving server, so a Reopen (or an adoption) in between wins. A skipped leftover is neither killed nor listed. A kill is `killServerCommand` (§6.3) and records `remote_cleanup` (`source`: `sweep`, `scan` or `manual`) on the ended session. There is no time-based expiry: an `unknown` or `other` server stays until the user ends or adopts it.
+
+**Background sweep.** When a session reaches `ready`, its attempt's own connection runs the scan on an extra exec channel, detached: it never delays or fails the session, stops when the attempt ends, and its errors are only logged. Leftovers are ended as above. When `unknown` or `other` servers exist, the owner gets `server.remote_sessions { serverId, serverName, count }` (§7.3), at most once per daemon run per server and set of sockets. At most one sweep per process every 15 min per (user, normalized hostname, port, user name on the server). A session whose server was deleted never sweeps (it never connects, D-29).
+
+**Server page** (internal API, §8.3). Each call opens a connection of its own, as the server test does (§5.9): the server's user name and stored credential, its address's trusted key, never a prompt. Without a stored credential nothing is contacted (`CREDENTIAL_REQUIRED`); an unknown key is recorded as `pending` for the address exactly as the server test does (`HOST_KEY_REJECTED`); a mismatch or a revoked key is audited (`HOST_KEY_MISMATCH`). Lists and ends share a limit of 20 per user and minute, and each call closes its connection 25 s after the request at the latest (web waits 30 s).
+
+- **List**: probe (for the tmux path), scan, classify, end the leftovers (kills start within 20 s of the request; one left out is listed as `ended`), and answer the rest sorted `ended`, `unknown`, `other`, with `cleaned` and `truncated`. Why it could not list goes in `error`, with an empty list.
+- **End** (`{ socket }`): refused (`409`) for classes 1 and 2, checked again right before the kill; `terminated: false` when no server answers for the socket; otherwise `killServerCommand`. Audited `remote_session.terminated { socket, origin }`; an `ended` one also records `remote_cleanup` on its session. A failure to connect, sign in or ask the host is `502 { code }`, with the codes a list reports.
+- **Adopt** (`{ socket, label? }`): a new session of the server, created exactly as `POST /sessions` creates one (target snapshot, label defaulting to the server's name, the running-session cap), plus `tmux_socket = socket`, protection `tmux-control` preset (so the runtime attaches instead of selecting) and `last_ready_at` set (Restoring, not Connecting). It starts at 120×40 until a viewer attaches. It is classified inside the insert's transaction, so one socket is never adopted twice: classes 1 and 2 are refused (`409`), and so is class 3 (the leftover of one of the user's own ended sessions: Reopen that session, which reattaches it). Clients attached to the server do not prevent it (web asks first). Audited `remote_session.adopted { socket, origin, sessionId }` in the same transaction. The runtime launches on that socket: `new-session -A -s main` attaches and takes the rebuild path (§6.8); when the launch's created marker shows the session was gone, the new shell stays and the event `adopt_target_gone` is recorded. Reopen keeps `tmux_socket`.
+
+**End all sessions** (`POST /sessions/terminate-all`, a step before any database reset in the upgrade guide): every non-ended session of the acting user starts ending, 4 at a time (each is `terminating` from its start), and the call answers once each is ending, waiting for the ends at most 3 s in total; remote cleanups continue after it (§5.8). The admin's `users/:id/terminate-sessions` does the same for its target user.
 
 ---
 
@@ -728,13 +777,14 @@ Server → client:
 | `hello.ok` | `protocol, userId, serverTime` |
 | `sessions.list` | full list of the user's sessions with `status`, `protection`, labels (sent after `hello.ok`) |
 | `session.upsert` / `session.removed` | incremental list updates (also used for sessions created in another tab) |
-| `session.status` | `sessionId, status, state, detail?, retryInMs?` |
+| `session.status` | `sessionId, status, state, detail?, retryInMs?, remoteCleanup?` — `remoteCleanup: 'pending'` only with `ended`: the session's tmux could not be ended now (§5.8); live only, not part of the summary |
 | `session.attached` | `channel, sessionId, cols, rows, scrollbackLines` (followed by a `SNAPSHOT` frame; the browser sizes its scrollback from `scrollbackLines`) |
 | `terminal.resized` | `channel, cols, rows, seq, activeAttachment: boolean` — the client resizes after applying every `OUTPUT` with `seq <= seq` and before later ones (§5.5) |
 | `terminal.title` | `channel, title` (sanitized, ≤ 256 chars) |
 | `terminal.bell` | `channel` |
 | `hostkey.prompt` | `sessionId, keyType, fingerprint, mismatch` |
 | `auth.prompt` | `sessionId, promptId, name, instructions, prompts: [{ text, echo }]` |
+| `server.remote_sessions` | `serverId, serverName, count` — a session's connection found Termdock tmux servers on its server that no session record knows (§6.12); at most once per daemon run per server and set of sockets |
 | `server.shutting_down` | `expectedBackInMs?` |
 | `error` | `code, message, channel?, sessionId?` |
 | `pong` | `t` |
@@ -755,10 +805,10 @@ Evolution: additive changes stay in v1 (receivers ignore unknown fields and unkn
 |---|---|
 | `/setup` | First-run only: create the first admin. Requires the one-time **setup token** printed in the web logs at boot while no user exists. Returns 404 afterwards. |
 | `/login`, `/login/two-factor` | Username/password, then TOTP (with "trust this device for 30 days"). A pending forced password change (`must_change_password`) or required TOTP enrollment (`totp_required` or the instance-wide requirement) is completed before any other page opens. |
-| `/workspace` | The terminal workspace (§11). Default landing page. |
+| `/workspace` | The terminal workspace (§11). Default landing page. "End all sessions…" at the foot of the session list (D-30); a notice links to a server page when a session's connection found Termdock tmux servers this installation does not run. |
 | `/servers` | The user's servers (D-29): name, `user@address` (`:port` when not 22), the credential or "None", Edit and Duplicate. With none yet, the empty state leads to Add server and the Docker host preset. |
 | `/servers/new` | **Add server** (D-27, D-29): two sections in one form. Server: name, address, port (22), user name on the server (the `local` kind only for admins when the instance allows it, without address, user or credential), and the options behind an "Advanced" disclosure (protection, startup command, env, keepalive, scrollback, auto-reopen). Credential: generate a key (recommended), paste a key (+ passphrase), a password, a saved credential, or none (the server asks for the password in the terminal); the name defaults to `<user>@<server name>`. Validates everything first, creates a new credential through the daemon, then inserts the server, and deletes that credential again if the insert fails. The result shows in place: the public key, install command and fingerprint of a generated key (the fingerprint of a pasted one), "Start a session" (opens `/workspace?open=<sessionId>`), the way back and the server's page. `?duplicate=<id>` prefills every field from one of the user's servers (name + " (copy)", the same credential or none; another user's id gives an empty form); nothing is written until the user saves. Links to the Docker host preset. |
-| `/servers/[id]` | A server's page: edit every field (credential: a saved one or none, with a "New credential" link that returns here), Duplicate, and delete (rejected while a non-ended session came from it, §8.2). Diagnostics for SSH servers: "Test connection" (reachability, host key, probe summary; the probe needs a stored credential to sign in) and the host keys of the server's address (trust a pending key, pre-trust a fingerprint, replace after a mismatch by typing the address, revoke). A decision applies to all of the user's servers at that hostname and port (§5.9). |
+| `/servers/[id]` | A server's page: edit every field (credential: a saved one or none, with a "New credential" link that returns here), Duplicate, and delete (rejected while a non-ended session came from it, §8.2). Diagnostics for SSH servers: "Test connection" (reachability, host key, probe summary; the probe needs a stored credential to sign in) and the host keys of the server's address (trust a pending key, pre-trust a fingerprint, replace after a mismatch by typing the address, revoke). A decision applies to all of the user's servers at that hostname and port (§5.9). "Sessions on this server" (D-30, §6.12, SSH servers only): "Check now" lists the Termdock tmux servers this installation does not run, with End and Adopt (a leftover of the user's own ended session links to the workspace instead, where Reopen reattaches it). |
 | `/servers/docker` | "Add this Docker host" preset (§13.4): a generated key plus a server `user@host.docker.internal:22` that uses it. |
 | `/credentials` | Create (password / paste private key / **generate ed25519 key** and show the public key), rename, delete (rejected while referenced by a non-ended session). Secrets are never displayed after creation. |
 | `?from=` | Return path (D-27) on `/servers/new`, `/servers/[id]` and `/credentials`: a "Back to …" link to an allowlisted in-app page (`/workspace`, `/servers`, `/servers/new`, `/servers/[id]`, `/credentials`, matched whole by `safeReturnPath`; anything else is dropped). The first-run panel, the servers list, Duplicate, the server page's "New credential" link and the palette carry it. |
@@ -785,7 +835,8 @@ Bearer token: the trimmed content of the file named by `TERMDOCK_INTERNAL_TOKEN_
 |---|---|
 | `POST /internal/v1/sessions` | `{ actingUserId, serverId, label?, viewport }` → `{ sessionId }`. The server must belong to the acting user (else `404`), and so must its credential, if any. Snapshots the target from the server (§9; a local session: `localhost`, port 0, no user name) and links the session to it (`server_id`; the `created` event's detail is `{ serverId }`). Rejected when the user already has the maximum number of running sessions (instance setting, default 50), and for `kind: local` when direct mode is off or the acting user is not an admin. Without `label` the session takes the server's name; a given label follows the rename rules below. |
 | `PATCH /internal/v1/sessions/:id` | `{ actingUserId, label }` → `{ sessionId, label }` with the label as stored (D-28). Control characters and invisible formatting (bidi controls, zero-width characters) are dropped with the stripper used for terminal titles and keyboard-interactive prompts, then the label is trimmed and must keep 1–120 characters, else `400 LABEL_INVALID`. Allowed in every state, `ended` included. Audited as `session.rename` (`{ previousLabel, label }`); every WebSocket of the owner gets a `session.upsert`. |
-| `POST /internal/v1/sessions/:id/terminate` | `{ actingUserId }` → `204` (`desired_state = terminated`) |
+| `POST /internal/v1/sessions/:id/terminate` | `{ actingUserId }` → `204` (`desired_state = terminated`). Answers within 3 s: a remote cleanup still running then (the session was not connected, §5.8) ends the session later, through `session.status`. |
+| `POST /internal/v1/sessions/terminate-all` | `{ actingUserId }` → `{ terminated }` ("End all sessions", D-30): every non-ended session of the acting user starts ending (4 at a time); answers once each is ending, waiting for the ends at most 3 s in total (§6.12). |
 | `POST /internal/v1/sessions/:id/retry` | `{ actingUserId }` → `204`. Restarts the connect loop with the same `tmux_token` (reattaches the same tmux session); skips any remaining backoff wait ("Retry now"). A session whose server was deleted → `404 NOT_FOUND` ("server was deleted"). |
 | `POST /internal/v1/sessions/:id/reopen` | `{ actingUserId }` → `{ sessionId }`. New shell, same id, new runtime; `desired_state` back to `running`. Only for `ended` sessions or sessions with protection `none`; otherwise `409 CONFLICT`. A session whose server was deleted → `404 NOT_FOUND` ("server was deleted"), nothing changes. |
 | `GET /internal/v1/sessions?actingUserId=` | → live runtime statuses (authoritative) |
@@ -796,11 +847,14 @@ Bearer token: the trimmed content of the file named by `TERMDOCK_INTERNAL_TOKEN_
 | `POST /internal/v1/servers/:id/trust-key` | `{ actingUserId, keyType, fingerprint }` → `204`. Trusts the pending key with that fingerprint; with no pending match, records a pasted pre-trust fingerprint (normalized, §5.9). |
 | `POST /internal/v1/servers/:id/replace-key` | `{ actingUserId, keyType, fingerprint, confirmHostname }` → `204`. After a mismatch: revokes the trusted key of that type and trusts the given fingerprint; `confirmHostname` must equal the server's stored hostname (both normalized), else `400` and nothing changes. |
 | `POST /internal/v1/servers/:id/revoke-key` | `{ actingUserId, keyType }` → `204`. Marks the trusted key of that type `revoked`. |
-| `POST /internal/v1/users/:id/terminate-sessions` | `{ actingUserId }` → `{ terminated }`. Admin only (acting user must be an admin and not banned → else `403`); terminates every non-ended session of the target user (used by the admin "disable user" flow). |
+| `POST /internal/v1/servers/:id/remote-sessions` | `{ actingUserId }` → `{ error, sessions: [{ socket, origin, sessionId, label, createdAt, lastActivityAt, attachedClients }], cleaned, truncated }` (D-30, §6.12). Connects as the server's user (its credential, its address's trusted key, never prompting), ends the leftovers of sessions the acting user already ended (`cleaned`), and lists the Termdock tmux servers no running session owns: `ended` (a leftover whose kill failed), `unknown`, `other`. Sessions that run in Termdock and other users' sessions are never listed. Why it could not list is in `error` (`CREDENTIAL_REQUIRED` without a stored credential, nothing contacted; `HOST_KEY_REJECTED` for an unknown key, recorded as pending like the server test; `HOST_KEY_MISMATCH`; the connect and sign-in codes), with an empty list. |
+| `POST /internal/v1/servers/:id/remote-sessions/terminate` | `{ actingUserId, socket }` → `{ terminated }`. `409` when the socket belongs to a session that runs in Termdock or to another user's session (checked again right before the kill); `terminated: false` when no server answered for it. A failure to connect, sign in or ask the host → `502 { code, message }` with the list's codes. Audited `remote_session.terminated`. |
+| `POST /internal/v1/servers/:id/remote-sessions/adopt` | `{ actingUserId, socket, label? }` → `201 { sessionId }`. A new session of the server attached to that tmux server, created as `POST /sessions` creates one (running-session cap → `429`), tmux-protected and counted as ready before. `409` for a running or foreign session's socket and for the leftover of one of the acting user's own ended sessions (Reopen it instead). Audited `remote_session.adopted`. |
+| `POST /internal/v1/users/:id/terminate-sessions` | `{ actingUserId }` → `{ terminated }`. Admin only (acting user must be an admin and not banned → else `403`); terminates every non-ended session of the target user (used by the admin "disable user" flow), 4 at a time, answering like `sessions/terminate-all` so it stays inside web's 5 s timeout. |
 | `POST /internal/v1/auth-sessions/revoke` | `{ authSessionId? , userId? }` → `204`; closes the matching WebSockets |
 | `GET /internal/v1/health` | → `{ ok, sessions, uptimeMs, version }` |
 
-The four `servers/:id` routes need a server of the acting user (else `404`; a local server has no address → `400`). The server id only names the address and proves ownership: every host-key decision is stored for the user's normalized hostname and port, so it applies to all of that user's servers with that address, never to another user's (§5.9). Their `host_key.*` audit rows target the server of the route (`targetType: 'server'`; at connect time the session's server, or none once it is gone) and carry `{ hostname, port }` in their detail.
+The `servers/:id` routes need a server of the acting user (else `404`; a local server has no address → `400`). The remote-session list and terminate share a limit of 20 calls per user and minute (each opens an SSH connection, like the server test). The server id only names the address and proves ownership: every host-key decision is stored for the user's normalized hostname and port, so it applies to all of that user's servers with that address, never to another user's (§5.9). Their `host_key.*` audit rows target the server of the route (`targetType: 'server'`; at connect time the session's server, or none once it is gone) and carry `{ hostname, port }` in their detail.
 
 ### 8.4 i18n
 
@@ -852,6 +906,8 @@ sessions              id, user_id→user,
                       label, desired_state('running'|'terminated'), state, status,
                       protection_effective('tmux-control'|'tmux-normal'|'none'),
                       tmux_token, tmux_version, remote_identity_json,  -- session_created, pane_pid
+                      tmux_socket,                                 -- adopted (D-30): the full socket
+                                                                   -- name; null = td-<prefix>-<tmux_token>
                       probe_json, cols, rows,
                       created_at, last_ready_at, ended_at, end_reason
 
@@ -876,7 +932,7 @@ instance_settings     key (PK), value_json, updated_at            -- e.g. instal
 
 | Writer | Tables |
 |---|---|
-| session-manager | `sessions`; `session_events`; all of `credentials` (rows created and deleted via the internal API, `last_used_at`); all of `known_host_keys` (pending, trust, replace, revoke via the internal API); `instance_settings` keys `installation_id` and `vault_key_check`; `audit_events` for host-key, credential and session-rename events; the retention purge, which deletes old `audit_events` and `session_events` rows whoever wrote them (§10.2) |
+| session-manager | `sessions`; `session_events`; all of `credentials` (rows created and deleted via the internal API, `last_used_at`); all of `known_host_keys` (pending, trust, replace, revoke via the internal API); `instance_settings` keys `installation_id` and `vault_key_check`; `audit_events` for host-key, credential, session-rename and remote-session (`remote_session.terminated`, `remote_session.adopted`) events; the retention purge, which deletes old `audit_events` and `session_events` rows whoever wrote them (§10.2) |
 | web | auth tables; `servers`; `workspace_layouts`; `user_preferences`; every other `instance_settings` key; every other `audit_events` row |
 
 Both processes may read everything. WAL works across the two containers because they share a local Docker volume on the same kernel; network filesystems are not supported (documented). A daemon running on the host with web in a container (direct-mode testing, §13.3) shares the WAL safely only on a Linux host.

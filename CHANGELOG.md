@@ -13,7 +13,8 @@ The first release, v0.1.0, is being prepared.
 - Development builds of `main` from before servers replaced hosts and connection profiles
   (plan D-29) cannot be migrated: start from an empty database as described in the
   installation guide, [Upgrades](docs/guides/install.md#upgrades), "When the notes say the data
-  cannot be migrated".
+  cannot be migrated". Protected sessions still running on your servers afterwards are listed
+  on each server's page under "Sessions on this server", where you can adopt or end them.
 
 ### Added
 
@@ -50,6 +51,16 @@ The first release, v0.1.0, is being prepared.
 - Master key rotation, all or nothing and after a backup: `deploy/scripts/rotate-master-key.sh`.
 - Audit and session-event retention: rows older than `TERMDOCK_EVENT_RETENTION_DAYS` (default
   180, `0` keeps them forever) are purged in small chunks every 6 hours.
+- Ending a session reaches its server: when the session is not connected, Termdock connects
+  just to end its tmux there. If it cannot, the session ends anyway, its pane says so, and the
+  next connection to that server ends the leftover.
+- Leftover sessions are found: when a session connects, Termdock looks for Termdock tmux
+  sessions on that server it does not run (another installation, or this one before a database
+  reset) and points to them from the workspace. The server's page lists them under "Sessions on
+  this server" with Adopt (open it as a session of that server) and End. Leftovers of sessions
+  you already ended are ended right away.
+- "End all sessions" in the workspace, a first step before any database reset in the upgrade
+  guide, and a log line at shutdown saying how many sessions keep running on their servers.
 
 ### Security
 

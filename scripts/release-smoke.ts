@@ -853,9 +853,9 @@ async function terminate(page: CdpPage, ids: string[]): Promise<void> {
     );
     await page.click(
       `$$('[role=menuitem]').find((b) => visible(b) && text(b) === ${js(LABELS.terminate)})`,
-      'Terminate…',
+      'End…',
     );
-    await page.click(`byText('button', ${js(LABELS.terminateConfirm)})`, 'Terminate session');
+    await page.click(`byText('button', ${js(LABELS.terminateConfirm)})`, 'End session');
     await page.waitFor(`${strip}?.dataset.status === 'ended'`, `session ${id} to end`, 60_000);
     pass('10 terminate', `session ${id} terminated (Ended)`);
   }

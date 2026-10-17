@@ -138,6 +138,8 @@ export const sessions = sqliteTable(
       enum: ['tmux-control', 'tmux-normal', 'none'],
     }),
     tmuxToken: text('tmux_token').notNull(),
+    // Full tmux socket name of an adopted session (plan D-30); null = `td-<prefix>-<tmux_token>`.
+    tmuxSocket: text('tmux_socket'),
     tmuxVersion: text('tmux_version'),
     remoteIdentityJson: text('remote_identity_json'),
     probeJson: text('probe_json'),

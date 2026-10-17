@@ -240,3 +240,124 @@ describe('SqliteSessionStore', () => {
     await expect(store.assertRunningCapacity(userId, ended.id)).resolves.toBeUndefined();
   });
 });
+
+describe('SqliteSessionStore: remote tmux leftovers (plan D-30)', () => {
+  const PREFIX = 'aaaa1111';
+
+  it('finds the sessions of any user by socket: own prefix + token, or an adopted tmux_socket', async () => {
+    const { db, writer, store } = setup();
+    const userA = insertUser(db);
+    const userB = insertUser(db);
+    const serverA = insertServer(db, userA);
+    const serverB = insertServer(db, userB);
+    const create = (actingUserId: string, serverId: string) =>
+      store.createFromServer({
+        actingUserId,
+        serverId,
+        viewport: VIEWPORT,
+        enableLocalShell: false,
+      });
+    const a = await create(userA, serverA);
+    const b = await create(userB, serverB);
+    const adopted = await store.createFromServer({
+      actingUserId: userA,
+      serverId: serverA,
+      viewport: VIEWPORT,
+      enableLocalShell: false,
+      adopt: { socket: 'td-zzzzzzzz-abcdefghijkl', ownPrefix: PREFIX },
+    });
+    const own = (token: string) => `td-${PREFIX}-${token}`;
+    const owners = await store.socketOwners(
+      [own(a.tmuxToken), own(b.tmuxToken), 'td-zzzzzzzz-abcdefghijkl', own(adopted.tmuxToken)],
+      PREFIX,
+    );
+    // The adopted session is found by its socket, not by its own (unused) token.
+    expect(owners.map((o) => [o.sessionId, o.userId, o.socket, o.state]).sort()).toEqual(
+      [
+        [a.id, userA, own(a.tmuxToken), 'new'],
+        [b.id, userB, own(b.tmuxToken), 'new'],
+        [adopted.id, userA, 'td-zzzzzzzz-abcdefghijkl', 'new'],
+      ].sort(),
+    );
+    // Another prefix does not match by token.
+    expect(await store.socketOwners([`td-bbbb2222-${a.tmuxToken}`], PREFIX)).toEqual([]);
+
+    // Read-your-writes: an end still queued in the writer already counts.
+    store.update(a.id, {
+      state: 'ended',
+      status: 'ended',
+      endedAt: 1234,
+      desiredState: 'terminated',
+    });
+    expect(await store.socketOwners([own(a.tmuxToken)], PREFIX)).toMatchObject([
+      { sessionId: a.id, state: 'ended', endedAt: 1234 },
+    ]);
+    await writer.flush();
+    expect(await store.serverName(serverA)).toBe('test server');
+    expect(await store.serverName('gone')).toBeNull();
+  });
+
+  it('boot ends the sessions a stopped daemon left terminating; counts the protected ones it keeps', async () => {
+    const { db, writer, store } = setup();
+    const userId = insertUser(db);
+    const serverId = insertServer(db, userId);
+    const create = () =>
+      store.createFromServer({
+        actingUserId: userId,
+        serverId,
+        viewport: VIEWPORT,
+        enableLocalShell: false,
+      });
+    const cut = await create();
+    const kept = await create();
+    const parked = await create();
+    store.update(cut.id, { desiredState: 'terminated', state: 'terminating', status: 'ended' });
+    store.update(kept.id, { state: 'ready', status: 'connected', protection: 'tmux-control' });
+    store.update(parked.id, {
+      state: 'failed',
+      status: 'disconnected',
+      protection: 'tmux-control',
+    });
+    await writer.flush();
+    expect(store.countReattachable()).toBe(1);
+
+    expect(await store.endInterruptedTerminations()).toBe(1);
+    expect(await store.get(cut.id)).toMatchObject({
+      state: 'ended',
+      status: 'ended',
+      desiredState: 'terminated',
+      endReason: 'user_terminated',
+      endedAt: expect.any(Number),
+    });
+    const changed = db.$client
+      .prepare(
+        "SELECT detail_json FROM session_events WHERE session_id = ? AND type = 'state_changed'",
+      )
+      .all(cut.id) as Array<{ detail_json: string }>;
+    expect(changed.map((e) => JSON.parse(e.detail_json))).toEqual([
+      { from: 'terminating', to: 'ended', detail: 'user_terminated' },
+    ]);
+    expect((await store.listRestorable()).map((r) => r.id)).toEqual([kept.id]);
+    expect(await store.endInterruptedTerminations()).toBe(0);
+  });
+
+  it('keeps the tmux path of the stored probe, queued or committed', async () => {
+    const { db, writer, store } = setup();
+    const userId = insertUser(db);
+    const serverId = insertServer(db, userId);
+    const record = await store.createFromServer({
+      actingUserId: userId,
+      serverId,
+      viewport: VIEWPORT,
+      enableLocalShell: false,
+    });
+    expect(record).toMatchObject({ tmuxPath: null, tmuxSocket: null });
+    store.update(record.id, { probe: { tmux_path: '/opt/bin/tmux', shell: '/bin/zsh' } });
+    expect((await store.get(record.id))?.tmuxPath).toBe('/opt/bin/tmux');
+    await writer.flush();
+    expect((await store.get(record.id))?.tmuxPath).toBe('/opt/bin/tmux');
+    store.update(record.id, { probe: { tmux_path: 'tmux' } }); // not absolute: no path
+    await writer.flush();
+    expect((await store.get(record.id))?.tmuxPath).toBeNull();
+  });
+});

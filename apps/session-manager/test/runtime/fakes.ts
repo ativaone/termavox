@@ -65,6 +65,8 @@ export function makeRecord(overrides: Partial<SessionRecord> = {}): SessionRecor
     status: 'connecting',
     protection: null,
     tmuxToken: 'abcdefghijkl',
+    tmuxSocket: null,
+    tmuxPath: null,
     tmuxVersion: null,
     remoteIdentity: null,
     cols: 80,
@@ -133,8 +135,34 @@ export class MemorySessionStore implements SessionStore {
     this.updates.push({ sessionId, patch });
     const record = this.records.get(sessionId);
     if (!record) return;
-    const { probe: _probe, ...fields } = patch;
+    const { probe, ...fields } = patch;
     Object.assign(record, fields);
+    // Like the SQLite store: the stored probe's tmux path comes back with the record.
+    if (probe !== undefined) {
+      const path = probe?.tmux_path;
+      record.tmuxPath = typeof path === 'string' && path.startsWith('/') ? path : null;
+    }
+  }
+
+  /** Like the SQLite store: a session left `terminating` by a stopped daemon ends at boot. */
+  async endInterruptedTerminations(): Promise<number> {
+    let ended = 0;
+    for (const record of this.records.values()) {
+      if (record.state !== 'terminating') continue;
+      Object.assign(record, {
+        state: 'ended',
+        status: 'ended',
+        desiredState: 'terminated',
+        endedAt: record.endedAt ?? Date.now(),
+        endReason: record.endReason ?? 'user_terminated',
+      });
+      this.appendEvent(record.id, {
+        type: 'state_changed',
+        detail: { from: 'terminating', to: 'ended', detail: 'user_terminated' },
+      });
+      ended++;
+    }
+    return ended;
   }
 
   appendEvent(sessionId: string, event: SessionEventInput): void {
@@ -274,14 +302,32 @@ export class FakePtyChannel implements PtyChannel {
   }
 }
 
+/** What a scripted exec answers: stdout, exit code (default 0), or a failure to open. */
+export interface FakeExecResult {
+  stdout?: string;
+  code?: number | null;
+  /** The channel never finishes (a hung remote command). */
+  hang?: boolean;
+}
+
 export interface FakeTransportBehavior {
   /** Runs inside connect(); throw to fail the attempt. Default: a trusted host key. */
   connect?: (hooks: TransportHooks, signal: AbortSignal) => Promise<void>;
   probe?: string;
+  /**
+   * Answers an exec by command; undefined falls back to the probe output. Every command is
+   * recorded in `FakeTransport.commands`.
+   */
+  exec?: (command: string) => FakeExecResult | Promise<FakeExecResult> | undefined;
 }
 
 export class FakeTransport implements Transport {
   readonly ptys: FakePtyChannel[] = [];
+  /** Every exec command, in order. */
+  readonly commands: string[] = [];
+  readonly hooks: TransportHooks;
+  /** Channels left hanging by a scripted exec: closed with the transport. */
+  readonly #hung: FakePtyChannel[] = [];
   readonly #lost: Array<(err: TransportError) => void> = [];
   readonly #behavior: FakeTransportBehavior;
   readonly #hooks: TransportHooks;
@@ -290,6 +336,7 @@ export class FakeTransport implements Transport {
 
   constructor(hooks: TransportHooks, behavior: FakeTransportBehavior = {}) {
     this.#hooks = hooks;
+    this.hooks = hooks;
     this.#behavior = behavior;
   }
 
@@ -299,8 +346,16 @@ export class FakeTransport implements Transport {
     this.connected = true;
   }
 
-  async exec(): Promise<FakePtyChannel> {
+  async exec(command: string): Promise<FakePtyChannel> {
+    this.commands.push(command);
     const channel = new FakePtyChannel();
+    const scripted = await this.#behavior.exec?.(command);
+    if (scripted) {
+      if (scripted.stdout) channel.stdout.push(encode(scripted.stdout));
+      if (!scripted.hang) channel.finish({ code: scripted.code ?? 0, signal: null });
+      else this.#hung.push(channel);
+      return channel;
+    }
     channel.stdout.push(encode(this.#behavior.probe ?? 'shell=/bin/bash\nutf8_locale=C.UTF-8\n'));
     channel.finish({ code: 0, signal: null });
     return channel;
@@ -314,6 +369,7 @@ export class FakeTransport implements Transport {
 
   async close(): Promise<void> {
     this.closed = true;
+    for (const channel of this.#hung.splice(0)) channel.finish({ code: null, signal: null });
   }
 
   onLost(cb: (err: TransportError) => void): void {

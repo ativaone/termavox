@@ -9,6 +9,7 @@ import {
   testServer,
   trustHostKey,
 } from '../../lib/actions/servers.ts';
+import { connectCodeKey } from '../../lib/manage/connect-codes.ts';
 import type { ManageState } from '../../lib/manage/forms.ts';
 import { ChevronRightIcon } from '../icons/index.tsx';
 import { DisclosureSummary } from '../ui/disclosure-summary.tsx';
@@ -234,7 +235,7 @@ export function TestConnection({
         {state.message ? <Notice tone="danger">{state.message}</Notice> : null}
         {result && !result.reachable ? (
           <Notice tone="danger" title={t('result.unreachable')}>
-            {t(`code.${codeKey(result.error)}`)}
+            {t(`code.${connectCodeKey(result.error)}`)}
           </Notice>
         ) : null}
         {key ? (
@@ -291,7 +292,7 @@ export function TestConnection({
         ) : null}
         {result?.reachable && key?.trusted && result.error ? (
           <Notice tone="warning" title={t('result.loginFailed')}>
-            {hasCredential ? t(`code.${codeKey(result.error)}`) : t('result.noCredential')}
+            {hasCredential ? t(`code.${connectCodeKey(result.error)}`) : t('result.noCredential')}
           </Notice>
         ) : null}
         {result?.reachable && key?.trusted && !result.probe && !result.error ? (
@@ -303,21 +304,4 @@ export function TestConnection({
       </div>
     </div>
   );
-}
-
-const KNOWN_CODES = [
-  'HOST_UNREACHABLE',
-  'TARGET_NOT_ALLOWED',
-  'HOST_KEY_MISMATCH',
-  'AUTH_REJECTED',
-  'AUTH_TIMEOUT',
-  'CREDENTIAL_INVALID',
-  'PROBE_TIMEOUT',
-  'PROBE_TOO_LARGE',
-  'CONNECTION_LOST',
-] as const;
-type KnownCode = (typeof KNOWN_CODES)[number];
-
-function codeKey(code: string | null): KnownCode | 'OTHER' {
-  return code && (KNOWN_CODES as readonly string[]).includes(code) ? (code as KnownCode) : 'OTHER';
 }

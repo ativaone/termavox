@@ -1,13 +1,17 @@
 import './server-guard.ts';
 import {
   ActingUserRequest,
+  AdoptRemoteSessionRequest,
   CreateCredentialRequest,
   CreateCredentialResponse,
   CreateSessionRequest,
   CreateSessionResponse,
   HealthResponse,
   INTERNAL_API_PREFIX,
+  ListRemoteSessionsRequest,
+  ListRemoteSessionsResponse,
   ListSessionsResponse,
+  type RemoteSession,
   RenameCredentialRequest,
   RenameSessionRequest,
   RenameSessionResponse,
@@ -16,6 +20,10 @@ import {
   RevokeHostKeyRequest,
   ServerTestRequest,
   ServerTestResponse,
+  TerminateAllSessionsRequest,
+  TerminateAllSessionsResponse,
+  TerminateRemoteSessionRequest,
+  TerminateRemoteSessionResponse,
   TerminateUserSessionsRequest,
   TerminateUserSessionsResponse,
   TrustHostKeyRequest,
@@ -81,13 +89,18 @@ export interface InternalApiClientOptions {
   token: string;
   /** Default time budget per call. */
   timeoutMs?: number;
-  /** Budget for `servers/:id/test` (SSH handshake up to 10 s plus the probe up to 15 s). */
+  /**
+   * Budget for the calls that connect to a server over SSH before they answer: `servers/:id/test`
+   * (SSH handshake up to 10 s plus the probe up to 15 s) and the remote-session calls (D-30).
+   */
   serverTestTimeoutMs?: number;
   fetch?: typeof fetch;
 }
 
 export const DEFAULT_TIMEOUT_MS = 5_000;
 export const SERVER_TEST_TIMEOUT_MS = 30_000;
+/** `sessions/terminate-all`: the daemon answers within about 3 s, once every session is ending. */
+export const TERMINATE_ALL_TIMEOUT_MS = 10_000;
 
 type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 
@@ -96,6 +109,8 @@ export type CreateCredentialInput = z.input<typeof CreateCredentialRequest>;
 export type CreateCredentialResult = z.infer<typeof CreateCredentialResponse>;
 export type ServerTestResult = z.infer<typeof ServerTestResponse>;
 export type LiveSessions = z.infer<typeof ListSessionsResponse>;
+export type RemoteSessionInfo = z.infer<typeof RemoteSession>;
+export type RemoteSessionList = z.infer<typeof ListRemoteSessionsResponse>;
 
 export class InternalApiClient {
   readonly #base: string;
@@ -145,6 +160,18 @@ export class InternalApiClient {
   async listSessions(actingUserId: string): Promise<LiveSessions> {
     const query = new URLSearchParams({ actingUserId }).toString();
     return this.#call('GET', `/sessions?${query}`, undefined, ListSessionsResponse);
+  }
+
+  /** "End all sessions" (D-30): every non-ended session of the user starts ending. */
+  async terminateAllSessions(actingUserId: string): Promise<{ terminated: number }> {
+    const body = request(TerminateAllSessionsRequest, { actingUserId });
+    return this.#call(
+      'POST',
+      '/sessions/terminate-all',
+      body,
+      TerminateAllSessionsResponse,
+      TERMINATE_ALL_TIMEOUT_MS,
+    );
   }
 
   // ── credentials ───────────────────────────────────────────────────────────
@@ -205,6 +232,61 @@ export class InternalApiClient {
   ): Promise<void> {
     const body = request(RevokeHostKeyRequest, input);
     return this.#call('POST', `/servers/${seg(serverId)}/revoke-key`, body, null);
+  }
+
+  // ── remote tmux leftovers (plan D-30) ─────────────────────────────────────
+  // Each call signs in to the server as its user (never prompting), so each gets the SSH budget.
+
+  /**
+   * Lists the Termdock tmux servers on the server that this installation does not run, after
+   * ending those of sessions the user already ended (`cleaned`).
+   */
+  async listRemoteSessions(serverId: string, actingUserId: string): Promise<RemoteSessionList> {
+    const body = request(ListRemoteSessionsRequest, { actingUserId });
+    return this.#call(
+      'POST',
+      `/servers/${seg(serverId)}/remote-sessions`,
+      body,
+      ListRemoteSessionsResponse,
+      this.#serverTestTimeoutMs,
+    );
+  }
+
+  /** Ends one listed remote session; `terminated: false` when it was already gone. */
+  async terminateRemoteSession(
+    serverId: string,
+    socket: string,
+    actingUserId: string,
+  ): Promise<{ terminated: boolean }> {
+    const body = request(TerminateRemoteSessionRequest, { actingUserId, socket });
+    return this.#call(
+      'POST',
+      `/servers/${seg(serverId)}/remote-sessions/terminate`,
+      body,
+      TerminateRemoteSessionResponse,
+      this.#serverTestTimeoutMs,
+    );
+  }
+
+  /** A new session of the server attached to that tmux server. Absent label: the server's name. */
+  async adoptRemoteSession(
+    serverId: string,
+    socket: string,
+    actingUserId: string,
+    label?: string,
+  ): Promise<{ sessionId: string }> {
+    const body = request(AdoptRemoteSessionRequest, {
+      actingUserId,
+      socket,
+      ...(label !== undefined ? { label } : {}),
+    });
+    return this.#call(
+      'POST',
+      `/servers/${seg(serverId)}/remote-sessions/adopt`,
+      body,
+      CreateSessionResponse,
+      this.#serverTestTimeoutMs,
+    );
   }
 
   // ── admin / system ────────────────────────────────────────────────────────

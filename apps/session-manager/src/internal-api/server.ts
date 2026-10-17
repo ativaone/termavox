@@ -4,9 +4,11 @@ import type { AddressInfo } from 'node:net';
 import type { TermdockDb } from '@termdock/db';
 import {
   ActingUserRequest,
+  AdoptRemoteSessionRequest,
   CreateCredentialRequest,
   CreateSessionRequest,
   INTERNAL_API_PREFIX,
+  ListRemoteSessionsRequest,
   ListSessionsQuery,
   RenameCredentialRequest,
   RenameSessionRequest,
@@ -16,12 +18,15 @@ import {
   SESSION_LABEL_MAX,
   ServerTestRequest,
   type SessionSummary,
+  TerminateAllSessionsRequest,
+  TerminateRemoteSessionRequest,
   TerminateUserSessionsRequest,
   TrustHostKeyRequest,
 } from '@termdock/protocol';
 import { ErrorCode, normalizeHostname, TermdockError } from '@termdock/shared';
 import type { z } from 'zod';
 import { type Logger, silentLogger } from '../config/logger.ts';
+import { tmuxSocketPrefix } from '../core/driver-factory.ts';
 import { sanitizePromptText } from '../core/session-runtime.ts';
 import type {
   CredentialProvider,
@@ -35,17 +40,33 @@ import type { SqliteSessionStore } from '../store/session-store.ts';
 import { getRow } from '../store/sqlite.ts';
 import type { TargetPolicy } from '../transport/ssh/index.ts';
 import type { CredentialService } from '../vault/credentials.ts';
+import {
+  listRemoteSessions,
+  RemoteHostError,
+  type RemoteSessionsDeps,
+  terminateRemoteSession,
+} from './remote-sessions.ts';
 import { type ServerTestDeps, testServer } from './server-test.ts';
 
 export const MAX_BODY_BYTES = 64 * 1024;
 /** Server tests per user and minute: each one opens an SSH connection to a user-chosen target. */
 export const SERVER_TEST_LIMIT = { max: 10, windowMs: 60_000 } as const;
+/** Remote-session lists and terminates per user and minute (plan D-30): each one connects too. */
+export const REMOTE_SESSIONS_LIMIT = { max: 20, windowMs: 60_000 } as const;
+/**
+ * The size an adopted session starts at (plan D-30) until a viewer attaches: the adopt request
+ * carries no viewport, and the first attachment resizes it.
+ */
+export const ADOPT_VIEWPORT = { cols: 120, rows: 40 } as const;
 const CLOSE_GRACE_MS = 2_000;
 
 /** What the internal API needs from the session registry (`SessionRegistry` satisfies it). */
 export interface SessionControl {
   create(record: SessionRecord): unknown;
+  /** Resolves once the session ended, or after a few seconds while its remote cleanup runs. */
   terminate(sessionId: string, actingUserId: string): Promise<void>;
+  /** Every non-ended session of the user starts ending; resolves with how many (plan D-30). */
+  terminateAll(userId: string): Promise<number>;
   retry(sessionId: string, actingUserId: string): Promise<void>;
   reopen(sessionId: string, actingUserId: string): Promise<{ sessionId: string }>;
   /** The stored label changed: update the live runtime and publish it to the owner. */
@@ -77,9 +98,21 @@ export interface InternalApiOptions {
   enableLocalShell: boolean;
   /** SSH target policy for server tests (the same one sessions use). */
   targetPolicy: TargetPolicy;
+  /** Names this installation's tmux sockets (remote leftovers, plan D-30). */
+  installationId: string;
   version: string;
   startedAt?: number;
   serverTest?: Pick<ServerTestDeps, 'readyTimeoutMs' | 'probeTimeoutMs'>;
+  /** Test timings of the remote-session routes. */
+  remoteSessions?: Pick<
+    RemoteSessionsDeps,
+    | 'readyTimeoutMs'
+    | 'probeTimeoutMs'
+    | 'scanTimeoutMs'
+    | 'killTimeoutMs'
+    | 'listBudgetMs'
+    | 'routeDeadlineMs'
+  >;
   logger?: Logger;
   now?: () => number;
 }
@@ -193,6 +226,7 @@ export class InternalApi {
   readonly #log: Logger;
   readonly #startedAt: number;
   readonly #serverTests: SlidingWindowLimit;
+  readonly #remoteCalls: SlidingWindowLimit;
 
   constructor(options: InternalApiOptions) {
     this.#options = options;
@@ -202,6 +236,11 @@ export class InternalApi {
     this.#serverTests = new SlidingWindowLimit(
       SERVER_TEST_LIMIT.max,
       SERVER_TEST_LIMIT.windowMs,
+      options.now,
+    );
+    this.#remoteCalls = new SlidingWindowLimit(
+      REMOTE_SESSIONS_LIMIT.max,
+      REMOTE_SESSIONS_LIMIT.windowMs,
       options.now,
     );
     this.#routes = this.#buildRoutes();
@@ -275,8 +314,13 @@ export class InternalApi {
       status = STATUS_BY_CODE[err.code] ?? 500;
       code = err.code;
       message = status === 500 ? 'internal error' : err.message;
+    } else if (err instanceof RemoteHostError) {
+      // The remote host failed, not the daemon (remote sessions, plan D-30).
+      status = 502;
+      code = err.code;
+      message = err.message;
     }
-    if (status >= 500) {
+    if (status >= 500 && status !== 502) {
       // Our own errors never carry secrets; request bodies are never logged.
       const e = err as Error;
       this.#log.error(
@@ -301,6 +345,11 @@ export class InternalApi {
     return [
       { method: 'POST', pattern: path('/sessions'), handler: (c) => this.#createSession(c) },
       { method: 'GET', pattern: path('/sessions'), handler: (c) => this.#listSessions(c) },
+      {
+        method: 'POST',
+        pattern: path('/sessions/terminate-all'),
+        handler: (c) => this.#terminateAllSessions(c),
+      },
       {
         method: 'PATCH',
         pattern: path(`/sessions/${ID}`),
@@ -351,6 +400,21 @@ export class InternalApi {
         method: 'POST',
         pattern: path(`/servers/${ID}/revoke-key`),
         handler: (c) => this.#revokeKey(c),
+      },
+      {
+        method: 'POST',
+        pattern: path(`/servers/${ID}/remote-sessions`),
+        handler: (c) => this.#listRemoteSessions(c),
+      },
+      {
+        method: 'POST',
+        pattern: path(`/servers/${ID}/remote-sessions/terminate`),
+        handler: (c) => this.#terminateRemoteSession(c),
+      },
+      {
+        method: 'POST',
+        pattern: path(`/servers/${ID}/remote-sessions/adopt`),
+        handler: (c) => this.#adoptRemoteSession(c),
       },
       {
         method: 'POST',
@@ -433,6 +497,19 @@ export class InternalApi {
       return { status: 200, body: await registry.reopen(sessionId, actingUserId) };
     await registry[action](sessionId, actingUserId);
     return NO_CONTENT;
+  }
+
+  /**
+   * "End all sessions" (plan D-30): every non-ended session of the acting user starts ending (4 at
+   * a time); answers `{ terminated }` once each one is ending, within a few seconds, without
+   * waiting for every remote cleanup (the ends arrive as `session.status`).
+   */
+  async #terminateAllSessions(ctx: RequestContext): Promise<Reply> {
+    const { actingUserId } = parse(TerminateAllSessionsRequest, ctx.body);
+    requireActingUser(this.#options.db.$client, actingUserId);
+    const terminated = await this.#options.registry.terminateAll(actingUserId);
+    this.#log.info({ userId: actingUserId, terminated }, 'terminated all sessions of a user');
+    return { status: 200, body: { terminated } };
   }
 
   // ── credentials ───────────────────────────────────────────────────────────
@@ -528,6 +605,74 @@ export class InternalApi {
     return NO_CONTENT;
   }
 
+  // ── servers: remote tmux leftovers (plan D-30) ────────────────────────────
+
+  #remoteDeps(): RemoteSessionsDeps {
+    return {
+      db: this.#options.db,
+      sessions: this.#options.sessions,
+      hostKeys: this.#options.hostKeys,
+      credentials: this.#options.credentialProvider,
+      targetPolicy: this.#options.targetPolicy,
+      installationId: this.#options.installationId,
+      ...this.#options.remoteSessions,
+      ...(this.#options.now ? { now: this.#options.now } : {}),
+    };
+  }
+
+  /** Lists and terminates connect to a user-chosen target: limited per user like server tests. */
+  #takeRemoteCall(actingUserId: string): void {
+    if (!this.#remoteCalls.take(actingUserId)) {
+      throw new TermdockError(
+        ErrorCode.RateLimited,
+        `at most ${REMOTE_SESSIONS_LIMIT.max} remote session requests per minute; try again shortly`,
+      );
+    }
+  }
+
+  async #listRemoteSessions(ctx: RequestContext): Promise<Reply> {
+    const { actingUserId } = parse(ListRemoteSessionsRequest, ctx.body);
+    this.#takeRemoteCall(actingUserId);
+    const result = await listRemoteSessions(this.#remoteDeps(), {
+      actingUserId,
+      serverId: ctx.params[0]!,
+    });
+    return { status: 200, body: result };
+  }
+
+  async #terminateRemoteSession(ctx: RequestContext): Promise<Reply> {
+    const body = parse(TerminateRemoteSessionRequest, ctx.body);
+    this.#takeRemoteCall(body.actingUserId);
+    const result = await terminateRemoteSession(this.#remoteDeps(), {
+      actingUserId: body.actingUserId,
+      serverId: ctx.params[0]!,
+      socket: body.socket,
+    });
+    return { status: 200, body: result };
+  }
+
+  /**
+   * Adopt (plan D-30): a new session of this server attached to that tmux server, created exactly
+   * as `POST /sessions` creates one (target snapshot, label defaulting to the server's name, the
+   * running-session cap), tmux-protected from the start and counted as ready before. Refused
+   * (409) for a tmux server of a session that runs in Termdock, of another user's session, or of
+   * one of the user's own ended sessions (reopen that one). Clients attached to it do not
+   * prevent it (web asks the user first).
+   */
+  async #adoptRemoteSession(ctx: RequestContext): Promise<Reply> {
+    const body = parse(AdoptRemoteSessionRequest, ctx.body);
+    const record = await this.#options.sessions.createFromServer({
+      actingUserId: body.actingUserId,
+      serverId: ctx.params[0]!,
+      label: body.label === undefined ? undefined : sessionLabel(body.label),
+      viewport: ADOPT_VIEWPORT,
+      enableLocalShell: this.#options.enableLocalShell,
+      adopt: { socket: body.socket, ownPrefix: tmuxSocketPrefix(this.#options.installationId) },
+    });
+    this.#options.registry.create(record);
+    return { status: 201, body: { sessionId: record.id } };
+  }
+
   /**
    * The acting user's SSH server and the host-key target it names (plan §5.9, D-29): the server
    * id only picks the address (normalized hostname and port) and proves ownership; the decision
@@ -565,7 +710,9 @@ export class InternalApi {
   /**
    * Terminates every non-ended session of the target user (admin "also terminate sessions").
    * The acting user must be an admin and not banned (403 otherwise); an unknown target is 404.
-   * Each session is terminated as its owner, through the registry's own ownership check.
+   * Each session is terminated as its owner, through the registry's own ownership check, 4 at a
+   * time; the answer comes once each one is ending, inside web's 5 s timeout (remote cleanups,
+   * plan D-30, continue after it).
    */
   async #terminateUserSessions(ctx: RequestContext): Promise<Reply> {
     const { actingUserId } = parse(TerminateUserSessionsRequest, ctx.body);
@@ -575,18 +722,7 @@ export class InternalApi {
     const targetId = ctx.params[0]!;
     const target = getRow<{ id: string }>(sqlite, 'SELECT id FROM user WHERE id = ?', targetId);
     if (!target) throw new TermdockError(ErrorCode.NotFound, 'user not found');
-    const { registry } = this.#options;
-    const live = (await registry.listForUser(target.id)).filter((s) => s.state !== 'ended');
-    let terminated = 0;
-    for (const session of live) {
-      try {
-        await registry.terminate(session.id, target.id);
-        terminated++;
-      } catch (err) {
-        // Ended or removed meanwhile: nothing left to terminate.
-        if (!(err instanceof TermdockError && err.code === ErrorCode.NotFound)) throw err;
-      }
-    }
+    const terminated = await this.#options.registry.terminateAll(target.id);
     this.#log.info({ targetUserId: target.id, terminated }, 'admin terminated user sessions');
     return { status: 200, body: { terminated } };
   }

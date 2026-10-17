@@ -3,6 +3,24 @@ import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { InternalApiClient, InternalApiError } from '../lib/internal-api.ts';
 
+const SOCKET = 'td-a1b2c3d4-abcdefghijk2';
+const LISTED = {
+  error: null,
+  sessions: [
+    {
+      socket: SOCKET,
+      origin: 'other',
+      sessionId: null,
+      label: null,
+      createdAt: 1_700_000_000_000,
+      lastActivityAt: null,
+      attachedClients: 1,
+    },
+  ],
+  cleaned: 2,
+  truncated: false,
+};
+
 const TOKEN = 'internal-token-for-tests-0123456789abcdef';
 const seen: Array<{ method?: string; url?: string; auth?: string; body: string }> = [];
 let server: Server;
@@ -26,6 +44,28 @@ beforeAll(async () => {
         return send(401, { code: 'UNAUTHENTICATED', message: 'missing or invalid bearer token' });
       }
       const path = req.url ?? '';
+      // Remote tmux leftovers (plan D-30) and End all sessions; `slow` answers after 300 ms.
+      const later = (fn: () => void) => (path.includes('slow') ? setTimeout(fn, 300) : fn());
+      if (path.endsWith('/sessions/terminate-all')) {
+        return setTimeout(() => send(200, { terminated: 3 }), 300);
+      }
+      if (path.endsWith('/remote-sessions')) {
+        if (path.includes('/odd/')) {
+          // A name read from the host that is not a Termdock socket: never passed on.
+          const bad = { ...LISTED.sessions[0], socket: 'td-x; rm -rf /' };
+          return send(200, { ...LISTED, sessions: [bad] });
+        }
+        return later(() => send(200, LISTED));
+      }
+      if (path.endsWith('/remote-sessions/terminate')) {
+        return send(200, { terminated: !path.includes('/gone/') });
+      }
+      if (path.endsWith('/remote-sessions/adopt')) {
+        if (path.includes('/busy/')) {
+          return send(409, { code: 'CONFLICT', message: 'that tmux server runs in Termdock' });
+        }
+        return later(() => send(201, { sessionId: 'adopted-1' }));
+      }
       if (path.endsWith('/credentials/missing')) {
         return send(404, { code: 'NOT_FOUND', message: 'credential not found' });
       }
@@ -130,5 +170,85 @@ describe('internal API client error mapping', () => {
 
     const closed = new InternalApiClient({ baseUrl: 'http://127.0.0.1:1', token: TOKEN });
     expect(await failure(closed.health())).toMatchObject({ kind: 'unavailable', status: 0 });
+  });
+});
+
+describe('remote tmux leftovers and End all sessions (plan D-30)', () => {
+  const body = () => JSON.parse(seen.at(-1)!.body) as unknown;
+
+  it('lists remote sessions within the SSH budget, not the default one', async () => {
+    const patient = new InternalApiClient({
+      baseUrl: base,
+      token: TOKEN,
+      timeoutMs: 50,
+      serverTestTimeoutMs: 2_000,
+    });
+    await expect(patient.listRemoteSessions('slow', 'user-1')).resolves.toEqual(LISTED);
+    expect(seen.at(-1)).toMatchObject({
+      method: 'POST',
+      url: '/internal/v1/servers/slow/remote-sessions',
+    });
+    expect(body()).toEqual({ actingUserId: 'user-1' });
+
+    const hasty = new InternalApiClient({ baseUrl: base, token: TOKEN, serverTestTimeoutMs: 50 });
+    const late = await failure(hasty.listRemoteSessions('slow', 'user-1'));
+    expect(late).toMatchObject({ kind: 'timeout', status: 0 });
+  });
+
+  it('refuses a listing whose socket names are not Termdock sockets', async () => {
+    const odd = await failure(client().listRemoteSessions('odd', 'user-1'));
+    expect(odd).toMatchObject({ kind: 'bad_response', status: 200 });
+  });
+
+  it('ends one remote session; a malformed socket never leaves', async () => {
+    await expect(client().terminateRemoteSession('srv/1', SOCKET, 'user-1')).resolves.toEqual({
+      terminated: true,
+    });
+    expect(seen.at(-1)).toMatchObject({
+      method: 'POST',
+      url: '/internal/v1/servers/srv%2F1/remote-sessions/terminate',
+    });
+    expect(body()).toEqual({ actingUserId: 'user-1', socket: SOCKET });
+    await expect(client().terminateRemoteSession('gone', SOCKET, 'user-1')).resolves.toEqual({
+      terminated: false,
+    });
+
+    const before = seen.length;
+    const invalid = await failure(client().terminateRemoteSession('srv', 'td-../x', 'user-1'));
+    expect(invalid).toMatchObject({ kind: 'bad_request', status: 0, code: 'BAD_REQUEST' });
+    expect(seen.length).toBe(before);
+  });
+
+  it('adopts a remote session, with the label only when given, within the SSH budget', async () => {
+    const patient = new InternalApiClient({
+      baseUrl: base,
+      token: TOKEN,
+      timeoutMs: 50,
+      serverTestTimeoutMs: 2_000,
+    });
+    await expect(patient.adoptRemoteSession('slow', SOCKET, 'user-1')).resolves.toEqual({
+      sessionId: 'adopted-1',
+    });
+    expect(seen.at(-1)).toMatchObject({
+      method: 'POST',
+      url: '/internal/v1/servers/slow/remote-sessions/adopt',
+    });
+    expect(body()).toEqual({ actingUserId: 'user-1', socket: SOCKET });
+
+    await client().adoptRemoteSession('srv', SOCKET, 'user-1', 'old build');
+    expect(body()).toEqual({ actingUserId: 'user-1', socket: SOCKET, label: 'old build' });
+
+    const busy = await failure(client().adoptRemoteSession('busy', SOCKET, 'user-1'));
+    expect(busy).toMatchObject({ kind: 'conflict', status: 409, code: 'CONFLICT' });
+  });
+
+  it('ends all sessions with its own budget, longer than the default', async () => {
+    const hasty = client(TOKEN, 50);
+    await expect(hasty.terminateAllSessions('user-1')).resolves.toEqual({ terminated: 3 });
+    expect(seen.at(-1)).toMatchObject({
+      method: 'POST',
+      url: '/internal/v1/sessions/terminate-all',
+    });
+    expect(body()).toEqual({ actingUserId: 'user-1' });
   });
 });

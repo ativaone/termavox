@@ -11,6 +11,7 @@ import { NavIcon, NavRow } from '../ui/nav-row.tsx';
 import { BrandTile, Wordmark } from '../ui/wordmark.tsx';
 import { AccountMenu } from './account-menu.tsx';
 import { FirstRunPanel } from './empty-panels.tsx';
+import { EndAllSessions } from './end-all-sessions.tsx';
 import { NewSessionButton } from './new-session-button.tsx';
 import { SessionList, SessionRail } from './session-list.tsx';
 import type { SessionMenuActions } from './session-menu.tsx';
@@ -68,8 +69,9 @@ function ToggleButton({
 
 /**
  * The session sidebar (plan D-28): the mark and the collapse toggle, New session, the sessions
- * grouped by state, the management links and the account row. As a rail it keeps the same
- * things as icons and tiles. On a phone it is the switcher screen, full width.
+ * grouped by state with "End all sessions…" at their foot (D-30), the management links and the
+ * account row. As a rail it keeps the same things as icons and tiles, without End all. On a phone
+ * it is the switcher screen, full width.
  */
 export function Sidebar({
   username,
@@ -90,6 +92,7 @@ export function Sidebar({
   const t = useTranslations('workspace');
   const tn = useTranslations('nav');
   const rail = desktop && mode === 'rail';
+  const liveCount = data.sessions.filter((s) => s.status !== 'ended').length;
   const nav = [
     { href: ROUTES.servers, label: tn('servers'), icon: <ServerIcon size={16} /> },
     { href: '/credentials', label: tn('credentials'), icon: <KeyIcon size={16} /> },
@@ -197,6 +200,11 @@ export function Sidebar({
 
       <div id={SESSION_LIST_ID} className="min-h-0 flex-1 overflow-y-auto px-3 pt-1 pb-3">
         {list}
+        {serverCount > 0 && liveCount > 0 ? (
+          <div className="pt-3">
+            <EndAllSessions count={liveCount} />
+          </div>
+        ) : null}
       </div>
 
       <div className="flex flex-col gap-1 border-line border-t px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] [view-transition-name:sidebar-foot]">

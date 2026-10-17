@@ -1,6 +1,7 @@
 'use client';
 
 import { CloseCode } from '@termdock/protocol/client';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import {
@@ -19,7 +20,9 @@ import {
   retrySession,
   terminateSession,
 } from '../../lib/actions/sessions.ts';
+import { withReturnPath } from '../../lib/manage/return-to.ts';
 import type { TerminalPreferences } from '../../lib/preferences/terminal.ts';
+import { ROUTES } from '../../lib/routes.ts';
 import type { SessionActionResult } from '../../lib/sessions/action-result.ts';
 import { sessionLabels, toBayData } from '../../lib/sessions/live.ts';
 import { sessionTarget } from '../../lib/sessions/target.ts';
@@ -184,6 +187,56 @@ function ConnectionLimit({ connection }: { connection: TermdockConnection }) {
           </button>
         </span>
       </Notice>
+    </div>
+  );
+}
+
+/** The anchor of the "Sessions on this server" card on a server page (plan D-30). */
+const REMOTE_SESSIONS_ANCHOR = 'remote-sessions';
+
+/**
+ * Plan D-30: a session's connection found Termdock sessions on its server that this installation
+ * does not run. One dismissible notice per server, linking to that server's page (and back here);
+ * a dismissed server stays quiet while the tab lives.
+ */
+function RemoteSessionsNotices({
+  connection,
+  serverHref,
+}: {
+  connection: TermdockConnection;
+  serverHref: (serverId: string) => string;
+}) {
+  const t = useTranslations('workspace');
+  const { remoteSessions } = useConnectionState(connection);
+  if (remoteSessions.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-2 px-2 pb-2 max-md:pt-2">
+      {remoteSessions.map((notice) => (
+        <Notice
+          key={notice.serverId}
+          tone="info"
+          title={t('remoteSessions.title', { server: notice.serverName })}
+        >
+          <span className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <span>
+              {t('remoteSessions.body', { count: notice.count })}{' '}
+              <Link
+                href={`${withReturnPath(serverHref(notice.serverId), ROUTES.workspace)}#${REMOTE_SESSIONS_ANCHOR}`}
+                className="font-semibold underline underline-offset-2"
+              >
+                {t('remoteSessions.review')}
+              </Link>
+            </span>
+            <button
+              type="button"
+              className="font-semibold underline underline-offset-2"
+              onClick={() => connection.dismissRemoteSessions(notice.serverId)}
+            >
+              {t('overlay.dismiss')}
+            </button>
+          </span>
+        </Notice>
+      ))}
     </div>
   );
 }
@@ -777,6 +830,7 @@ export function WorkspaceShell({
 
           <ConnectionFailure connection={connection} />
           <ConnectionLimit connection={connection} />
+          <RemoteSessionsNotices connection={connection} serverHref={serverHref} />
           {notice ? (
             <div className="px-2 pb-2">
               <Notice tone="warning">{notice}</Notice>

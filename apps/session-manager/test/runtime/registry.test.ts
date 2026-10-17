@@ -156,6 +156,22 @@ describe('SessionRegistry.reopen', () => {
     expect(a.client.violations).toEqual([]);
     await registry.shutdown();
   });
+
+  it('forgets the remote identity, so the new shell never reads as a remote reboot', async () => {
+    const { store, registry } = registryWith();
+    store.add(
+      makeRecord({
+        id: 's1',
+        state: 'ended',
+        desiredState: 'terminated',
+        protection: 'tmux-control',
+        remoteIdentity: { sessionCreated: 1, panePid: 42 },
+      }),
+    );
+    await registry.reopen('s1', 'user-1');
+    expect(store.records.get('s1')?.remoteIdentity).toBeNull();
+    await registry.shutdown();
+  });
 });
 
 describe('SessionRegistry.reopen and the running-session cap', () => {

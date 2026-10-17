@@ -274,6 +274,12 @@
       "help": "Todos que veem esta sessão veem o novo nome, na lista e nas abas.",
       "save": "Salvar"
     },
+    "endAll": {
+      "open": "Encerrar todas as sessões…",
+      "title": "Encerrar todas as sessões?",
+      "body": "{count, plural, one {# sessão é encerrada, e os programas que rodam nela param no servidor dela.} other {# sessões são encerradas, e os programas que rodam nelas param nos servidores delas.}} Não dá para desfazer.",
+      "confirm": "{count, plural, one {Encerrar # sessão} other {Encerrar # sessões}}"
+    },
     "sidebar": {
       "collapse": "Recolher a lista de sessões",
       "expand": "Expandir a lista de sessões"
@@ -291,6 +297,7 @@
       "reopen": "Reabrir",
       "closePane": "Fechar painel",
       "goneBody": "Esta sessão não existe mais.",
+      "remoteCleanup": "O tmux dela em {server} não pôde ser encerrado agora. A próxima conexão com este servidor o encerra.",
       "waitTitle": "Aguardando o pedido do servidor",
       "waitBody": "O pedido de login expirou ou ainda não chegou. Tente de novo para o servidor perguntar outra vez.",
       "rebootTitle": "O servidor reiniciou",
@@ -402,6 +409,11 @@
       "tabLimit": "Você tem 32 abas abertas. Feche uma para abrir outra.",
       "paneLimit": "Esta aba não comporta mais painéis. Abra a sessão em uma nova aba.",
       "actionFailed": "O Termdock não respondeu. Confira sua conexão e tente de novo."
+    },
+    "remoteSessions": {
+      "title": "Sessões encontradas em {server}",
+      "body": "{count, plural, one {Uma sessão do Termdock que não está nesta instalação continua rodando lá.} other {# sessões do Termdock que não estão nesta instalação continuam rodando lá.}}",
+      "review": "Ver na página do servidor"
     },
     "localTarget": "Este servidor (modo direto)"
   },
@@ -758,6 +770,45 @@
         "testLimit": "Verificações demais no último minuto. Aguarde um pouco e tente de novo.",
         "rejected": "O serviço de sessões recusou a solicitação.",
         "generic": "Algo deu errado. Tente de novo."
+      }
+    },
+    "remote": {
+      "title": "Sessões neste servidor",
+      "intro": "Sessões do Termdock rodando neste servidor como <mono>{target}</mono> que não estão nesta instalação: de outra instalação do Termdock, ou desta mesma antes de o banco de dados ser zerado.",
+      "check": "Verificar agora",
+      "help": "Conecta ao servidor como {user} e lista essas sessões. As que você já encerrou no Termdock e ainda rodam lá são encerradas na hora.",
+      "checkFailed": "Não foi possível verificar o servidor",
+      "checkedAt": "Verificado em",
+      "empty": "Nenhuma outra sessão do Termdock está rodando neste servidor como {user}.",
+      "cleaned": "{count, plural, one {# sessão que você já tinha encerrado no Termdock ainda rodava aqui e foi encerrada agora.} other {# sessões que você já tinha encerrado no Termdock ainda rodavam aqui e foram encerradas agora.}}",
+      "truncated": "O servidor tem mais sessões do Termdock do que o Termdock lê de uma vez, então algumas não aparecem. Encerre ou adote algumas e verifique de novo.",
+      "listLabel": "Sessões encontradas neste servidor",
+      "origin": {
+        "ended": "Encerrada no Termdock",
+        "unknown": "Desta instalação, sem registro",
+        "other": "Outra instalação ou anterior"
+      },
+      "created": "Criada em",
+      "lastActivity": "Última atividade",
+      "clients": "Clientes conectados",
+      "notReported": "Não informado",
+      "clientsCount": "{count, plural, =0 {Nenhum} one {# cliente} other {# clientes}}",
+      "inUse": "{count, plural, one {Um cliente está conectado} other {# clientes estão conectados}} agora: alguém pode estar usando esta sessão, por outro Termdock ou por um terminal no servidor.",
+      "actionsHelp": "Adotar abre a sessão na área de trabalho como uma sessão deste servidor. Uma sessão que você tinha encerrado abre na área de trabalho, onde Reabrir a traz de volta. Encerrar para os programas que rodam nela.",
+      "adopt": "Adotar",
+      "openEnded": "Abrir na área de trabalho",
+      "adoptQuestion": "Alguém está conectado a esta sessão agora. Ao adotar, ela abre aqui também, e o que você digitar chega aos mesmos programas. Adotar mesmo assim?",
+      "adoptConfirm": "Adotar mesmo assim",
+      "end": "Encerrar…",
+      "endQuestion": "Encerrar esta sessão? Os programas que rodam nela no servidor param. Não dá para desfazer.",
+      "endConfirm": "Encerrar sessão",
+      "cancel": "Cancelar",
+      "endedNotice": "Sessão encerrada no servidor.",
+      "goneNotice": "Essa sessão já tinha terminado.",
+      "error": {
+        "running": "Esta sessão roda no Termdock agora, então não pode ser encerrada nem adotada aqui. Verifique de novo para atualizar a lista.",
+        "untrusted": "O Termdock ainda não confia na chave do host deste servidor e aqui nunca pergunta. Use Testar conexão, confie na chave e verifique de novo.",
+        "noCredential": "Este servidor não tem credencial guardada, então o Termdock não consegue entrar sem pedir a senha. Adicione uma credencial ao servidor para verificá-lo aqui."
       }
     },
     "docker": {

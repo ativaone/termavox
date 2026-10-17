@@ -11,7 +11,8 @@ export interface TmuxControlDriverOptions {
   startupCommand: string | null;
   env: Record<string, string>;
   previousIdentity: RemoteIdentity | null;
-  onIdentity(identity: RemoteIdentity, rebooted: boolean): void;
+  /** `created`: the launch created the tmux session (nothing to attach to was there). */
+  onIdentity(identity: RemoteIdentity, rebooted: boolean, created?: boolean): void;
   pauseAfterSeconds?: number;
 }
 
@@ -37,11 +38,19 @@ export function createDriverFactory(
   return factory;
 }
 
-/** Socket name `td-<installationId[0:8]>-<tmuxToken>` (plan §6.3; [a-z0-9-] only). */
-export function tmuxSocketName(installationId: string, tmuxToken: string): string {
-  const prefix = installationId
+/**
+ * This installation's part of every tmux socket name: the installation id lowercased, without
+ * anything outside [a-z0-9], cut to 8 characters (plan §6.3). The one place that computes it:
+ * socket names and the remote leftover classification (plan D-30) both come from here.
+ */
+export function tmuxSocketPrefix(installationId: string): string {
+  return installationId
     .toLowerCase()
     .replace(/[^a-z0-9]/g, '')
     .slice(0, 8);
-  return `td-${prefix}-${tmuxToken}`;
+}
+
+/** Socket name `td-<installationId[0:8]>-<tmuxToken>` (plan §6.3; [a-z0-9-] only). */
+export function tmuxSocketName(installationId: string, tmuxToken: string): string {
+  return `td-${tmuxSocketPrefix(installationId)}-${tmuxToken}`;
 }

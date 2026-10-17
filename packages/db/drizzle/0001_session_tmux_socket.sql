@@ -1,0 +1,1 @@
+ALTER TABLE `sessions` ADD `tmux_socket` text;

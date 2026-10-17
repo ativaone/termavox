@@ -126,6 +126,79 @@ export const ReplaceHostKeyRequest = TrustHostKeyRequest.extend({
 });
 export const RevokeHostKeyRequest = z.object({ actingUserId, keyType: z.string().min(1).max(64) });
 
+/**
+ * Remote tmux leftovers (plan D-30). Every Termdock tmux server on a remote host is named
+ * `td-<installation prefix>-<tmux token>` (§6.3): the prefix is 1–8 characters of [a-z0-9], the
+ * token 12 of [a-z2-7]. Names read from a host are untrusted: anything else is ignored.
+ */
+export const REMOTE_SOCKET_PATTERN = /^td-[a-z0-9]{1,8}-[a-z2-7]{12}$/;
+export const RemoteSocketName = z.string().regex(REMOTE_SOCKET_PATTERN);
+
+/**
+ * Where a listed remote session comes from:
+ * - `ended`: this installation, a session of the acting user that was ended in Termdock but whose
+ *   tmux could not be ended (a scan ends these by itself first; listed only when that failed);
+ * - `unknown`: this installation's prefix, but no session record has its token;
+ * - `other`: another prefix: another Termdock installation, or this one before its database was
+ *   reset (the installation id lives in the database).
+ * Sessions that run in Termdock, and ended sessions of other users, are never listed.
+ */
+export const RemoteSessionOrigin = z.enum(['ended', 'unknown', 'other']);
+export const RemoteSession = z.object({
+  socket: RemoteSocketName,
+  origin: RemoteSessionOrigin,
+  /** `ended` only: the acting user's own session (id and label); null otherwise. */
+  sessionId: id.nullable(),
+  label: z.string().nullable(),
+  /** Epoch ms from tmux (`session_created`, `session_activity`); null when not reported. */
+  createdAt: z.number().int().nullable(),
+  lastActivityAt: z.number().int().nullable(),
+  /** Clients attached right now (another Termdock, or someone's terminal). */
+  attachedClients: z.number().int().min(0),
+});
+
+/**
+ * `POST /servers/:id/remote-sessions`: connects as the server's user (its credential, its
+ * address's trusted host key; never prompting) and lists the Termdock tmux servers there. Ends the
+ * leftovers of sessions the acting user already ended before listing (`cleaned` counts them).
+ */
+export const ListRemoteSessionsRequest = z.object({ actingUserId });
+export const ListRemoteSessionsResponse = z.object({
+  /** Null when the scan ran; otherwise why it could not (the server test's error codes). */
+  error: z.string().nullable(),
+  sessions: z.array(RemoteSession),
+  cleaned: z.number().int().min(0),
+  /** The host listed more Termdock tmux servers than the daemon reads (the rest is ignored). */
+  truncated: z.boolean(),
+});
+
+/**
+ * `POST /servers/:id/remote-sessions/terminate`: ends one listed remote session. Refused (409)
+ * when the socket belongs to a session that runs in Termdock.
+ */
+export const TerminateRemoteSessionRequest = z.object({ actingUserId, socket: RemoteSocketName });
+/** `terminated: false` when it was already gone. */
+export const TerminateRemoteSessionResponse = z.object({ terminated: z.boolean() });
+
+/**
+ * `POST /servers/:id/remote-sessions/adopt`: a new session of this server attached to that tmux
+ * server (answers with `CreateSessionResponse`). Refused (409) when the socket belongs to a session
+ * that runs in Termdock; the running-session cap applies as for create.
+ */
+export const AdoptRemoteSessionRequest = z.object({
+  actingUserId,
+  socket: RemoteSocketName,
+  /** Absent: the server's name. */
+  label: SessionLabelInput.optional(),
+});
+
+/**
+ * `POST /sessions/terminate-all`: terminates every non-ended session of the acting user ("End all
+ * sessions"). Answers once each one is ending; the ends themselves arrive as `session.status`.
+ */
+export const TerminateAllSessionsRequest = z.object({ actingUserId });
+export const TerminateAllSessionsResponse = z.object({ terminated: z.number().int().min(0) });
+
 export const RevokeAuthSessionsRequest = z
   .object({ authSessionId: id.optional(), userId: id.optional() })
   .refine((v) => v.authSessionId !== undefined || v.userId !== undefined, {

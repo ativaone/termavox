@@ -9,14 +9,17 @@ import {
 } from '@termdock/protocol';
 import { ErrorCode, normalizeHostname, randomToken, TermdockError, uuidv7 } from '@termdock/shared';
 import { z } from 'zod';
+import { classifySocket, type SocketClass } from '../core/remote-sessions.ts';
 import type {
   Dimensions,
+  RemoteSessionLookup,
   SessionEventInput,
   SessionPolicies,
   SessionRecord,
   SessionRecordPatch,
   SessionStore,
   SessionTarget,
+  SocketOwner,
 } from '../core/types.ts';
 import { isAdmin, requireActingUser } from './access.ts';
 import { insertAudit } from './audit.ts';
@@ -70,8 +73,10 @@ interface RecordRow {
   status: string;
   protection_effective: string | null;
   tmux_token: string;
+  tmux_socket: string | null;
   tmux_version: string | null;
   remote_identity_json: string | null;
+  probe_json: string | null;
   cols: number;
   rows: number;
   created_at: number;
@@ -90,9 +95,9 @@ interface RecordRow {
 const SELECT_RECORD = `
   SELECT s.id, s.user_id, s.server_id, s.target_kind, s.target_hostname, s.target_port,
          s.target_username, s.target_credential_id, s.term, s.scrollback_lines, s.label,
-         s.desired_state, s.state, s.status, s.protection_effective, s.tmux_token, s.tmux_version,
-         s.remote_identity_json, s.cols, s.rows, s.created_at, s.last_ready_at, s.ended_at,
-         s.end_reason,
+         s.desired_state, s.state, s.status, s.protection_effective, s.tmux_token, s.tmux_socket,
+         s.tmux_version, s.remote_identity_json, s.probe_json, s.cols, s.rows, s.created_at,
+         s.last_ready_at, s.ended_at, s.end_reason,
          sv.id AS sv_id, sv.protection_mode AS sv_protection_mode,
          sv.startup_command AS sv_startup_command, sv.env_json AS sv_env_json,
          sv.keepalive_interval_s AS sv_keepalive_interval_s, sv.auto_reopen AS sv_auto_reopen
@@ -125,6 +130,70 @@ export interface CreateSessionInput {
   viewport: Dimensions;
   /** `TERMDOCK_ENABLE_LOCAL_SHELL` (direct mode itself arrives in Phase 6). */
   enableLocalShell: boolean;
+  /**
+   * Adopt (plan D-30): the session attaches to the remote tmux server of `socket` (a full socket
+   * name) instead of one named after its own token. Classified inside the insert's transaction
+   * (`ownPrefix`: this installation's socket prefix), so two adoptions of one socket cannot both
+   * succeed; audited as `remote_session.adopted` in the same transaction.
+   */
+  adopt?: { socket: string; ownPrefix: string } | undefined;
+}
+
+/**
+ * The sessions (any user) whose socket is one of `sockets`: by `tmux_socket`, or, without one, by
+ * `td-<ownPrefix>-` plus `tmux_token` (plan D-30). Committed rows only.
+ */
+function socketOwnerRows(
+  sqlite: Sqlite,
+  sockets: readonly string[],
+  ownPrefix: string,
+): SocketOwner[] {
+  if (sockets.length === 0) return [];
+  const own = `td-${ownPrefix}-`;
+  const tokens = sockets.filter((s) => s.startsWith(own)).map((s) => s.slice(own.length));
+  return allRows<{
+    id: string;
+    user_id: string;
+    label: string;
+    state: string;
+    ended_at: number | null;
+    tmux_token: string;
+    tmux_socket: string | null;
+  }>(
+    sqlite,
+    `SELECT id, user_id, label, state, ended_at, tmux_token, tmux_socket FROM sessions
+      WHERE tmux_socket IN (SELECT value FROM json_each(?))
+         OR (tmux_socket IS NULL AND tmux_token IN (SELECT value FROM json_each(?)))`,
+    JSON.stringify(sockets),
+    JSON.stringify(tokens),
+  ).map((r) => ({
+    sessionId: r.id,
+    userId: r.user_id,
+    label: r.label,
+    socket: r.tmux_socket ?? `${own}${r.tmux_token}`,
+    state: StateColumn.parse(r.state),
+    endedAt: r.ended_at,
+  }));
+}
+
+/**
+ * Adopt refusals (plan D-30), CONFLICT (409): a tmux server of a session that runs in Termdock
+ * or of another user's session is never adopted, and the leftover of one of the user's own ended
+ * sessions is reopened with that session (Reopen keeps its tmux token and reattaches), not
+ * adopted as a second session on the same tmux server.
+ */
+export function assertAdoptable(
+  found: SocketClass,
+): asserts found is { kind: 'unknown' | 'other' } {
+  if (found.kind === 'running' || found.kind === 'foreign') {
+    throw new TermdockError(ErrorCode.Conflict, 'this tmux server belongs to a Termdock session');
+  }
+  if (found.kind === 'ended') {
+    throw new TermdockError(
+      ErrorCode.Conflict,
+      'this tmux server belongs to an ended session of yours: reopen that session instead',
+    );
+  }
 }
 
 /**
@@ -162,7 +231,7 @@ function assertRunningCapacity(
  * (`state_changed`, `detail`). So `listRestorable()` = `desired_state = 'running' AND state <>
  * 'failed'`; those sessions wait for the user's Retry (plan §5.8).
  */
-export class SqliteSessionStore implements SessionStore {
+export class SqliteSessionStore implements SessionStore, RemoteSessionLookup {
   readonly #sqlite: Sqlite;
   readonly #writer: BatchedWriter;
   readonly #now: () => number;
@@ -187,6 +256,103 @@ export class SqliteSessionStore implements SessionStore {
     return rows
       .map((row) => this.#withPending(toRecord(row)))
       .filter((r) => r.desiredState === 'running' && r.state !== 'failed');
+  }
+
+  async endInterruptedTerminations(): Promise<number> {
+    return this.#writer.run('session.end_interrupted', (sqlite) => {
+      const now = this.#now();
+      const rows = allRows<{ id: string }>(
+        sqlite,
+        "SELECT id FROM sessions WHERE state = 'terminating'",
+      );
+      for (const { id } of rows) {
+        execute(
+          sqlite,
+          `UPDATE sessions SET state = 'ended', status = 'ended', desired_state = 'terminated',
+                  ended_at = COALESCE(ended_at, ?), end_reason = COALESCE(end_reason, 'user_terminated')
+            WHERE id = ?`,
+          now,
+          id,
+        );
+        insertSessionEvent(
+          sqlite,
+          uuidv7(now),
+          id,
+          {
+            type: 'state_changed',
+            detail: { from: 'terminating', to: 'ended', detail: 'user_terminated' },
+          },
+          now,
+        );
+      }
+      return rows.length;
+    });
+  }
+
+  /**
+   * tmux-protected sessions boot restore will reattach (desired running, not parked as failed):
+   * their tmux keeps running on the server while the daemon is down (plan §5.8, D-30). Committed
+   * rows: call it after the writer's final flush.
+   */
+  countReattachable(): number {
+    return (
+      getRow<{ n: number }>(
+        this.#sqlite,
+        `SELECT COUNT(*) AS n FROM sessions
+          WHERE desired_state = 'running' AND state <> 'failed'
+            AND protection_effective = 'tmux-control'`,
+      )?.n ?? 0
+    );
+  }
+
+  /**
+   * Remote leftover scan (plan D-30): the sessions of any user whose tmux socket is one of
+   * `sockets`, by `tmux_socket` (adopted sessions) or, without one, by `td-<ownPrefix>-` plus
+   * `tmux_token`. State and end time include queued updates (read-your-writes): a session just
+   * ended, or just reopened, counts as such before its row is committed.
+   */
+  async socketOwners(sockets: readonly string[], ownPrefix: string): Promise<SocketOwner[]> {
+    return socketOwnerRows(this.#sqlite, sockets, ownPrefix).map((owner) => {
+      const pending = this.#writer.pending(sessionWriteKey(owner.sessionId)) as
+        | SessionRecordPatch
+        | undefined;
+      if (!pending) return owner;
+      return {
+        ...owner,
+        state: pending.state ?? owner.state,
+        endedAt: pending.endedAt !== undefined ? pending.endedAt : owner.endedAt,
+      };
+    });
+  }
+
+  async serverName(serverId: string): Promise<string | null> {
+    return (
+      getRow<{ name: string }>(this.#sqlite, 'SELECT name FROM servers WHERE id = ?', serverId)
+        ?.name ?? null
+    );
+  }
+
+  /**
+   * `remote_session.terminated` (plan D-30): the acting user ended a remote tmux server from the
+   * server page. Public data only: the socket name and how it was classified.
+   */
+  auditRemoteTermination(input: {
+    actorUserId: string;
+    serverId: string;
+    socket: string;
+    origin: string;
+  }): void {
+    const at = this.#now();
+    this.#writer.enqueue('remote_session.terminated', (sqlite) => {
+      insertAudit(sqlite, {
+        type: 'remote_session.terminated',
+        actorUserId: input.actorUserId,
+        targetType: 'server',
+        targetId: input.serverId,
+        detail: { socket: input.socket, origin: input.origin },
+        at,
+      });
+    });
   }
 
   /**
@@ -320,6 +486,10 @@ export class SqliteSessionStore implements SessionStore {
         user.id,
       );
       if (!server) throw new TermdockError(ErrorCode.NotFound, 'server not found');
+      const { adopt } = input;
+      if (adopt && server.kind !== 'ssh') {
+        throw new TermdockError(ErrorCode.BadRequest, 'a local server has no remote sessions');
+      }
       let target: SessionTarget;
       if (server.kind === 'local') {
         if (!input.enableLocalShell) {
@@ -353,6 +523,20 @@ export class SqliteSessionStore implements SessionStore {
       }
       assertRunningCapacity(sqlite, user.id, null);
 
+      // An adopted session (plan D-30) is tmux-protected from the start, so the runtime attaches
+      // to the remote tmux instead of selecting a protection, and counts as having been ready
+      // before: the UI says Restoring, since the screen it brings back already exists.
+      let adoptedOrigin: string | null = null;
+      if (adopt) {
+        const found = classifySocket(
+          adopt.socket,
+          socketOwnerRows(sqlite, [adopt.socket], adopt.ownPrefix),
+          user.id,
+          adopt.ownPrefix,
+        );
+        assertAdoptable(found);
+        adoptedOrigin = found.kind;
+      }
       const record: SessionRecord = {
         id: uuidv7(now),
         userId: user.id,
@@ -371,15 +555,17 @@ export class SqliteSessionStore implements SessionStore {
         }),
         desiredState: 'running',
         state: 'new',
-        status: 'connecting',
-        protection: null,
+        status: adopt ? 'restoring' : 'connecting',
+        protection: adopt ? 'tmux-control' : null,
         tmuxToken: randomToken(12),
+        tmuxSocket: adopt?.socket ?? null,
+        tmuxPath: null,
         tmuxVersion: null,
         remoteIdentity: null,
         cols: input.viewport.cols,
         rows: input.viewport.rows,
         createdAt: now,
-        lastReadyAt: null,
+        lastReadyAt: adopt ? now : null,
         endedAt: null,
         endReason: null,
       };
@@ -387,8 +573,9 @@ export class SqliteSessionStore implements SessionStore {
         sqlite,
         `INSERT INTO sessions (id, user_id, server_id, target_kind, target_hostname, target_port,
            target_username, target_credential_id, term, scrollback_lines, label, desired_state,
-           state, status, protection_effective, tmux_token, cols, rows, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)`,
+           state, status, protection_effective, tmux_token, tmux_socket, cols, rows, created_at,
+           last_ready_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         record.id,
         record.userId,
         record.serverId,
@@ -403,18 +590,35 @@ export class SqliteSessionStore implements SessionStore {
         record.desiredState,
         record.state,
         record.status,
+        record.protection,
         record.tmuxToken,
+        record.tmuxSocket,
         record.cols,
         record.rows,
         record.createdAt,
+        record.lastReadyAt,
       );
       insertSessionEvent(
         sqlite,
         uuidv7(now),
         record.id,
-        { type: 'created', detail: { serverId: server.id }, actorUserId: user.id },
+        {
+          type: 'created',
+          detail: { serverId: server.id, ...(adopt ? { adoptedSocket: adopt.socket } : {}) },
+          actorUserId: user.id,
+        },
         now,
       );
+      if (adopt) {
+        insertAudit(sqlite, {
+          type: 'remote_session.adopted',
+          actorUserId: user.id,
+          targetType: 'server',
+          targetId: server.id,
+          detail: { socket: adopt.socket, origin: adoptedOrigin, sessionId: record.id },
+          at: now,
+        });
+      }
       return record;
     });
   }
@@ -455,10 +659,11 @@ export class SqliteSessionStore implements SessionStore {
   #withPending(record: SessionRecord): SessionRecord {
     const pending = this.#writer.pending(sessionWriteKey(record.id));
     if (!pending) return record;
-    const { probe: _probe, ...fields } = pending as SessionRecordPatch;
+    const { probe, ...fields } = pending as SessionRecordPatch;
     for (const [key, value] of Object.entries(fields)) {
       if (value !== undefined) (record as unknown as Record<string, unknown>)[key] = value;
     }
+    if (probe !== undefined) record.tmuxPath = tmuxPathOf(probe);
     return record;
   }
 }
@@ -510,6 +715,15 @@ function policiesOf(
   };
 }
 
+/**
+ * The tmux path of a stored probe (`probe_json`): an absolute `tmux_path`, else null. Host text:
+ * the remote command builders check it again before it reaches a command line.
+ */
+function tmuxPathOf(probe: unknown): string | null {
+  const path = (probe as { tmux_path?: unknown } | null | undefined)?.tmux_path;
+  return typeof path === 'string' && path.startsWith('/') ? path : null;
+}
+
 function toRecord(row: RecordRow): SessionRecord {
   const identity = RemoteIdentityJson.safeParse(parseJson(row.remote_identity_json));
   return {
@@ -532,6 +746,8 @@ function toRecord(row: RecordRow): SessionRecord {
     status: StatusColumn.parse(row.status),
     protection: ProtectionColumn.parse(row.protection_effective),
     tmuxToken: row.tmux_token,
+    tmuxSocket: row.tmux_socket,
+    tmuxPath: tmuxPathOf(parseJson(row.probe_json)),
     tmuxVersion: row.tmux_version,
     remoteIdentity: identity.success ? identity.data : null,
     cols: row.cols,

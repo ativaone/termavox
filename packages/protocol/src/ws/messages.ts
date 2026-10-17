@@ -110,6 +110,12 @@ export const ServerMessage = z.discriminatedUnion('type', [
     state: SessionState,
     detail: z.string().optional(),
     retryInMs: z.number().int().optional(),
+    /**
+     * With state `ended` (plan D-30): the session's tmux on the server could not be ended now
+     * (unreachable, the sign-in would need a prompt, host key not trusted). The next connection
+     * to that server as that user ends it. Live only: not part of the session summary.
+     */
+    remoteCleanup: z.literal('pending').optional(),
   }),
   z.object({
     type: z.literal('session.attached'),
@@ -146,6 +152,15 @@ export const ServerMessage = z.discriminatedUnion('type', [
     name: z.string().max(AUTH_PROMPT_LIMITS.name),
     instructions: z.string().max(AUTH_PROMPT_LIMITS.instructions),
     prompts: z.array(AuthPrompt).max(AUTH_PROMPT_LIMITS.prompts),
+  }),
+  z.object({
+    // Plan D-30: a session's connection found Termdock tmux servers on its server that this
+    // installation does not run (`unknown` or `other` origin). At most once per daemon run per
+    // server and set of sockets; the server page lists them (remote-sessions scan).
+    type: z.literal('server.remote_sessions'),
+    serverId: id,
+    serverName: z.string(),
+    count: z.number().int().min(1),
   }),
   z.object({
     type: z.literal('server.shutting_down'),
