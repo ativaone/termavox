@@ -2,7 +2,7 @@
 
 import type { SessionStatus } from '@termdock/protocol/client';
 import Link from 'next/link';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { type FormEvent, type ReactNode, useId, useRef, useState } from 'react';
 import { formatTarget } from '../../lib/servers/target.ts';
 import { END_KEYS, FAILURE_KEYS, pick } from '../../lib/sessions/reasons.ts';
@@ -15,7 +15,7 @@ import type {
   TerminalLayout,
 } from '../../lib/terminal/index.ts';
 import { RetryIcon } from '../icons/index.tsx';
-import { Button } from '../ui/button.tsx';
+import { Button, ButtonLink } from '../ui/button.tsx';
 import { cx } from '../ui/cx.ts';
 import { Notice } from '../ui/notice.tsx';
 import { Panel } from '../ui/panel.tsx';
@@ -74,6 +74,13 @@ function chooseOverlay(
             ? entry.statusAt + entry.retryInMs
             : null,
       };
+    case 'connecting':
+    case 'restoring':
+      // An attempt of a retry round keeps the round's card (plan D-31), with its Stop, rather
+      // than trading it for the progress chip at every attempt.
+      return entry.attempt !== null || entry.retryUntil !== null
+        ? { kind: 'reconnecting', deadline: null }
+        : null;
     case 'ended':
       return { kind: 'ended', reason: entry.endReason ?? entry.detail };
     default:
@@ -364,17 +371,20 @@ function ActionPanel({
   const t = useTranslations('workspace');
   return (
     <Panel aria-labelledby={titleId} solid floating className="w-full">
-      <div className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-end sm:justify-between">
-        <Head
-          status={status}
-          statusLabel={t(`status.${status}`)}
-          title={title}
-          titleId={titleId}
-          inline={inline}
-        >
-          {body}
-        </Head>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>
+      {/* The text keeps at least 18rem: with more actions than fit beside it, they wrap below. */}
+      <div className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+        <div className="min-w-0 sm:flex-[1_1_18rem]">
+          <Head
+            status={status}
+            statusLabel={t(`status.${status}`)}
+            title={title}
+            titleId={titleId}
+            inline={inline}
+          >
+            {body}
+          </Head>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:ms-auto">{actions}</div>
       </div>
       {error ? (
         <div className="px-4 pb-3.5">
@@ -385,34 +395,72 @@ function ActionPanel({
   );
 }
 
+/**
+ * A retry round (plan D-31): the wait before the next attempt and the attempts themselves. A
+ * session that never connected counts its attempts; one that lost its connection says until
+ * when it keeps trying. Stop ends the round (the session then waits as Disconnected).
+ */
 function ReconnectingSlip({ entry, deadline }: { entry: SessionEntry; deadline: number | null }) {
   const t = useTranslations('workspace');
+  const locale = useLocale();
   const titleId = useId();
   const now = useNow(1_000, deadline !== null);
   const action = useSessionAction(entry.id);
   const seconds = deadline === null ? null : Math.max(0, Math.ceil((deadline - now) / 1_000));
+  const waiting = entry.status === 'reconnecting' && seconds !== null && seconds > 0;
+  const server = entry.serverName;
+  const first = entry.lastReadyAt === null;
+  let title: string;
+  let body: string;
+  if (first) {
+    title = waiting ? t('overlay.nextAttemptIn', { seconds }) : t('overlay.attemptingNow');
+    body =
+      entry.attempt !== null && entry.maxAttempts !== null
+        ? t('overlay.firstAttemptBody', { server, attempt: entry.attempt, max: entry.maxAttempts })
+        : t('overlay.firstBody', { server });
+  } else {
+    title = waiting ? t('overlay.reconnectingIn', { seconds }) : t('overlay.reconnectingNow');
+    body =
+      entry.retryUntil !== null
+        ? t('overlay.reconnectingUntil', {
+            server,
+            time: new Intl.DateTimeFormat(locale, { timeStyle: 'short' }).format(entry.retryUntil),
+          })
+        : t('overlay.reconnectingBody', { server });
+  }
   return (
     <ActionPanel
       status="reconnecting"
       titleId={titleId}
       inline
-      title={
-        seconds === null || seconds === 0
-          ? t('overlay.reconnectingNow')
-          : t('overlay.reconnectingIn', { seconds })
-      }
-      body={t('overlay.reconnectingBody', { server: entry.serverName })}
+      title={title}
+      body={body}
       error={action.error}
       actions={
-        <Button
-          size="sm"
-          variant="primary"
-          icon={<RetryIcon size={16} />}
-          loading={action.pending === 'retry'}
-          onClick={() => void action.run('retry')}
-        >
-          {t('overlay.retryNow')}
-        </Button>
+        <>
+          <Button
+            size="sm"
+            variant="secondary"
+            loading={action.pending === 'stop'}
+            disabled={action.pending !== null}
+            onClick={() => void action.run('stop')}
+          >
+            {t('overlay.stop')}
+          </Button>
+          {/* While an attempt runs there is nothing to skip. */}
+          {entry.status === 'reconnecting' ? (
+            <Button
+              size="sm"
+              variant="primary"
+              icon={<RetryIcon size={16} />}
+              loading={action.pending === 'retry'}
+              disabled={action.pending !== null}
+              onClick={() => void action.run('retry')}
+            >
+              {t('overlay.retryNow')}
+            </Button>
+          ) : null}
+        </>
       }
     />
   );
@@ -420,11 +468,16 @@ function ReconnectingSlip({ entry, deadline }: { entry: SessionEntry; deadline: 
 
 function DisconnectedSlip({ entry, detail }: { entry: SessionEntry; detail: string | null }) {
   const t = useTranslations('workspace');
+  const { serverHref } = useWorkspace();
   const titleId = useId();
   const action = useSessionAction(entry.id);
   // Its server was deleted (plan D-29): it never connects again, so Terminate replaces Retry.
   const serverDeleted = entry.serverId === null;
-  const key = serverDeleted ? 'serverDeleted' : pick(FAILURE_KEYS, detail);
+  // Never connected (plan D-31): nothing runs on the server yet, so End needs no confirmation,
+  // and a fix on the server's page (a mistyped address) is used by the next Retry.
+  const neverConnected = entry.lastReadyAt === null;
+  const failure = serverDeleted ? 'serverDeleted' : pick(FAILURE_KEYS, detail);
+  const key = failure === 'hostUnreachable' && neverConnected ? 'hostUnreachableFirst' : failure;
   return (
     <ActionPanel
       status="disconnected"
@@ -444,15 +497,34 @@ function DisconnectedSlip({ entry, detail }: { entry: SessionEntry; detail: stri
             {t('overlay.terminate')}
           </Button>
         ) : (
-          <Button
-            size="sm"
-            variant="primary"
-            icon={<RetryIcon size={16} />}
-            loading={action.pending === 'retry'}
-            onClick={() => void action.run('retry')}
-          >
-            {t('overlay.retry')}
-          </Button>
+          <>
+            {neverConnected && entry.serverId ? (
+              <ButtonLink href={serverHref(entry.serverId)} size="sm" variant="quiet">
+                {t('overlay.editServer')}
+              </ButtonLink>
+            ) : null}
+            {neverConnected ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                loading={action.pending === 'terminate'}
+                disabled={action.pending !== null}
+                onClick={() => void action.run('terminate')}
+              >
+                {t('overlay.terminate')}
+              </Button>
+            ) : null}
+            <Button
+              size="sm"
+              variant="primary"
+              icon={<RetryIcon size={16} />}
+              loading={action.pending === 'retry'}
+              disabled={action.pending !== null}
+              onClick={() => void action.run('retry')}
+            >
+              {t('overlay.retry')}
+            </Button>
+          </>
         )
       }
     />

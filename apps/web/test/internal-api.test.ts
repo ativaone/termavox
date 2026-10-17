@@ -49,6 +49,14 @@ beforeAll(async () => {
       if (path.endsWith('/sessions/terminate-all')) {
         return setTimeout(() => send(200, { terminated: 3 }), 300);
       }
+      // Stop (plan D-31) and removal (plan D-32): `live` is not retrying, nor ended.
+      if (path.endsWith('/sessions/remove-ended')) return send(200, { removed: 4 });
+      if (path.endsWith('/stop') || req.method === 'DELETE') {
+        if (path.includes('/live')) {
+          return send(409, { code: 'CONFLICT', message: 'the session is not retrying' });
+        }
+        if (path.includes('/sessions/')) return send(204);
+      }
       if (path.endsWith('/remote-sessions')) {
         if (path.includes('/odd/')) {
           // A name read from the host that is not a Termdock socket: never passed on.
@@ -186,6 +194,28 @@ describe('internal API client error mapping', () => {
       false,
     );
     expect(isInternalApiError(new Error('boom'))).toBe(false);
+  });
+});
+
+describe('Stop and removal (plans D-31, D-32)', () => {
+  it('stops a session, removes one or every ended session, and maps a refusal to CONFLICT', async () => {
+    await expect(client().stopSession('s/1', 'user-1')).resolves.toBeUndefined();
+    expect(seen.at(-1)).toMatchObject({ method: 'POST', url: '/internal/v1/sessions/s%2F1/stop' });
+    await expect(client().removeSession('s/1', 'user-1')).resolves.toBeUndefined();
+    expect(seen.at(-1)).toMatchObject({ method: 'DELETE', url: '/internal/v1/sessions/s%2F1' });
+    expect(JSON.parse(seen.at(-1)!.body)).toEqual({ actingUserId: 'user-1' });
+    await expect(client().removeEndedSessions('user-1')).resolves.toEqual({ removed: 4 });
+    expect(seen.at(-1)).toMatchObject({
+      method: 'POST',
+      url: '/internal/v1/sessions/remove-ended',
+    });
+    expect(await failure(client().stopSession('live', 'user-1'))).toMatchObject({
+      kind: 'conflict',
+      code: 'CONFLICT',
+    });
+    expect(await failure(client().removeSession('live', 'user-1'))).toMatchObject({
+      kind: 'conflict',
+    });
   });
 });
 

@@ -90,6 +90,12 @@ interface RecordRow {
   sv_env_json: string | null;
   sv_keepalive_interval_s: number | null;
   sv_auto_reopen: number | null;
+  // the server's current target (plan D-31)
+  sv_kind: string | null;
+  sv_hostname: string | null;
+  sv_port: number | null;
+  sv_username: string | null;
+  sv_credential_id: string | null;
 }
 
 const SELECT_RECORD = `
@@ -100,11 +106,13 @@ const SELECT_RECORD = `
          s.last_ready_at, s.ended_at, s.end_reason,
          sv.id AS sv_id, sv.protection_mode AS sv_protection_mode,
          sv.startup_command AS sv_startup_command, sv.env_json AS sv_env_json,
-         sv.keepalive_interval_s AS sv_keepalive_interval_s, sv.auto_reopen AS sv_auto_reopen
+         sv.keepalive_interval_s AS sv_keepalive_interval_s, sv.auto_reopen AS sv_auto_reopen,
+         sv.kind AS sv_kind, sv.hostname AS sv_hostname, sv.port AS sv_port,
+         sv.username AS sv_username, sv.credential_id AS sv_credential_id
     FROM sessions s
     LEFT JOIN servers sv ON sv.id = s.server_id`;
 
-/** SessionRecordPatch field → sessions column (+ encoder). */
+/** SessionRecordPatch field → sessions column (+ encoder); `target` spans several columns. */
 const PATCH_COLUMNS: Record<string, [column: string, encode?: (value: unknown) => unknown]> = {
   desiredState: ['desired_state'],
   state: ['state'],
@@ -224,12 +232,13 @@ function assertRunningCapacity(
  * `SessionStore` over SQLite. Reads go straight to the DB (WAL readers never wait); every write
  * goes through the batched writer.
  *
- * Restore rule: `state = 'failed'` is only ever persisted for non-retryable causes (the runtime
- * parks on AUTH_REJECTED, CREDENTIAL_INVALID, HOST_KEY_MISMATCH/REJECTED, LOCAL_SHELL_DISABLED,
- * TARGET_NOT_ALLOWED, BAD_LAUNCH_PARAMS, NOT_FOUND, FORBIDDEN and non-retryable transport errors;
- * retryable problems persist as `reconnecting`). The specific code is in `session_events`
- * (`state_changed`, `detail`). So `listRestorable()` = `desired_state = 'running' AND state <>
- * 'failed'`; those sessions wait for the user's Retry (plan §5.8).
+ * Restore rule: `state = 'failed'` is persisted when a session waits for the user: non-retryable
+ * causes (the runtime parks on AUTH_REJECTED, CREDENTIAL_INVALID, HOST_KEY_MISMATCH/REJECTED,
+ * LOCAL_SHELL_DISABLED, TARGET_NOT_ALLOWED, BAD_LAUNCH_PARAMS, NOT_FOUND, FORBIDDEN and
+ * non-retryable transport errors), a retry round that ran out, with its last failure, or a Stop
+ * (RETRIES_STOPPED, plan D-31); a round in progress persists as `reconnecting`. The specific code
+ * is in `session_events` (`state_changed`, `detail`). So `listRestorable()` = `desired_state =
+ * 'running' AND state <> 'failed'`; those sessions wait for the user's Retry (plan §5.8).
  */
 export class SqliteSessionStore implements SessionStore, RemoteSessionLookup {
   readonly #sqlite: Sqlite;
@@ -420,6 +429,24 @@ export class SqliteSessionStore implements SessionStore, RemoteSessionLookup {
       const sets: string[] = [];
       const params: unknown[] = [];
       for (const [field, value] of Object.entries(merged)) {
+        if (field === 'target' && value !== undefined) {
+          const target = value as SessionTarget;
+          sets.push(
+            'target_kind = ?',
+            'target_hostname = ?',
+            'target_port = ?',
+            'target_username = ?',
+            'target_credential_id = ?',
+          );
+          params.push(
+            target.kind,
+            target.hostname,
+            target.port,
+            target.username,
+            target.credentialId,
+          );
+          continue;
+        }
         const mapping = PATCH_COLUMNS[field];
         if (!mapping || value === undefined) continue;
         const [column, encode] = mapping;
@@ -447,6 +474,36 @@ export class SqliteSessionStore implements SessionStore, RemoteSessionLookup {
     const id = uuidv7(at);
     this.#writer.enqueue(`session_event:${event.type}`, (sqlite) => {
       insertSessionEvent(sqlite, id, sessionId, event, at);
+    });
+  }
+
+  remove(userId: string, sessionId: string): Promise<void> {
+    return this.#writer.run('session.remove', (sqlite) => {
+      const row = getRow<{ user_id: string; state: string; label: string }>(
+        sqlite,
+        'SELECT user_id, state, label FROM sessions WHERE id = ?',
+        sessionId,
+      );
+      if (!row || row.user_id !== userId) {
+        throw new TermdockError(ErrorCode.NotFound, 'session not found');
+      }
+      if (row.state !== 'ended') {
+        throw new TermdockError(ErrorCode.Conflict, 'only ended sessions can be removed');
+      }
+      deleteSession(sqlite, userId, sessionId, row.label, this.#now());
+    });
+  }
+
+  removeEnded(userId: string): Promise<string[]> {
+    return this.#writer.run('session.remove_ended', (sqlite) => {
+      const rows = allRows<{ id: string; label: string }>(
+        sqlite,
+        "SELECT id, label FROM sessions WHERE user_id = ? AND state = 'ended'",
+        userId,
+      );
+      const at = this.#now();
+      for (const row of rows) deleteSession(sqlite, userId, row.id, row.label, at);
+      return rows.map((row) => row.id);
     });
   }
 
@@ -668,6 +725,25 @@ export class SqliteSessionStore implements SessionStore, RemoteSessionLookup {
   }
 }
 
+/** Deletes a session row (its `session_events` cascade) and audits it (plan D-32). */
+function deleteSession(
+  sqlite: Sqlite,
+  userId: string,
+  sessionId: string,
+  label: string,
+  at: number,
+): void {
+  execute(sqlite, 'DELETE FROM sessions WHERE id = ?', sessionId);
+  insertAudit(sqlite, {
+    type: 'session.remove',
+    actorUserId: userId,
+    targetType: 'session',
+    targetId: sessionId,
+    detail: { label },
+    at,
+  });
+}
+
 function insertSessionEvent(
   sqlite: Sqlite,
   id: string,
@@ -756,5 +832,20 @@ function toRecord(row: RecordRow): SessionRecord {
     lastReadyAt: row.last_ready_at,
     endedAt: row.ended_at,
     endReason: EndReasonColumn.parse(row.end_reason),
+    serverTarget: serverTargetOf(row),
+  };
+}
+
+/** The server's current SSH target (plan D-31), normalized as at session creation. */
+function serverTargetOf(row: RecordRow): SessionTarget | null {
+  if (row.sv_id === null) return null;
+  if (row.sv_kind === 'local') return { ...LOCAL_TARGET };
+  if (row.sv_hostname === null || row.sv_port === null || row.sv_username === null) return null;
+  return {
+    kind: 'ssh',
+    hostname: normalizeHostname(row.sv_hostname),
+    port: row.sv_port,
+    username: row.sv_username,
+    credentialId: row.sv_credential_id,
   };
 }

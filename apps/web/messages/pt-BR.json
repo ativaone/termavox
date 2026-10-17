@@ -195,8 +195,7 @@
     "strip": {
       "open": "Abrir {label}",
       "running": "Rodando há {duration}",
-      "endedAgo": "Encerrada {ago}",
-      "stamp": "Encerrada"
+      "endedAgo": "Encerrada {ago}"
     },
     "duration": {
       "days": "{days}d {hours}h",
@@ -280,6 +279,12 @@
       "body": "{count, plural, one {# sessão é encerrada, e os programas que rodam nela param no servidor dela.} other {# sessões são encerradas, e os programas que rodam nelas param nos servidores delas.}} Não dá para desfazer.",
       "confirm": "{count, plural, one {Encerrar # sessão} other {Encerrar # sessões}}"
     },
+    "removeEnded": {
+      "open": "Remover todas as encerradas…",
+      "title": "Remover todas as sessões encerradas?",
+      "body": "{count, plural, one {# sessão encerrada sai da lista, com o histórico dela.} other {# sessões encerradas saem da lista, com o histórico delas.}} Isso não pode ser desfeito.",
+      "confirm": "{count, plural, one {Remover # sessão} other {Remover # sessões}}"
+    },
     "sidebar": {
       "collapse": "Recolher a lista de sessões",
       "expand": "Expandir a lista de sessões"
@@ -289,8 +294,15 @@
       "reconnectingIn": "Reconectando em {seconds, plural, one {# segundo} other {# segundos}}",
       "reconnectingNow": "Reconectando…",
       "reconnectingBody": "A conexão com {server} caiu. O Termdock continua tentando.",
+      "reconnectingUntil": "A conexão com {server} caiu. O Termdock continua tentando até {time}.",
+      "nextAttemptIn": "Nova tentativa em {seconds, plural, one {# segundo} other {# segundos}}",
+      "attemptingNow": "Tentando conectar…",
+      "firstAttemptBody": "Ainda não foi possível conectar a {server}. Tentativa {attempt} de {max}.",
+      "firstBody": "Ainda não foi possível conectar a {server}.",
       "retryNow": "Tentar agora",
+      "stop": "Parar",
       "retry": "Tentar de novo",
+      "editServer": "Editar servidor",
       "terminate": "Encerrar",
       "disconnectedTitle": "Desconectada",
       "endedTitle": "Sessão encerrada",
@@ -334,13 +346,18 @@
       "authRejected": "O servidor rejeitou a credencial.",
       "credentialInvalid": "A credencial guardada não pode ser usada. Confira na página de credenciais.",
       "hostKeyRejected": "Você rejeitou a chave do host.",
-      "hostUnreachable": "Não foi possível alcançar o servidor.",
+      "hostUnreachable": "Não foi possível alcançar o servidor. Tente de novo quando ele voltar.",
+      "hostUnreachableFirst": "Não foi possível alcançar o servidor. Confira o endereço e a porta: a correção feita na página do servidor vale quando você tentar de novo.",
       "serverDeleted": "O servidor desta sessão foi excluído, então ela não pode mais se conectar.",
       "forbidden": "Sua conta não tem permissão para abrir esta sessão.",
       "localShellDisabled": "Shells locais ainda não estão disponíveis: o modo direto chega em uma versão futura.",
       "hostKeyMismatch": "O servidor apresentou uma chave diferente da confiável.",
       "badLaunchParams": "O comando inicial ou o ambiente do servidor contém caracteres que o Termdock não consegue passar a ele com segurança. Edite o servidor e tente de novo.",
       "targetNotAllowed": "O endereço deste servidor aponta para a máquina que roda o Termdock, ou para um endereço de loopback, link-local ou multicast, o que esta instalação não permite.",
+      "connectionLost": "A conexão com o servidor caiu.",
+      "channelFailed": "O servidor aceitou a conexão, mas não conseguiu iniciar o terminal.",
+      "authTimeout": "O servidor não concluiu o login a tempo.",
+      "retriesStopped": "Você parou as tentativas. A sessão aguarda até você tentar de novo ou encerrá-la.",
       "generic": "A conexão falhou e não será tentada de novo automaticamente."
     },
     "endReason": {
@@ -371,8 +388,13 @@
       "reopen": "Reabrir",
       "rename": "Renomear…",
       "terminate": "Encerrar…",
-      "terminateQuestion": "Encerrar {label}? O shell e tudo o que roda nele param. Isso não pode ser desfeito.",
+      "remove": "Remover da lista…",
+      "removeQuestion": "Remover {label} da lista? O histórico dela vai junto. Isso não pode ser desfeito.",
+      "removeConfirm": "Remover sessão",
+      "terminateQuestion": "Encerrar {label}? O shell e todos os programas que rodam nele param no servidor. Isso não pode ser desfeito.",
       "terminateConfirm": "Encerrar sessão",
+      "terminateTipTitle": "Dica",
+      "terminateTip": "Só quer sair? Feche a aba ou o painel, ou até o navegador: a sessão continua rodando, e você volta a ela quando quiser.",
       "cancel": "Cancelar"
     },
     "palette": {
@@ -451,6 +473,8 @@
       "generic": "Algo deu errado. Tente de novo.",
       "localShellDisabled": "Shells locais ainda não estão disponíveis: o modo direto chega em uma versão futura.",
       "reopenConflict": "Só sessões encerradas ou desprotegidas podem ser reabertas.",
+      "stopConflict": "A sessão não está mais tentando conectar.",
+      "removeConflict": "Só sessões encerradas podem ser removidas.",
       "labelInvalid": "O nome da sessão precisa ter de 1 a 120 caracteres visíveis."
     }
   },
@@ -1285,6 +1309,9 @@
         "host_key_mismatch": "Chave de host divergente",
         "host_key_revoked_presented": "Chave de host revogada apresentada",
         "session_rename": "Sessão renomeada",
+        "session_remove": "Sessão removida",
+        "remote_session_terminated": "Sessão no servidor encerrada",
+        "remote_session_adopted": "Sessão no servidor adotada",
         "server_create": "Servidor adicionado",
         "server_update": "Servidor alterado",
         "server_delete": "Servidor excluído"

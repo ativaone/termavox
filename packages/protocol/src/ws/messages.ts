@@ -111,6 +111,15 @@ export const ServerMessage = z.discriminatedUnion('type', [
     detail: z.string().optional(),
     retryInMs: z.number().int().optional(),
     /**
+     * Carried by every status of a retry round (plan D-31), the attempts themselves included. A
+     * session that never connected counts its attempts: `attempt` (the one running or next) of
+     * `maxAttempts`. One that lost its connection retries until `retryUntil` (epoch ms). Live
+     * only, like `retryInMs`: not part of the session summary.
+     */
+    attempt: z.number().int().min(1).optional(),
+    maxAttempts: z.number().int().min(1).optional(),
+    retryUntil: z.number().int().optional(),
+    /**
      * With state `ended` (plan D-30): the session's tmux on the server could not be ended now
      * (unreachable, the sign-in would need a prompt, host key not trusted). The next connection
      * to that server as that user ends it. Live only: not part of the session summary.

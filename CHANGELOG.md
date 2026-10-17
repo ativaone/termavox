@@ -61,6 +61,11 @@ The first release, v0.1.0, is being prepared.
   you already ended are ended right away.
 - "End all sessions" in the workspace, a first step before any database reset in the upgrade
   guide, and a log line at shutdown saying how many sessions keep running on their servers.
+- Bounded connection retries with a Stop button: a session that never connected tries 4 times
+  in about a minute; one that lost its connection keeps trying for 30 minutes. Then it waits for
+  Retry. Until it first connects, a session uses its server's current address, so a mistyped
+  server can be fixed on its page and retried.
+- Ended sessions can be removed from the list, one by one or all at once, with their history.
 
 ### Security
 

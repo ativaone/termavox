@@ -36,7 +36,7 @@ export const RenameSessionRequest = z.object({ actingUserId, label: SessionLabel
 /** The label as stored (cleaned and trimmed). */
 export const RenameSessionResponse = z.object({ sessionId: id, label: z.string() });
 
-/** Body of terminate / retry / reopen, and of credential deletion. */
+/** Body of terminate / retry / stop / reopen, of session removal, and of credential deletion. */
 export const ActingUserRequest = z.object({ actingUserId });
 export const ListSessionsQuery = z.object({ actingUserId });
 
@@ -198,6 +198,10 @@ export const AdoptRemoteSessionRequest = z.object({
  */
 export const TerminateAllSessionsRequest = z.object({ actingUserId });
 export const TerminateAllSessionsResponse = z.object({ terminated: z.number().int().min(0) });
+
+/** "Remove all ended" (plan D-32): every ended session of the acting user is deleted. */
+export const RemoveEndedSessionsRequest = z.object({ actingUserId });
+export const RemoveEndedSessionsResponse = z.object({ removed: z.number().int().min(0) });
 
 export const RevokeAuthSessionsRequest = z
   .object({ authSessionId: id.optional(), userId: id.optional() })

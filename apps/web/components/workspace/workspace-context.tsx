@@ -30,7 +30,7 @@ export interface PaneMeta {
   bell: boolean;
 }
 
-export type SessionActionKind = 'retry' | 'reopen' | 'terminate';
+export type SessionActionKind = 'retry' | 'stop' | 'reopen' | 'terminate' | 'remove';
 
 /** Where a pane sits: in a tab of the saved layout, or the phone's single pane (`tabId` null). */
 export interface PanePlace {

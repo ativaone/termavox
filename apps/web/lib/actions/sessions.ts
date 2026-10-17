@@ -7,6 +7,7 @@ import { requireSession } from '../auth/server.ts';
 import { getInternalApi, isInternalApiError } from '../internal-api.ts';
 import { serviceErrorKey } from '../manage/service-errors.ts';
 import type {
+  RemoveEndedResult,
   RenameSessionResult,
   SessionActionFailure,
   SessionActionResult,
@@ -14,8 +15,8 @@ import type {
 } from '../sessions/action-result.ts';
 
 /**
- * Session lifecycle Server Actions (plan §8.2): create, rename, terminate (one or all, D-30), retry
- * and reopen go to the daemon's internal API as the signed-in user (`actingUserId`), which
+ * Session lifecycle Server Actions (plan §8.2): create, rename, terminate (one or all, D-30), retry,
+ * stop (D-31), reopen and remove (one or all ended, D-32) go to the daemon's internal API as the signed-in user (`actingUserId`), which
  * re-validates ownership.
  * The UI then follows the session through `session.upsert` / `session.status` on the WebSocket.
  * Called programmatically by the workspace (palette, sidebar menu, pane overlays).
@@ -34,18 +35,23 @@ const CreateInput = z.object({
   viewport: Viewport,
 });
 
-async function failure(err: unknown): Promise<SessionActionFailure> {
+/** What a CONFLICT means for the action that got it. */
+type ConflictKey = 'conflict' | 'reopenConflict' | 'stopConflict' | 'removeConflict';
+
+async function failure(
+  err: unknown,
+  conflict: ConflictKey = 'conflict',
+): Promise<SessionActionFailure> {
   if (!isInternalApiError(err)) throw err;
   const t = await getTranslations('manage.sessionError');
   const key = serviceErrorKey(err);
-  // A conflict here means the session cannot be reopened (still protected and running).
   const message =
     err.code === 'LOCAL_SHELL_DISABLED'
       ? t('localShellDisabled')
       : err.code === 'LABEL_INVALID'
         ? t('labelInvalid')
         : key === 'conflict'
-          ? t('reopenConflict')
+          ? t(conflict)
           : t(key);
   return { ok: false, code: err.code, message };
 }
@@ -165,6 +171,49 @@ export async function retrySession(sessionId: string): Promise<SessionActionResu
   }
 }
 
+/**
+ * "Stop" (plan D-31): ends the session's connection retries; it then waits as Disconnected for
+ * Retry or End. CONFLICT when it is not retrying (connected, or waiting already).
+ */
+export async function stopSession(sessionId: string): Promise<SessionActionResult> {
+  const { user } = await requireSession();
+  if (!SessionId.safeParse(sessionId).success) return invalid();
+  try {
+    await getInternalApi().stopSession(sessionId, user.id);
+    return { ok: true };
+  } catch (err) {
+    return failure(err, 'stopConflict');
+  }
+}
+
+/**
+ * "Remove" (plan D-32): deletes an ended session with its history; CONFLICT when it has not
+ * ended. Its panes learn it from the WebSocket (`session.removed`).
+ */
+export async function removeSession(sessionId: string): Promise<SessionActionResult> {
+  const { user } = await requireSession();
+  if (!SessionId.safeParse(sessionId).success) return invalid();
+  try {
+    await getInternalApi().removeSession(sessionId, user.id);
+    return { ok: true };
+  } catch (err) {
+    return failure(err, 'removeConflict');
+  }
+}
+
+/** "Remove all ended…" (plan D-32): deletes every ended session of the signed-in user. */
+export async function removeEndedSessions(): Promise<RemoveEndedResult> {
+  const { user } = await requireSession();
+  try {
+    const { removed } = await getInternalApi().removeEndedSessions(user.id);
+    return { ok: true, removed };
+  } catch (err) {
+    if (!isInternalApiError(err)) throw err;
+    const t = await getTranslations('manage.sessionError');
+    return { ok: false, code: err.code, message: t(serviceErrorKey(err)) };
+  }
+}
+
 /** New shell, same session id; only for ended or unprotected sessions (409 otherwise). */
 export async function reopenSession(sessionId: string): Promise<SessionActionResult> {
   const { user } = await requireSession();
@@ -173,6 +222,6 @@ export async function reopenSession(sessionId: string): Promise<SessionActionRes
     const result = await getInternalApi().reopenSession(sessionId, user.id);
     return { ok: true, sessionId: result.sessionId };
   } catch (err) {
-    return failure(err);
+    return failure(err, 'reopenConflict');
   }
 }

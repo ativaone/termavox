@@ -272,3 +272,57 @@ describe('SessionRegistry: a session whose server was deleted (D-29)', () => {
     await registry.shutdown();
   });
 });
+
+describe('SessionRegistry.stop (plan D-31)', () => {
+  it('stops a retrying session of its owner; CONFLICT when it is not retrying, NOT_FOUND for others', async () => {
+    const { store, registry } = registryWith(() => ({
+      connect: async () => {
+        throw new TermdockError(ErrorCode.HostUnreachable, 'down');
+      },
+    }));
+    registry.create(store.add(makeRecord({ id: 's1' })));
+    const rt = registry.host('s1')!;
+    await until(() => rt.state === 'reconnecting');
+    await expect(registry.stop('s1', 'user-2')).rejects.toMatchObject({
+      code: ErrorCode.NotFound,
+    });
+    await registry.stop('s1', 'user-1');
+    expect(rt.live()).toMatchObject({ state: 'failed', statusDetail: 'RETRIES_STOPPED' });
+    await expect(registry.stop('s1', 'user-1')).rejects.toMatchObject({
+      code: ErrorCode.Conflict,
+    });
+    await registry.shutdown();
+  });
+});
+
+describe('SessionRegistry.remove (plan D-32)', () => {
+  it('removes an ended session and its runtime; refuses a live one; tells the owner', async () => {
+    const { store, notifier, factory, registry } = registryWith();
+    registry.create(store.add(makeRecord({ id: 's1' })));
+    registry.create(store.add(makeRecord({ id: 's2' })));
+    await until(
+      () => registry.host('s1')?.state === 'ready' && registry.host('s2')?.state === 'ready',
+    );
+    await expect(registry.remove('s1', 'user-1')).rejects.toMatchObject({
+      code: ErrorCode.Conflict,
+    });
+
+    factory.created[0]!.pty.finish({ code: 0, signal: null });
+    await until(() => registry.host('s1')?.state === 'ended');
+    await expect(registry.remove('s1', 'user-2')).rejects.toMatchObject({
+      code: ErrorCode.NotFound,
+    });
+    await registry.remove('s1', 'user-1');
+    expect(registry.host('s1')).toBeUndefined();
+    expect(store.records.has('s1')).toBe(false);
+    expect(notifier.ofType('session.removed')).toEqual([
+      { type: 'session.removed', sessionId: 's1' },
+    ]);
+
+    await registry.terminate('s2', 'user-1');
+    expect(await registry.removeEnded('user-1')).toBe(1);
+    expect(registry.host('s2')).toBeUndefined();
+    expect(notifier.ofType('session.removed').map((m) => m.sessionId)).toEqual(['s1', 's2']);
+    await registry.shutdown();
+  });
+});

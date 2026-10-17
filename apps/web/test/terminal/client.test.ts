@@ -341,6 +341,41 @@ describe('TermdockConnection', () => {
     expect(entry('a')).toMatchObject({ remoteCleanup: false });
   });
 
+  it("keeps a retry round's progress from its statuses, and drops it once the round is over", async () => {
+    const server = new FakeServer();
+    server.sessions = [summary('a')];
+    const { connection } = setup(server);
+    connection.connect();
+    await until(() => connection.getSnapshot().sessionsLoaded);
+    const entry = () => connection.getSnapshot().sessions.find((e) => e.id === 'a');
+    const status = (extra: Record<string, unknown>) =>
+      server.last.deliver(JSON.stringify({ type: 'session.status', sessionId: 'a', ...extra }));
+    // Plan D-31: a session that never connected counts its attempts.
+    status({
+      status: 'reconnecting',
+      state: 'reconnecting',
+      retryInMs: 5_000,
+      attempt: 2,
+      maxAttempts: 4,
+    });
+    expect(entry()).toMatchObject({
+      attempt: 2,
+      maxAttempts: 4,
+      retryUntil: null,
+      retryInMs: 5_000,
+    });
+    status({ status: 'connecting', state: 'connecting', attempt: 2, maxAttempts: 4 });
+    expect(entry()).toMatchObject({ attempt: 2, maxAttempts: 4 });
+    // An upsert (the summary carries no progress) keeps it.
+    server.last.deliver(JSON.stringify({ type: 'session.upsert', session: summary('a') }));
+    expect(entry()).toMatchObject({ attempt: 2, maxAttempts: 4 });
+    status({ status: 'disconnected', state: 'failed', detail: 'HOST_UNREACHABLE' });
+    expect(entry()).toMatchObject({ attempt: null, maxAttempts: null, retryUntil: null });
+    // One that lost its connection retries until a deadline.
+    status({ status: 'reconnecting', state: 'reconnecting', retryInMs: 2_000, retryUntil: 99 });
+    expect(entry()).toMatchObject({ attempt: null, retryUntil: 99 });
+  });
+
   it('shows one remote-sessions notice per server; a dismissed one stays quiet', async () => {
     const server = new FakeServer();
     const { connection } = setup(server);

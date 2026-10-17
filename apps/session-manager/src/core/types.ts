@@ -264,11 +264,17 @@ export interface SessionRecord {
   lastReadyAt: number | null;
   endedAt: number | null;
   endReason: EndReason | null;
+  /**
+   * The server's current target, as `SessionStore.get()` reads it (null once the server was
+   * deleted; absent elsewhere). A session that never connected follows it (plan D-31).
+   */
+  serverTarget?: SessionTarget | null;
 }
 
 export type SessionRecordPatch = Partial<
   Pick<
     SessionRecord,
+    | 'target'
     | 'desiredState'
     | 'state'
     | 'status'
@@ -319,6 +325,14 @@ export interface SessionStore {
    * the maximum number of sessions, not counting `sessionId`.
    */
   assertRunningCapacity(userId: string, sessionId: string): Promise<void>;
+  /**
+   * Deletes an ended session of `userId` with its `session_events` (plan D-32), audited as
+   * `session.remove`: NOT_FOUND when it is not the user's, CONFLICT when it has not ended.
+   * Committed before it resolves.
+   */
+  remove(userId: string, sessionId: string): Promise<void>;
+  /** Deletes every ended session of `userId` the same way; resolves with their ids. */
+  removeEnded(userId: string): Promise<string[]>;
 }
 
 /**

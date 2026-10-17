@@ -250,6 +250,29 @@ describe('WebSocket server', () => {
     await Promise.all([tab1, tab2, tab3, bob].map((c) => c.close()));
   });
 
+  it('sessionRemoved() ends the channels bound to that session with NOT_FOUND, then says so (D-32)', async () => {
+    const client = await connect();
+    const viewport = { cols: 80, rows: 24 };
+    client.send({ type: 'session.attach', channel: 3, sessionId: 's-alice', viewport });
+    await client.next((m) => m.type === 'session.attached');
+    server.sessionRemoved('alice', 's-alice');
+    const removed = await client.next((m) => m.type === 'session.removed');
+    expect(removed).toEqual({ type: 'session.removed', sessionId: 's-alice' });
+    expect(client.messages.filter((m) => m.type === 'error').at(-1)).toEqual({
+      type: 'error',
+      code: 'NOT_FOUND',
+      message: 'session not found',
+      channel: 3,
+      sessionId: 's-alice',
+    } satisfies ServerMessage);
+    // The channel is free again.
+    client.send({ type: 'session.attach', channel: 3, sessionId: 's-alice', viewport });
+    const attached = () =>
+      client.messages.filter((m) => m.type === 'session.attached' && m.channel === 3).length;
+    await client.next(() => attached() === 2);
+    await client.close();
+  });
+
   it('revoke() closes the matching connections with 4401', async () => {
     const alice = await connect('alice');
     const bob = await connect('bob');

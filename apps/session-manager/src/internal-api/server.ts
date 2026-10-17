@@ -10,6 +10,7 @@ import {
   INTERNAL_API_PREFIX,
   ListRemoteSessionsRequest,
   ListSessionsQuery,
+  RemoveEndedSessionsRequest,
   RenameCredentialRequest,
   RenameSessionRequest,
   ReplaceHostKeyRequest,
@@ -68,6 +69,12 @@ export interface SessionControl {
   /** Every non-ended session of the user starts ending; resolves with how many (plan D-30). */
   terminateAll(userId: string): Promise<number>;
   retry(sessionId: string, actingUserId: string): Promise<void>;
+  /** Ends the session's retry round (plan D-31); CONFLICT when it is not retrying. */
+  stop(sessionId: string, actingUserId: string): Promise<void>;
+  /** Deletes an ended session (plan D-32); CONFLICT when it has not ended. */
+  remove(sessionId: string, actingUserId: string): Promise<void>;
+  /** Deletes every ended session of the user (plan D-32); resolves with how many. */
+  removeEnded(userId: string): Promise<number>;
   reopen(sessionId: string, actingUserId: string): Promise<{ sessionId: string }>;
   /** The stored label changed: update the live runtime and publish it to the owner. */
   renamed(sessionId: string, userId: string, label: string): Promise<void>;
@@ -351,6 +358,16 @@ export class InternalApi {
         handler: (c) => this.#terminateAllSessions(c),
       },
       {
+        method: 'POST',
+        pattern: path('/sessions/remove-ended'),
+        handler: (c) => this.#removeEndedSessions(c),
+      },
+      {
+        method: 'DELETE',
+        pattern: path(`/sessions/${ID}`),
+        handler: (c) => this.#sessionAction(c, 'remove'),
+      },
+      {
         method: 'PATCH',
         pattern: path(`/sessions/${ID}`),
         handler: (c) => this.#renameSession(c),
@@ -364,6 +381,11 @@ export class InternalApi {
         method: 'POST',
         pattern: path(`/sessions/${ID}/retry`),
         handler: (c) => this.#sessionAction(c, 'retry'),
+      },
+      {
+        method: 'POST',
+        pattern: path(`/sessions/${ID}/stop`),
+        handler: (c) => this.#sessionAction(c, 'stop'),
       },
       {
         method: 'POST',
@@ -484,7 +506,7 @@ export class InternalApi {
 
   async #sessionAction(
     ctx: RequestContext,
-    action: 'terminate' | 'retry' | 'reopen',
+    action: 'terminate' | 'retry' | 'stop' | 'remove' | 'reopen',
   ): Promise<Reply> {
     const { actingUserId } = parse(ActingUserRequest, ctx.body);
     const sessionId = ctx.params[0]!;
@@ -510,6 +532,14 @@ export class InternalApi {
     const terminated = await this.#options.registry.terminateAll(actingUserId);
     this.#log.info({ userId: actingUserId, terminated }, 'terminated all sessions of a user');
     return { status: 200, body: { terminated } };
+  }
+
+  /** "Remove all ended" (plan D-32): every ended session of the acting user is deleted. */
+  async #removeEndedSessions(ctx: RequestContext): Promise<Reply> {
+    const { actingUserId } = parse(RemoveEndedSessionsRequest, ctx.body);
+    requireActingUser(this.#options.db.$client, actingUserId);
+    const removed = await this.#options.registry.removeEnded(actingUserId);
+    return { status: 200, body: { removed } };
   }
 
   // ── credentials ───────────────────────────────────────────────────────────

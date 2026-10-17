@@ -25,8 +25,6 @@ export interface SessionRowProps {
   timeLabel: string;
   /** The session this browser follows: lit by the reading light (fill and ring), never moved. */
   followed?: boolean;
-  /** Small word for ended sessions ("Ended"). */
-  stamp?: string;
   /** Stable view-transition name so a group change slides the row (signature move). */
   transitionName?: string;
   /** Follows the session in place (a plain click; modified clicks keep the link's default). */
@@ -74,7 +72,6 @@ export function SessionRow({
   time,
   timeLabel,
   followed = false,
-  stamp,
   transitionName,
   onClick,
   onContextMenu,
@@ -118,14 +115,7 @@ export function SessionRow({
           >
             {label}
           </span>
-          <span className="flex min-w-0 items-center gap-1.5 text-ink-muted text-xs leading-4">
-            {stamp ? (
-              <span className="shrink-0 rounded-pill bg-surface-raised px-1.5 font-semibold text-2xs leading-4">
-                {stamp}
-              </span>
-            ) : null}
-            <span className="truncate">{target}</span>
-          </span>
+          <span className="truncate text-ink-muted text-xs leading-4">{target}</span>
         </span>
         <span
           className={cx('flex items-center justify-center', ended ? 'text-ink-muted' : 'text-ink')}
@@ -180,7 +170,11 @@ export function SessionTile({
   followed?: boolean;
   onClick?: MouseEventHandler<HTMLAnchorElement>;
   onContextMenu?: MouseEventHandler<HTMLDivElement>;
-  /** The tile's actions control, shown at its corner on hover or focus. */
+  /**
+   * The tile's actions control, at its corner while it has the keyboard focus or its menu is
+   * open. Never on hover: on a 36 px tile it would cover the initials the pointer aims at; the
+   * pointer opens the menu with a right-click (`onContextMenu`).
+   */
   menu?: ReactNode;
 }) {
   const link = (
@@ -214,8 +208,9 @@ export function SessionTile({
       {link}
       <span
         className={cx(
-          'absolute -end-1 -top-1 rounded-sm bg-surface-solid opacity-0 transition-opacity duration-(--duration-step) ease-(--ease-out)',
-          'group-hover/tile:opacity-100 focus-within:opacity-100 has-[[aria-expanded=true]]:opacity-100',
+          'pointer-events-none absolute -end-1 -top-1 rounded-sm bg-surface-solid opacity-0 transition-opacity duration-(--duration-step) ease-(--ease-out)',
+          'has-[:focus-visible]:pointer-events-auto has-[:focus-visible]:opacity-100',
+          'has-[[aria-expanded=true]]:pointer-events-auto has-[[aria-expanded=true]]:opacity-100',
         )}
       >
         {menu}

@@ -56,6 +56,16 @@ class FakeRegistry implements SessionControl {
   async retry(id: string, user: string) {
     this.actions.push(`retry ${id} ${user}`);
   }
+  async stop(id: string, user: string) {
+    this.actions.push(`stop ${id} ${user}`);
+  }
+  async remove(id: string, user: string) {
+    this.actions.push(`remove ${id} ${user}`);
+  }
+  async removeEnded(user: string) {
+    this.actions.push(`removeEnded ${user}`);
+    return 2;
+  }
   async reopen(id: string, user: string) {
     this.actions.push(`reopen ${id} ${user}`);
     return { sessionId: id };
@@ -225,6 +235,8 @@ describe('internal API ownership (foreign resources are 404, like missing ones)'
     ).toBe(404);
     expect((await call('POST', `/sessions/${sessionId}/terminate`, asB)).status).toBe(404);
     expect((await call('POST', `/sessions/${sessionId}/retry`, asB)).status).toBe(404);
+    expect((await call('POST', `/sessions/${sessionId}/stop`, asB)).status).toBe(404);
+    expect((await call('DELETE', `/sessions/${sessionId}`, asB)).status).toBe(404);
     expect((await call('POST', `/sessions/${sessionId}/reopen`, asB)).status).toBe(404);
     expect(
       (await call('PATCH', `/credentials/${credentialA}`, { ...asB, name: 'mine' })).status,
@@ -250,9 +262,23 @@ describe('internal API ownership (foreign resources are 404, like missing ones)'
     expect(registry.actions).toEqual([]);
 
     expect(
+      (await call('POST', `/sessions/${sessionId}/stop`, { actingUserId: userA })).status,
+    ).toBe(204);
+    expect(
       (await call('POST', `/sessions/${sessionId}/terminate`, { actingUserId: userA })).status,
     ).toBe(204);
-    expect(registry.actions).toEqual([`terminate ${sessionId} ${userA}`]);
+    expect((await call('DELETE', `/sessions/${sessionId}`, { actingUserId: userA })).status).toBe(
+      204,
+    );
+    expect((await call('POST', '/sessions/remove-ended', { actingUserId: userA })).json).toEqual({
+      removed: 2,
+    });
+    expect(registry.actions).toEqual([
+      `stop ${sessionId} ${userA}`,
+      `terminate ${sessionId} ${userA}`,
+      `remove ${sessionId} ${userA}`,
+      `removeEnded ${userA}`,
+    ]);
     const listed = await call('GET', `/sessions?actingUserId=${userA}`);
     expect(listed.json?.sessions).toEqual([
       { sessionId, state: 'new', status: 'connecting', protection: null, attachments: 0 },

@@ -107,6 +107,11 @@ class FakeRegistry implements SessionControl {
     return 3;
   }
   async retry() {}
+  async stop() {}
+  async remove() {}
+  async removeEnded() {
+    return 0;
+  }
   async reopen(id: string) {
     return { sessionId: id };
   }

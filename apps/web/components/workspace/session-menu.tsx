@@ -25,13 +25,16 @@ type Item =
   | { kind: SessionActionKind; label: string };
 
 const MENU_WIDTH = 240;
+/** The confirmation slips: room for End's tip, and for both buttons on one row. */
+const CONFIRM_WIDTH = 320;
 
 /**
  * A session row's actions: open in a new tab, split right or down (desktop), retry (disconnected
- * or reconnecting), reopen (ended), neither once its server was deleted, rename, and terminate,
- * set apart at the bottom. Terminate asks first,
- * inside the menu itself (a danger slip, no modal). A native popover: it renders in the top
- * layer, closes on Escape or a click outside, and gives the focus back to its button.
+ * or reconnecting), reopen (ended), neither once its server was deleted, rename, and set apart at
+ * the bottom terminate, or remove for an ended session (plan D-32). Both ask first, inside the
+ * menu itself (a danger slip, no modal); terminate's slip also says that closing the tab or the
+ * browser keeps the session. A native popover: it renders in the top layer, closes on Escape or
+ * a click outside, and gives the focus back to its button.
  */
 export function SessionMenu({
   session,
@@ -46,15 +49,16 @@ export function SessionMenu({
   openSignal: number;
 }) {
   const t = useTranslations('workspace.menu');
-  const [confirming, setConfirming] = useState(false);
+  const [confirming, setConfirming] = useState<'terminate' | 'remove' | null>(null);
   const [pending, setPending] = useState<SessionActionKind | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const width = confirming ? CONFIRM_WIDTH : MENU_WIDTH;
   const menu = usePopoverMenu({
-    width: MENU_WIDTH,
+    width,
     align: 'end',
     onToggle: (open) => {
       if (!open) {
-        setConfirming(false);
+        setConfirming(null);
         setError(null);
       }
     },
@@ -77,6 +81,10 @@ export function SessionMenu({
   if (reconnectable && ended) items.push({ kind: 'reopen', label: t('reopen') });
   if (actions.rename) items.push({ kind: 'rename', label: t('rename') });
   const terminable = !ended;
+  // The bottom, destructive action: terminate a live session, remove an ended one.
+  const finalAction: Item = terminable
+    ? { kind: 'terminate', label: t('terminate') }
+    : { kind: 'remove', label: t('remove') };
 
   const { show, relayout } = menu;
   useEffect(() => {
@@ -121,7 +129,8 @@ export function SessionMenu({
         actions.rename?.();
         return;
       case 'terminate':
-        setConfirming(true);
+      case 'remove':
+        setConfirming(item.kind);
         return;
       default:
         void run(item.kind);
@@ -148,27 +157,35 @@ export function SessionMenu({
       >
         <MoreIcon size={16} />
       </button>
-      <MenuPopover menu={menu} width={MENU_WIDTH}>
+      <MenuPopover menu={menu} width={width}>
         {confirming ? (
           <fieldset
             aria-labelledby={`${menu.menuId}-question`}
             className={cx(DANGER_SLIP_CLASSES, 'm-0 min-w-0 rounded-none border-0')}
           >
             <p id={`${menu.menuId}-question`} className="text-pretty">
-              {t('terminateQuestion', { label: session.label })}
+              {confirming === 'terminate'
+                ? t('terminateQuestion', { label: session.label })
+                : t('removeQuestion', { label: session.label })}
             </p>
+            {/* Ending is rarely what someone who only wants to leave needs. */}
+            {confirming === 'terminate' ? (
+              <Notice tone="info" title={t('terminateTipTitle')}>
+                {t('terminateTip')}
+              </Notice>
+            ) : null}
             {error ? <Notice tone="danger">{error}</Notice> : null}
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 variant="destructive"
                 size="sm"
                 isolated={false}
-                loading={pending === 'terminate'}
-                onClick={() => void run('terminate')}
+                loading={pending === confirming}
+                onClick={() => void run(confirming)}
               >
-                {t('terminateConfirm')}
+                {confirming === 'terminate' ? t('terminateConfirm') : t('removeConfirm')}
               </Button>
-              <Button data-cancel="" variant="quiet" size="sm" onClick={() => setConfirming(false)}>
+              <Button data-cancel="" variant="quiet" size="sm" onClick={() => setConfirming(null)}>
                 {t('cancel')}
               </Button>
             </div>
@@ -189,19 +206,17 @@ export function SessionMenu({
                   </span>
                 </MenuItem>
               ))}
-              {terminable && items.length > 0 ? (
-                // Deliberate space: terminate never sits next to the routine actions.
+              {items.length > 0 ? (
+                // Deliberate space: terminate or remove never sits next to the routine actions.
                 <MenuSeparator spaced />
               ) : null}
-              {terminable ? (
-                <MenuItem
-                  tone="danger"
-                  disabled={pending !== null}
-                  onClick={() => choose({ kind: 'terminate', label: t('terminate') })}
-                >
-                  {t('terminate')}
-                </MenuItem>
-              ) : null}
+              <MenuItem
+                tone="danger"
+                disabled={pending !== null}
+                onClick={() => choose(finalAction)}
+              >
+                {finalAction.label}
+              </MenuItem>
             </div>
             {error ? (
               <div className="px-2 pb-2">

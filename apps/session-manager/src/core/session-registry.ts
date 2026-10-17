@@ -253,6 +253,53 @@ export class SessionRegistry {
   }
 
   /**
+   * Remove (plan D-32): deletes an ended session for good (the store checks ownership and the
+   * state again, in the write itself). Its runtime, if loaded, goes away; its viewers' channels
+   * end with NOT_FOUND and the owner's connections get `session.removed`.
+   */
+  async remove(sessionId: string, actingUserId: string): Promise<void> {
+    const runtime = this.#runtimes.get(sessionId);
+    if (runtime && runtime.userId === actingUserId && runtime.state !== 'ended') {
+      throw new TermdockError(ErrorCode.Conflict, 'only ended sessions can be removed');
+    }
+    await this.#options.store.remove(actingUserId, sessionId);
+    await this.#forget(sessionId, actingUserId);
+  }
+
+  /** "Remove all ended" (plan D-32): resolves with how many sessions were removed. */
+  async removeEnded(userId: string): Promise<number> {
+    const removed = await this.#options.store.removeEnded(userId);
+    for (const sessionId of removed) await this.#forget(sessionId, userId);
+    return removed.length;
+  }
+
+  async #forget(sessionId: string, userId: string): Promise<void> {
+    clearTimeout(this.#evictions.get(sessionId));
+    this.#evictions.delete(sessionId);
+    const runtime = this.#runtimes.get(sessionId);
+    if (runtime) {
+      this.#runtimes.delete(sessionId);
+      await runtime
+        .shutdown()
+        .catch((err) => this.#log.warn({ err, sessionId }, 'removed runtime shutdown failed'));
+      runtime.dispose();
+    }
+    const { notifier } = this.#options;
+    if (notifier.sessionRemoved) notifier.sessionRemoved(userId, sessionId);
+    else notifier.sendToUser(userId, { type: 'session.removed', sessionId });
+  }
+
+  /** Stop (plan D-31): ends the session's retry round; CONFLICT when it is not retrying. */
+  async stop(sessionId: string, actingUserId: string): Promise<void> {
+    await this.#pinned(sessionId, async () => {
+      const runtime = await this.#owned(sessionId, actingUserId);
+      if (!(await runtime.stopRetrying(actingUserId))) {
+        throw new TermdockError(ErrorCode.Conflict, 'the session is not retrying');
+      }
+    });
+  }
+
+  /**
    * New shell, same session id, new runtime (§5.7). Only for ended sessions or protection
    * `none`; attachments move to the new runtime and get a fresh snapshot; seq continues.
    */
@@ -327,13 +374,18 @@ export class SessionRegistry {
     });
   }
 
-  /** Prompts waiting for this user (replayed to connections that open later). */
+  /**
+   * Prompts waiting for this user, and the progress of retry rounds in progress (plan D-31: the
+   * summary does not carry it), replayed to connections that open later.
+   */
   pendingPrompts(userId: string): ServerMessage[] {
     const prompts: ServerMessage[] = [];
     for (const runtime of this.#runtimes.values()) {
       if (runtime.userId !== userId) continue;
       const prompt = runtime.pendingPrompt();
       if (prompt) prompts.push(prompt);
+      const retry = runtime.retryStatus();
+      if (retry) prompts.push(retry);
     }
     return prompts;
   }

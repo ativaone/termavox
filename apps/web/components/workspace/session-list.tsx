@@ -8,6 +8,7 @@ import { sessionTarget } from '../../lib/sessions/target.ts';
 import type { BayData, BaySession } from '../../lib/sessions/types.ts';
 import { SessionGroup } from '../ui/session-group.tsx';
 import { SessionRow, SessionTile } from '../ui/session-row.tsx';
+import { RemoveEndedSessions } from './remove-ended-sessions.tsx';
 import { SessionMenu, type SessionMenuActions } from './session-menu.tsx';
 import { formatAgo, formatAgoShort, formatDuration } from './time.ts';
 
@@ -107,6 +108,11 @@ export function SessionList({
                 ? t('lane.endedShown', { shown: group.sessions.length, total: data.endedTotal })
                 : undefined
             }
+            footer={
+              ended && menuActions && data.endedTotal > 0 ? (
+                <RemoveEndedSessions count={data.endedTotal} />
+              ) : undefined
+            }
           >
             {group.sessions.map((session) => {
               const endedAt = session.endedAt ?? session.createdAt;
@@ -126,7 +132,6 @@ export function SessionList({
                         ? t('strip.endedAgo', { ago: formatAgo(endedAt, now, locale, 'long') })
                         : t('strip.running', { duration: uptime })
                     }
-                    stamp={ended ? t('strip.stamp') : undefined}
                     followed={session.id === followedId}
                     transitionName={`session-${session.id}`}
                     onClick={

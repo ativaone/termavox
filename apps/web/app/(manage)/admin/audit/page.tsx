@@ -51,6 +51,9 @@ const KNOWN_TYPES = new Set([
   'host_key.mismatch',
   'host_key.revoked_presented',
   'session.rename',
+  'session.remove',
+  'remote_session.terminated',
+  'remote_session.adopted',
   'server.create',
   'server.update',
   'server.delete',
@@ -83,6 +86,9 @@ type AuditTypeKey =
   | 'host_key_mismatch'
   | 'host_key_revoked_presented'
   | 'session_rename'
+  | 'session_remove'
+  | 'remote_session_terminated'
+  | 'remote_session_adopted'
   | 'server_create'
   | 'server_update'
   | 'server_delete';

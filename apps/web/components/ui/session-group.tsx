@@ -15,6 +15,8 @@ export interface SessionGroupProps {
   defaultOpen?: boolean;
   /** Small print under the header (e.g. "Latest 20 of 57"). */
   note?: string;
+  /** Under the rows, inside the group (e.g. "Remove all ended…"). */
+  footer?: ReactNode;
   children: ReactNode;
 }
 
@@ -61,6 +63,7 @@ export function SessionGroup({
   collapsible = false,
   defaultOpen = false,
   note,
+  footer,
   children,
 }: SessionGroupProps) {
   const headingId = useId();
@@ -69,6 +72,7 @@ export function SessionGroup({
     <>
       {note ? <p className="px-2.5 pb-1 text-ink-muted text-xs">{note}</p> : null}
       <ul className="flex flex-col gap-0.5">{children}</ul>
+      {footer}
     </>
   );
   if (collapsible) {
@@ -90,7 +94,8 @@ export function SessionGroup({
           </h2>
           <GroupCount count={count} label={countLabel} />
         </summary>
-        <div className="flex flex-col gap-0.5 pt-1">{body}</div>
+        {/* Indented under a guide line from the chevron: the rows read as inside the group. */}
+        <div className="ms-3.5 mt-1 flex flex-col gap-0.5 border-line border-s ps-1.5">{body}</div>
       </details>
     );
   }

@@ -60,6 +60,7 @@ export function createDataPlane(deps: DataPlaneDeps): DataPlane {
   let ws: WsServer | null = null;
   const notifier: UserNotifier = {
     sendToUser: (userId, message) => ws?.sendToUser(userId, message),
+    sessionRemoved: (userId, sessionId) => ws?.sessionRemoved(userId, sessionId),
   };
   const registry = new SessionRegistry({
     store: deps.store,

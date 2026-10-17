@@ -24,7 +24,7 @@ import { type Logger, silentLogger } from '../config/logger.ts';
 import { HeadlessEmulator } from '../emulator/headless-emulator.ts';
 import { type ProbeResult, runProbe, storableProbe } from '../probe/index.ts';
 import type { KeyboardInteractiveRequest } from '../transport/ssh/index.ts';
-import { backoffDelay } from './backoff.ts';
+import { nextRetry, type RetryRound, type RetryStep } from './backoff.ts';
 import { type DriverFactory, tmuxSocketName } from './driver-factory.ts';
 import { type ProtectionChoice, selectProtection } from './protection.ts';
 import { endRemoteServer, type RemoteSweeper } from './remote-sessions.ts';
@@ -43,6 +43,7 @@ import {
   type SessionHost,
   type SessionRecord,
   type SessionStore,
+  type SessionTarget,
   sessionHostKeyTarget,
   type Transport,
   TransportError,
@@ -69,6 +70,17 @@ const CLEANUP_KILL_TIMEOUT_MS = 5_000;
 /** Bounds the whole cleanup once it runs, should a step hang despite its own bound. */
 const CLEANUP_TOTAL_TIMEOUT_MS = 25_000;
 const MAX_TITLE_LENGTH = 256;
+/** The states of a retry round's attempts and waits: they carry its progress, and Stop ends them. */
+const RETRY_STATES: ReadonlySet<SessionState> = new Set([
+  'new',
+  'connecting',
+  'verifying_host',
+  'authenticating',
+  'probing',
+  'starting',
+  'syncing',
+  'reconnecting',
+]);
 
 /**
  * Hooks of a cleanup connection (plan D-30): it changes no session state and never asks anyone
@@ -93,6 +105,11 @@ const NEW_SHELL_RESET =
 /** Delivers user-scoped messages (status, prompts) to every connection of a user. */
 export interface UserNotifier {
   sendToUser(userId: string, message: ServerMessage): void;
+  /**
+   * A session was removed (plan D-32): its viewers' channels end with NOT_FOUND, then the user
+   * gets `session.removed`. Absent: only the message is sent.
+   */
+  sessionRemoved?(userId: string, sessionId: string): void;
 }
 
 export interface SessionRuntimeOptions {
@@ -149,6 +166,8 @@ interface Snapshot {
 }
 
 type Outcome = 'ready' | 'retry' | 'park' | 'stopped' | 'exited';
+/** Progress of the current retry round, carried by its statuses (plan D-31). */
+type RetryProgress = Pick<RetryStep, 'attempt' | 'maxAttempts' | 'retryUntil'>;
 type LifeEnd = 'lost' | 'exited' | 'stopped';
 
 interface AuthPrompt {
@@ -203,6 +222,11 @@ export class SessionRuntime implements SessionHost {
   #loopRunning = false;
   #wake: (() => void) | null = null;
   #abort: AbortController | null = null;
+  #retryProgress: RetryProgress | null = null;
+  /** When the current wait of a round ends (epoch ms); null while an attempt runs. */
+  #retryWaitEnd: number | null = null;
+  /** Code of the round's latest failed attempt: the session waits with it once the round ends. */
+  #lastFailure: string | null = null;
   #life: PromiseWithResolvers<LifeEnd> | null = null;
   readonly #firstAttempt = Promise.withResolvers<void>();
   #transport: Transport | null = null;
@@ -340,6 +364,26 @@ export class SessionRuntime implements SessionHost {
     };
   }
 
+  /**
+   * The current status of a retry round in progress (plan D-31), for clients that connect later:
+   * the summary they get carries no progress, and a wait's `retryInMs` is what remains of it.
+   */
+  retryStatus(): ServerMessage | null {
+    const progress = this.#retryProgress;
+    if (!progress || !RETRY_STATES.has(this.#state)) return null;
+    const waitEnd = this.#state === 'reconnecting' ? this.#retryWaitEnd : null;
+    return {
+      type: 'session.status',
+      sessionId: this.sessionId,
+      status: toSessionStatus(this.#state, this.#wasReady),
+      state: this.#state,
+      ...(waitEnd !== null ? { retryInMs: Math.max(0, waitEnd - this.#now()) } : {}),
+      ...(progress.attempt !== undefined ? { attempt: progress.attempt } : {}),
+      ...(progress.maxAttempts !== undefined ? { maxAttempts: progress.maxAttempts } : {}),
+      ...(progress.retryUntil !== undefined ? { retryUntil: progress.retryUntil } : {}),
+    };
+  }
+
   /** The prompt a user must answer for this session, for clients that connect later. */
   pendingPrompt(): ServerMessage | null {
     if (this.#state === 'awaiting_host_key' && this.#pendingHostKey) {
@@ -374,11 +418,31 @@ export class SessionRuntime implements SessionHost {
     return this.#firstAttempt.promise;
   }
 
-  /** User Retry: reconnect now (skips a pending backoff wait). */
+  /** User Retry: reconnect now (skips a pending wait; a waiting session starts a fresh round). */
   async retry(): Promise<void> {
     if (this.#closed || this.#desired !== 'running' || this.#state === 'ready') return;
     this.#mismatchKey = null;
     this.#kick();
+  }
+
+  /**
+   * User Stop (plan D-31): ends the retry round at once, whether an attempt runs or the loop waits
+   * for the next one. The session then waits as `failed` (`RETRIES_STOPPED`) for Retry or End, and
+   * is not restarted at boot; nothing is ended on the server. Resolves false (nothing changes)
+   * unless the connect loop is trying: connected, ended, or waiting for the user already.
+   */
+  async stopRetrying(actingUserId: string): Promise<boolean> {
+    if (this.#closed || this.#desired !== 'running' || !this.#loopRunning) return false;
+    if (!RETRY_STATES.has(this.#state)) return false;
+    const driver = this.#driver;
+    const transport = this.#transport;
+    this.#stopActivity();
+    this.#event('retries_stopped', undefined, actingUserId);
+    this.#fail(ErrorCode.RetriesStopped);
+    // An attempt past its handshake leaves its connection to us; a tmux it reached keeps running.
+    if (driver) await driver.detach().catch((err) => this.#warn('driver detach', err));
+    if (transport) await closeQuietly(transport);
+    return true;
   }
 
   /**
@@ -663,7 +727,13 @@ export class SessionRuntime implements SessionHost {
   }
 
   async #runLoop(): Promise<void> {
-    let failures = 0;
+    // A round of attempts (plan D-31): a few for a session that never connected; for one that was
+    // connected (before a loss, or before the daemon restarted), retries for a while from the loss.
+    let round: RetryRound = this.#wasReady
+      ? { kind: 'reconnect', since: this.#now() }
+      : { kind: 'first' };
+    let waits = 0;
+    this.#lastFailure = null;
     while (!this.#closed && this.#desired === 'running') {
       const outcome = await this.#attempt();
       this.#firstAttempt.resolve();
@@ -673,7 +743,6 @@ export class SessionRuntime implements SessionHost {
         return;
       }
       if (outcome === 'ready') {
-        failures = 0;
         const end = await this.#life!.promise;
         // Whoever stopped the session (terminate/shutdown) owns the teardown.
         if (end === 'stopped' || this.#closed || this.#desired !== 'running') return;
@@ -693,10 +762,26 @@ export class SessionRuntime implements SessionHost {
           this.#bannerBeforeStart = `connection lost at ${formatClock(lostAt)} · new shell started (session not protected)`;
           this.#resetBeforeStart = true;
         }
+        round = { kind: 'reconnect', since: lostAt };
+        waits = 0;
+        this.#lastFailure = ErrorCode.ConnectionLost;
       }
-      const delay = backoffDelay(failures++, this.#random);
-      this.#setState('reconnecting', { retryInMs: delay });
-      await this.#sleep(delay);
+      const step = nextRetry(round, waits++, this.#now(), this.#random);
+      if (!step) {
+        // The round is over: the session waits for the user with its last failure.
+        this.#event('retries_exhausted', { attempts: waits });
+        this.#fail(this.#lastFailure ?? ErrorCode.HostUnreachable);
+        return;
+      }
+      const { delayMs, ...progress } = step;
+      this.#retryProgress = progress;
+      const gen = this.#generation;
+      this.#retryWaitEnd = this.#now() + delayMs;
+      this.#setState('reconnecting', { retryInMs: delayMs });
+      await this.#sleep(delayMs);
+      this.#retryWaitEnd = null;
+      // Stop or terminate while waiting: whoever stopped the activity owns the state.
+      if (gen !== this.#generation) return;
     }
   }
 
@@ -795,6 +880,7 @@ export class SessionRuntime implements SessionHost {
         this.#fail(ErrorCode.BadLaunchParams);
         return 'park';
       }
+      this.#lastFailure = errorCode(err) ?? ErrorCode.ChannelFailed;
       return 'retry';
     }
   }
@@ -832,6 +918,7 @@ export class SessionRuntime implements SessionHost {
             this.#event('auth_prompt_expired');
             return 'park';
           }
+          this.#lastFailure = err.code;
           return 'retry';
         case ErrorCode.AuthRejected:
         case ErrorCode.CredentialInvalid:
@@ -842,6 +929,7 @@ export class SessionRuntime implements SessionHost {
           this.#fail(err.code);
           return 'park';
         default:
+          this.#lastFailure = err.code;
           return 'retry';
       }
     }
@@ -850,6 +938,7 @@ export class SessionRuntime implements SessionHost {
       return 'park';
     }
     this.#log.info({ err: describeError(err) }, 'connect attempt failed');
+    this.#lastFailure = errorCode(err) ?? ErrorCode.HostUnreachable;
     return 'retry';
   }
 
@@ -1123,10 +1212,26 @@ export class SessionRuntime implements SessionHost {
       if (fresh) {
         this.#record.policies = fresh.policies;
         this.#record.serverId = fresh.serverId;
+        this.#followServer(fresh.serverTarget);
       }
     } catch (err) {
       this.#warn('refresh policies', err);
     }
+  }
+
+  /**
+   * Until its first connection, an SSH session follows its server's address, port, user name and
+   * credential (plan D-31): a mistyped server fixed on its page is used by the next attempt. From
+   * the first `ready` on, the target stays as it was (§9).
+   */
+  #followServer(target: SessionTarget | null | undefined): void {
+    const current = this.#record.target;
+    if (!target || this.#record.lastReadyAt !== null) return;
+    if (target.kind !== 'ssh' || current.kind !== 'ssh' || sameTarget(current, target)) return;
+    this.#record.target = { ...target };
+    this.#store.update(this.sessionId, { target: this.#record.target });
+    this.#event('target_followed', { hostname: target.hostname, port: target.port });
+    this.#onSummaryChange();
   }
 
   // ── state ───────────────────────────────────────────────────────────────────
@@ -1139,6 +1244,9 @@ export class SessionRuntime implements SessionHost {
     if (from === state && extra.detail === undefined && extra.retryInMs === undefined) return;
     this.#state = state;
     this.#statusDetail = extra.detail ?? null;
+    // Every other state ends the round's progress: connected, failed, ended, waiting for the user.
+    if (!RETRY_STATES.has(state)) this.#retryProgress = null;
+    const progress = this.#retryProgress;
     const status = toSessionStatus(state, this.#wasReady);
     this.#store.update(this.sessionId, { state, status });
     this.#event('state_changed', {
@@ -1153,6 +1261,9 @@ export class SessionRuntime implements SessionHost {
       state,
       ...(extra.detail !== undefined ? { detail: extra.detail } : {}),
       ...(extra.retryInMs !== undefined ? { retryInMs: extra.retryInMs } : {}),
+      ...(progress?.attempt !== undefined ? { attempt: progress.attempt } : {}),
+      ...(progress?.maxAttempts !== undefined ? { maxAttempts: progress.maxAttempts } : {}),
+      ...(progress?.retryUntil !== undefined ? { retryUntil: progress.retryUntil } : {}),
       ...(extra.remoteCleanup !== undefined ? { remoteCleanup: extra.remoteCleanup } : {}),
     });
   }
@@ -1444,6 +1555,21 @@ function untilAborted<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
 function cleanupFailureCode(err: unknown): string {
   const code = (err as { code?: unknown } | null | undefined)?.code;
   return typeof code === 'string' ? code : ErrorCode.Internal;
+}
+
+/** The code a failed attempt leaves on the session (plan D-31): Termdock's own codes only. */
+function errorCode(err: unknown): string | null {
+  return err instanceof TermdockError || err instanceof TransportError ? err.code : null;
+}
+
+function sameTarget(a: SessionTarget, b: SessionTarget): boolean {
+  return (
+    a.kind === b.kind &&
+    a.hostname === b.hostname &&
+    a.port === b.port &&
+    a.username === b.username &&
+    a.credentialId === b.credentialId
+  );
 }
 
 function describeError(err: unknown): { name?: string; code?: string; message: string } {

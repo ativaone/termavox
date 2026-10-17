@@ -14,7 +14,8 @@ export type DaemonAuditType =
   | 'host_key.revoked_presented'
   | 'remote_session.terminated'
   | 'remote_session.adopted'
-  | 'session.rename';
+  | 'session.rename'
+  | 'session.remove';
 
 export interface AuditInput {
   type: DaemonAuditType;

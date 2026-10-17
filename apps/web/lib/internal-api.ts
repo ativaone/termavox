@@ -12,6 +12,8 @@ import {
   ListRemoteSessionsResponse,
   ListSessionsResponse,
   type RemoteSession,
+  RemoveEndedSessionsRequest,
+  RemoveEndedSessionsResponse,
   RenameCredentialRequest,
   RenameSessionRequest,
   RenameSessionResponse,
@@ -147,6 +149,23 @@ export class InternalApiClient {
 
   async retrySession(sessionId: string, actingUserId: string): Promise<void> {
     return this.#sessionAction(sessionId, 'retry', actingUserId);
+  }
+
+  /** Stop (plan D-31): ends the session's retry round; CONFLICT when it is not retrying. */
+  async stopSession(sessionId: string, actingUserId: string): Promise<void> {
+    return this.#sessionAction(sessionId, 'stop', actingUserId);
+  }
+
+  /** Remove (plan D-32): deletes an ended session; CONFLICT when it has not ended. */
+  async removeSession(sessionId: string, actingUserId: string): Promise<void> {
+    const body = request(ActingUserRequest, { actingUserId });
+    return this.#call('DELETE', `/sessions/${seg(sessionId)}`, body, null);
+  }
+
+  /** "Remove all ended" (plan D-32): resolves with how many sessions were deleted. */
+  async removeEndedSessions(actingUserId: string): Promise<{ removed: number }> {
+    const body = request(RemoveEndedSessionsRequest, { actingUserId });
+    return this.#call('POST', '/sessions/remove-ended', body, RemoveEndedSessionsResponse);
   }
 
   async reopenSession(sessionId: string, actingUserId: string): Promise<{ sessionId: string }> {
@@ -325,7 +344,7 @@ export class InternalApiClient {
 
   async #sessionAction(
     sessionId: string,
-    action: 'terminate' | 'retry',
+    action: 'terminate' | 'retry' | 'stop',
     actingUserId: string,
   ): Promise<void> {
     const body = request(ActingUserRequest, { actingUserId });

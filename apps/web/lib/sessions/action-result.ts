@@ -19,6 +19,9 @@ export type RenameSessionResult =
 /** Outcome of `terminateAllSessions` ("End all sessions", D-30): how many started ending. */
 export type TerminateAllResult = { ok: true; terminated: number } | SessionActionFailure;
 
+/** Outcome of `removeEndedSessions` ("Remove all ended", D-32): how many were deleted. */
+export type RemoveEndedResult = { ok: true; removed: number } | SessionActionFailure;
+
 /**
  * Outcome of "Check now" on a server page (D-30, lib/actions/remote-sessions.ts): the Termdock
  * tmux servers there that this installation does not run, and how many leftovers of sessions the

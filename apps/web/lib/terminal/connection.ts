@@ -71,6 +71,14 @@ export interface SessionEntry extends SessionSummary {
   /** `retryInMs` of the latest status, received at `statusAt` (client clock), for countdowns. */
   retryInMs: number | null;
   statusAt: number | null;
+  /**
+   * Progress of the retry round in progress (plan D-31), from the latest status: `attempt` of
+   * `maxAttempts` for a session that never connected, `retryUntil` (epoch ms, server clock) for
+   * one that lost its connection. Null outside a round, or before a status of it arrived.
+   */
+  attempt: number | null;
+  maxAttempts: number | null;
+  retryUntil: number | null;
   /** Latched when a status carried `detail: 'remote_rebooted'`; see acknowledgeRemoteReboot. */
   remoteRebooted: boolean;
   /**
@@ -163,6 +171,9 @@ function toEntry(summary: SessionSummary, previous?: SessionEntry): SessionEntry
     detail: summary.statusDetail,
     retryInMs: previous?.retryInMs ?? null,
     statusAt: previous?.statusAt ?? null,
+    attempt: previous?.attempt ?? null,
+    maxAttempts: previous?.maxAttempts ?? null,
+    retryUntil: previous?.retryUntil ?? null,
     // A fresh page shows a pending reboot notice; one this tab already saw stays dismissed if
     // the user dismissed it, and one that happened while the tab was offline latches now.
     remoteRebooted: previous
@@ -544,6 +555,9 @@ export class TermdockConnection {
             detail: detail ?? null,
             retryInMs: retryInMs ?? null,
             statusAt: this.#now(),
+            attempt: message.attempt ?? null,
+            maxAttempts: message.maxAttempts ?? null,
+            retryUntil: message.retryUntil ?? null,
             remoteRebooted: entry.remoteRebooted || detail === 'remote_rebooted',
             remoteCleanup:
               message.state === 'ended' &&

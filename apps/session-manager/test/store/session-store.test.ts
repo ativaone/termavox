@@ -361,3 +361,82 @@ describe('SqliteSessionStore: remote tmux leftovers (plan D-30)', () => {
     expect((await store.get(record.id))?.tmuxPath).toBeNull();
   });
 });
+
+describe('SqliteSessionStore: retries and removal (plan D-31, D-32)', () => {
+  it("reads the server's current target and writes a followed one to the target columns", async () => {
+    const { db, writer, store } = setup();
+    const userId = insertUser(db);
+    const serverId = insertServer(db, userId, { name: 'box', port: 2222 });
+    const record = await store.createFromServer({
+      actingUserId: userId,
+      serverId,
+      viewport: VIEWPORT,
+      enableLocalShell: false,
+    });
+    db.$client
+      .prepare(
+        "UPDATE servers SET hostname = 'Box.Example', port = 22, username = 'ops' WHERE id = ?",
+      )
+      .run(serverId);
+    const fresh = await store.get(record.id);
+    expect(fresh?.target).toMatchObject({ hostname: '127.0.0.1', port: 2222 }); // the snapshot
+    expect(fresh?.serverTarget).toEqual({
+      kind: 'ssh',
+      hostname: 'box.example',
+      port: 22,
+      username: 'ops',
+      credentialId: null,
+    });
+
+    store.update(record.id, { target: fresh!.serverTarget! });
+    expect((await store.get(record.id))?.target.hostname).toBe('box.example'); // queued
+    await writer.flush();
+    const row = db.$client
+      .prepare('SELECT target_hostname, target_port, target_username FROM sessions WHERE id = ?')
+      .get(record.id);
+    expect(row).toEqual({
+      target_hostname: 'box.example',
+      target_port: 22,
+      target_username: 'ops',
+    });
+  });
+
+  it('removes ended sessions only, with their events, audited; one by one or all at once', async () => {
+    const { db, writer, store } = setup();
+    const userId = insertUser(db);
+    const otherId = insertUser(db);
+    const serverId = insertServer(db, userId, { name: 'box' });
+    const create = () =>
+      store.createFromServer({
+        actingUserId: userId,
+        serverId,
+        viewport: VIEWPORT,
+        enableLocalShell: false,
+      });
+    const [live, ended1, ended2] = [await create(), await create(), await create()];
+    for (const { id } of [ended1, ended2]) {
+      store.update(id, { state: 'ended', status: 'ended', desiredState: 'terminated', endedAt: 1 });
+    }
+    await writer.flush();
+
+    await expect(store.remove(userId, live.id)).rejects.toMatchObject({ code: 'CONFLICT' });
+    await expect(store.remove(otherId, ended1.id)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await store.remove(userId, ended1.id);
+    expect(await store.get(ended1.id)).toBeNull();
+    const events = db.$client
+      .prepare('SELECT COUNT(*) AS n FROM session_events WHERE session_id = ?')
+      .get(ended1.id) as { n: number };
+    expect(events.n).toBe(0);
+
+    expect(await store.removeEnded(userId)).toEqual([ended2.id]);
+    expect((await store.listForUser(userId)).map((s) => s.id)).toEqual([live.id]);
+    const audits = db.$client
+      .prepare(
+        "SELECT actor_user_id, target_id, detail_json FROM audit_events WHERE type = 'session.remove'",
+      )
+      .all() as Array<{ actor_user_id: string; target_id: string; detail_json: string }>;
+    expect(audits.map((a) => a.target_id).sort()).toEqual([ended1.id, ended2.id].sort());
+    expect(audits.every((a) => a.actor_user_id === userId)).toBe(true);
+    expect(JSON.parse(audits[0]!.detail_json)).toEqual({ label: 'box' });
+  });
+});

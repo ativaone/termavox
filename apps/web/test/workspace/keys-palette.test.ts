@@ -123,6 +123,17 @@ describe('live bay', () => {
     });
   });
 
+  it('keeps a session in Reconnecting through the attempts of a retry round (D-31)', () => {
+    const attempting = { ...summary('a', 'connecting', 1), attempt: 3, retryUntil: null };
+    const restoring = { ...summary('b', 'restoring', 2), attempt: null, retryUntil: 99 };
+    const plain = { ...summary('c', 'connecting', 3), attempt: null, retryUntil: null };
+    expect(toBayData([attempting, restoring, plain]).sessions.map((s) => s.status)).toEqual([
+      'reconnecting',
+      'reconnecting',
+      'connecting',
+    ]);
+  });
+
   it('takes the kind from the summary and marks a session whose server was deleted', () => {
     const local = {
       ...summary('here', 'connected', 5),

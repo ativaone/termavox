@@ -24,6 +24,7 @@ import {
   type SessionRecord,
   type SessionRecordPatch,
   type SessionStore,
+  type SessionTarget,
   type Transport,
   TransportError,
 } from '../../src/core/types.ts';
@@ -167,6 +168,26 @@ export class MemorySessionStore implements SessionStore {
 
   appendEvent(sessionId: string, event: SessionEventInput): void {
     this.events.push({ sessionId, ...event });
+  }
+
+  /** Like the SQLite store (plan D-32), without the audit row. */
+  async remove(userId: string, sessionId: string): Promise<void> {
+    const record = this.records.get(sessionId);
+    if (!record || record.userId !== userId) {
+      throw new TermdockError(ErrorCode.NotFound, 'session not found');
+    }
+    if (record.state !== 'ended') {
+      throw new TermdockError(ErrorCode.Conflict, 'only ended sessions can be removed');
+    }
+    this.records.delete(sessionId);
+  }
+
+  async removeEnded(userId: string): Promise<string[]> {
+    const ids = [...this.records.values()]
+      .filter((r) => r.userId === userId && r.state === 'ended')
+      .map((r) => r.id);
+    for (const id of ids) this.records.delete(id);
+    return ids;
   }
 
   /** `max_running_sessions_per_user` of the SQLite store. */
@@ -392,16 +413,19 @@ export class FakeTransport implements Transport {
 export class FakeTransportFactory implements TransportFactory {
   readonly created: FakeTransport[] = [];
   readonly times: number[] = [];
+  /** The session target each transport was created for. */
+  readonly targets: SessionTarget[] = [];
   readonly #behavior: (attempt: number) => FakeTransportBehavior;
 
   constructor(behavior: (attempt: number) => FakeTransportBehavior = () => ({})) {
     this.#behavior = behavior;
   }
 
-  async create(_record: SessionRecord, hooks: TransportHooks): Promise<FakeTransport> {
+  async create(record: SessionRecord, hooks: TransportHooks): Promise<FakeTransport> {
     const transport = new FakeTransport(hooks, this.#behavior(this.created.length));
     this.created.push(transport);
     this.times.push(Date.now());
+    this.targets.push({ ...record.target });
     return transport;
   }
 

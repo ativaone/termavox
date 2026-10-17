@@ -26,6 +26,8 @@ export const ErrorCode = {
   /** The SSH target resolves only to addresses the daemon's target policy denies. */
   TargetNotAllowed: 'TARGET_NOT_ALLOWED',
   SessionEnded: 'SESSION_ENDED',
+  /** The user stopped a session's connection retries (plan D-31): it waits for Retry or End. */
+  RetriesStopped: 'RETRIES_STOPPED',
   /** A session label is empty or longer than 120 characters once cleaned and trimmed. */
   LabelInvalid: 'LABEL_INVALID',
   Internal: 'INTERNAL',

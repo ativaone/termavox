@@ -16,6 +16,7 @@ export interface SessionGateway {
   /** Loads the runtime of an existing session for attaching; null when it does not exist. */
   attachable(sessionId: string): Promise<SessionHost | null>;
   listForUser(userId: string): Promise<SessionSummary[]>;
+  /** Prompts and retry progress waiting for this user, replayed after `sessions.list`. */
   pendingPrompts(userId: string): ServerMessage[];
   hostKeyDecision(
     sessionId: string,

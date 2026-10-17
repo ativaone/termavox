@@ -16,6 +16,11 @@ export const FAILURE_KEYS = {
   LOCAL_SHELL_DISABLED: 'localShellDisabled',
   BAD_LAUNCH_PARAMS: 'badLaunchParams',
   TARGET_NOT_ALLOWED: 'targetNotAllowed',
+  // A retry round that ran out leaves its last failure (plan D-31); Stop leaves its own code.
+  CONNECTION_LOST: 'connectionLost',
+  CHANNEL_FAILED: 'channelFailed',
+  AUTH_TIMEOUT: 'authTimeout',
+  RETRIES_STOPPED: 'retriesStopped',
 } as const;
 
 /** End reasons (`sessions.end_reason`, the detail of `ended`), mapped to their message key. */

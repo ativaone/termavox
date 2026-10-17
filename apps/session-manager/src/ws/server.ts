@@ -153,6 +153,23 @@ export class WsServer implements UserNotifier {
   }
 
   /**
+   * A session was removed (plan D-32): every channel of the user's connections bound to it ends
+   * (an `error` NOT_FOUND on that channel, as for an attach to a missing session), then each
+   * connection gets `session.removed`.
+   */
+  sessionRemoved(userId: string, sessionId: string): void {
+    for (const conn of this.#byUser.get(userId) ?? []) {
+      for (const [channel, binding] of conn.channels) {
+        if (binding.sessionId !== sessionId) continue;
+        conn.channels.delete(channel);
+        binding.handle.close();
+        this.#error(conn, ErrorCode.NotFound, 'session not found', { channel, sessionId });
+      }
+      conn.send({ type: 'session.removed', sessionId });
+    }
+  }
+
+  /**
    * Closes the connections of an auth session or a user with 4401 (internal API
    * `auth-sessions/revoke`). Returns how many were closed.
    */

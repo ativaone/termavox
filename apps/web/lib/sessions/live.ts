@@ -9,11 +9,18 @@ import type { BayData, BaySession, SessionLabel } from './types.ts';
  * ENDED_SHOWN ended ones, newest first.
  */
 
-export function toBaySession(summary: SessionSummary): BaySession {
+/** A live entry may carry the progress of a retry round (plan D-31, `session.status`). */
+type LiveSummary = SessionSummary & { attempt?: number | null; retryUntil?: number | null };
+
+export function toBaySession(summary: LiveSummary): BaySession {
+  // Between the attempts of a retry round the row stays in Reconnecting instead of jumping to
+  // Connecting and back at every attempt.
+  const retrying = (summary.attempt ?? null) !== null || (summary.retryUntil ?? null) !== null;
+  const attempting = summary.status === 'connecting' || summary.status === 'restoring';
   return {
     id: summary.id,
     label: summary.label,
-    status: summary.status,
+    status: retrying && attempting ? 'reconnecting' : summary.status,
     protection: summary.protection,
     kind: summary.kind,
     username: summary.username,
@@ -28,7 +35,7 @@ export function toBaySession(summary: SessionSummary): BaySession {
 const byId = (a: SessionSummary, b: SessionSummary): number =>
   a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 
-export function toBayData(summaries: readonly SessionSummary[]): BayData {
+export function toBayData(summaries: readonly LiveSummary[]): BayData {
   const live = summaries
     .filter((s) => s.status !== 'ended')
     .sort((a, b) => a.createdAt - b.createdAt || byId(a, b));

@@ -16,8 +16,10 @@ import {
 import type { Locale } from '../../i18n/locales.ts';
 import {
   createSession,
+  removeSession,
   reopenSession,
   retrySession,
+  stopSession,
   terminateSession,
 } from '../../lib/actions/sessions.ts';
 import { withReturnPath } from '../../lib/manage/return-to.ts';
@@ -492,6 +494,8 @@ export function WorkspaceShell({
     async (kind: SessionActionKind, sessionId: string): Promise<SessionActionResult> => {
       try {
         if (kind === 'retry') return await retrySession(sessionId);
+        if (kind === 'stop') return await stopSession(sessionId);
+        if (kind === 'remove') return await removeSession(sessionId);
         if (kind === 'reopen') return await reopenSession(sessionId);
         return await terminateSession(sessionId);
       } catch {

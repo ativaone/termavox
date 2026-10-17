@@ -195,8 +195,7 @@
     "strip": {
       "open": "Open {label}",
       "running": "Running for {duration}",
-      "endedAgo": "Ended {ago}",
-      "stamp": "Ended"
+      "endedAgo": "Ended {ago}"
     },
     "duration": {
       "days": "{days}d {hours}h",
@@ -280,6 +279,12 @@
       "body": "{count, plural, one {# session ends, and the programs running in it stop on its server.} other {# sessions end, and the programs running in them stop on their servers.}} This can't be undone.",
       "confirm": "{count, plural, one {End # session} other {End # sessions}}"
     },
+    "removeEnded": {
+      "open": "Remove all ended…",
+      "title": "Remove all ended sessions?",
+      "body": "{count, plural, one {# ended session leaves the list, with its history.} other {# ended sessions leave the list, with their history.}} This can't be undone.",
+      "confirm": "{count, plural, one {Remove # session} other {Remove # sessions}}"
+    },
     "sidebar": {
       "collapse": "Collapse the session list",
       "expand": "Expand the session list"
@@ -289,8 +294,15 @@
       "reconnectingIn": "Reconnecting in {seconds, plural, one {# second} other {# seconds}}",
       "reconnectingNow": "Reconnecting…",
       "reconnectingBody": "The connection to {server} dropped. Termdock keeps trying.",
+      "reconnectingUntil": "The connection to {server} dropped. Termdock keeps trying until {time}.",
+      "nextAttemptIn": "Next attempt in {seconds, plural, one {# second} other {# seconds}}",
+      "attemptingNow": "Trying to connect…",
+      "firstAttemptBody": "Couldn't connect to {server} yet. Attempt {attempt} of {max}.",
+      "firstBody": "Couldn't connect to {server} yet.",
       "retryNow": "Retry now",
+      "stop": "Stop",
       "retry": "Retry",
+      "editServer": "Edit server",
       "terminate": "End",
       "disconnectedTitle": "Disconnected",
       "endedTitle": "Session ended",
@@ -334,13 +346,18 @@
       "authRejected": "The server rejected the credential.",
       "credentialInvalid": "The stored credential can't be used. Check it on the credentials page.",
       "hostKeyRejected": "You rejected the host key.",
-      "hostUnreachable": "The server can't be reached.",
+      "hostUnreachable": "The server can't be reached. Retry when it's back.",
+      "hostUnreachableFirst": "The server can't be reached. Check its address and port: a fix on the server's page is used when you retry.",
       "serverDeleted": "This session's server was deleted, so it can't connect again.",
       "forbidden": "Your account isn't allowed to open this session.",
       "localShellDisabled": "Local shells aren't available yet: direct mode arrives in a later version.",
       "hostKeyMismatch": "The server presented a different key than the trusted one.",
       "badLaunchParams": "The server's startup command or environment contains characters Termdock can't pass to it safely. Edit the server, then retry.",
       "targetNotAllowed": "This server's address points at the machine running Termdock, or at a loopback, link-local or multicast address, which this installation doesn't allow.",
+      "connectionLost": "The connection to the server dropped.",
+      "channelFailed": "The server accepted the connection but couldn't start the terminal.",
+      "authTimeout": "The server didn't finish the sign-in in time.",
+      "retriesStopped": "You stopped the attempts. The session waits until you retry or end it.",
       "generic": "The connection failed and won't be retried automatically."
     },
     "endReason": {
@@ -371,8 +388,13 @@
       "reopen": "Reopen",
       "rename": "Rename…",
       "terminate": "End…",
-      "terminateQuestion": "End {label}? The shell and everything running in it stop. This can't be undone.",
+      "remove": "Remove from list…",
+      "removeQuestion": "Remove {label} from the list? Its history goes with it. This can't be undone.",
+      "removeConfirm": "Remove session",
+      "terminateQuestion": "End {label}? Its shell and every program running in it stop on the server. This can't be undone.",
       "terminateConfirm": "End session",
+      "terminateTipTitle": "Tip",
+      "terminateTip": "Only leaving? Close the tab or the pane, or even the browser: the session keeps running, and you can come back to it whenever you like.",
       "cancel": "Cancel"
     },
     "palette": {
@@ -451,6 +473,8 @@
       "generic": "Something went wrong. Try again.",
       "localShellDisabled": "Local shells aren't available yet: direct mode arrives in a later version.",
       "reopenConflict": "Only ended or unprotected sessions can be reopened.",
+      "stopConflict": "The session is no longer trying to connect.",
+      "removeConflict": "Only ended sessions can be removed.",
       "labelInvalid": "Session names need 1 to 120 visible characters."
     }
   },
@@ -1285,6 +1309,9 @@
         "host_key_mismatch": "Host key mismatch",
         "host_key_revoked_presented": "Revoked host key presented",
         "session_rename": "Session renamed",
+        "session_remove": "Session removed",
+        "remote_session_terminated": "Session on a server ended",
+        "remote_session_adopted": "Session on a server adopted",
         "server_create": "Server added",
         "server_update": "Server changed",
         "server_delete": "Server deleted"
