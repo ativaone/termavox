@@ -1536,6 +1536,7 @@ Each session runs in its own detached **session host** process (`termdock-sessio
 | Test image with tmux < 3.2 (Phase 7) | None approved (D-22); the normal-mode fallback stays untested until the owner approves one when P7 starts |
 | Security contact channel | None yet (`SECURITY.md` and `docs/security.md` say so); an email address or GitHub private vulnerability reporting is needed before the repository goes public |
 | UI font sign-off (D-26) | Plus Jakarta Sans on trial; `@fontsource-variable/archivo` stays in `apps/web/package.json`, unused, until the owner signs off, then it is removed |
+| Running behind a reverse proxy | For now Termdock gets its own subdomain at the root, e.g. `termdock.example.com`, served by Caddy with ACME (`TERMDOCK_TLS=auto`, ports 80/443). Discussed with the owner, not decided: a proxy mode set from `.env` (Caddy on plain HTTP on a chosen port, listening on loopback, trusting `X-Forwarded-For` only from the proxy's address, plus an install-guide section with an nginx example covering WebSocket upgrade and timeouts), and a sub-path such as `/termdock` (`TERMDOCK_BASE_PATH`, needs an image rebuild since Next.js inlines `basePath`, plus an audit of fixed paths). Caddy stays either way: one entry for `/ws` and the app, the client IP and HSTS. |
 | ssh2 ed25519 key generation bug | `generateKeyPairSync('ed25519')` emits a key that does not parse back about once in 400; worked around in `vault/credentials.ts` (`generateEd25519Key`, retries); reporting it upstream waits for the owner's OK |
 
 ---
