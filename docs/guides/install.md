@@ -81,7 +81,7 @@ cp deploy/.env.example deploy/.env
 | `TERMDOCK_HTTP_PORT` | `80` | HTTP port, published on the host. It redirects to HTTPS on `TERMDOCK_HTTPS_PORT` |
 | `TERMDOCK_HTTPS_PORT` | `443` | HTTPS port, published on the host (TCP, plus UDP for HTTP/3). Caddy listens on the same ports inside its container |
 | `TERMDOCK_PUBLIC_URL` | `https://<domain>:<https port>` | The browser-facing URL. It is used for Origin checks and cookies, and a `:443` suffix is normalized away. Set it only when browsers reach Termdock under another URL, for example through a port forward |
-| `TERMDOCK_TLS` | `auto` | `auto` or `internal` (see [Domain and TLS](#domain-and-tls)) |
+| `TERMDOCK_TLS` | `auto` (the env template sets `internal`) | `internal` for localhost, IP addresses and LAN names; `auto` for a public domain (see [Domain and TLS](#domain-and-tls)) |
 | `TERMDOCK_LOG_LEVEL` | `info` | session-manager log level |
 | `TERMDOCK_DAEMON_MEM_LIMIT` | `1g` | Memory limit of the session-manager container (Compose `mem_limit`). Raise it for many concurrent sessions or long scrollback |
 | `TERMDOCK_WEB_MEM_LIMIT` | `768m` | Memory limit of the web container |
@@ -124,16 +124,18 @@ Sign in. The empty workspace offers **Add your first server**, which opens one p
 
 ## Domain and TLS
 
-- **`TERMDOCK_TLS=auto`** (default) uses Caddy's automatic HTTPS. For `localhost` and IP addresses, Caddy issues certificates from its own local CA, which is the same as `tls internal`. For a public domain, it obtains a Let's Encrypt or ZeroSSL certificate over ACME. That needs ports 80 and 443 reachable from the internet.
-- **`TERMDOCK_TLS=internal`** always uses Caddy's local CA, for example for a LAN-only name such as `termdock.lan` that no public CA can validate.
+- **`TERMDOCK_TLS=internal`** uses Caddy's own local CA, with certificates valid for 30 days: for `localhost`, IP addresses and LAN-only names such as `termdock.lan` that no public CA can validate. `deploy/.env.example` sets it for the localhost trial.
+- **`TERMDOCK_TLS=auto`** (the default when the variable is not set) uses Caddy's automatic HTTPS. For a public domain, it obtains a Let's Encrypt or ZeroSSL certificate over ACME, which needs ports 80 and 443 reachable from the internet. For `localhost` and IP addresses it falls back to the local CA, but with Caddy's default 12-hour certificates, so prefer `internal` there.
 
-To switch from the localhost trial to a real domain, set `TERMDOCK_DOMAIN=termdock.example.com` in `deploy/.env` (keep `TERMDOCK_TLS=auto`) and run `docker compose -f deploy/compose.yaml up -d`. Compose recreates the containers with the new domain and public URL.
+To switch from the localhost trial to a real domain, set `TERMDOCK_DOMAIN=termdock.example.com` and `TERMDOCK_TLS=auto` in `deploy/.env` and run `docker compose -f deploy/compose.yaml up -d`. Compose recreates the containers with the new domain and public URL.
 
 Browsers do not trust Caddy's local CA by default. To trust it on a machine, export the root certificate and import it into that machine's trust store or browser:
 
 ```bash
 docker compose -f deploy/compose.yaml cp caddy:/data/caddy/pki/authorities/local/root.crt ./termdock-local-ca.crt
 ```
+
+If you accept the browser's security warning instead, the browser accepts that one certificate. When Caddy renews it (about every 20 days with `internal`, every 8 hours with `auto` on localhost), new requests are refused until you reload the page and accept the warning again, while terminals already open keep working: an action then says it could not reach Termdock. Importing the root certificate avoids this.
 
 The certificates and the local CA live in the `caddy-data` volume, so they survive restarts and upgrades.
 

@@ -40,7 +40,7 @@ is required.
 | `TERMDOCK_HTTP_PORT` | `80` | caddy | HTTP port, published on the host and used inside the container. Redirects to HTTPS on `TERMDOCK_HTTPS_PORT`. |
 | `TERMDOCK_HTTPS_PORT` | `443` | caddy | HTTPS port, published on the host (TCP, plus UDP for HTTP/3) and used inside the container. |
 | `TERMDOCK_PUBLIC_URL` | `https://<TERMDOCK_DOMAIN>:<TERMDOCK_HTTPS_PORT>` | web, session-manager | The browser-facing URL (see the service tables). A `:443` suffix is normalized away. Set it only when browsers reach Termdock under another URL, for example through a port forward. |
-| `TERMDOCK_TLS` | `auto` | caddy | `auto`: Caddy's automatic HTTPS (its local CA for `localhost` and IP addresses, ACME for public domains). `internal`: always Caddy's local CA. See [Domain and TLS](install.md#domain-and-tls). |
+| `TERMDOCK_TLS` | `auto` | caddy | `internal`: Caddy's local CA, 30-day certificates (the env template's choice, for localhost, IP addresses and LAN names). `auto`: Caddy's automatic HTTPS, ACME for public domains and the local CA with 12-hour certificates for `localhost` and IP addresses. See [Domain and TLS](install.md#domain-and-tls). |
 | `TERMDOCK_LOG_LEVEL` | `info` | session-manager | Daemon log level. web has no log level setting. |
 | `TERMDOCK_DAEMON_MEM_LIMIT` | `1g` | Compose `mem_limit` of session-manager | Memory ceiling of the daemon container. Raise it for many concurrent sessions or long scrollback. |
 | `TERMDOCK_WEB_MEM_LIMIT` | `768m` | Compose `mem_limit` of web | Memory ceiling of the web container. |

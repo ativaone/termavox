@@ -433,7 +433,7 @@
     "notice": {
       "tabLimit": "You have 32 tabs open. Close one to open another.",
       "paneLimit": "This tab can't hold more panes. Open the session in a new tab instead.",
-      "actionFailed": "Termdock didn't answer. Check your connection and try again."
+      "actionFailed": "Couldn't reach Termdock. Reload the page and try again."
     },
     "remoteSessions": {
       "title": "Sessions found on {server}",

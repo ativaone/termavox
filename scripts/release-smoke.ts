@@ -26,6 +26,7 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { connect as tlsConnect } from 'node:tls';
 import en from '../apps/web/messages/en.json' with { type: 'json' };
 import { type CdpPage, type Chromium, findChromium, launchChromium, sleep } from './cdp.ts';
 
@@ -365,6 +366,25 @@ async function startStack(): Promise<void> {
   info('starting the stack (compose up --wait; images are never built here)');
   const up = await compose(['up', '-d', '--no-build', '--wait', '--wait-timeout', '300'], true);
   check('stack', up.code === 0, `project ${PROJECT} is up and healthy`, `exit ${up.code}`);
+  // A browser that only accepted the warning must not lose new requests every few hours (D-34).
+  const days = await certificateDaysLeft(HTTPS_PORT);
+  check('stack', days >= 25, 'the local-CA certificate is valid for about 30 days', `${days} days`);
+}
+
+/** Days until the certificate Caddy serves for localhost expires (no chain validation). */
+function certificateDaysLeft(port: number): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const socket = tlsConnect(
+      { host: '127.0.0.1', port, servername: 'localhost', rejectUnauthorized: false },
+      () => {
+        const notAfter = Date.parse(socket.getPeerCertificate().valid_to);
+        socket.end();
+        resolve(Math.floor((notAfter - Date.now()) / 86_400_000));
+      },
+    );
+    socket.once('error', reject);
+    socket.setTimeout(10_000, () => socket.destroy(new Error('TLS handshake timed out')));
+  });
 }
 
 async function setupAdmin(page: CdpPage, password: string): Promise<void> {

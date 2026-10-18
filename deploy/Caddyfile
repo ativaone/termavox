@@ -6,7 +6,7 @@
 #   TERMDOCK_DOMAIN      site address, e.g. termdock.example.com (default: localhost)
 #   TERMDOCK_HTTP_PORT   HTTP listener, also the published host port (default: 80)
 #   TERMDOCK_HTTPS_PORT  HTTPS listener, also the published host port (default: 443)
-#   TERMDOCK_TLS         auto (default) | internal, see the tls_* snippets below
+#   TERMDOCK_TLS         auto (compose default) | internal, see the tls_* snippets below
 #
 # Security headers (CSP, Referrer-Policy, nosniff, Permissions-Policy, Cross-Origin-Opener-Policy)
 # come from web and pass through unchanged; only HSTS is added here.
@@ -17,19 +17,33 @@
 	admin off
 	# Never try to install Caddy's local CA into the container's trust store.
 	skip_install_trust
+	# The local CA's intermediate outlives the 30-day certificates of tls_internal (a certificate
+	# never outlives its intermediate: Caddy cuts it short). Caddy's default is 7 days.
+	pki {
+		ca local {
+			intermediate_lifetime 90d
+		}
+	}
 }
 
-# TERMDOCK_TLS=auto: Caddy's automatic HTTPS. `localhost` and IP addresses get certificates from
-# Caddy's local CA (the same as `tls internal`); a public domain gets a Let's Encrypt/ZeroSSL
-# certificate over ACME (ports 80 and 443 must be reachable from the internet).
+# TERMDOCK_TLS=auto: Caddy's automatic HTTPS. A public domain gets a Let's Encrypt/ZeroSSL
+# certificate over ACME (ports 80 and 443 must be reachable from the internet). `localhost` and IP
+# addresses get certificates from Caddy's local CA with its default 12-hour lifetime; use
+# internal for those.
 (tls_auto) {
 }
 
-# TERMDOCK_TLS=internal: always use Caddy's local CA, e.g. for a LAN-only name such as
-# termdock.lan. Browsers trust it only after importing the root certificate (see the install
-# guide).
+# TERMDOCK_TLS=internal: always use Caddy's local CA, for localhost, IP addresses or a LAN-only name
+# such as termdock.lan. Browsers trust it only after importing the root certificate (see the
+# install guide). A browser that only accepted the warning accepted that one certificate, and a
+# renewed one is refused until the warning is accepted again: certificates last 30 days (plan
+# D-34), so that happens about every 20 days instead of every 8 hours with Caddy's default.
 (tls_internal) {
-	tls internal
+	tls {
+		issuer internal {
+			lifetime 30d
+		}
+	}
 }
 
 # Plain HTTP: redirect to HTTPS on the published port. Caddy's automatic redirect leaves the port

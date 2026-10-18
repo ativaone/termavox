@@ -433,7 +433,7 @@
     "notice": {
       "tabLimit": "Você tem 32 abas abertas. Feche uma para abrir outra.",
       "paneLimit": "Esta aba não comporta mais painéis. Abra a sessão em uma nova aba.",
-      "actionFailed": "O Termdock não respondeu. Confira sua conexão e tente de novo."
+      "actionFailed": "Não foi possível falar com o Termdock. Recarregue a página e tente de novo."
     },
     "remoteSessions": {
       "title": "Sessões encontradas em {server}",

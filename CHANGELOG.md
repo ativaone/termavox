@@ -10,6 +10,10 @@ The first release, v0.1.0, is being prepared.
 
 ### Upgrade notes
 
+- Certificates from Caddy's local CA (`TERMDOCK_TLS=internal`) now last 30 days instead of 12
+  hours. A `localhost` or IP install that never set `TERMDOCK_TLS` uses `auto`, which keeps 12-hour
+  certificates there: add `TERMDOCK_TLS=internal` to `deploy/.env`. Caddy switches within about a
+  week, once it renews its intermediate certificate; nothing else needs to change.
 - Development builds of `main` from before servers replaced hosts and connection profiles
   (plan D-29) cannot be migrated: start from an empty database as described in the
   installation guide, [Upgrades](docs/guides/install.md#upgrades), "When the notes say the data
