@@ -38,8 +38,8 @@ whoever builds last decides which daemon every page talks to.
 - **Real states, not mocks.** Drive the daemon through `c.api()` and the UI; check every scene
   with `c.check()` so a broken state fails the run instead of producing a misleading picture.
   `finish()` writes `console.json` (page errors) and `measurements.json` next to the images.
-- **Locale.** Review pages for the owner use `locale: 'pt-BR'`; `docs/screenshots` uses `en`.
-  Read labels from `apps/web/messages/*.json` instead of hard-coding them.
+- **Locale.** Review captures use the reviewer's language; `docs/screenshots` uses `en`. Read
+  labels from `apps/web/messages/*.json` instead of hard-coding them.
 
 ## Getting a session into a state
 

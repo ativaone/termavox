@@ -3,8 +3,9 @@
 - Everything in the repository is in English: code, comments, docs and commit messages.
 - Product and architecture decisions are the D-xx rows in `docs/implementation-plan.md`. A change
   that departs from one adds a new row that supersedes it, rather than silently diverging. Its §3
-  glossary is the vocabulary: servers, credentials, sessions. Hosts and connection profiles are
-  gone since D-29; keep the words out of code, UI copy and docs.
+  glossary is the vocabulary: servers, credentials, sessions. The host and connection-profile
+  records are gone since D-29 (a server holds both); don't bring them back as entities, routes or
+  UI copy. `hostname`, host keys (`known_host_keys`) and the Docker-host preset keep their names.
 - Where the rest lives, updated in the same change: the visual system and component behaviour in
   `apps/web/DESIGN.md` (UI work goes through the vendored `impeccable` skill, D-19), users and
   purpose in `apps/web/PRODUCT.md`, operator procedures in `docs/guides/`, spike outcomes in
@@ -12,9 +13,11 @@
   existing install must do under its "Upgrade notes".
 - Each verified functional block is committed and pushed to `origin main` (owner decision D-20,
   plan §16.2.1): the block's files by explicit path; subagents never commit. Verification is lean
-  (D-21, plan §15): `pnpm check` always; `pnpm test:area <terminal|ssh|tmux>` when that area
-  changed, which needs the test sshd containers (`docker compose -f test/sshd/compose.yaml up -d
-  --build`, and `down` after); `pnpm test:release` before a release.
+  (D-21, plan §15): `pnpm check` always; when an area changed, its integration tests:
+  `pnpm test:area <terminal|ssh|tmux>`, and for the `*.int.test.ts` files outside those areas
+  (daemon, web terminal) `pnpm exec vitest run --project t1 <path>`. They need the test sshd
+  containers (`docker compose -f test/sshd/compose.yaml up -d --build`, and `down` after).
+  `pnpm test:release` runs before a release.
 - `deploy/compose.yaml` pins the compose project name `termdock`: `docker compose -f
   deploy/compose.yaml` without `-p` acts on the machine's real install. Test stacks pass
   `-p termdock-smoke` or use `test/sshd/compose.yaml` (project `termdock-sshd`).
