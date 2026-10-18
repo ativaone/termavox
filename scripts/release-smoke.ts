@@ -21,13 +21,13 @@
 // TERMDOCK_SMOKE_EDGE_SUBNET.
 import { spawn } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { createServer } from 'node:net';
-import { homedir, tmpdir } from 'node:os';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import en from '../apps/web/messages/en.json' with { type: 'json' };
-import { type CdpPage, type Chromium, launchChromium, sleep } from './cdp.ts';
+import { type CdpPage, type Chromium, findChromium, launchChromium, sleep } from './cdp.ts';
 
 const ROOT = join(import.meta.dirname, '..');
 const PROJECT = 'termdock-smoke';
@@ -211,32 +211,12 @@ function fingerprint(publicKeyLine: string): string {
 const sha256 = (data: Buffer | string) => createHash('sha256').update(data).digest('hex');
 const js = (value: unknown) => JSON.stringify(value);
 
-function findChromium(): string {
-  const configured = process.env.TERMDOCK_SMOKE_CHROME;
-  if (configured) {
-    if (!existsSync(configured)) {
-      throw new SmokeFailure(`TERMDOCK_SMOKE_CHROME=${configured} does not exist`);
-    }
-    return configured;
+function chromium(): string {
+  try {
+    return findChromium();
+  } catch (err) {
+    throw new SmokeFailure((err as Error).message);
   }
-  const cache = join(homedir(), '.cache', 'ms-playwright');
-  const candidates = existsSync(cache)
-    ? readdirSync(cache)
-        .filter((name) => name.startsWith('chromium_headless_shell-'))
-        .sort((a, b) => Number(b.split('-')[1]) - Number(a.split('-')[1]))
-        .map((name) => join(cache, name, 'chrome-headless-shell-linux64', 'chrome-headless-shell'))
-        .filter((path) => existsSync(path))
-    : [];
-  const found = candidates[0];
-  if (!found) {
-    throw new SmokeFailure(
-      'no headless Chromium found. The smoke drives the real web UI over the DevTools protocol ' +
-        'and needs a local Chromium binary (it is not a project dependency). Set ' +
-        'TERMDOCK_SMOKE_CHROME to a chrome-headless-shell or chromium executable, or install ' +
-        `one under ${cache}/chromium_headless_shell-<rev>/chrome-headless-shell-linux64/.`,
-    );
-  }
-  return found;
 }
 
 function availableMb(): number {
@@ -337,7 +317,7 @@ const cspViolations: string[] = [];
 const pageErrors: string[] = [];
 
 async function preflight(): Promise<string> {
-  const chrome = findChromium();
+  const chrome = chromium();
   info(`Chromium: ${chrome}`);
   const free = await run('free', ['-m']);
   for (const line of free.stdout.trimEnd().split('\n')) info(`free -m | ${line}`);

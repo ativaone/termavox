@@ -10,11 +10,11 @@ release notes or the delivery report.
    on-screen keyboard and the extra-key bar (Esc, Tab, Ctrl, Alt, arrows, paste), rotate the
    screen, lock the phone for a minute and come back: the session is still there.
 3. **Both locales.** Switch en ↔ pt-BR (the corner control on the sign-in page; account menu →
-   Language… once signed in); walk sign-in, the workspace, hosts and admin pages in each; no
+   Language… once signed in); walk sign-in, the workspace, servers and admin pages in each; no
    untranslated or truncated text; the choice persists after signing out and in.
-4. **Host-key mismatch.** Change the host key of a trusted test host (or point a host at
+4. **Host-key mismatch.** Change the host key of a trusted test server (or point a server at
    another sshd): the session fails with the red mismatch alert and offers no in-flow accept;
-   "Replace trusted key" on the host page asks for the host name and then connects.
+   replacing the trusted key on the server page asks for the address and then connects.
 5. **Keyboard-interactive / OTP host.** Against a host with keyboard-interactive or OTP
    sign-in: the prompt appears in the browser (secret answers masked), a correct answer
    connects, and after letting a prompt expire the next attempt prompts again.
@@ -23,8 +23,8 @@ release notes or the delivery report.
    `deploy/scripts/restore.sh --yes <backup>`: the change is gone, users, servers and sessions
    metadata are back, and a protected session resumes.
 7. **Screenshots, when the UI changed significantly.** Refresh `docs/screenshots/` (the images
-   its README and the project README show) from a real run: desktop 1440×900 at 1x, phone
-   390×844 at 2x, default font hinting. Otherwise optional: worth doing only when a capture run
+   its README and the project README show) from a real run (`scripts/ui-capture.ts`): desktop
+   1440×900 at 1x, phone 390×844 at 2x, default font hinting. Otherwise optional: worth doing only when a capture run
    happens anyway.
 8. **CHANGELOG and version.** `CHANGELOG.md` moves the release out of `[Unreleased]` with the
    date; the `version` fields match the tag; the upgrade notes mention anything operators must

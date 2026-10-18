@@ -8,7 +8,7 @@ web
 
 ## Stack
 
-Decided by the owner and the implementation plan (`docs/implementation-plan.md`): Next.js 16 (App Router) + React 19 for the web control plane, xterm.js 6 for terminals, Tailwind 4, `next-intl` (English default, pt-BR), Better Auth. A separate Node.js daemon (`apps/session-manager`) holds the sessions. The visual layer (tokens, typography, component styling) is not decided yet and belongs to the design pass.
+Decided by the owner and the implementation plan (`docs/implementation-plan.md`): Next.js 16 (App Router) + React 19 for the web control plane, xterm.js 6 for terminals, Tailwind 4, `next-intl` (English default, pt-BR), Better Auth. A separate Node.js daemon (`apps/session-manager`) holds the sessions. The visual layer (tokens, typography, component styling) is `DESIGN.md` (plan D-26).
 
 ## Users
 
@@ -37,7 +37,7 @@ The browser lifecycle is not the terminal lifecycle. Unlike web SSH gateways tha
 - Login with username + password and optional TOTP (an admin can require it). Admin pages: users, instance settings, audit log.
 - UI language: English by default, pt-BR selectable; both ship in the first release. All strings are externalized.
 - Terminal rendering inside panes is xterm.js; the app chrome around it is ours to design.
-- Undecided: license and the public repository/organization name.
+- License: AGPL-3.0-only (plan D-24). Undecided: the public repository/organization name.
 
 ## Brand Commitments
 

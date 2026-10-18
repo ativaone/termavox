@@ -1,9 +1,12 @@
-// A minimal Chrome DevTools Protocol client for the release smoke (scripts/release-smoke.ts).
+// A minimal Chrome DevTools Protocol client for the release smoke (scripts/release-smoke.ts) and
+// UI capture sessions (scripts/ui-capture.ts).
 // It drives a locally installed headless Chromium over CDP with Node's built-in WebSocket client:
 // no browser-automation package, no new dependency. Page-side code is passed as JavaScript
 // source strings (the root tsconfig has no DOM types) and runs with a small helper prelude.
 import { type ChildProcess, spawn } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 
 type Params = Record<string, unknown>;
 type Listener = (params: Params, sessionId: string | undefined) => void;
@@ -362,6 +365,38 @@ function devtoolsUrl(child: ChildProcess): Promise<string> {
       reject(new Error(`Chromium exited (${signal ?? code}):\n${output.slice(-2_000)}`));
     });
   });
+}
+
+/**
+ * The local headless Chromium: `TERMDOCK_SMOKE_CHROME`, else the newest
+ * `~/.cache/ms-playwright/chromium_headless_shell-<rev>/chrome-headless-shell-linux64/chrome-headless-shell`.
+ * It is a machine prerequisite like Docker, not a project dependency.
+ */
+export function findChromium(): string {
+  const configured = process.env.TERMDOCK_SMOKE_CHROME;
+  if (configured) {
+    if (!existsSync(configured))
+      throw new Error(`TERMDOCK_SMOKE_CHROME=${configured} does not exist`);
+    return configured;
+  }
+  const cache = join(homedir(), '.cache', 'ms-playwright');
+  const candidates = existsSync(cache)
+    ? readdirSync(cache)
+        .filter((name) => name.startsWith('chromium_headless_shell-'))
+        .sort((a, b) => Number(b.split('-')[1]) - Number(a.split('-')[1]))
+        .map((name) => join(cache, name, 'chrome-headless-shell-linux64', 'chrome-headless-shell'))
+        .filter((path) => existsSync(path))
+    : [];
+  const found = candidates[0];
+  if (!found) {
+    throw new Error(
+      'no headless Chromium found. The real web UI is driven over the DevTools protocol, which ' +
+        'needs a local Chromium binary (it is not a project dependency). Set ' +
+        'TERMDOCK_SMOKE_CHROME to a chrome-headless-shell or chromium executable, or install ' +
+        `one under ${cache}/chromium_headless_shell-<rev>/chrome-headless-shell-linux64/.`,
+    );
+  }
+  return found;
 }
 
 export function sleep(ms: number): Promise<void> {

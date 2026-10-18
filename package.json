@@ -9,7 +9,7 @@
   },
   "scripts": {
     "check": "pnpm typecheck && pnpm lint && pnpm test",
-    "typecheck": "tsc -p tsconfig.json && pnpm -r --parallel typecheck",
+    "typecheck": "tsc -p tsconfig.json && pnpm -r --workspace-concurrency=1 typecheck",
     "lint": "biome check .",
     "format": "biome format --write .",
     "test": "vitest run --project t0",

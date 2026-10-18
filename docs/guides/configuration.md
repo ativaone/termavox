@@ -207,7 +207,7 @@ session-manager also stores two keys of its own there, which are not settings: `
 
 Per-user preferences (language, theme, terminal font and colors, OSC 52 clipboard writes, link
 confirmation) are under `/settings`, and connection options (protection mode, startup command,
-`TERM`, environment, keepalive, auto-reopen, scrollback) are per connection profile on each host
+`TERM`, environment, keepalive, auto-reopen, scrollback) are per server, under Advanced on its
 page.
 
 ## Built-in limits

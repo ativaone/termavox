@@ -991,7 +991,7 @@ Honest limits:
 - **Resource caps.** Per user: 16 WebSocket connections (the next one closes with 4429) and 64 attached channels across them (more attaches get `RATE_LIMITED`); per connection: 32 channels (one more attach closes the connection with `4400`, a client protocol error) and 64 messages in flight (`4429` beyond). A runtime whose session is not meant to run and has no attachment is evicted after 60 s idle. Compose sets `mem_limit` and `pids_limit` on every container (§13.1).
 - **Revocation.** Besides admin ban and password reset, a user's own password change, an admin TOTP reset and sign-out close the affected WebSockets at once through `auth-sessions/revoke` instead of at the next 60 s revalidation (a TOTP reset also revokes the user's auth sessions). The daemon takes the rightmost `X-Forwarded-For` value that is not a trusted proxy.
 - **Logging hygiene.** pino `redact` for passwords, keys, tickets, cookies, tokens, `authorization`, server `env`/`policies` and `auth.response` answers; the web logger censors the same keys in structured fields and in JSON embedded in messages. Terminal input/output bytes are never logged. No terminal recording in MVP; when it comes, it is opt-in and encrypted (§18).
-- **Audit.** `audit_events`: login success/failure and lockout, TOTP enable/disable/reset, user create/ban/unban, role change, credential create/rename/delete, session rename and removal (D-32), remote tmux leftovers ended or adopted (D-30), host-key pending/trust/replace/revoke/mismatch and revoked key presented, local (direct-mode) session start, admin setting changes, auth-session revocation. `session_events`: created, attached, detached (with IP and user agent), connected, lost, reconnected, restored, degraded, ended. **Retention:** `TERMDOCK_EVENT_RETENTION_DAYS` (default 180; `0` keeps rows forever; otherwise 7 to 3650, anything else fails the boot). session-manager's retention job (`store/retention.ts`) deletes the rows of both tables older than that, whoever wrote them (web's audit events included: retention applies to the table), a few minutes after boot and then every 6 hours, on unref'd timers stopped at shutdown. It deletes the oldest rows first, 500 per batched-writer op, yielding between chunks (§9); both tables have a `created_at` index (`session_events_created_idx` came with migration `0002`). It logs the per-table counts and the cutoff, never row contents. A session parked in `failed` for longer than the retention loses its specific failure code (its `state_changed` events age out) and shows the generic failure text.
+- **Audit.** `audit_events`: login success/failure and lockout, TOTP enable/disable/reset, user create/ban/unban, role change, credential create/rename/delete, session rename and removal (D-32), remote tmux leftovers ended or adopted (D-30), host-key pending/trust/replace/revoke/mismatch and revoked key presented, local (direct-mode) session start, admin setting changes, auth-session revocation. `session_events`: created, attached, detached (with IP and user agent), connected, lost, reconnected, restored, degraded, ended. **Retention:** `TERMDOCK_EVENT_RETENTION_DAYS` (default 180; `0` keeps rows forever; otherwise 7 to 3650, anything else fails the boot). session-manager's retention job (`store/retention.ts`) deletes the rows of both tables older than that, whoever wrote them (web's audit events included: retention applies to the table), a few minutes after boot and then every 6 hours, on unref'd timers stopped at shutdown. It deletes the oldest rows first, 500 per batched-writer op, yielding between chunks (§9); both tables have a `created_at` index (`session_events_created_idx`). It logs the per-table counts and the cutoff, never row contents. A session parked in `failed` for longer than the retention loses its specific failure code (its `state_changed` events age out) and shows the generic failure text.
 - **Local direct mode.** Off unless `TERMDOCK_ENABLE_LOCAL_SHELL=true` on the daemon **and** enabled in admin settings. Admin-only (the internal API rejects `kind: local` for non-admins). Spawns shells as the daemon's OS user, which can read the master key and the DB, so enabling it gives admins effective access to the vault (§10.1). Recommended only outside containers, with a separate unprivileged UID for spawned shells (documented in the direct-mode guide). Every local session start is audited.
 - **Containers.** Both images run as a fixed shared non-root UID/GID (`10001:10001`); read-only root filesystem with `tmpfs: /tmp` (writable data volume; web also gets a tmpfs at `/app/apps/web/.next/cache`); `cap_drop: [ALL]`, `no-new-privileges`, no Docker socket mounted; memory and process limits (`TERMDOCK_DAEMON_MEM_LIMIT` 1g, `TERMDOCK_WEB_MEM_LIMIT` 768m, Caddy 256m; pids 512/256/128) (§13.1).
 - **Supply chain.** T-14. pnpm `allowBuilds` blocks every dependency build script (§12): better-sqlite3 loads its bundled prebuilds and ssh2's optional native crypto is skipped. Any native module that would need a build step (e.g. node-pty for P6) is an explicit exception decided when it is added; runtime images carry no compilers. Next.js is kept at or above patched versions (the WS-upgrade SSRF advisory is not reachable because WS never goes through Next, but patch anyway).
@@ -1036,7 +1036,7 @@ The skill's own rule applies: verification happens in bounded passes, never as o
 └────────────────────┴───────────────────────────────────────────────────────────┘
 ```
 
-- **Sidebar**: sessions grouped by host, each with its status chip (§5.6), a shield for protected sessions (tooltip: "Survives restarts and network drops"; a hollow shield for compatibility mode; none plus a tooltip for unprotected; the warning "remote may kill tmux on disconnect — enable linger" when the §5.11 logind rules give no reliable protection), and uptime. Context menu: rename, open in a new tab, split right/down, terminate (confirmation, with a tip that closing the tab or the browser keeps the session), reopen (only for ended or unprotected sessions, §5.7), and for an ended session "Remove from list…" (confirmation, D-32). "Ended" collapses the last 20, indented under a guide line when open, with "Remove all ended…" at its foot (D-32). The collapsed rail shows a tile's actions button only while the tile has the keyboard focus or its menu is open; the pointer opens the menu with a right-click.
+- **Sidebar**: sessions grouped by state in urgency order (`apps/web/DESIGN.md`, Layout; the wireframe above predates it), each with its status chip (§5.6), a shield for protected sessions (tooltip: "Survives restarts and network drops"; a hollow shield for compatibility mode; none plus a tooltip for unprotected; the warning "remote may kill tmux on disconnect — enable linger" when the §5.11 logind rules give no reliable protection), and uptime. Context menu: rename, open in a new tab, split right/down, terminate (confirmation, with a tip that closing the tab or the browser keeps the session), reopen (only for ended or unprotected sessions, §5.7), and for an ended session "Remove from list…" (confirmation, D-32). "Ended" collapses the last 20, indented under a guide line when open, with "Remove all ended…" at its foot (D-32). The collapsed rail shows a tile's actions button only while the tile has the keyboard focus or its menu is open; the pointer opens the menu with a right-click.
 - **New session**: command palette (`Ctrl/Cmd+K`) to search servers, with an optional session name. "Start a session" also follows "Add server".
 - **Tabs and splits**: each tab holds a split tree (§9). Panes are resizable. **Closing a pane or tab only detaches.** The session keeps running in the sidebar. Terminating is always explicit.
 - **Background tabs**: only the active tab's panes are mounted (attached), so a background tab gets no title or bell updates until it is shown again. Accepted MVP trade-off.
@@ -1054,7 +1054,7 @@ The skill's own rule applies: verification happens in bounded passes, never as o
 
 ### 11.3 Accessibility and polish
 
-Light and dark themes; xterm.js screen-reader mode toggle; visible focus; all non-terminal pages keyboard-navigable; reduced-motion respected.
+Dark only (D-26); xterm.js screen-reader mode toggle; visible focus; all non-terminal pages keyboard-navigable; reduced-motion respected.
 
 ---
 
@@ -1065,7 +1065,7 @@ termdock/
 ├── apps/
 │   ├── web/                       Next.js 16 — UI + control plane
 │   │   ├── app/                   routes (§8.1), API route handlers
-│   │   ├── components/            ui/, workspace/, hosts/, credentials/, admin/, auth/, settings/, manage/, icons/
+│   │   ├── components/            ui/, workspace/, servers/, credentials/, admin/, auth/, settings/, manage/, icons/
 │   │   ├── lib/                   auth/ (Better Auth core), repo/ (user-scoped db access), actions/ (Server Actions),
 │   │   │                          terminal/ (ws client, channels), sessions/, workspace/, internal-api client, logger, CSP
 │   │   ├── messages/              en.json, pt-BR.json
@@ -1086,7 +1086,7 @@ termdock/
 │       │   ├── emulator/          headless wrapper, serialize view
 │       │   ├── attachments/       size policy, coalescing, backpressure, wire encoding
 │       │   ├── ws/                server, protocol handlers, client IP
-│       │   ├── internal-api/      server, host test
+│       │   ├── internal-api/      server, server test, remote sessions (D-30)
 │       │   ├── vault/             master key, vault, CredentialProvider, rotation
 │       │   └── cli/               vault-rotate.ts (§10.2)
 │       └── test/                  per area: T0 (*.test.ts) and T1 (*.int.test.ts, against test/sshd)
@@ -1095,7 +1095,8 @@ termdock/
 │   ├── db/                        Drizzle schema, migrations, client factory, pragmas, file lock
 │   ├── terminal-config/           pinned xterm options, unicode provider, query silencer, mode tracker, UTF-8 aligner
 │   └── shared/                    ids (UUIDv7), errors/codes (each app has its own logger)
-├── scripts/                       test-area.ts (T1 runner); dev-session.ts (dev-only CLI, P1; never shipped in images)
+├── scripts/                       test-area.ts (T1 runner), test-release.ts + release-smoke.ts (§15.4), cdp.ts,
+│                                  ui-capture.ts (screenshot sessions); dev-session.ts (dev-only CLI, P1; never shipped in images)
 ├── deploy/
 │   ├── compose.yaml, .env.example
 │   ├── Caddyfile
@@ -1164,7 +1165,7 @@ Local sessions use `LocalTransport`: node-pty for raw mode, and `child_process.s
 
 ### 13.4 "This Docker host" preset (D-15a)
 
-On `/hosts`, "Add this Docker host" creates a host `host.docker.internal:22`, generates an ed25519 credential, and shows the exact `authorized_keys` line, plus a copy-paste command, for the host user. The first connect goes through the normal host-key trust flow.
+"Add this Docker host" (`/servers/docker`, linked from the servers list and the Add server page) generates an ed25519 credential, creates a server `<user>@host.docker.internal:22` that uses it, and shows the exact `authorized_keys` line, plus a copy-paste command, for that user. The first connect goes through the normal host-key trust flow.
 
 ### 13.5 Operations
 
@@ -1526,6 +1527,9 @@ Each session runs in its own detached **session host** process (`termdock-sessio
 | Web auth-session lifetime | 7 days sliding (Better Auth `expiresIn` 7 days, `updateAge` 1 day); no idle-timeout setting |
 | Public repository/organization name | Not decided |
 | Test image with tmux < 3.2 (Phase 7) | None approved (D-22); the normal-mode fallback stays untested until the owner approves one when P7 starts |
+| Security contact channel | None yet (`SECURITY.md` and `docs/security.md` say so); an email address or GitHub private vulnerability reporting is needed before the repository goes public |
+| UI font sign-off (D-26) | Plus Jakarta Sans on trial; `@fontsource-variable/archivo` stays in `apps/web/package.json`, unused, until the owner signs off, then it is removed |
+| ssh2 ed25519 key generation bug | `generateKeyPairSync('ed25519')` emits a key that does not parse back about once in 400; worked around in `vault/credentials.ts` (`generateEd25519Key`, retries); reporting it upstream waits for the owner's OK |
 
 ---
 
