@@ -15,13 +15,20 @@
 // headless Chromium: TERMDOCK_SMOKE_CHROME, else the newest
 // ~/.cache/ms-playwright/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell.
 //
+// `--proxy` (plan D-35) runs the same flow with TERMDOCK_TLS=off behind a front proxy that
+// terminates TLS, as nginx would: a second Caddy from the deployment's pinned image, on the host
+// network at 127.0.0.1:TERMDOCK_SMOKE_FRONT_PORT (18543), forwarding to Caddy's plain-HTTP port. It
+// also checks that the stored client addresses are the browser's, not the proxy's.
+//
 // Environment: TERMDOCK_SMOKE_CHROME, TERMDOCK_SMOKE_HTTP_PORT (18080),
 // TERMDOCK_SMOKE_HTTPS_PORT (18443), TERMDOCK_SMOKE_MIN_AVAILABLE_MB (900), TMPDIR, and the
 // override's TERMDOCK_SMOKE_SSHD_IMAGE (a test sshd image with tmux >= 3.2) and
 // TERMDOCK_SMOKE_EDGE_SUBNET.
 import { spawn } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { request as httpRequest } from 'node:http';
+import { request as httpsRequest } from 'node:https';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -38,7 +45,14 @@ const SCRIPTS = join(ROOT, 'deploy', 'scripts');
 const KEYS = join(ROOT, 'test', 'sshd', 'keys');
 const HTTP_PORT = Number(process.env.TERMDOCK_SMOKE_HTTP_PORT ?? 18080);
 const HTTPS_PORT = Number(process.env.TERMDOCK_SMOKE_HTTPS_PORT ?? 18443);
-const BASE = `https://localhost:${HTTPS_PORT}`;
+const PROXY = process.argv.includes('--proxy');
+const FRONT_PORT = Number(process.env.TERMDOCK_SMOKE_FRONT_PORT ?? 18543);
+const FRONT_CONTAINER = 'termdock-smoke-front-proxy';
+/** The browser's URL: Caddy's HTTPS port, or the front proxy's with --proxy. */
+const BASE = `https://localhost:${PROXY ? FRONT_PORT : HTTPS_PORT}`;
+const EDGE_SUBNET = process.env.TERMDOCK_SMOKE_EDGE_SUBNET ?? '172.30.111.0/24';
+/** How Docker presents a connection from this host to a published port: the edge gateway. */
+const EDGE_GATEWAY = EDGE_SUBNET.replace(/\.\d+\/\d+$/, '.1');
 const MIN_AVAILABLE_MB = Number(process.env.TERMDOCK_SMOKE_MIN_AVAILABLE_MB ?? 900);
 const SSHD_IMAGE = process.env.TERMDOCK_SMOKE_SSHD_IMAGE ?? 'termdock-test-sshd:tmux-3.4';
 const SSHD_SERVICE = 'smoke-sshd';
@@ -166,7 +180,9 @@ const smokeEnv: NodeJS.ProcessEnv = {
   TERMDOCK_HTTP_PORT: String(HTTP_PORT),
   TERMDOCK_HTTPS_PORT: String(HTTPS_PORT),
   TERMDOCK_PUBLIC_URL: BASE,
-  TERMDOCK_TLS: 'internal',
+  TERMDOCK_TLS: PROXY ? 'off' : 'internal',
+  TERMDOCK_REVERSE_PROXY: PROXY ? EDGE_GATEWAY : '',
+  TERMDOCK_BIND_ADDRESS: '',
   TERMDOCK_LOG_LEVEL: 'info',
   TERMDOCK_DAEMON_MEM_LIMIT: '1g',
   TERMDOCK_WEB_MEM_LIMIT: '768m',
@@ -316,6 +332,8 @@ async function waitForRow(page: CdpPage, exact: string, label: string): Promise<
 let browser: Chromium | null = null;
 const cspViolations: string[] = [];
 const pageErrors: string[] = [];
+/** Failed or refused requests and console errors, printed on failure. */
+const networkProblems: string[] = [];
 
 async function preflight(): Promise<string> {
   const chrome = chromium();
@@ -348,7 +366,8 @@ async function preflight(): Promise<string> {
     info(`removing leftovers of an earlier smoke run: ${leftovers.join(', ')}`);
     await compose(['down', '-v', '--remove-orphans', '--timeout', '30'], true);
   }
-  for (const port of [HTTP_PORT, HTTPS_PORT]) {
+  await run('docker', ['rm', '-f', FRONT_CONTAINER], { allowWhileStopping: true });
+  for (const port of [HTTP_PORT, HTTPS_PORT, ...(PROXY ? [FRONT_PORT, FRONT_PORT + 1] : [])]) {
     check('preflight', await portFree(port), `port 127.0.0.1:${port} is free`);
   }
   return chrome;
@@ -366,9 +385,132 @@ async function startStack(): Promise<void> {
   info('starting the stack (compose up --wait; images are never built here)');
   const up = await compose(['up', '-d', '--no-build', '--wait', '--wait-timeout', '300'], true);
   check('stack', up.code === 0, `project ${PROJECT} is up and healthy`, `exit ${up.code}`);
+  if (PROXY) {
+    const status = await plainHttpStatus(HTTP_PORT, '/api/health');
+    check(
+      'stack',
+      status === 200,
+      'TERMDOCK_TLS=off: Caddy serves plain HTTP, no redirect',
+      `HTTP ${status}`,
+    );
+    await startFrontProxy();
+    return;
+  }
   // A browser that only accepted the warning must not lose new requests every few hours (D-34).
-  const days = await certificateDaysLeft(HTTPS_PORT);
+  // Caddy issues the certificate on first use: a handshake right after `up` can come first.
+  let days = -1;
+  for (let attempt = 1; days < 0; attempt++) {
+    days = await certificateDaysLeft(HTTPS_PORT).catch((err: Error) => {
+      if (attempt >= 20) throw err;
+      return -1;
+    });
+    if (days < 0) await sleep(500);
+  }
   check('stack', days >= 25, 'the local-CA certificate is valid for about 30 days', `${days} days`);
+}
+
+/** The front proxy of --proxy: TLS for the browser, plain HTTP to Caddy, like nginx (D-35). */
+async function startFrontProxy(): Promise<void> {
+  const image = /image:\s*(caddy@sha256:[0-9a-f]{64})/.exec(
+    readFileSync(COMPOSE_FILE, 'utf8'),
+  )?.[1];
+  check('proxy', image !== undefined, "the deployment's pinned Caddy image is the front proxy");
+  const caddyfile = join(tmpRoot, 'front.Caddyfile');
+  writeFileSync(
+    caddyfile,
+    [
+      '{',
+      '\tadmin off',
+      '\tskip_install_trust',
+      '\tauto_https disable_redirects',
+      `\thttp_port ${FRONT_PORT + 1}`,
+      `\thttps_port ${FRONT_PORT}`,
+      '}',
+      `localhost:${FRONT_PORT} {`,
+      '\tbind 127.0.0.1',
+      '\ttls internal',
+      `\treverse_proxy 127.0.0.1:${HTTP_PORT}`,
+      '}',
+      '',
+    ].join('\n'),
+  );
+  const started = await run(
+    'docker',
+    [
+      'run',
+      '-d',
+      '--rm',
+      '--name',
+      FRONT_CONTAINER,
+      '--network',
+      'host',
+      '--label',
+      `com.docker.compose.project=${PROJECT}`,
+      '-v',
+      `${caddyfile}:/etc/caddy/Caddyfile:ro`,
+      image!,
+    ],
+    { echo: true },
+  );
+  check(
+    'proxy',
+    started.code === 0,
+    `front proxy on 127.0.0.1:${FRONT_PORT} → 127.0.0.1:${HTTP_PORT}`,
+    `exit ${started.code}`,
+  );
+  const deadline = Date.now() + 30_000;
+  // A full HTTPS round trip first: the front proxy issues its certificate on first use, and the
+  // browser should not start against a half-ready chain.
+  let status = 0;
+  while (status !== 200) {
+    status = await frontHealthStatus().catch(() => 0);
+    if (status === 200) break;
+    if (Date.now() > deadline) {
+      check('proxy', false, 'the front proxy answers /api/health over HTTPS', `HTTP ${status}`);
+    }
+    await sleep(250);
+  }
+  pass('proxy', 'the front proxy answers /api/health over HTTPS');
+}
+
+/** Status of GET https://localhost:<front port>/api/health (the front proxy's own CA). */
+function frontHealthStatus(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const req = httpsRequest(
+      {
+        host: '127.0.0.1',
+        port: FRONT_PORT,
+        path: '/api/health',
+        servername: 'localhost',
+        headers: { host: `localhost:${FRONT_PORT}` },
+        rejectUnauthorized: false,
+        timeout: 5_000,
+      },
+      (res) => {
+        res.resume();
+        resolve(res.statusCode ?? 0);
+      },
+    );
+    req.once('timeout', () => req.destroy(new Error('HTTPS request timed out')));
+    req.once('error', reject);
+    req.end();
+  });
+}
+
+/** Status of a plain-HTTP GET on 127.0.0.1:<port> for the localhost site (redirects not followed). */
+function plainHttpStatus(port: number, path: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const req = httpRequest(
+      { host: '127.0.0.1', port, path, headers: { host: 'localhost' }, timeout: 10_000 },
+      (res) => {
+        res.resume();
+        resolve(res.statusCode ?? 0);
+      },
+    );
+    req.once('timeout', () => req.destroy(new Error('HTTP request timed out')));
+    req.once('error', reject);
+    req.end();
+  });
 }
 
 /** Days until the certificate Caddy serves for localhost expires (no chain validation). */
@@ -958,6 +1100,22 @@ async function backup(ids: string[], renamedId: string): Promise<void> {
       `the rename is stored: session ${renamedId} is labelled "${NAMES.renamed}"`,
       `label: "${stored}"`,
     );
+    if (PROXY) {
+      // The browser reached the front proxy from 127.0.0.1; Caddy saw only the proxy (the edge
+      // gateway) and must have taken the forwarded address from it (D-35).
+      const ips = (sql: string) =>
+        (db.prepare(sql).all() as Array<{ ip: string }>).map((r) => r.ip);
+      const recorded = [
+        ...ips('SELECT DISTINCT ip FROM session_events WHERE ip IS NOT NULL'),
+        ...ips('SELECT DISTINCT ip FROM audit_events WHERE ip IS NOT NULL'),
+      ];
+      check(
+        '11 backup',
+        recorded.length > 0 && recorded.every((ip) => ip === '127.0.0.1'),
+        "session and audit events carry the browser's address (127.0.0.1), never the proxy's",
+        js(recorded),
+      );
+    }
   } finally {
     db.close();
   }
@@ -979,6 +1137,8 @@ async function diagnostics(): Promise<void> {
     }
   }
   for (const error of pageErrors.slice(-20)) console.log(`smoke: page error: ${error}`);
+  for (const problem of networkProblems.slice(-20)) console.log(`smoke: network: ${problem}`);
+  for (const violation of cspViolations.slice(-10)) console.log(`smoke: CSP: ${violation}`);
   for (const service of SERVICES) {
     const logs = await compose(['logs', '--no-color', '--tail', '100', service], false, true);
     console.log(`\n── last 100 log lines of ${service} ──`);
@@ -997,6 +1157,7 @@ function teardown(): Promise<boolean> {
       info('Chromium stopped');
     }
     for (const child of children) child.kill('SIGTERM');
+    if (PROXY) await run('docker', ['rm', '-f', FRONT_CONTAINER], { allowWhileStopping: true });
     info(`tearing down project ${PROJECT} (down -v: its containers, networks and volumes only)`);
     await compose(['down', '-v', '--remove-orphans', '--timeout', '30'], true, true);
     rmSync(tmpRoot, { recursive: true, force: true });
@@ -1044,6 +1205,30 @@ async function main(): Promise<number> {
       ],
     });
     const { page } = browser;
+    const requestUrls = new Map<string, string>();
+    await page.send('Network.enable');
+    await page.send('Log.enable');
+    page.on('Network.requestWillBeSent', (params) => {
+      const { requestId, request } = params as { requestId: string; request: { url: string } };
+      requestUrls.set(requestId, request.url);
+    });
+    page.on('Network.responseReceived', (params) => {
+      const { response } = params as { response: { url: string; status: number } };
+      if (response.status >= 400) networkProblems.push(`HTTP ${response.status} ${response.url}`);
+    });
+    page.on('Network.loadingFailed', (params) => {
+      const p = params as { requestId: string; errorText: string; blockedReason?: string };
+      if (p.errorText === 'net::ERR_ABORTED' && !p.blockedReason) return; // navigations away
+      const url = requestUrls.get(p.requestId) ?? p.requestId;
+      networkProblems.push(
+        `${p.errorText}${p.blockedReason ? ` (${p.blockedReason})` : ''} ${url}`,
+      );
+    });
+    page.on('Log.entryAdded', (params) => {
+      const { entry } = params as { entry: { level: string; text: string; url?: string } };
+      if (entry.level === 'error')
+        networkProblems.push(`console: ${entry.text} ${entry.url ?? ''}`);
+    });
     await page.send('Runtime.addBinding', { name: '__smokeCsp' });
     await page.send('Page.addScriptToEvaluateOnNewDocument', {
       source: `document.addEventListener('securitypolicyviolation', (e) => window.__smokeCsp?.(location.pathname + ': ' + e.effectiveDirective + ' blocked ' + (e.blockedURI || '(inline)') + ' at ' + (e.sourceFile || '?') + ':' + e.lineNumber + ':' + e.columnNumber));`,

@@ -48,7 +48,7 @@ flowchart LR
 | Component | Holds | Notes |
 |---|---|---|
 | Browser | The auth-session cookie; the terminal view (xterm.js) | Untrusted. Never the source of truth for terminal state; it renders and sends input. |
-| Caddy | TLS keys and its local CA (`caddy-data` volume) | The only published service. Routes `/ws` to session-manager and everything else to web. Replaces any client `X-Forwarded-For` with the TCP peer address. Not on the `internal` network, so it cannot reach the internal API. |
+| Caddy | TLS keys and its local CA (`caddy-data` volume) | The only published service. Routes `/ws` to session-manager and everything else to web. Replaces any client `X-Forwarded-For` with the TCP peer address, or, behind a reverse proxy named in `TERMDOCK_REVERSE_PROXY`, with the address that proxy forwarded (read right to left). Not on the `internal` network, so it cannot reach the internal API. |
 | web | `auth_secret`, `ws_secret`, `internal_token` | Control plane: sign-in, users, servers, layout, audit view, WebSocket ticket issuer. Never holds the master key. A secret passes through web only when a user creates a credential, and web can never read one back. |
 | session-manager | `master_key`, `ws_secret`, `internal_token`; decrypted credentials, in memory, only while connecting | Data plane: SSH connections, server-side emulators, the WebSocket server, the internal API and the credential vault. Writes every credential and known-host-key row. |
 | SQLite (`termdock-data` volume) | Users and argon2id password hashes, TOTP secrets (encrypted by Better Auth), encrypted credentials, host keys, sessions, audit events | Shared by web and session-manager. Assume it can leak through backups: SSH secrets in it are ciphertext only. |
@@ -156,6 +156,11 @@ secrets, the volumes and the containers' memory.
 - web trusts `X-Forwarded-For` because only Caddy can reach it. Anyone who can connect to
   `web:3000` directly can spoof the client IP and weaken the lockout, the rate limits and the
   audit trail.
+- Behind a reverse proxy (`TERMDOCK_TLS=off`), Caddy believes the proxy's `X-Forwarded-For` only
+  from `TERMDOCK_REVERSE_PROXY`. Naming too wide a range (for example a whole public subnet) lets
+  anyone in it choose their apparent address; and a port published on every interface lets
+  clients skip the proxy, so publish it on loopback (`TERMDOCK_BIND_ADDRESS=127.0.0.1`) or
+  firewall it.
 - Audit and session-event rows are kept for 180 days by default
   (`TERMDOCK_EVENT_RETENTION_DAYS`; `0` keeps them forever). Older rows are deleted for good:
   raise the setting, or keep database backups, if you need a longer trail.

@@ -22,6 +22,10 @@ The first release, v0.1.0, is being prepared.
 
 ### Added
 
+- Running behind your own reverse proxy (nginx, Traefik…) that terminates TLS: `TERMDOCK_TLS=off`
+  serves plain HTTP, `TERMDOCK_BIND_ADDRESS` keeps the port on loopback, and
+  `TERMDOCK_REVERSE_PROXY` names the proxy so each user's own address is still seen. The install
+  guide has a section for it, with an nginx example.
 - A tip in the pane when you start tmux inside a protected session: Termdock already keeps the
   session running, and without a tmux inside it scrolling, selection and copy work in the
   browser. "Don't show again" turns it off; terminal settings turn it back on.

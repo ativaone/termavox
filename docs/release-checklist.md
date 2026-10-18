@@ -5,7 +5,7 @@ Run it after `pnpm test:release` has passed on the release commit, and record th
 release notes or the delivery report.
 
 1. **Automated routine.** `pnpm test:release` passed on this exact commit (T0, every T1 file,
-   OSV scan, image builds, smoke). Keep its summary table.
+   OSV scan, image builds, the smoke directly and behind a reverse proxy). Keep its summary table.
 2. **Real phone.** On an actual phone (not emulation), sign in, open a session, type with the
    on-screen keyboard and the extra-key bar (Esc, Tab, Ctrl, Alt, arrows, paste), rotate the
    screen, lock the phone for a minute and come back: the session is still there.

@@ -36,15 +36,21 @@ services:
     pids_limit: 128
     ports:
       # Same port inside and outside, so Caddy's HTTP/3 advertisement (Alt-Svc) names the
-      # published port; the Caddyfile's HTTP->HTTPS redirect also uses it.
-      - "${TERMDOCK_HTTP_PORT:-80}:${TERMDOCK_HTTP_PORT:-80}"
-      - "${TERMDOCK_HTTPS_PORT:-443}:${TERMDOCK_HTTPS_PORT:-443}"
-      - "${TERMDOCK_HTTPS_PORT:-443}:${TERMDOCK_HTTPS_PORT:-443}/udp"
+      # published port; the Caddyfile's HTTP->HTTPS redirect also uses it. TERMDOCK_BIND_ADDRESS
+      # (e.g. 127.0.0.1 behind a reverse proxy on this host) limits them to one host address;
+      # unset, they are published on every interface.
+      - "${TERMDOCK_BIND_ADDRESS:+${TERMDOCK_BIND_ADDRESS}:}${TERMDOCK_HTTP_PORT:-80}:${TERMDOCK_HTTP_PORT:-80}"
+      - "${TERMDOCK_BIND_ADDRESS:+${TERMDOCK_BIND_ADDRESS}:}${TERMDOCK_HTTPS_PORT:-443}:${TERMDOCK_HTTPS_PORT:-443}"
+      - "${TERMDOCK_BIND_ADDRESS:+${TERMDOCK_BIND_ADDRESS}:}${TERMDOCK_HTTPS_PORT:-443}:${TERMDOCK_HTTPS_PORT:-443}/udp"
     environment:
       TERMDOCK_DOMAIN: ${TERMDOCK_DOMAIN:-localhost}
       TERMDOCK_HTTP_PORT: ${TERMDOCK_HTTP_PORT:-80}
       TERMDOCK_HTTPS_PORT: ${TERMDOCK_HTTPS_PORT:-443}
       TERMDOCK_TLS: ${TERMDOCK_TLS:-auto}
+      # TERMDOCK_TLS=off (plan D-35): the reverse proxy's address as Caddy sees it, the only peer
+      # whose X-Forwarded-For is believed. A proxy on this host: 172.30.10.1, the edge network's
+      # gateway, which is how Docker presents host connections to a published port.
+      TERMDOCK_REVERSE_PROXY: ${TERMDOCK_REVERSE_PROXY:-}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data

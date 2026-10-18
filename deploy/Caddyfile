@@ -1,12 +1,13 @@
-# Termdock edge proxy (plan §4.3, §13.1). Caddy is the only public listener and the only
-# trusted proxy: `/ws` goes to session-manager, everything else to web. Caddy is not on the
-# `internal` network, so it can never reach the daemon's internal API.
+# Termdock edge proxy (plan §4.3, §13.1). Caddy is the only listener and the only trusted proxy
+# of web and session-manager: `/ws` goes to session-manager, everything else to web. Caddy is not
+# on the `internal` network, so it can never reach the daemon's internal API.
 #
 # Environment (set by deploy/compose.yaml):
-#   TERMDOCK_DOMAIN      site address, e.g. termdock.example.com (default: localhost)
-#   TERMDOCK_HTTP_PORT   HTTP listener, also the published host port (default: 80)
-#   TERMDOCK_HTTPS_PORT  HTTPS listener, also the published host port (default: 443)
-#   TERMDOCK_TLS         auto (compose default) | internal, see the tls_* snippets below
+#   TERMDOCK_DOMAIN         site address, e.g. termdock.example.com (default: localhost)
+#   TERMDOCK_HTTP_PORT      HTTP listener, also the published host port (default: 80)
+#   TERMDOCK_HTTPS_PORT     HTTPS listener, also the published host port (default: 443)
+#   TERMDOCK_TLS            auto (compose default) | internal | off, see the site_* snippets below
+#   TERMDOCK_REVERSE_PROXY  addresses of a reverse proxy in front (TERMDOCK_TLS=off), or empty
 #
 # Security headers (CSP, Referrer-Policy, nosniff, Permissions-Policy, Cross-Origin-Opener-Policy)
 # come from web and pass through unchanged; only HSTS is added here.
@@ -17,51 +18,28 @@
 	admin off
 	# Never try to install Caddy's local CA into the container's trust store.
 	skip_install_trust
-	# The local CA's intermediate outlives the 30-day certificates of tls_internal (a certificate
+	# The local CA's intermediate outlives the 30-day certificates of site_internal (a certificate
 	# never outlives its intermediate: Caddy cuts it short). Caddy's default is 7 days.
 	pki {
 		ca local {
 			intermediate_lifetime 90d
 		}
 	}
-}
-
-# TERMDOCK_TLS=auto: Caddy's automatic HTTPS. A public domain gets a Let's Encrypt/ZeroSSL
-# certificate over ACME (ports 80 and 443 must be reachable from the internet). `localhost` and IP
-# addresses get certificates from Caddy's local CA with its default 12-hour lifetime; use
-# internal for those.
-(tls_auto) {
-}
-
-# TERMDOCK_TLS=internal: always use Caddy's local CA, for localhost, IP addresses or a LAN-only name
-# such as termdock.lan. Browsers trust it only after importing the root certificate (see the
-# install guide). A browser that only accepted the warning accepted that one certificate, and a
-# renewed one is refused until the warning is accepted again: certificates last 30 days (plan
-# D-34), so that happens about every 20 days instead of every 8 hours with Caddy's default.
-(tls_internal) {
-	tls {
-		issuer internal {
-			lifetime 30d
-		}
+	# The client address ({client_ip}) is read from X-Forwarded-For only on requests whose TCP peer
+	# is one of these addresses (plan D-35); empty, nothing is trusted and the peer is the client.
+	# Strict: the header is read right to left and the first untrusted address wins, so a value the
+	# client put in front of the proxy's own entry cannot pose as the client.
+	servers {
+		trusted_proxies static {$TERMDOCK_REVERSE_PROXY}
+		trusted_proxies_strict
 	}
 }
 
-# Plain HTTP: redirect to HTTPS on the published port. Caddy's automatic redirect leaves the port
-# out whenever it equals https_port, which breaks a published port other than 443 (with 443 the
-# target reads https://<domain>:443/..., which browsers normalize). ACME HTTP challenges are still
-# answered: Caddy handles them before any route.
-http://{$TERMDOCK_DOMAIN:localhost} {
-	redir https://{host}:{$TERMDOCK_HTTPS_PORT:443}{uri} 308
-}
-
-{$TERMDOCK_DOMAIN:localhost} {
-	import tls_{$TERMDOCK_TLS:auto}
-
-	# Exactly one X-Forwarded-For value: the client address as Caddy sees it (the TCP peer, as no
-	# trusted_proxies are configured). Any client-supplied value is replaced, never appended to:
-	# web's rate limits, lockout and audit trust this header (plan §4.3, ADR-0004). Caddy's
-	# default already behaves this way; the explicit `set` keeps the guarantee if the defaults
-	# change, and stays a single value if trusted_proxies is ever configured.
+(routes) {
+	# Exactly one X-Forwarded-For value: the client address as Caddy sees it (the TCP peer, or the
+	# proxy's forwarded address when the peer is a trusted proxy). Any other value is replaced,
+	# never appended to: web's rate limits, lockout and audit trust this header (plan §4.3,
+	# ADR-0004), and session-manager trusts it only from this network.
 	handle /ws {
 		reverse_proxy session-manager:3001 {
 			header_up X-Forwarded-For {client_ip}
@@ -75,8 +53,58 @@ http://{$TERMDOCK_DOMAIN:localhost} {
 	}
 
 	# HSTS is per host, not per port: never send it for localhost, where it would force HTTPS on
-	# every other local development server in the browser.
+	# every other local development server in the browser. Behind a reverse proxy the browser sees
+	# the proxy's HTTPS, so the header still applies there.
 	@hsts not host localhost
 	header @hsts Strict-Transport-Security "max-age=31536000"
 	header -Server
 }
+
+# Plain HTTP: redirect to HTTPS on the published port. Caddy's automatic redirect leaves the port
+# out whenever it equals https_port, which breaks a published port other than 443 (with 443 the
+# target reads https://<domain>:443/..., which browsers normalize). ACME HTTP challenges are still
+# answered: Caddy handles them before any route.
+(redirect) {
+	http://{$TERMDOCK_DOMAIN:localhost} {
+		redir https://{host}:{$TERMDOCK_HTTPS_PORT:443}{uri} 308
+	}
+}
+
+# TERMDOCK_TLS=auto: Caddy's automatic HTTPS. A public domain gets a Let's Encrypt/ZeroSSL
+# certificate over ACME (ports 80 and 443 must be reachable from the internet). `localhost` and IP
+# addresses get certificates from Caddy's local CA with its default 12-hour lifetime; use
+# internal for those.
+(site_auto) {
+	import redirect
+	{$TERMDOCK_DOMAIN:localhost} {
+		import routes
+	}
+}
+
+# TERMDOCK_TLS=internal: always use Caddy's local CA, for localhost, IP addresses or a LAN-only name
+# such as termdock.lan. Browsers trust it only after importing the root certificate (see the
+# install guide). A browser that only accepted the warning accepted that one certificate, and a
+# renewed one is refused until the warning is accepted again: certificates last 30 days (plan
+# D-34), so that happens about every 20 days instead of every 8 hours with Caddy's default.
+(site_internal) {
+	import redirect
+	{$TERMDOCK_DOMAIN:localhost} {
+		tls {
+			issuer internal {
+				lifetime 30d
+			}
+		}
+		import routes
+	}
+}
+
+# TERMDOCK_TLS=off: a reverse proxy in front terminates TLS and forwards plain HTTP here (plan
+# D-35). No certificate, no redirect and no HTTPS listener; TERMDOCK_REVERSE_PROXY must name the
+# proxy, or every client shows up with the proxy's address.
+(site_off) {
+	http://{$TERMDOCK_DOMAIN:localhost} {
+		import routes
+	}
+}
+
+import site_{$TERMDOCK_TLS:auto}

@@ -10,6 +10,7 @@
 //   osv    OSV scan of pnpm-lock.yaml against scripts/osv-allowlist.json (scripts/osv-scan.ts)
 //   build  docker compose build of the deployment images, project termdock-smoke
 //   smoke  scripts/release-smoke.ts against the composed stack
+//   smoke-proxy  the same smoke behind a front proxy that terminates TLS (TERMDOCK_TLS=off)
 //
 // Heavy steps run under `systemd-run --user --scope -p MemoryMax=… -p MemorySwapMax=0` when a
 // user systemd is available (TERMDOCK_RELEASE_MEMORY_MAX, default 1500M), plain otherwise.
@@ -304,6 +305,11 @@ const STEPS: Step[] = [
     id: 'smoke',
     title: 'Smoke against the composed stack',
     run: () => exec('node', [join(ROOT, 'scripts', 'release-smoke.ts')], { cap: true }),
+  },
+  {
+    id: 'smoke-proxy',
+    title: 'Smoke behind a reverse proxy (TLS off)',
+    run: () => exec('node', [join(ROOT, 'scripts', 'release-smoke.ts'), '--proxy'], { cap: true }),
   },
 ];
 
