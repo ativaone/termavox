@@ -236,6 +236,18 @@ export function TerminalForm({ initial }: { initial: TerminalPreferences }) {
         />
       </fieldset>
 
+      <fieldset className="flex flex-col gap-4 border-line border-t pt-5">
+        <legend className="float-left mb-1 w-full font-semibold text-ink text-md">
+          {t('tips')}
+        </legend>
+        <Checkbox
+          name="nestedTmuxTip"
+          label={t('nestedTmuxTip')}
+          help={t('nestedTmuxTipHelp')}
+          defaultChecked={initial.nestedTmuxTip}
+        />
+      </fieldset>
+
       <div className="border-line border-t pt-5">
         <SubmitButton size="lg">{t('submit')}</SubmitButton>
       </div>

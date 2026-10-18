@@ -315,6 +315,9 @@
       "rebootTitle": "O servidor reiniciou",
       "rebootBody": "O shell anterior foi perdido; um novo foi iniciado.",
       "acknowledge": "Entendi",
+      "nestedTmuxTitle": "Não precisa de tmux aqui",
+      "nestedTmuxBody": "O Termdock já mantém esta sessão rodando no servidor. Sem um tmux dentro dela, a rolagem, a seleção e a cópia funcionam direto no navegador.",
+      "nestedTmuxNever": "Não mostrar mais",
       "dismiss": "Dispensar",
       "passive": "Tamanho definido por outra janela. Clique para ajustar."
     },
@@ -1113,6 +1116,9 @@
       "osc52Help": "Programas remotos como tmux ou vim passam a poder substituir sua área de transferência sem perguntar. Deixe desligado se não precisar.",
       "confirmLinks": "Confirmar antes de abrir links",
       "confirmLinksHelp": "Mostra o endereço completo antes de abrir um link vindo do terminal.",
+      "tips": "Dicas",
+      "nestedTmuxTip": "Avisar quando um tmux roda dentro de uma sessão",
+      "nestedTmuxTipHelp": "O Termdock já mantém suas sessões rodando nos servidores, então um tmux aberto dentro de uma delas não é necessário. O painel avisa quando vê um.",
       "submit": "Salvar configurações do terminal",
       "saved": "Configurações do terminal salvas. Os terminais abertos passam a usá-las quando reconectarem.",
       "error": {

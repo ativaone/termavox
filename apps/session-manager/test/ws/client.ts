@@ -99,6 +99,7 @@ const CHANNEL_SCOPED = new Set([
   'terminal.resized',
   'terminal.title',
   'terminal.bell',
+  'terminal.hint',
 ]);
 
 /** A WebSocket client speaking protocol v1. */

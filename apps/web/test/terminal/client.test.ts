@@ -185,6 +185,35 @@ describe('TerminalChannel', () => {
       scrollbackLines: 30,
     });
   });
+
+  it('keeps the pane hint until it is cleared or the session is attached again (D-33)', async () => {
+    const server = new FakeServer();
+    server.sessions = [summary(SESSION)];
+    const s = session();
+    let socket: FakeSocket | null = null;
+    const hint = (value: string | null) =>
+      JSON.stringify({ type: 'terminal.hint', channel: 1, hint: value });
+    server.onAttach = (sock, message) => {
+      socket = sock;
+      void s.snapshot(1).then((snap) => {
+        sock.deliver(s.attached(1, message.sessionId));
+        sock.deliver(hint('nested_tmux')); // a late attach gets the current hint
+        sock.deliver(snap);
+      });
+    };
+    const { connection } = setup(server);
+    connection.connect();
+    const { channel } = attachedChannel(connection);
+    await until(() => channel.getSnapshot().phase === 'live');
+    expect(channel.getSnapshot().hint).toBe('nested_tmux');
+    socket!.deliver(hint(null));
+    await until(() => channel.getSnapshot().hint === null);
+    socket!.deliver(hint('nested_tmux'));
+    await until(() => channel.getSnapshot().hint === 'nested_tmux');
+    // A new attach confirmation without a hint after it drops the old one.
+    socket!.deliver(s.attached(1, SESSION));
+    await until(() => channel.getSnapshot().hint === null);
+  });
 });
 
 describe('TermdockConnection', () => {

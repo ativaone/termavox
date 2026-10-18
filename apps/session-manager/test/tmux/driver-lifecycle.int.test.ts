@@ -221,6 +221,35 @@ describe.each(IMAGES)('S5 lifecycle (%s)', (image) => {
     await driver.terminate();
   });
 
+  it('5b. the foreground command is reported after start and when it changes (plan D-33)', async () => {
+    const socket = started();
+    const inner = newSocket();
+    const { runtime, driver } = await attach(socket);
+    try {
+      await waitUntil(() => runtime.foregrounds.length > 0, 10_000, 'the report after start');
+      expect(runtime.foregrounds.at(-1)).not.toBe('tmux');
+      driver.input(enc(`tmux -L ${inner} -f /dev/null\r`));
+      await waitUntil(() => runtime.foregrounds.at(-1) === 'tmux', 5_000, 'tmux in front').catch(
+        (err: Error) => {
+          const seen = JSON.stringify(runtime.foregrounds);
+          throw new Error(
+            `${err.message}; reported ${seen}; screen:\n${runtime.text().slice(-600)}`,
+          );
+        },
+      );
+      driver.input(enc('exit\r')); // the inner shell ends, and the inner tmux with it
+      await waitUntil(
+        () => runtime.foregrounds.at(-1) !== 'tmux',
+        5_000,
+        'the shell back in front',
+      );
+      expect(runtime.desyncs).toEqual([]);
+      await driver.terminate();
+    } finally {
+      await killServerQuietly(env, inner);
+    }
+  });
+
   it('6. csh-family shell: the startup command is typed into a NEW session only', async () => {
     const socket = started();
     // The login shell is bash in these images: the probe claims tcsh so the driver types the

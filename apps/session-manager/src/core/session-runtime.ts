@@ -10,6 +10,7 @@ import {
   type ServerMessage,
   type SessionState,
   type SessionStatus,
+  type TerminalHint,
   toSessionStatus,
 } from '@termdock/protocol';
 import { ErrorCode, TermdockError } from '@termdock/shared';
@@ -239,6 +240,8 @@ export class SessionRuntime implements SessionHost {
   #resetBeforeStart = false;
   /** Out-of-band notice carried by the next `ready` status (tmux-control remote reboot). */
   #readyDetail: string | null = null;
+  /** The pane tip while its condition holds, replayed to late attachments (plan D-33). */
+  #hint: TerminalHint | null = null;
   /** Generation whose driver confirmed that the shell exited (has-session: gone). */
   #exitedGen = -1;
 
@@ -670,6 +673,7 @@ export class SessionRuntime implements SessionHost {
         scrollbackLines: this.#record.scrollbackLines,
       }),
     );
+    if (this.#hint) handle.send(encodeChannelMessage({ type: 'terminal.hint', hint: this.#hint }));
     this.#resync(attachment);
     // An expired keyboard-interactive prompt waits for someone who can answer (§5.10).
     if (this.#state === 'awaiting_user_input' && !this.#authPrompt) this.#kick();
@@ -1141,6 +1145,10 @@ export class SessionRuntime implements SessionHost {
       banner: (text) => {
         if (live()) this.#banner(text);
       },
+      foreground: (command) => {
+        // Termdock already protects the session: its own tmux inside is not needed (D-33).
+        if (live()) this.#setHint(command === 'tmux' ? 'nested_tmux' : null);
+      },
       onShellExit: () => {
         if (!live()) return;
         this.#exitedGen = gen;
@@ -1244,6 +1252,8 @@ export class SessionRuntime implements SessionHost {
     if (from === state && extra.detail === undefined && extra.retryInMs === undefined) return;
     this.#state = state;
     this.#statusDetail = extra.detail ?? null;
+    // A tip describes the live shell; the next start reports the foreground again.
+    if (state !== 'ready') this.#setHint(null);
     // Every other state ends the round's progress: connected, failed, ended, waiting for the user.
     if (!RETRY_STATES.has(state)) this.#retryProgress = null;
     const progress = this.#retryProgress;
@@ -1396,6 +1406,12 @@ export class SessionRuntime implements SessionHost {
     if (!this.#ingestPaused) return;
     if (this.#emulator.pendingBytes < INGEST_LOW_WATER) this.#setIngestPaused(false);
     else this.#ingestTimer = setTimeout(() => this.#pollIngest(), this.#ingestPollMs);
+  }
+
+  #setHint(hint: TerminalHint | null): void {
+    if (this.#hint === hint) return;
+    this.#hint = hint;
+    this.#toAttachments({ type: 'terminal.hint', hint });
   }
 
   #toAttachments(message: ChannelMessage): void {

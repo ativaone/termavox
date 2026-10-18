@@ -64,6 +64,8 @@ export class StubRuntime implements DriverContext {
   readonly shellExits: Array<{ code: number | null }> = [];
   readonly desyncs: string[] = [];
   readonly resizes: Dimensions[] = [];
+  /** Foreground commands the driver reported (plan D-33), in order. */
+  readonly foregrounds: string[] = [];
   replaces = 0;
   outputBytes = 0;
   lastOutputAt = Date.now();
@@ -135,6 +137,10 @@ export class StubRuntime implements DriverContext {
 
   onDesync(reason: string): void {
     this.desyncs.push(reason);
+  }
+
+  foreground(command: string): void {
+    this.foregrounds.push(command);
   }
 
   /** Resolves once no output arrived for `quietMs` and the emulator parsed everything. */

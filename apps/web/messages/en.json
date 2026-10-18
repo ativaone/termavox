@@ -315,6 +315,9 @@
       "rebootTitle": "The server restarted",
       "rebootBody": "The previous shell was lost; a new one started.",
       "acknowledge": "Got it",
+      "nestedTmuxTitle": "tmux isn't needed here",
+      "nestedTmuxBody": "Termdock already keeps this session running on its server. Without a tmux inside it, scrolling, selection and copy work right in the browser.",
+      "nestedTmuxNever": "Don't show again",
       "dismiss": "Dismiss",
       "passive": "Sized by another window. Click to fit."
     },
@@ -1113,6 +1116,9 @@
       "osc52Help": "Remote programs such as tmux or vim can then replace your clipboard without asking. Leave off unless you need it.",
       "confirmLinks": "Confirm before opening links",
       "confirmLinksHelp": "Shows the full address before a link from the terminal opens.",
+      "tips": "Tips",
+      "nestedTmuxTip": "Say so when tmux runs inside a session",
+      "nestedTmuxTipHelp": "Termdock already keeps your sessions running on their servers, so a tmux started inside one is not needed. The pane says so when it sees one.",
       "submit": "Save terminal settings",
       "saved": "Terminal settings saved. Open terminals pick them up when they reconnect.",
       "error": {

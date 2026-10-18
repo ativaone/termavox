@@ -93,6 +93,10 @@ export const AuthPrompt = z.object({
   echo: z.boolean(),
 });
 
+/** `nested_tmux`: the user runs tmux inside a tmux-protected session (plan D-33). */
+export const TerminalHint = z.enum(['nested_tmux']);
+export type TerminalHint = z.infer<typeof TerminalHint>;
+
 export const ServerMessage = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('hello.ok'),
@@ -145,6 +149,11 @@ export const ServerMessage = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('terminal.title'), channel, title: z.string().max(256) }),
   z.object({ type: z.literal('terminal.bell'), channel }),
+  /**
+   * A tip for the pane while its condition holds; null clears it. Sent on change and right after
+   * `session.attached` for a late attach (plan D-33).
+   */
+  z.object({ type: z.literal('terminal.hint'), channel, hint: TerminalHint.nullable() }),
   z.object({
     type: z.literal('hostkey.prompt'),
     sessionId: id,

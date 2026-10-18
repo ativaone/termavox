@@ -165,6 +165,8 @@ export const TerminalPreferencesInput = z.object({
   allowOsc52Write: z.boolean(),
   /** Links open only after a confirmation that shows the full URL (default on). */
   confirmLinks: z.boolean(),
+  /** The pane says so when tmux runs inside a protected session (plan D-33, default on). */
+  nestedTmuxTip: z.boolean(),
 });
 export type TerminalPreferences = z.infer<typeof TerminalPreferencesInput>;
 
@@ -178,6 +180,7 @@ export const DEFAULT_TERMINAL_PREFERENCES: TerminalPreferences = {
   rightClickPaste: false,
   allowOsc52Write: false,
   confirmLinks: true,
+  nestedTmuxTip: true,
 };
 
 const D = DEFAULT_TERMINAL_PREFERENCES;
@@ -193,6 +196,7 @@ const StoredTerminalPreferences = z.object({
   rightClickPaste: z.boolean().catch(D.rightClickPaste),
   allowOsc52Write: z.boolean().catch(D.allowOsc52Write),
   confirmLinks: z.boolean().catch(D.confirmLinks),
+  nestedTmuxTip: z.boolean().catch(D.nestedTmuxTip),
 });
 
 /** Stored `terminal_json` → preferences; anything unreadable becomes the defaults. */

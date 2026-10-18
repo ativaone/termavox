@@ -106,6 +106,8 @@ const CLOSE_TIMEOUT_MS = 3_000;
 /** Remote cleanup scripts wait up to ~2 s for tmux processes; the exec gets some slack. */
 const REAP_TIMEOUT_MS = 5_000;
 const SNAPSHOT_ATTEMPTS = 3;
+/** After Enter in the input, the foreground command is asked for this much later (plan D-33). */
+const FOREGROUND_CHECK_MS = 1_000;
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();
 
@@ -215,6 +217,7 @@ export class TmuxControlDriver implements Driver {
   #input: Uint8Array[] = [];
   #inputBytes = 0;
   #inputTimer: NodeJS.Timeout | null = null;
+  #foregroundTimer: NodeJS.Timeout | null = null;
   #deferredResize: Dimensions | null = null;
   /** Why reading the control channel is paused: the runtime's backpressure, a long rebuild. */
   readonly #pausedBy = new Set<'runtime' | 'rebuild'>();
@@ -322,6 +325,8 @@ export class TmuxControlDriver implements Driver {
     this.#deferredResize = null;
     if (resize) this.resize(resize);
     this.#flushInput();
+    // After a daemon restart the foreground program may already run: no rename will tell.
+    this.#refreshForeground();
   }
 
   input(data: Uint8Array): void {
@@ -331,6 +336,14 @@ export class TmuxControlDriver implements Driver {
     if (this.#phase !== 'running') return; // flushed once started
     if (this.#inputBytes >= MAX_INPUT_BYTES_PER_COMMAND) this.#flushInput();
     else this.#inputTimer ??= setTimeout(() => this.#flushInput(), INPUT_COALESCE_MS);
+    // A command line just ran or ended: ask what is in front once it had time to start (D-33).
+    if (data.includes(0x0d)) {
+      if (this.#foregroundTimer) clearTimeout(this.#foregroundTimer);
+      this.#foregroundTimer = setTimeout(() => {
+        this.#foregroundTimer = null;
+        this.#refreshForeground();
+      }, FOREGROUND_CHECK_MS);
+    }
   }
 
   resize(dims: Dimensions): void {
@@ -685,6 +698,13 @@ export class TmuxControlDriver implements Driver {
         if (event.windowId !== this.#windowId || event.paneId === this.#paneId) return;
         this.#paneId = event.paneId;
         this.#requestResync('active pane changed', null);
+        this.#refreshForeground();
+        return;
+      case 'windowRenamed':
+        // automatic-rename names the window after the pane's foreground command (plan D-33).
+        if (event.windowId === this.#windowId && this.#phase === 'running') {
+          this.#ctx?.foreground?.(event.name);
+        }
         return;
       case 'windowClose':
         if (event.windowId === this.#windowId) this.#requestFollow();
@@ -712,7 +732,30 @@ export class TmuxControlDriver implements Driver {
     if (this.#phase !== 'running') return;
     this.#followActivePane().then(
       (changed) => {
-        if (changed) this.#requestResync('active pane changed', null);
+        if (!changed) return;
+        this.#requestResync('active pane changed', null);
+        this.#refreshForeground();
+      },
+      () => {},
+    );
+  }
+
+  /**
+   * Asks for the pane's foreground command (plan D-33): after a start, when the active pane
+   * changes, and a moment after each Enter. tmux also renames the window after it
+   * (%window-renamed), but tmux 3.2a to 3.4 hold a rename made within 500 ms of the previous name
+   * check until the next event reaches the server, which is what starting a program from the
+   * prompt does; a command we send is such an event, and its reply comes at once. Nothing is
+   * written into the pane.
+   */
+  #refreshForeground(): void {
+    const paneId = this.#paneId;
+    if (paneId === null || !this.#correlator || this.#phase !== 'running') return;
+    this.#correlator.send(displayFormat('#{pane_current_command}', paneId)).then(
+      (reply) => {
+        if (reply.ok && paneId === this.#paneId && this.#phase === 'running') {
+          this.#ctx?.foreground?.(text(reply.lines).trim());
+        }
       },
       () => {},
     );
@@ -757,6 +800,8 @@ export class TmuxControlDriver implements Driver {
   #clearInput(): void {
     if (this.#inputTimer) clearTimeout(this.#inputTimer);
     this.#inputTimer = null;
+    if (this.#foregroundTimer) clearTimeout(this.#foregroundTimer);
+    this.#foregroundTimer = null;
     this.#input = [];
     this.#inputBytes = 0;
   }

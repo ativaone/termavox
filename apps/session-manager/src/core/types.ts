@@ -136,6 +136,11 @@ export interface DriverContext {
   replaceState(build: (fresh: Emulator) => void | Promise<void>): Promise<void>;
   /** Writes a dim informational banner line into the terminal (plan §5.7). */
   banner(text: string): void;
+  /**
+   * The pane's foreground command as tmux names it (`#{pane_current_command}`), reported by
+   * the tmux-control driver after a start and whenever tmux renames the window (plan D-33).
+   */
+  foreground?(command: string): void;
   onShellExit(info: { code: number | null }): void;
   /** Requests a full resync (tmux-control desync). */
   onDesync(reason: string): void;

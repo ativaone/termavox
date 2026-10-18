@@ -4,6 +4,7 @@ import type { SessionStatus } from '@termdock/protocol/client';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import { type FormEvent, type ReactNode, useId, useRef, useState } from 'react';
+import { hideNestedTmuxTip } from '../../lib/actions/settings.ts';
 import { formatTarget } from '../../lib/servers/target.ts';
 import { END_KEYS, FAILURE_KEYS, pick } from '../../lib/sessions/reasons.ts';
 import type {
@@ -713,8 +714,10 @@ export function PaneOverlays({
   onClose: (() => void) | null;
 }) {
   const t = useTranslations('workspace');
-  const { sessions, connectionState, connection } = useWorkspace();
+  const { sessions, connectionState, connection, preferences } = useWorkspace();
   const entry = sessions.get(sessionId);
+  // "Got it" on the nested tmux tip holds for this session while the pane lives (plan D-33).
+  const [tipDismissedFor, setTipDismissedFor] = useState<string | null>(null);
   const hostKey = connectionState.hostKeyPrompts[sessionId];
   const auth = connectionState.authPrompts[sessionId];
   const gone =
@@ -867,6 +870,38 @@ export function PaneOverlays({
           >
             {t('overlay.dismiss')}
           </button>
+        </span>
+      </Notice>,
+    );
+  }
+  if (
+    channelState?.hint === 'nested_tmux' &&
+    preferences.nestedTmuxTip &&
+    tipDismissedFor !== sessionId
+  ) {
+    notices.push(
+      <Notice key="nested-tmux" tone="info" title={t('overlay.nestedTmuxTitle')}>
+        <span className="flex flex-col gap-1.5">
+          <span>{t('overlay.nestedTmuxBody')}</span>
+          <span className="flex flex-wrap gap-x-4 gap-y-1">
+            <button
+              type="button"
+              className="font-semibold underline underline-offset-2"
+              onClick={() => setTipDismissedFor(sessionId)}
+            >
+              {t('overlay.acknowledge')}
+            </button>
+            <button
+              type="button"
+              className="font-semibold underline underline-offset-2"
+              onClick={() => {
+                setTipDismissedFor(sessionId);
+                void hideNestedTmuxTip().catch(() => {});
+              }}
+            >
+              {t('overlay.nestedTmuxNever')}
+            </button>
+          </span>
         </span>
       </Notice>,
     );

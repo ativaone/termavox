@@ -5,6 +5,7 @@ import {
   FrameFlag,
   FrameType,
   type ServerMessage,
+  type TerminalHint,
 } from '@termdock/protocol/client';
 import { Utf8Aligner } from '@termdock/terminal-config';
 import { gunzip } from './gzip.ts';
@@ -46,6 +47,8 @@ export interface ChannelState {
    */
   readonly active: boolean;
   readonly title: string | null;
+  /** A tip the daemon shows while its condition holds (plan D-33). */
+  readonly hint: TerminalHint | null;
   readonly error: ChannelError | null;
 }
 
@@ -68,7 +71,15 @@ export interface ChannelHost {
 
 type ChannelMessage = Extract<
   ServerMessage,
-  { type: 'session.attached' | 'terminal.resized' | 'terminal.title' | 'terminal.bell' | 'error' }
+  {
+    type:
+      | 'session.attached'
+      | 'terminal.resized'
+      | 'terminal.title'
+      | 'terminal.bell'
+      | 'terminal.hint'
+      | 'error';
+  }
 >;
 
 type Op =
@@ -146,6 +157,7 @@ export class TerminalChannel {
       scrollbackLines: null,
       active: false,
       title: null,
+      hint: null,
       error: null,
     });
     // Keystrokes, paste, focus and mouse reports. INPUT also makes this the active attachment
@@ -175,6 +187,7 @@ export class TerminalChannel {
       phase: 'attaching',
       active: false,
       title: null,
+      hint: null,
       error: null,
     });
     this.#sendAttach();
@@ -188,7 +201,7 @@ export class TerminalChannel {
     this.#activatePending = false;
     this.#clearViewportTimer();
     this.#resetPipeline();
-    this.#store.update({ sessionId: null, phase: 'idle', active: false, error: null });
+    this.#store.update({ sessionId: null, phase: 'idle', active: false, hint: null, error: null });
   }
 
   /** Focus or click: this pane becomes the active attachment (its viewport sizes the session). */
@@ -279,7 +292,8 @@ export class TerminalChannel {
         const { phase } = this.#store.getSnapshot();
         // A stale confirmation of an earlier attach on this channel, or nothing requested.
         if (message.sessionId !== this.#sessionId || phase === 'idle' || phase === 'failed') return;
-        this.#store.update({ phase: 'syncing', error: null });
+        // The daemon sends the current hint, if any, right after this message.
+        this.#store.update({ phase: 'syncing', error: null, hint: null });
         this.#enqueue({ kind: 'attached', scrollbackLines: message.scrollbackLines });
         this.#flushViewport();
         if (this.#activatePending) {
@@ -303,6 +317,9 @@ export class TerminalChannel {
         return;
       case 'terminal.bell':
         if (this.#isAttached()) this.#options.onBell?.();
+        return;
+      case 'terminal.hint':
+        if (this.#isAttached()) this.#store.update({ hint: message.hint });
         return;
       case 'error': {
         const error = { code: message.code, message: message.message };

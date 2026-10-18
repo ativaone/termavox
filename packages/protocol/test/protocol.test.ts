@@ -47,6 +47,14 @@ describe('control messages', () => {
     });
   });
 
+  it('carries a pane hint or its clearing (D-33), and refuses an unknown hint', () => {
+    const hint = (value: unknown) =>
+      parseServerMessage(JSON.stringify({ type: 'terminal.hint', channel: 2, hint: value }));
+    expect(hint('nested_tmux')).toEqual({ type: 'terminal.hint', channel: 2, hint: 'nested_tmux' });
+    expect(hint(null)).toEqual({ type: 'terminal.hint', channel: 2, hint: null });
+    expect(() => hint('screen')).toThrow();
+  });
+
   it('caps keyboard-interactive text (L2) and carries the optional revoked flag (M2)', () => {
     const prompt = (patch: Record<string, unknown>) =>
       JSON.stringify({

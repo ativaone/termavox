@@ -18,6 +18,9 @@ The first release, v0.1.0, is being prepared.
 
 ### Added
 
+- A tip in the pane when you start tmux inside a protected session: Termdock already keeps the
+  session running, and without a tmux inside it scrolling, selection and copy work in the
+  browser. "Don't show again" turns it off; terminal settings turn it back on.
 - Persistent SSH sessions owned by the server: closing the browser, losing the network or
   restarting the web app never ends a terminal. Browsers attach to an authoritative server-side
   emulator and get an exact snapshot followed by the live stream.

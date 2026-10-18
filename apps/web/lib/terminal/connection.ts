@@ -603,6 +603,7 @@ export class TermdockConnection {
       case 'terminal.resized':
       case 'terminal.title':
       case 'terminal.bell':
+      case 'terminal.hint':
         this.#channels.get(message.channel)?.handleMessage(message);
         return;
       case 'pong':

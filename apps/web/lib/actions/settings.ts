@@ -11,7 +11,10 @@ import { authErrorInfo } from '../auth-errors.ts';
 import { revokeConnections } from '../internal-api.ts';
 import { checked, integer, type ManageState, text } from '../manage/forms.ts';
 import { TerminalPreferencesInput } from '../preferences/terminal.ts';
-import { saveTerminalPreferences as savePreferencesRow } from '../repo/preferences.ts';
+import {
+  getTerminalPreferences,
+  saveTerminalPreferences as savePreferencesRow,
+} from '../repo/preferences.ts';
 import { ROUTES } from '../routes.ts';
 
 /** The user's own settings (plan §8.1 /settings/account and /settings/terminal). */
@@ -32,6 +35,7 @@ export async function saveTerminalPreferences(
     rightClickPaste: checked(formData, 'rightClickPaste'),
     allowOsc52Write: checked(formData, 'allowOsc52Write'),
     confirmLinks: checked(formData, 'confirmLinks'),
+    nestedTmuxTip: checked(formData, 'nestedTmuxTip'),
   });
   if (!parsed.success) {
     const field = String(parsed.error.issues[0]?.path[0] ?? '');
@@ -42,6 +46,15 @@ export async function saveTerminalPreferences(
   savePreferencesRow(getAuthRuntime().db, user.id, parsed.data);
   revalidatePath('/settings/terminal');
   return { notice: t('saved'), savedAt: Date.now() };
+}
+
+/** "Don't show again" on the nested tmux tip (plan D-33); terminal settings turn it back on. */
+export async function hideNestedTmuxTip(): Promise<void> {
+  const { user } = await requireSession();
+  const { db } = getAuthRuntime();
+  savePreferencesRow(db, user.id, { ...getTerminalPreferences(db, user.id), nestedTmuxTip: false });
+  revalidatePath('/settings/terminal');
+  revalidatePath(ROUTES.workspace);
 }
 
 function passwordProblem(password: string): 'passwordShort' | 'passwordLong' | null {

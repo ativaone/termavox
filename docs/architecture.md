@@ -175,7 +175,7 @@ live in `packages/protocol` ([plan §7](implementation-plan.md#7-websocket-proto
   `terminal.activate`, `terminal.resync`, `hostkey.decision`, `auth.response`, `ping`.
 - **Server messages.** `hello.ok`, `sessions.list`, `session.upsert`, `session.removed`,
   `session.status`, `session.attached` (then a `SNAPSHOT`), `terminal.resized`, `terminal.title`,
-  `terminal.bell`, `hostkey.prompt`, `auth.prompt`, `server.shutting_down`, `error`, `pong`.
+  `terminal.bell`, `terminal.hint`, `hostkey.prompt`, `auth.prompt`, `server.shutting_down`, `error`, `pong`.
 - **Close codes.** `4400` bad request, `4401` unauthenticated or revoked, `4403` forbidden or bad
   origin, `4409` unsupported protocol, `4429` rate limited, `4500` internal.
 - Additive changes stay in v1 (receivers ignore unknown fields and types); breaking changes bump
