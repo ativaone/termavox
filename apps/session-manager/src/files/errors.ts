@@ -1,7 +1,7 @@
 import { ErrorCode, isTermdockError, TermdockError } from '@termdock/shared';
 import type { Logger } from '../config/logger.ts';
+import { hostText } from '../core/host-text.ts';
 import { SftpError, SftpStatus, TransportError } from '../core/types.ts';
-import { hostText } from '../drivers/tmux-control/host-text.ts';
 
 /** Server text quoted in a FILE_OP_FAILED message. */
 export const SERVER_MESSAGE_MAX = 200;

@@ -116,6 +116,9 @@ export interface SftpDirEntry {
 /** An open SFTP file or folder handle (opaque bytes). */
 export type SftpHandle = Uint8Array;
 
+/** `r`: read an existing file; `wx`: create a new file for writing, failing if it exists. */
+export type SftpOpenFlags = 'r' | 'wx';
+
 /**
  * An SFTP channel on a session's connection (plan §5.12), with promise-returning requests. A
  * request fails with SftpError: the server's status, or `ConnectionLost` once the channel closed.
@@ -143,6 +146,21 @@ export interface SftpSession {
   rename(from: string, to: string): Promise<void>;
   /** `posix-rename@openssh.com`; `OpUnsupported` when the server does not offer it. */
   posixRename(from: string, to: string): Promise<void>;
+  /**
+   * Opens a file: `r` to read, `wx` to create a new one for writing (fails when the name exists).
+   * The server gives a new file its default permissions.
+   */
+  open(path: string, flags: SftpOpenFlags): Promise<SftpHandle>;
+  /**
+   * Up to `length` bytes (> 0) at `position`: fewer when the server answers short (ask again for
+   * the rest), none at the end of the file.
+   */
+  read(handle: SftpHandle, length: number, position: number): Promise<Uint8Array>;
+  /** Writes all of `data` at `position`. */
+  write(handle: SftpHandle, data: Uint8Array, position: number): Promise<void>;
+  fstat(handle: SftpHandle): Promise<SftpAttrs>;
+  /** Sets the permission bits of an entry (links followed). */
+  chmod(path: string, mode: number): Promise<void>;
   /** Closes the channel; requests still pending fail with `ConnectionLost`. */
   end(): void;
   /** Called once when the channel closes (end(), the server, or the connection). */

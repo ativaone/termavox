@@ -254,7 +254,8 @@ async function exists(sftp: SftpSession, path: string): Promise<boolean> {
   return (await lstatOrNull(sftp, path)) !== null;
 }
 
-async function lstatOrNull(sftp: SftpSession, path: string): Promise<SftpAttrs | null> {
+/** The entry itself, or null when nothing has that name. */
+export async function lstatOrNull(sftp: SftpSession, path: string): Promise<SftpAttrs | null> {
   try {
     return await sftp.lstat(path);
   } catch (err) {

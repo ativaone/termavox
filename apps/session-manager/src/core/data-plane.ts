@@ -124,8 +124,9 @@ export function createDataPlane(deps: DataPlaneDeps): DataPlane {
     },
     async shutdown() {
       server.beginShutdown();
+      // Transfers first: each removes its temporary file while its session is still connected.
+      await files.close();
       await registry.shutdown();
-      files.close();
       await server.close();
     },
   };

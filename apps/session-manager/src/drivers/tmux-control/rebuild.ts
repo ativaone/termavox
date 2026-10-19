@@ -6,10 +6,11 @@
  * into bytes that rebuild an equivalent emulator from scratch. Everything here is pure, so it is
  * testable from recorded captures.
  */
+
+import { hostMessage, hostText } from '../../core/host-text.ts';
 import type { Emulator } from '../../core/types.ts';
 import type { CommandResult } from './correlator.ts';
 import { TmuxDesyncError } from './correlator.ts';
-import { hostMessage, hostText } from './host-text.ts';
 import { concatBytes } from './lines.ts';
 import { unescapeOutput } from './unescape.ts';
 

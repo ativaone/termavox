@@ -1,14 +1,15 @@
 import { ErrorCode, TermdockError } from '@termdock/shared';
 import type { Attributes, FileEntryWithStats, SFTPWrapper } from 'ssh2';
+import { hostText } from '../../core/host-text.ts';
 import {
   type SftpAttrs,
   type SftpDirEntry,
   SftpError,
   type SftpHandle,
+  type SftpOpenFlags,
   type SftpSession,
   SftpStatus,
 } from '../../core/types.ts';
-import { hostText } from '../../drivers/tmux-control/host-text.ts';
 
 /** A server that accepts the channel but never starts SFTP must not hold the panel forever. */
 export const SFTP_OPEN_TIMEOUT_MS = 20_000;
@@ -121,7 +122,7 @@ export class SshSftpSession implements SftpSession {
   async readdir(handle: SftpHandle): Promise<SftpDirEntry[] | null> {
     try {
       const list = await this.#call<FileEntryWithStats[]>((cb) =>
-        this.#wrapper.readdir(Buffer.from(handle.buffer, handle.byteOffset, handle.byteLength), cb),
+        this.#wrapper.readdir(asBuffer(handle), cb),
       );
       return list.map((entry) => ({ name: entry.filename, attrs: toAttrs(entry.attrs) }));
     } catch (err) {
@@ -131,8 +132,36 @@ export class SshSftpSession implements SftpSession {
   }
 
   close(handle: SftpHandle): Promise<void> {
-    const buffer = Buffer.from(handle.buffer, handle.byteOffset, handle.byteLength);
-    return this.#call<void>((cb) => this.#wrapper.close(buffer, cb));
+    return this.#call<void>((cb) => this.#wrapper.close(asBuffer(handle), cb));
+  }
+
+  open(path: string, flags: SftpOpenFlags): Promise<SftpHandle> {
+    // No attributes: a new file gets the server's default permissions, like any file creation.
+    return this.#call<Buffer>((cb) => this.#wrapper.open(path, flags, cb));
+  }
+
+  async read(handle: SftpHandle, length: number, position: number): Promise<Uint8Array> {
+    // ssh2 answers the end of the file with 0 bytes, and a short answer as it came.
+    const buffer = Buffer.allocUnsafe(length);
+    const bytes = await this.#call<number>((cb) =>
+      this.#wrapper.read(asBuffer(handle), buffer, 0, length, position, cb),
+    );
+    return buffer.subarray(0, bytes);
+  }
+
+  write(handle: SftpHandle, data: Uint8Array, position: number): Promise<void> {
+    const buffer = asBuffer(data);
+    return this.#call<void>((cb) =>
+      this.#wrapper.write(asBuffer(handle), buffer, 0, buffer.length, position, cb),
+    );
+  }
+
+  async fstat(handle: SftpHandle): Promise<SftpAttrs> {
+    return toAttrs(await this.#call<Attributes>((cb) => this.#wrapper.fstat(asBuffer(handle), cb)));
+  }
+
+  chmod(path: string, mode: number): Promise<void> {
+    return this.#call<void>((cb) => this.#wrapper.chmod(path, mode, cb));
   }
 
   mkdir(path: string): Promise<void> {
@@ -213,6 +242,13 @@ export class SshSftpSession implements SftpSession {
     this.#closed = true;
     for (const cb of this.#closeCallbacks.splice(0)) cb();
   }
+}
+
+/** ssh2 wants Buffers: a view over the same bytes, never a copy. */
+function asBuffer(bytes: Uint8Array): Buffer {
+  return Buffer.isBuffer(bytes)
+    ? bytes
+    : Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 }
 
 function channelClosed(): SftpError {

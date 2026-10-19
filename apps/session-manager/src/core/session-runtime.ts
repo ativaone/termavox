@@ -23,12 +23,12 @@ import {
   encodeSnapshotFrame,
 } from '../attachments/wire.ts';
 import { type Logger, silentLogger } from '../config/logger.ts';
-import { hostText } from '../drivers/tmux-control/host-text.ts';
 import { HeadlessEmulator } from '../emulator/headless-emulator.ts';
 import { type ProbeResult, runProbe, storableProbe } from '../probe/index.ts';
 import type { KeyboardInteractiveRequest } from '../transport/ssh/index.ts';
 import { nextRetry, type RetryRound, type RetryStep } from './backoff.ts';
 import { type DriverFactory, tmuxSocketName } from './driver-factory.ts';
+import { hostText } from './host-text.ts';
 import { type ProtectionChoice, selectProtection } from './protection.ts';
 import { endRemoteServer, type RemoteSweeper } from './remote-sessions.ts';
 import type { TransportFactory, TransportHooks } from './transport-factory.ts';

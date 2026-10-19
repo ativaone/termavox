@@ -19,6 +19,7 @@ import { type RawData, WebSocket, WebSocketServer } from 'ws';
 import { type Logger, silentLogger } from '../config/logger.ts';
 import type { UserNotifier } from '../core/session-runtime.ts';
 import type { AttachmentClient, OwnershipCheck } from '../core/types.ts';
+import { TransferRoutes, type TransferRoutesOptions } from '../files/transfer-routes.ts';
 import { WsAttachmentHandle } from './attachment-handle.ts';
 import { clientAddress, TrustedProxies } from './client-ip.ts';
 import type { AuthSessionValidator, FileGateway, SessionGateway } from './types.ts';
@@ -56,8 +57,13 @@ export interface WsServerOptions {
   authSessions: AuthSessionValidator;
   ownership: OwnershipCheck;
   sessions: SessionGateway;
-  /** The file panel's requests (plan §5.12); absent: every one is FILES_DISABLED. */
+  /**
+   * The file panel's requests (plan §5.12); absent: every one is FILES_DISABLED. Its transfer
+   * backend, when present, gets the `/transfer/*` routes on this listener.
+   */
   files?: FileGateway;
+  /** Transfer route timings (tests). */
+  transferRoutes?: Pick<TransferRoutesOptions, 'uploadIdleMs'>;
   logger?: Logger;
   /** Shared by every verifier in the process (single-use tickets). */
   nonces?: NonceCache;
@@ -117,6 +123,7 @@ class Connection {
 export class WsServer implements UserNotifier {
   readonly #options: WsServerOptions;
   readonly #http: Server;
+  readonly #routes: TransferRoutes | null;
   readonly #wss: WebSocketServer;
   readonly #nonces: NonceCache;
   readonly #trusted: TrustedProxies;
@@ -135,9 +142,28 @@ export class WsServer implements UserNotifier {
       noServer: true,
       maxPayload: options.maxPayload ?? MAX_PAYLOAD,
     });
-    this.#http = createServer((_req, res) => {
+    const backend = options.files?.transferBackend;
+    // The transfers use this listener's origin, auth-session check and proxy rule (plan §5.12).
+    this.#routes = backend
+      ? new TransferRoutes({
+          publicOrigin: options.publicOrigin,
+          authSessions: options.authSessions,
+          trustedProxies: this.#trusted,
+          backend,
+          logger: this.#log,
+          ...options.transferRoutes,
+        })
+      : null;
+    this.#http = createServer((req, res) => {
+      const path = new URL(req.url ?? '/', 'http://localhost').pathname;
+      if (this.#routes && TransferRoutes.owns(path)) {
+        this.#routes.handle(req, res);
+        return;
+      }
       res.writeHead(426, { 'content-type': 'text/plain' }).end('WebSocket only');
     });
+    // An upload may take hours: no request timeout (WebSocket upgrades never had one).
+    this.#http.requestTimeout = 0;
     this.#http.on('upgrade', (req, socket, head) => this.#onUpgrade(req, socket, head));
   }
 
@@ -186,9 +212,11 @@ export class WsServer implements UserNotifier {
 
   /**
    * Closes the connections of an auth session or a user with 4401 (internal API
-   * `auth-sessions/revoke`). Returns how many were closed.
+   * `auth-sessions/revoke`), and stops their transfers. Returns how many connections were closed.
    */
   revoke(target: { authSessionId?: string; userId?: string }): number {
+    // Transfers and unused transfer URLs end with the sign-in (plan §5.12).
+    this.#options.files?.revokeTransfers(target);
     let closed = 0;
     for (const conn of this.#connections) {
       if (!conn.userId) continue;
@@ -230,7 +258,10 @@ export class WsServer implements UserNotifier {
         }),
     );
     await Promise.all(closed);
-    await new Promise<void>((resolve) => this.#http.close(() => resolve()));
+    const stopped = new Promise<void>((resolve) => this.#http.close(() => resolve()));
+    // A transfer's connection would hold the close: the data plane stopped the transfers already.
+    this.#http.closeAllConnections();
+    await stopped;
   }
 
   // ── connection setup ────────────────────────────────────────────────────────
@@ -452,6 +483,7 @@ export class WsServer implements UserNotifier {
         {
           requestId,
           userId: conn.userId!,
+          authSessionId: conn.authSessionId!,
           sessionId,
           client: conn.client,
           signal,
@@ -594,7 +626,11 @@ export class WsServer implements UserNotifier {
         continue;
       }
       conn.revalidateFailures = 0;
-      if (!valid) this.#close(conn, CloseCode.Unauthenticated, 'auth session invalid');
+      if (!valid) {
+        // Its file transfers end with it, as after an explicit revoke (plan §5.12).
+        this.#options.files?.revokeTransfers({ authSessionId: conn.authSessionId });
+        this.#close(conn, CloseCode.Unauthenticated, 'auth session invalid');
+      }
     }
   }
 

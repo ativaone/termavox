@@ -2,6 +2,8 @@
 // against an unprotected server (no-tmux) and a tmux-protected one (tmux-3.4): the SFTP channel on
 // the session's own connection, the requests over the WebSocket, the audit rows in SQLite.
 // Precondition: docker compose -f test/sshd/compose.yaml up -d --build
+import { createHash, randomBytes } from 'node:crypto';
+import { type IncomingHttpHeaders, request } from 'node:http';
 import {
   type FileEntry,
   type FileRequest,
@@ -17,7 +19,7 @@ import {
   SETTING_FILE_TRANSFER_ENABLED,
 } from '../../src/store/settings.ts';
 import type { SshTransport } from '../../src/transport/ssh/index.ts';
-import { DaemonFixture, shows } from '../daemon/harness.ts';
+import { DaemonFixture, ORIGIN, shows } from '../daemon/harness.ts';
 import { until } from '../runtime/fakes.ts';
 import {
   HOST_KEY,
@@ -34,7 +36,45 @@ import type { TestClient } from '../ws/client.ts';
 
 const IMAGES: SshdImage[] = ['no-tmux', 'tmux-3.4'];
 const PROMPT = /\$ ?$/m;
+const MIB = 1024 * 1024;
 type FilesResult = Extract<ServerMessage, { type: 'files.result' }>;
+type Progress = Extract<ServerMessage, { type: 'transfer.progress' }>;
+
+const sha256 = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex');
+
+/** One HTTP request to the daemon's listener; `write` drives the body itself when given. */
+function http(
+  port: number,
+  method: string,
+  path: string,
+  options: {
+    headers?: Record<string, string>;
+    body?: Buffer;
+    write?: (req: ReturnType<typeof request>) => void;
+  } = {},
+): Promise<{ status: number; headers: IncomingHttpHeaders; body: Buffer }> {
+  return new Promise((resolve, reject) => {
+    const req = request({
+      host: '127.0.0.1',
+      port,
+      method,
+      path,
+      headers: options.headers,
+      agent: false,
+    });
+    req.on('response', (res) => {
+      const parts: Buffer[] = [];
+      res.on('data', (part: Buffer) => parts.push(part));
+      res.on('end', () =>
+        resolve({ status: res.statusCode!, headers: res.headers, body: Buffer.concat(parts) }),
+      );
+      res.on('error', reject);
+    });
+    req.on('error', reject);
+    if (options.write) options.write(req);
+    else req.end(options.body);
+  });
+}
 
 describe.each(IMAGES)('file panel through the daemon (%s)', (image) => {
   let fixture: DaemonFixture;
@@ -262,6 +302,142 @@ describe.each(IMAGES)('file panel through the daemon (%s)', (image) => {
         type: 'file.remove',
         detail_json: JSON.stringify({ serverId, paths: [`${dir}/tree`], removed: 8 }),
       },
+    ]);
+  });
+
+  const port = (): number => daemon.wsAddress.port;
+  const mintUrl = async (request: FileRequest) => {
+    const result = (await ok(request)) as unknown as { transferId: string; url: string };
+    expect(result.url).toMatch(/^\/transfer\/(upload|download)\/[A-Za-z0-9_-]{43}$/);
+    return result;
+  };
+  const finalProgress = (transferId: string) =>
+    client.next(
+      (m): m is Progress =>
+        m.type === 'transfer.progress' && m.transferId === transferId && m.state !== 'running',
+      60_000,
+    );
+  const upload = (url: string, body: Buffer) =>
+    http(port(), 'POST', url, {
+      headers: { origin: ORIGIN, 'content-type': 'application/octet-stream' },
+      body,
+    });
+
+  it('uploads and downloads a 20 MiB file over HTTP, byte for byte', async () => {
+    await remote(`mkdir -p ${dir}/up`);
+    const content = randomBytes(20 * MIB);
+    const minted = await mintUrl({
+      op: 'upload',
+      dir: `${dir}/up`,
+      name: 'big.bin',
+      size: content.length,
+      overwrite: false,
+    });
+    let started = Date.now();
+    const uploaded = await upload(minted.url, content);
+    const uploadMs = Date.now() - started;
+    expect(uploaded.status).toBe(200);
+    expect(JSON.parse(uploaded.body.toString())).toMatchObject({
+      entry: { name: 'big.bin', type: 'file', size: content.length },
+    });
+    expect(await finalProgress(minted.transferId)).toMatchObject({
+      state: 'done',
+      bytes: content.length,
+    });
+    expect(await remote(`sha256sum ${dir}/up/big.bin | cut -d' ' -f1`)).toBe(sha256(content));
+    expect(await remote(`ls -A ${dir}/up`)).toBe('big.bin');
+
+    const download = await mintUrl({ op: 'download', path: `${dir}/up/big.bin` });
+    started = Date.now();
+    const downloaded = await http(port(), 'GET', download.url);
+    const downloadMs = Date.now() - started;
+    expect(downloaded.status).toBe(200);
+    expect(downloaded.headers['content-length']).toBe(String(content.length));
+    expect(sha256(downloaded.body)).toBe(sha256(content));
+    expect(await finalProgress(download.transferId)).toMatchObject({ state: 'done' });
+    const rate = (ms: number) => `${(content.length / MIB / (ms / 1000)).toFixed(1)} MiB/s`;
+    console.log(
+      `[${image}] 20 MiB upload ${uploadMs} ms (${rate(uploadMs)}), download ${downloadMs} ms (${rate(downloadMs)})`,
+    );
+  });
+
+  it('downloads through a link to a file', async () => {
+    await remote(`ln -s big.bin ${dir}/up/latest`);
+    const minted = (await ok({ op: 'download', path: `${dir}/up/latest` })) as unknown as {
+      url: string;
+      name: string;
+      size: number;
+    };
+    expect(minted).toMatchObject({ name: 'latest', size: 20 * MIB });
+    const reply = await http(port(), 'GET', minted.url);
+    expect(reply.status).toBe(200);
+    expect(reply.headers['content-disposition']).toContain(`filename*=UTF-8''latest`);
+    expect(sha256(reply.body)).toBe(await remote(`sha256sum ${dir}/up/big.bin | cut -d' ' -f1`));
+  });
+
+  it('leaves no temporary file behind an upload cancelled midway', async () => {
+    const size = 20 * MIB;
+    const minted = await mintUrl({
+      op: 'upload',
+      dir: `${dir}/up`,
+      name: 'cancelled.bin',
+      size,
+      overwrite: false,
+    });
+    const answered = http(port(), 'POST', minted.url, {
+      headers: { origin: ORIGIN, 'content-length': String(size) },
+      write: (req) => {
+        req.write(randomBytes(4 * MIB));
+        void until(
+          () =>
+            client.messages.some(
+              (m) =>
+                m.type === 'transfer.progress' && m.transferId === minted.transferId && m.bytes > 0,
+            ),
+          30_000,
+        ).then(() => req.destroy());
+      },
+    }).catch(() => null);
+    expect(await finalProgress(minted.transferId)).toMatchObject({ state: 'cancelled' });
+    await answered;
+    let listing = '';
+    for (let i = 0; i < 50; i++) {
+      listing = await remote(`ls -A ${dir}/up`);
+      if (!listing.includes('.part')) break;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    expect(listing.split('\n').sort()).toEqual(['big.bin', 'latest']);
+  });
+
+  it('replaces a file keeping its permission bits', async () => {
+    await remote(`printf old > ${dir}/up/run.sh && chmod 755 ${dir}/up/run.sh`);
+    const content = Buffer.from('#!/bin/sh\necho new\n');
+    const conflict = await errorCode({
+      op: 'upload',
+      dir: `${dir}/up`,
+      name: 'run.sh',
+      size: content.length,
+      overwrite: false,
+    });
+    expect(conflict).toBe(ErrorCode.Conflict);
+    const minted = await mintUrl({
+      op: 'upload',
+      dir: `${dir}/up`,
+      name: 'run.sh',
+      size: content.length,
+      overwrite: true,
+    });
+    expect((await upload(minted.url, content)).status).toBe(200);
+    expect(await remote(`stat -c %a ${dir}/up/run.sh; cat ${dir}/up/run.sh`)).toBe(
+      `755\n${content.toString().trim()}`,
+    );
+    await daemon.writer.flush();
+    const uploads = daemon.db.$client
+      .prepare(`SELECT detail_json FROM audit_events WHERE type = 'file.upload' ORDER BY rowid`)
+      .all() as Array<{ detail_json: string }>;
+    expect(uploads.map((row) => JSON.parse(row.detail_json).path)).toEqual([
+      `${dir}/up/big.bin`,
+      `${dir}/up/run.sh`,
     ]);
   });
 

@@ -3,6 +3,8 @@
  * control mode over a PTY-less SSH exec channel. tmux keeps the session alive across daemon
  * restarts and network drops; on every (re)attach the emulator is rebuilt from `capture-pane`.
  */
+
+import { hostMessage, hostText } from '../../core/host-text.ts';
 import type {
   Dimensions,
   Driver,
@@ -38,7 +40,6 @@ import {
   type CommandResult,
   TmuxDesyncError,
 } from './correlator.ts';
-import { hostMessage, hostText } from './host-text.ts';
 import { encodeInput, MAX_INPUT_BYTES_PER_COMMAND } from './input.ts';
 import { concatBytes, LineSplitter } from './lines.ts';
 import { type ControlEvent, ControlParser, paneSizeFromLayout } from './parser.ts';

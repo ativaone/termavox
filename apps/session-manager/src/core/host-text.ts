@@ -1,6 +1,11 @@
 import { isControlChar, isInvisibleFormatChar } from '@termdock/protocol';
 
 /**
+ * Text a remote host decides (tmux replies, SFTP server messages) made safe before it reaches an
+ * error message, the logs or the browser. Shared by the transports, the drivers and the file panel.
+ */
+
+/**
  * Host text that reaches an error message, and so the logs and the `desync` session event, is at
  * most this many UTF-16 units, prefix included (see hostMessage).
  */
@@ -10,10 +15,10 @@ const DECODE_MAX_BYTES = 4 * HOST_TEXT_MAX;
 const decoder = new TextDecoder();
 
 /**
- * Text the host sent (tmux reply lines, a `%exit` reason, stderr) made safe for an error message:
- * lines joined with spaces, C0/C1 controls and invisible formatting (bidi overrides, zero-width
- * characters) dropped, cut to `max` UTF-16 units without splitting a character. Untrusted (§10.2):
- * a hostile or broken host decides what it says and how much.
+ * Text the host sent (tmux reply lines, a `%exit` reason, stderr, an SFTP status message) made
+ * safe for an error message: lines joined with spaces, C0/C1 controls and invisible formatting (bidi
+ * overrides, zero-width characters) dropped, cut to `max` UTF-16 units without splitting a
+ * character. Untrusted (§10.2): a hostile or broken host decides what it says and how much.
  */
 export function hostText(host: string | readonly Uint8Array[], max = HOST_TEXT_MAX): string {
   let out = '';

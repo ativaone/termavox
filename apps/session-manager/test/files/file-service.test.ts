@@ -76,6 +76,7 @@ function setup(options: { idleCloseMs?: number; tick?: number } = {}): Setup {
   const context = (overrides: Partial<FileRequestContext> = {}): FileRequestContext => ({
     requestId: 'r1',
     userId: 'user-1',
+    authSessionId: 'asid-1',
     sessionId: 'session-1',
     client: { ip: '203.0.113.7', userAgent: 'test-agent/1.0' },
     signal: new AbortController().signal,
@@ -187,22 +188,75 @@ describe('file service operations', () => {
     });
   });
 
-  it('leaves transfers to part 2 (INTERNAL for now)', async () => {
+  it('mints an upload URL once the folder and the name were checked', async () => {
     const s = setup();
-    const upload: FileRequest = {
+    s.host.fs.addLink('/data/to-sub', '/data/sub').addLink('/data/dangling', '/nowhere');
+    const upload = (dir: string, name: string, overwrite = false): FileRequest => ({
       op: 'upload',
-      dir: '/data',
-      name: 'x',
+      dir,
+      name,
       size: 3,
-      overwrite: false,
+      overwrite,
+    });
+    const minted = (await s.run(upload('/data/./', 'new.txt'))) as {
+      op: string;
+      transferId: string;
+      url: string;
     };
-    for (const request of [upload, { op: 'download', path: '/data/a.txt' } as const]) {
-      const err = await s.run(request).catch((e: unknown) => e as TermdockError);
-      expect(err).toMatchObject({
-        code: ErrorCode.Internal,
-        message: 'transfers not implemented yet',
-      });
-    }
+    expect(minted.op).toBe('upload');
+    expect(minted.url).toMatch(/^\/transfer\/upload\/[A-Za-z0-9_-]{43}$/);
+    const grant = s.service.transfers.consume(minted.url.split('/').at(-1)!, 'upload');
+    expect(grant).toMatchObject({
+      transferId: minted.transferId,
+      direction: 'upload',
+      userId: 'user-1',
+      authSessionId: 'asid-1',
+      sessionId: 'session-1',
+      dir: '/data',
+      name: 'new.txt',
+      path: '/data/new.txt',
+      overwrite: false,
+      size: 3,
+    });
+    // A folder through a link is a folder; a file is not.
+    expect(await s.code(upload('/data/to-sub', 'x'))).toBe('resolved');
+    expect(await s.code(upload('/data/a.txt', 'x'))).toBe(ErrorCode.NotFound);
+    expect(await s.code(upload('/missing', 'x'))).toBe(ErrorCode.NotFound);
+    // An existing name: CONFLICT unless replacing a file; a folder (or a link to one) never.
+    expect(await s.code(upload('/data', 'a.txt'))).toBe(ErrorCode.Conflict);
+    expect(await s.code(upload('/data', 'a.txt', true))).toBe('resolved');
+    expect(await s.code(upload('/data', 'dangling', true))).toBe('resolved');
+    expect(await s.code(upload('/data', 'sub', true))).toBe(ErrorCode.Conflict);
+    expect(await s.code(upload('/data', 'to-sub', true))).toBe(ErrorCode.Conflict);
+  });
+
+  it('mints a download URL for a file (links followed), with its name and size', async () => {
+    const s = setup();
+    s.host.fs.addFile('/data/report.pdf', 1234).addLink('/data/latest', 'report.pdf');
+    const minted = await s.run({ op: 'download', path: '/data/latest' });
+    expect(minted).toMatchObject({ op: 'download', name: 'latest', size: 1234 });
+    const url = (minted as { url: string }).url;
+    expect(url).toMatch(/^\/transfer\/download\/[A-Za-z0-9_-]{43}$/);
+    expect(s.service.transfers.consume(url.split('/').at(-1)!, 'download')).toMatchObject({
+      direction: 'download',
+      path: '/data/latest',
+      size: 1234,
+    });
+    expect(await s.code({ op: 'download', path: '/data/sub' })).toBe(ErrorCode.NotFound);
+    expect(await s.code({ op: 'download', path: '/data/none' })).toBe(ErrorCode.NotFound);
+  });
+
+  it('voids an unused URL on transfer.cancel, for its own user only', async () => {
+    const s = setup();
+    const minted = (await s.run({ op: 'download', path: '/data/a.txt' })) as {
+      transferId: string;
+      url: string;
+    };
+    s.service.cancelTransfer('user-2', minted.transferId);
+    expect(s.service.transfers.tokens.size).toBe(1);
+    s.service.cancelTransfer('user-1', minted.transferId);
+    expect(s.service.transfers.tokens.size).toBe(0);
+    expect(s.service.transfers.consume(minted.url.split('/').at(-1)!, 'download')).toBeNull();
   });
 
   it('sends removal progress at most four times a second', async () => {

@@ -1,20 +1,25 @@
-import type { FileRequest, FileResult } from '@termdock/protocol';
+import { type FileRequest, type FileResult, TRANSFER_PATH } from '@termdock/protocol';
 import { ErrorCode, TermdockError } from '@termdock/shared';
 import { type Logger, silentLogger } from '../config/logger.ts';
-import type { FileHost } from '../core/types.ts';
+import type { AttachmentClient, FileHost } from '../core/types.ts';
 import type { AuditInput, DaemonAuditType } from '../store/audit.ts';
 import type { FileGateway, FileRequestContext, SessionGateway } from '../ws/types.ts';
 import { fileError } from './errors.ts';
 import { checkName, type NamedPath, namedPath, normalizePath } from './paths.ts';
 import * as remote from './remote-fs.ts';
 import { DEFAULT_FILE_SETTINGS, type FileSettings } from './settings.ts';
+import { downloadable, uploadTarget } from './transfer-fs.ts';
+import type { TransferBackend } from './transfer-routes.ts';
+import { PROGRESS_INTERVAL_MS, Transfers } from './transfers.ts';
+
+export { PROGRESS_INTERVAL_MS } from './transfers.ts';
 
 /** A session's SFTP channel closes after this long without requests or transfers (plan §5.12). */
 export const SFTP_IDLE_CLOSE_MS = 5 * 60_000;
-/** `files.progress` of a removal: at most four per second. */
-export const PROGRESS_INTERVAL_MS = 250;
 /** Paths a `file.remove` audit row keeps (a request may name up to 1 000). */
 export const AUDIT_REMOVE_PATHS = 20;
+/** At shutdown, running transfers get this long to clean up after themselves (temporary files). */
+export const TRANSFER_DRAIN_MS = 3_000;
 
 export interface FileServiceOptions {
   sessions: Pick<SessionGateway, 'fileHost'>;
@@ -25,10 +30,17 @@ export interface FileServiceOptions {
   logger?: Logger;
   /** Default SFTP_IDLE_CLOSE_MS (tests). */
   idleCloseMs?: number;
+  /** The transfers and their URLs; default: a fresh registry. */
+  transfers?: Transfers;
   now?: () => number;
 }
 
 type FileAuditType = Extract<DaemonAuditType, `file.${string}`>;
+/** Who an audit row names: the acting user and the client that did it. */
+interface Actor {
+  userId: string;
+  client: AttachmentClient;
+}
 
 /** A request whose names and paths were checked before anything reaches the server. */
 type CheckedRequest =
@@ -37,8 +49,8 @@ type CheckedRequest =
   | { op: 'mkdir'; target: NamedPath }
   | { op: 'rename'; from: NamedPath; to: NamedPath }
   | { op: 'remove'; targets: NamedPath[] }
-  | { op: 'upload'; request: Extract<FileRequest, { op: 'upload' }> }
-  | { op: 'download'; request: Extract<FileRequest, { op: 'download' }> };
+  | { op: 'upload'; dir: string; name: string; size: number; overwrite: boolean }
+  | { op: 'download'; target: NamedPath };
 
 /** Users of one session's SFTP channel, and the timer that closes it once there are none. */
 interface ChannelUse {
@@ -50,9 +62,11 @@ interface ChannelUse {
 /**
  * The file panel's requests (plan §5.12): gates them on the instance setting, finds the session's
  * live runtime, checks names, runs the operation over the session's SFTP channel, writes the audit
- * row when the audit is on, and closes a channel nobody used for a while.
+ * row when the audit is on, and closes a channel nobody used for a while. Uploads and downloads
+ * get a single-use URL here; the transfer routes (the backend below) move their bytes.
  */
-export class FileService implements FileGateway {
+export class FileService implements FileGateway, TransferBackend {
+  readonly transfers: Transfers;
   readonly #options: FileServiceOptions;
   readonly #settings: () => FileSettings;
   readonly #log: Logger;
@@ -66,6 +80,31 @@ export class FileService implements FileGateway {
     this.#log = (options.logger ?? silentLogger()).child({ component: 'files' });
     this.#now = options.now ?? Date.now;
     this.#idleCloseMs = options.idleCloseMs ?? SFTP_IDLE_CLOSE_MS;
+    this.transfers = options.transfers ?? new Transfers({ now: this.#now });
+  }
+
+  /** The routes that move the transfers' bytes use this service (WsServer mounts them). */
+  get transferBackend(): TransferBackend {
+    return this;
+  }
+
+  // ── TransferBackend ─────────────────────────────────────────────────────────────────────────
+
+  settings(): FileSettings {
+    return this.#settings();
+  }
+
+  fileHost(sessionId: string): FileHost | undefined {
+    return this.#options.sessions.fileHost(sessionId);
+  }
+
+  auditTransfer(
+    host: FileHost,
+    actor: Actor,
+    type: 'file.upload' | 'file.download',
+    detail: { path: string; size: number },
+  ): void {
+    this.#audit(host, actor, type, detail);
   }
 
   async handle(context: FileRequestContext, request: FileRequest): Promise<FileResult> {
@@ -92,8 +131,13 @@ export class FileService implements FileGateway {
     }
   }
 
-  /** Part 2 (transfers) stops a transfer here; nothing can be running before it lands. */
-  cancelTransfer(_userId: string, _transferId: string): void {}
+  cancelTransfer(userId: string, transferId: string): void {
+    this.transfers.cancel(userId, transferId);
+  }
+
+  revokeTransfers(target: { userId?: string; authSessionId?: string }): void {
+    this.transfers.revoke(target);
+  }
 
   /**
    * Keeps a session's SFTP channel from the idle close while a request (or, part 2, a transfer)
@@ -127,8 +171,13 @@ export class FileService implements FileGateway {
     };
   }
 
-  /** Daemon shutdown: idle timers stop (the runtimes close their connections themselves). */
-  close(): void {
+  /**
+   * Daemon shutdown: transfers stop (each gets a moment to remove its temporary file) and idle
+   * timers stop (the runtimes close their connections themselves).
+   */
+  async close(): Promise<void> {
+    this.transfers.close();
+    await this.transfers.drained(TRANSFER_DRAIN_MS);
     for (const use of this.#channels.values()) if (use.timer) clearTimeout(use.timer);
     this.#channels.clear();
   }
@@ -160,7 +209,7 @@ export class FileService implements FileGateway {
         return { op: 'remove', removed: await this.#remove(host, context, checked.targets) };
       case 'upload':
       case 'download':
-        return this.#mintTransfer(host, context, checked.request);
+        return this.#mintTransfer(host, context, checked);
     }
   }
 
@@ -198,35 +247,69 @@ export class FileService implements FileGateway {
   }
 
   /**
-   * Upload and download URLs (plan §5.12 "Transfers"): part 2 replaces this function with the one
-   * that mints them.
+   * Upload and download URLs (plan §5.12 "Transfers"): the target is checked now (an upload's
+   * folder and name, a download's file), then a single-use URL bound to this user, auth session,
+   * session and path is minted. Its progress goes to the connection that asked.
    */
   async #mintTransfer(
-    _host: FileHost,
-    _context: FileRequestContext,
-    _request: Extract<FileRequest, { op: 'upload' | 'download' }>,
+    host: FileHost,
+    context: FileRequestContext,
+    checked: Extract<CheckedRequest, { op: 'upload' | 'download' }>,
   ): Promise<FileResult> {
-    throw new TermdockError(ErrorCode.Internal, 'transfers not implemented yet');
+    const sftp = await host.sftp();
+    const bound = {
+      userId: context.userId,
+      authSessionId: context.authSessionId,
+      sessionId: host.sessionId,
+      notify: context.send,
+      client: context.client,
+    };
+    if (checked.op === 'upload') {
+      const target = await uploadTarget(sftp, checked.dir, checked.name, checked.overwrite);
+      const { token, grant } = this.transfers.mint({
+        ...bound,
+        direction: 'upload',
+        dir: target.parent,
+        name: target.name,
+        path: target.path,
+        overwrite: checked.overwrite,
+        size: checked.size,
+      });
+      return {
+        op: 'upload',
+        transferId: grant.transferId,
+        url: `${TRANSFER_PATH}/upload/${token}`,
+      };
+    }
+    const { size } = await downloadable(sftp, checked.target.path);
+    const { token, grant } = this.transfers.mint({
+      ...bound,
+      direction: 'download',
+      path: checked.target.path,
+      size,
+    });
+    return {
+      op: 'download',
+      transferId: grant.transferId,
+      url: `${TRANSFER_PATH}/download/${token}`,
+      name: checked.target.name,
+      size,
+    };
   }
 
   /** One `file.*` audit row with the client's address, while `file_audit_enabled` is on. */
-  #audit(
-    host: FileHost,
-    context: FileRequestContext,
-    type: FileAuditType,
-    detail: Record<string, unknown>,
-  ): void {
+  #audit(host: FileHost, actor: Actor, type: FileAuditType, detail: Record<string, unknown>): void {
     const sink = this.#options.audit;
     if (!sink || !this.#settings().auditEnabled) return;
     try {
       sink({
         type,
-        actorUserId: context.userId,
+        actorUserId: actor.userId,
         targetType: 'session',
         targetId: host.sessionId,
         detail: { serverId: host.serverId, ...detail },
-        ...(context.client.ip ? { ip: context.client.ip } : {}),
-        ...(context.client.userAgent ? { userAgent: context.client.userAgent } : {}),
+        ...(actor.client.ip ? { ip: actor.client.ip } : {}),
+        ...(actor.client.userAgent ? { userAgent: actor.client.userAgent } : {}),
         at: this.#now(),
       });
     } catch (err) {
@@ -250,9 +333,14 @@ function checkRequest(request: FileRequest): CheckedRequest {
       return { op: 'remove', targets: request.paths.map(namedPath) };
     case 'upload':
       checkName(request.name);
-      return { op: 'upload', request };
+      return {
+        op: 'upload',
+        dir: normalizePath(request.dir),
+        name: request.name,
+        size: request.size,
+        overwrite: request.overwrite,
+      };
     case 'download':
-      namedPath(request.path);
-      return { op: 'download', request };
+      return { op: 'download', target: namedPath(request.path) };
   }
 }

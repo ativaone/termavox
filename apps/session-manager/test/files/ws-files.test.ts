@@ -74,6 +74,12 @@ class FakeFiles implements FileGateway {
   cancelTransfer(userId: string, transferId: string): void {
     this.cancels.push([userId, transferId]);
   }
+
+  readonly revokes: Array<{ userId?: string; authSessionId?: string }> = [];
+
+  revokeTransfers(target: { userId?: string; authSessionId?: string }): void {
+    this.revokes.push(target);
+  }
 }
 
 const host = new FakeHost('s-alice');
@@ -228,6 +234,35 @@ describe('file requests over the WebSocket (plan §5.12)', () => {
       false,
     );
     await client.close();
+  });
+});
+
+describe('an auth session found invalid', () => {
+  it('ends its transfers when revalidation closes the connection', async () => {
+    let valid = true;
+    const recorder = new FakeFiles();
+    const revalidating = new WsServer({
+      host: '127.0.0.1',
+      port: 0,
+      publicOrigin: ORIGIN,
+      secret: SECRET,
+      authSessions: { isValid: () => valid },
+      ownership: { sessionOwner: async (id) => owners.get(id) ?? null },
+      sessions: gateway,
+      files: recorder,
+      revalidateIntervalMs: 50,
+    });
+    const port = (await revalidating.listen()).port;
+    const client = await TestClient.connect(
+      `ws://127.0.0.1:${port}/ws`,
+      ORIGIN,
+      signTicket(SECRET, { uid: 'alice', asid: 'asid-alice' }),
+    );
+    valid = false;
+    await until(() => recorder.revokes.length > 0);
+    expect(recorder.revokes[0]).toEqual({ authSessionId: 'asid-alice' });
+    await client.close().catch(() => {});
+    await revalidating.close();
   });
 });
 

@@ -1,5 +1,6 @@
 import type { FileRequest, FileResult, ServerMessage, SessionSummary } from '@termdock/protocol';
 import type { AttachmentClient, FileHost, SessionHost } from '../core/types.ts';
+import type { TransferBackend } from '../files/transfer-routes.ts';
 
 /**
  * Validates the auth session behind a WebSocket (plan §7.1): it exists, has not expired and its
@@ -33,6 +34,8 @@ export interface SessionGateway {
 export interface FileRequestContext {
   requestId: string;
   userId: string;
+  /** The connection's auth session: a transfer URL is bound to it (and revoked with it). */
+  authSessionId: string;
   sessionId: string;
   /** The connection's client: address and user agent for the audit rows. */
   client: AttachmentClient;
@@ -48,4 +51,8 @@ export interface FileGateway {
   handle(context: FileRequestContext, request: FileRequest): Promise<FileResult>;
   /** `transfer.cancel`: stops a user's upload or download, or voids its unused URL. */
   cancelTransfer(userId: string, transferId: string): void;
+  /** A revoked user or auth session (sign-out, password change, ban): its transfers stop. */
+  revokeTransfers(target: { userId?: string; authSessionId?: string }): void;
+  /** What the `/transfer/*` routes need; absent: the listener has no transfer routes. */
+  readonly transferBackend?: TransferBackend;
 }
