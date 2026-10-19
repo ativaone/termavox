@@ -260,6 +260,8 @@ export class TransferRoutes {
       return await entryAt(sftp, grant.path, grant.name);
     } finally {
       clearTimeout(timer);
+      // A pipeline that refused to start leaves the writer alive: stop it before the handle closes.
+      if (!writer.destroyed) writer.destroy();
       if (open) await this.#closeQuietly(sftp, handle, writer.settled());
       if (!placed) {
         await sftp.unlink(temp).catch((err: unknown) => {
@@ -271,12 +273,12 @@ export class TransferRoutes {
 
   // ── download ─────────────────────────────────────────────────────────────────────────────────
 
+  /**
+   * The single-use URL is the whole authorization: no page of another site can learn one, so
+   * `Sec-Fetch-Site` is not checked (a development setup serves the app and the daemon from two
+   * sites, `localhost` and `127.0.0.1`).
+   */
   async #download(req: IncomingMessage, res: ServerResponse, token: string): Promise<void> {
-    // A page of another site may not start one (checked before the token: it is not spent).
-    if (req.headers['sec-fetch-site'] === 'cross-site') {
-      this.#error(res, new TermdockError(ErrorCode.Forbidden, 'cross-site request'));
-      return;
-    }
     let use: Use;
     try {
       use = await this.#use(req, token, 'download');
@@ -300,6 +302,9 @@ export class TransferRoutes {
       }
       // Stopped before a byte went out: an answer the browser can read, not a cut.
       signal.throwIfAborted();
+      // The browser left while the file was opened: a pipeline into a closed response would
+      // refuse without stopping the reader. Nothing in between awaits, so this check holds.
+      if (res.destroyed) throw new TransferStop({ state: 'cancelled' }, 'the browser stopped it');
       // Exactly this many bytes are sent: a file growing meanwhile (a log) still ends cleanly.
       const size = attrs.size;
       res.writeHead(200, {
@@ -339,6 +344,8 @@ export class TransferRoutes {
       if (res.headersSent) res.destroy();
       else this.#error(res, fileError(err, this.#log));
     } finally {
+      // A reader still alive would go on reading a handle about to close: stop it first.
+      if (reader && !reader.destroyed) reader.destroy();
       if (sftp && handle) await this.#closeQuietly(sftp, handle, reader?.settled());
       release();
       this.#ended(transfer);

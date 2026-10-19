@@ -10,7 +10,7 @@ import { cx } from '../ui/cx.ts';
 
 /** Desktop columns: check, name, size, then modified once the panel is wide enough. */
 export const ROW_COLUMNS =
-  'grid-cols-[1.5rem_minmax(0,1fr)_4.5rem] @min-[22rem]:grid-cols-[1.5rem_minmax(0,1fr)_4.5rem_6.75rem]';
+  'grid-cols-[1.5rem_minmax(0,1fr)_4.5rem] @min-[22rem]:grid-cols-[1.5rem_minmax(0,1fr)_4.5rem_5.75rem]';
 
 /** The well of a selection checkbox, drawn like the form checkbox at 16 px. */
 export function CheckMark({ checked, phone }: { checked: boolean; phone: boolean }) {
@@ -83,7 +83,8 @@ export const FileRow = memo(function FileRow({
       dangling ? (
         <span className="shrink-0 text-danger text-xs">{t('dangling')}</span>
       ) : entry.linkTo ? (
-        <span className="min-w-0 shrink truncate text-ink-muted text-xs">
+        // The link's target gives way first: the name is what the row is read by.
+        <span className="min-w-0 flex-1 truncate text-ink-muted text-xs">
           {t('linkTo', { target: entry.linkTo })}
         </span>
       ) : null
@@ -93,6 +94,8 @@ export const FileRow = memo(function FileRow({
     <span
       className={cx(
         'min-w-0 truncate',
+        // Beside a link's target, the name keeps its width up to most of the cell.
+        !phone && entry.type === 'link' && entry.linkTo && !dangling && 'max-w-[70%] shrink-0',
         folder ? 'font-semibold' : 'font-normal',
         isHidden(entry.name) ? 'text-ink-muted' : 'text-ink',
         !phone && 'cursor-pointer hover:underline hover:decoration-line-strong',

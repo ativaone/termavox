@@ -1449,7 +1449,7 @@
       "emptyHidden": "Aqui só há arquivos ocultos. Ative os arquivos ocultos para vê-los.",
       "loading": "Carregando…",
       "count": "{count, plural, one {# item} other {# itens}}",
-      "hiddenCount": "{count} ocultos",
+      "hiddenCount": "{count, plural, one {# oculto} other {# ocultos}}",
       "truncated": "Esta pasta tem mais itens do que o Termdock lista: mostrando os primeiros {count}.",
       "folderMeta": "Pasta · {modified}",
       "linkMeta": "Link → {target}",

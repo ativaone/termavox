@@ -145,6 +145,13 @@ export class TransferQueue {
   readonly #handoffMs: number;
   #nextId = 0;
   #unsubscribe: (() => void) | null = null;
+  /**
+   * The download handed to the browser and not confirmed by the daemon yet. The next one waits
+   * for it: a browser can drop a download it was handed while another is still starting (a page
+   * navigation that becomes a download replaces the previous one).
+   */
+  #handing: string | null = null;
+  readonly #handingWaiters: Array<() => void> = [];
 
   constructor(deps: TransferQueueDeps) {
     this.#deps = deps;
@@ -308,6 +315,7 @@ export class TransferQueue {
   }
 
   #finish(id: string, patch: Partial<TransferJob>): void {
+    this.#releaseHandoff(id);
     const rt = this.#runtime.get(id);
     if (rt) {
       if (rt.handoff) clearTimeout(rt.handoff);
@@ -444,10 +452,22 @@ export class TransferQueue {
       this.#fail(job.id, FileCode.Internal);
       return;
     }
+    // Minted only once it is this download's turn: its URL lives 60 s.
+    while (this.#handing !== null) {
+      await new Promise<void>((resolve) => this.#handingWaiters.push(resolve));
+    }
+    if (!current()) {
+      this.#wakeHandoff();
+      return;
+    }
+    this.#handing = job.id;
     const got = await this.#mint(job, rt, current, () =>
       this.#deps.api.fileRequest(job.sessionId, { op: 'download', path }),
     );
-    if (!got) return;
+    if (!got) {
+      this.#releaseHandoff(job.id);
+      return;
+    }
     // The size when the daemon opened it (a growing log), and the name it will save under.
     this.#patch(job.id, { size: got.minted.size, name: got.minted.name });
     this.#deps.startDownload(got.url, got.minted.name);
@@ -455,6 +475,17 @@ export class TransferQueue {
       rt.handoff = null;
       if (current() && rt.serverBytes === null) this.#handOff(job.id);
     }, this.#handoffMs);
+  }
+
+  /** The browser took `id` (the daemon reported it) or it ended: the next download may go. */
+  #releaseHandoff(id: string): void {
+    if (this.#handing !== id) return;
+    this.#handing = null;
+    this.#wakeHandoff();
+  }
+
+  #wakeHandoff(): void {
+    this.#handingWaiters.shift()?.();
   }
 
   /** A download goes on in the browser's own list, out of this tab's sight. */
@@ -467,6 +498,7 @@ export class TransferQueue {
     const job = id ? this.#job(id) : undefined;
     const rt = id ? this.#runtime.get(id) : undefined;
     if (!id || !job || !rt || job.state !== 'running') return;
+    this.#releaseHandoff(id);
     rt.serverBytes = message.bytes;
     if (rt.handoff) {
       clearTimeout(rt.handoff);

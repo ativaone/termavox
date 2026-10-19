@@ -342,14 +342,12 @@ describe('uploads', () => {
 });
 
 describe('downloads', () => {
-  it('send exactly the file with the specified headers, refusing cross-site first', async () => {
+  it('send exactly the file with the specified headers, from any site', async () => {
     await connect();
     const content = randomBytes(200_000);
     host.fs.addFile('/data/relatório "final".pdf', content);
     const { url, transferId } = await mint({ op: 'download', path: '/data/relatório "final".pdf' });
-    const refused = await json(http('GET', url, { 'sec-fetch-site': 'cross-site' }).reply);
-    expect(refused).toMatchObject({ status: 403, body: { code: ErrorCode.Forbidden } });
-    const reply = await http('GET', url, { 'sec-fetch-site': 'same-origin' }).reply;
+    const reply = await http('GET', url, { 'sec-fetch-site': 'cross-site' }).reply;
     expect(reply.status).toBe(200);
     const {
       date: _date,
@@ -395,6 +393,33 @@ describe('downloads', () => {
     expect(head.status).toBe(405);
     expect(head.headers.allow).toBe('GET');
     expect((await http('GET', other.url).reply).status).toBe(200); // HEAD spent nothing
+  });
+
+  it('stop cleanly when the browser leaves before the first byte', async () => {
+    // Regression: the client left while the file was being opened, so the response was already
+    // destroyed when the bytes were to be piped into it. The reader then kept reading after the
+    // handle was closed, and its read failure was an unhandled 'error' that ended the daemon.
+    await connect();
+    host.fs.addFile('/data/early', randomBytes(600_000));
+    const { url, transferId } = await mint({ op: 'download', path: '/data/early' });
+    const gate = Promise.withResolvers<void>();
+    let held = false;
+    host.fs.delay = async (op) => {
+      if (op === 'fstat' && !held) {
+        held = true;
+        await gate.promise;
+      }
+    };
+    const { req } = http('GET', url);
+    await until(() => held);
+    req.destroy();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    gate.resolve();
+    expect(await finalOf(transferId)).toMatchObject({ state: 'cancelled' });
+    await until(() => host.fs.openHandles === 0);
+    // Reads that would have run on the closed handle had 100 ms to fail the process.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(host.fs.ops.filter((op) => op.startsWith('read'))).toEqual([]);
   });
 
   it('cut the response of a file that shrank, never padding it', async () => {

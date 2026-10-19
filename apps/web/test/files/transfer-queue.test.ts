@@ -294,19 +294,42 @@ describe('transfer queue (plan §5.12)', () => {
     expect(job(id!)).toMatchObject({ state: 'done', bytes: 2_000, untracked: false });
   });
 
+  it('hands downloads to the browser one at a time', async () => {
+    const { api, queue, job } = setup();
+    const [first, second] = queue.enqueueDownloads('s1', '/', [
+      { path: '/a', name: 'a', size: 1 },
+      { path: '/b', name: 'b', size: 1 },
+    ]);
+    await flush();
+    // The second is minted only once the browser took the first (its URL lives 60 s).
+    expect(api.calls).toHaveLength(1);
+    api.mint(0, 'd-a');
+    await flush();
+    expect(api.calls).toHaveLength(1);
+    api.progress({ transferId: 'd-a', bytes: 0, size: 100, state: 'running' });
+    await flush();
+    expect(api.calls).toHaveLength(2);
+    expect(job(first!).state).toBe('running');
+    expect(job(second!).state).toBe('running');
+  });
+
   it('lets a download go on untracked when its progress cannot be followed', async () => {
     const { api, queue, job } = setup({ handoffTimeoutMs: 20 });
     const [quiet, dropped] = queue.enqueueDownloads('s1', '/', [
       { path: '/a', name: 'a', size: 1 },
       { path: '/b', name: 'b', size: 1 },
     ]);
+    await flush();
     api.mint(0, 'd-a');
+    await flush();
+    await sleep(40);
+    // No progress at all: it went on in the browser's own list, and the next one could go.
+    expect(job(quiet!)).toMatchObject({ state: 'done', untracked: true });
+    expect(api.calls).toHaveLength(2);
     api.mint(1, 'd-b');
     await flush();
     api.progress({ transferId: 'd-b', bytes: 0, size: 100, state: 'running' });
     await sleep(40);
-    // No progress at all: it went on in the browser's own list.
-    expect(job(quiet!)).toMatchObject({ state: 'done', untracked: true });
     expect(job(dropped!).state).toBe('running');
     // Progress that stops because the tab's socket dropped: the same.
     api.drop();

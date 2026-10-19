@@ -1,6 +1,7 @@
 # Termdock edge proxy (plan §4.3, §13.1). Caddy is the only listener and the only trusted proxy
-# of web and session-manager: `/ws` goes to session-manager, everything else to web. Caddy is not
-# on the `internal` network, so it can never reach the daemon's internal API.
+# of web and session-manager: `/ws` and the file panel's `/transfer/*` go to session-manager,
+# everything else to web. Caddy is not on the `internal` network, so it can never reach the
+# daemon's internal API.
 #
 # Environment (set by deploy/compose.yaml):
 #   TERMDOCK_DOMAIN         site address, e.g. termdock.example.com (default: localhost)
@@ -41,6 +42,14 @@
 	# never appended to: web's rate limits, lockout and audit trust this header (plan §4.3,
 	# ADR-0004), and session-manager trusts it only from this network.
 	handle /ws {
+		reverse_proxy session-manager:3001 {
+			header_up X-Forwarded-For {client_ip}
+		}
+	}
+
+	# File panel uploads and downloads (plan §5.12): single-use URLs the daemon mints over the
+	# WebSocket. Bodies stream both ways (Caddy buffers neither and sets no size limit).
+	handle /transfer/* {
 		reverse_proxy session-manager:3001 {
 			header_up X-Forwarded-For {client_ip}
 		}
