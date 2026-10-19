@@ -435,11 +435,17 @@ kbd {
   flex-direction: column;
   gap: 1px;
 }
+/* A group is a small heading over its entries, indented on a guide line like the app's Ended group. */
 .index-group-name {
-  padding: 0 10px 2px;
-  color: var(--ink-muted);
-  font-size: 0.75rem;
-  font-weight: 500;
+  padding: 4px 10px;
+  color: var(--ink);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.index-list .index-group-named ul {
+  margin-inline-start: 10px;
+  padding-inline-start: 6px;
+  border-inline-start: 1px solid var(--line);
 }
 .index-list ul {
   display: flex;

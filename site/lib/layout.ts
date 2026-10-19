@@ -143,7 +143,8 @@ function indexList(items: readonly IndexItem[]): string {
             `<li><a href="#${item.id}"${item.id === first ? ' aria-current="true"' : ''}>${escapeHtml(item.label)}</a></li>`,
         )
         .join('');
-      return `<div class="index-group">${name}<ul>${links}</ul></div>`;
+      const named = group.name ? ' index-group-named' : '';
+      return `<div class="index-group${named}">${name}<ul>${links}</ul></div>`;
     })
     .join('\n');
 }

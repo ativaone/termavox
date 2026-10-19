@@ -7,29 +7,40 @@ for (const link of document.querySelectorAll('.index-list a[href^="#"]')) {
   if (!links.has(id)) links.set(id, []);
   links.get(id).push(link);
 }
+// Exactly one entry is lit: the last heading that has passed under the top bar (the first one
+// above all of them, the last one at the bottom of the page), measured once per frame.
 const targets = [...links.keys()].map((id) => document.getElementById(id)).filter(Boolean);
-if (targets.length > 0 && 'IntersectionObserver' in window) {
-  const visible = new Set();
+if (targets.length > 0) {
+  let current = null;
+  let queued = false;
   const light = () => {
-    const current = targets.find((el) => visible.has(el)) ?? null;
+    queued = false;
+    const line = (document.querySelector('.bar')?.offsetHeight ?? 56) + 24;
+    let lit = targets[0];
+    for (const target of targets) {
+      if (target.getBoundingClientRect().top > line) break;
+      lit = target;
+    }
+    const root = document.documentElement;
+    if (window.innerHeight + window.scrollY >= root.scrollHeight - 2) lit = targets.at(-1);
+    if (lit === current) return;
+    current = lit;
     for (const [id, items] of links) {
       for (const link of items) {
-        if (current && current.id === id) link.setAttribute('aria-current', 'true');
+        if (id === lit.id) link.setAttribute('aria-current', 'true');
         else link.removeAttribute('aria-current');
       }
     }
   };
-  const observer = new IntersectionObserver(
-    (entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting) visible.add(entry.target);
-        else visible.delete(entry.target);
-      }
-      light();
-    },
-    { rootMargin: '-72px 0px -55% 0px' },
-  );
-  for (const target of targets) observer.observe(target);
+  const queue = () => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(light);
+  };
+  addEventListener('scroll', queue, { passive: true });
+  addEventListener('resize', queue);
+  addEventListener('hashchange', queue);
+  light();
 }
 
 // The other language opens at the same section (both languages share their anchors).
