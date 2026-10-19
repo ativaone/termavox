@@ -4,7 +4,7 @@
  * (its title and description) or from the site config, never from a second copy.
  */
 
-import { type Locale, REPOSITORY_URL, SITE_URL } from './config.ts';
+import { GOOGLE_SITE_VERIFICATION, type Locale, REPOSITORY_URL, SITE_URL } from './config.ts';
 import { escapeHtml } from './layout.ts';
 
 export interface PageMeta {
@@ -115,6 +115,9 @@ export function seoHead(path: string, meta: PageMeta): string {
   const locale = localeOf(path);
   const url = absoluteUrl(path);
   const lines = [`<link rel="canonical" href="${url}">`];
+  if (path === 'index.html' && GOOGLE_SITE_VERIFICATION) {
+    lines.push(`<meta name="google-site-verification" content="${GOOGLE_SITE_VERIFICATION}">`);
+  }
   if (meta.translation) {
     const english = locale === 'en' ? path : meta.translation;
     const portuguese = locale === 'pt-BR' ? path : meta.translation;

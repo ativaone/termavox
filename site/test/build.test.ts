@@ -108,6 +108,13 @@ describe('search and link previews', () => {
     }
   });
 
+  it('carries the Search Console verification on the home page only', () => {
+    const tag = '<meta name="google-site-verification"';
+    for (const [path, html] of pages) {
+      expect(html.includes(tag), path).toBe(path === 'index.html');
+    }
+  });
+
   it('writes structured data that parses', () => {
     for (const [path, html] of pages) {
       const blocks = [
