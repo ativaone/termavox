@@ -1,5 +1,6 @@
 import type { AddressInfo } from 'node:net';
 import { type Logger, silentLogger } from '../config/logger.ts';
+import { FileService, type FileServiceOptions } from '../files/file-service.ts';
 import { TargetPolicy } from '../transport/ssh/index.ts';
 import { WsServer, type WsServerOptions } from '../ws/server.ts';
 import type { AuthSessionValidator } from '../ws/types.ts';
@@ -39,6 +40,11 @@ export interface DataPlaneDeps {
   transports?: TransportFactory;
   /** For the default transport factory; default: local targets refused (plan §10.2). */
   targetPolicy?: TargetPolicy;
+  /**
+   * The file panel's instance settings and audit sink (plan §5.12); default: file transfer on,
+   * nothing audited.
+   */
+  files?: Pick<FileServiceOptions, 'settings' | 'audit' | 'idleCloseMs'>;
   logger?: Logger;
   /** Test timings. */
   registry?: Pick<SessionRegistryOptions, 'runtime' | 'restoreHostSpacingMs' | 'terminateAnswerMs'>;
@@ -48,6 +54,7 @@ export interface DataPlaneDeps {
 export interface DataPlane {
   registry: SessionRegistry;
   ws: WsServer;
+  files: FileService;
   /** Listens for WebSockets, then restores sessions in the background (null if that failed). */
   start(): Promise<{ address: AddressInfo; restored: Promise<RestoreSummary | null> }>;
   /** Graceful shutdown (plan §5.8). */
@@ -88,6 +95,7 @@ export function createDataPlane(deps: DataPlaneDeps): DataPlane {
       : {}),
     ...deps.registry,
   });
+  const files = new FileService({ sessions: registry, logger, ...deps.files });
   ws = new WsServer({
     host: deps.ws.host,
     port: deps.ws.port,
@@ -97,6 +105,7 @@ export function createDataPlane(deps: DataPlaneDeps): DataPlane {
     authSessions: deps.authSessions,
     ownership: deps.ownership,
     sessions: registry,
+    files,
     logger,
     ...deps.wsOptions,
   });
@@ -104,6 +113,7 @@ export function createDataPlane(deps: DataPlaneDeps): DataPlane {
   return {
     registry,
     ws: server,
+    files,
     async start() {
       const address = await server.listen();
       const restored = registry.restore().catch((err: unknown) => {
@@ -115,6 +125,7 @@ export function createDataPlane(deps: DataPlaneDeps): DataPlane {
     async shutdown() {
       server.beginShutdown();
       await registry.shutdown();
+      files.close();
       await server.close();
     },
   };

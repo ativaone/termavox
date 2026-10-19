@@ -71,6 +71,84 @@ export interface PtyOptions extends Dimensions {
   env?: Record<string, string>;
 }
 
+/** SFTP status codes (draft-ietf-secsh-filexfer-02 §7), as the server sends them. */
+export const SftpStatus = {
+  Ok: 0,
+  Eof: 1,
+  NoSuchFile: 2,
+  PermissionDenied: 3,
+  Failure: 4,
+  BadMessage: 5,
+  NoConnection: 6,
+  ConnectionLost: 7,
+  OpUnsupported: 8,
+} as const;
+
+/**
+ * A failed SFTP request: the server's status and message (host text, untrusted), or
+ * `ConnectionLost` when the channel closed under the request or before it.
+ */
+export class SftpError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'SftpError';
+    this.status = status;
+  }
+}
+
+/** File attributes as SFTP reports them; a field the server left out reads 0. */
+export interface SftpAttrs {
+  /** `st_mode`: file type and permission bits. */
+  mode: number;
+  size: number;
+  /** Seconds since the epoch. */
+  mtime: number;
+}
+
+/** A folder entry with its attributes (OpenSSH reports them as lstat sees the entry). */
+export interface SftpDirEntry {
+  name: string;
+  attrs: SftpAttrs;
+}
+
+/** An open SFTP file or folder handle (opaque bytes). */
+export type SftpHandle = Uint8Array;
+
+/**
+ * An SFTP channel on a session's connection (plan §5.12), with promise-returning requests. A
+ * request fails with SftpError: the server's status, or `ConnectionLost` once the channel closed.
+ */
+export interface SftpSession {
+  /** The server offers `posix-rename@openssh.com` (a rename that replaces atomically). */
+  readonly supportsPosixRename: boolean;
+  /** The channel closed: every request fails at once. */
+  readonly closed: boolean;
+  realpath(path: string): Promise<string>;
+  /** Follows links. */
+  stat(path: string): Promise<SftpAttrs>;
+  /** The entry itself: a link is a link. */
+  lstat(path: string): Promise<SftpAttrs>;
+  readlink(path: string): Promise<string>;
+  opendir(path: string): Promise<SftpHandle>;
+  /** The next entries of an open folder (`.` and `..` may be among them), or null at its end. */
+  readdir(handle: SftpHandle): Promise<SftpDirEntry[] | null>;
+  close(handle: SftpHandle): Promise<void>;
+  mkdir(path: string): Promise<void>;
+  rmdir(path: string): Promise<void>;
+  /** Removes a file or a link (never what a link points to). */
+  unlink(path: string): Promise<void>;
+  /** SSH_FXP_RENAME: refuses an existing target on OpenSSH. */
+  rename(from: string, to: string): Promise<void>;
+  /** `posix-rename@openssh.com`; `OpUnsupported` when the server does not offer it. */
+  posixRename(from: string, to: string): Promise<void>;
+  /** Closes the channel; requests still pending fail with `ConnectionLost`. */
+  end(): void;
+  /** Called once when the channel closes (end(), the server, or the connection). */
+  onClose(cb: () => void): void;
+}
+
 /** Byte pipe to a target. Knows nothing about terminals. */
 export interface Transport {
   /** TCP + SSH handshake + host verification + auth (no-op for local). */
@@ -79,6 +157,12 @@ export interface Transport {
   exec(command: string): Promise<ExecChannel>;
   /** Opens an interactive PTY shell (raw mode / tmux-normal). */
   openPty(opts: PtyOptions): Promise<PtyChannel>;
+  /**
+   * Opens an SFTP channel on the connection (plan §5.12). SESSION_NOT_CONNECTED when the
+   * connection is not open, SFTP_UNAVAILABLE when the server refuses the `sftp` subsystem.
+   * Absent: the transport has no file access (local sessions, D-15).
+   */
+  openSftp?(): Promise<SftpSession>;
   close(): Promise<void>;
   /** The connection dropped after connect() succeeded. */
   onLost(cb: (err: TransportError) => void): void;
@@ -163,6 +247,11 @@ export interface Driver {
   detach(): Promise<void>;
   /** Kills the remote shell / tmux server. */
   terminate(): Promise<void>;
+  /**
+   * The folder the terminal is in, as the remote reports it (tmux-control:
+   * `#{pane_current_path}`), or null when it cannot tell. The runtime validates it.
+   */
+  currentDirectory?(): Promise<string | null>;
 }
 
 /** Decrypted credential material, held only in memory for the duration of a connect. */
@@ -207,6 +296,26 @@ export interface SessionHost {
   terminate(): Promise<void>;
   /** Graceful shutdown: leave protected remotes alive. */
   shutdown(): Promise<void>;
+}
+
+/**
+ * A session as the file panel sees it (plan §5.12), implemented by the runtime. Its SFTP channel
+ * lives on the session's connection: opened on first use and reused while that connection lives.
+ */
+export interface FileHost {
+  readonly sessionId: string;
+  readonly userId: string;
+  /** The session's server; null once that server was deleted. */
+  readonly serverId: string | null;
+  /**
+   * The SFTP channel of the current connection, opened once and shared. SESSION_NOT_CONNECTED
+   * unless the session is `ready`; dropped when the connection is torn down or lost.
+   */
+  sftp(): Promise<SftpSession>;
+  /** Closes the channel (the file service, after a while without requests); reopened on use. */
+  closeSftp(): void;
+  /** The terminal's folder: an absolute single-line path, or null (not ready, or unknown). */
+  currentDirectory(): Promise<string | null>;
 }
 
 // ── persistence boundaries (implemented over SQLite in P1; in-memory fakes in tests) ──────

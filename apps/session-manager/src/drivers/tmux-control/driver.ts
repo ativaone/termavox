@@ -110,6 +110,8 @@ const SNAPSHOT_ATTEMPTS = 3;
 /** After Enter in the input, the foreground command is asked for this much later (plan D-33). */
 const FOREGROUND_CHECK_MS = 1_000;
 const decoder = new TextDecoder();
+/** Paths must survive the round trip to SFTP: invalid UTF-8 is refused, never replaced. */
+const strictDecoder = new TextDecoder('utf-8', { fatal: true });
 const encoder = new TextEncoder();
 
 interface Deferred<T> {
@@ -753,6 +755,24 @@ export class TmuxControlDriver implements Driver {
    * prompt does; a command we send is such an event, and its reply comes at once. Nothing is
    * written into the pane.
    */
+  /**
+   * The pane's current folder (`#{pane_current_path}`, plan §5.12): what the file panel opens at.
+   * Null while not running, on a tmux error or when the reply is not valid UTF-8.
+   */
+  async currentDirectory(): Promise<string | null> {
+    const paneId = this.#paneId;
+    if (paneId === null || !this.#correlator || this.#phase !== 'running') return null;
+    const reply = await this.#correlator
+      .send(displayFormat('#{pane_current_path}', paneId))
+      .catch(() => null);
+    if (!reply?.ok || paneId !== this.#paneId) return null;
+    try {
+      return reply.lines.map((line) => strictDecoder.decode(line)).join('\n');
+    } catch {
+      return null;
+    }
+  }
+
   #refreshForeground(): void {
     const paneId = this.#paneId;
     if (paneId === null || !this.#correlator || this.#phase !== 'running') return;

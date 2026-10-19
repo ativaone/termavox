@@ -4,6 +4,7 @@ import { gzip } from 'node:zlib';
 import {
   AUTH_PROMPT_LIMITS,
   type EndReason,
+  FILES_LIMITS,
   isControlChar,
   isInvisibleFormatChar,
   type Protection,
@@ -39,6 +40,7 @@ import {
   type Driver,
   type DriverContext,
   type Emulator,
+  type FileHost,
   type HostKeyStore,
   type PresentedHostKey,
   type RemoteIdentity,
@@ -46,6 +48,7 @@ import {
   type SessionRecord,
   type SessionStore,
   type SessionTarget,
+  type SftpSession,
   sessionHostKeyTarget,
   type Transport,
   TransportError,
@@ -61,6 +64,8 @@ export const INGEST_HIGH_WATER = 8 * 1024 * 1024;
 export const INGEST_LOW_WATER = 1024 * 1024;
 const INGEST_POLL_MS = 10;
 const PROBE_TIMEOUT_MS = 15_000;
+/** The terminal's folder is asked for this long at most (a rebuild may hold tmux's replies). */
+const CURRENT_DIRECTORY_TIMEOUT_MS = 3_000;
 /**
  * The one-shot remote cleanup of a terminate while not connected (plan D-30): connect bound
  * (the factory's handshake timeout can be 110 s for a credential that may prompt), probe bound
@@ -179,11 +184,20 @@ interface AuthPrompt {
   resolve(answers: string[] | null): void;
 }
 
+/** The SFTP channel of one connection generation (plan §5.12), open or opening. */
+interface SftpChannel {
+  gen: number;
+  transport: Transport;
+  promise: Promise<SftpSession>;
+  session: SftpSession | null;
+}
+
 /**
  * One session's runtime (plan §5.1): state machine and connect loop, the authoritative emulator,
- * the output pipeline with sequencing and snapshots, the size policy and attachment fan-out.
+ * the output pipeline with sequencing and snapshots, the size policy and attachment fan-out, and
+ * the file panel's SFTP channel on the session's connection (plan §5.12).
  */
-export class SessionRuntime implements SessionHost {
+export class SessionRuntime implements SessionHost, FileHost {
   readonly #record: SessionRecord;
   readonly #store: SessionStore;
   readonly #hostKeys: HostKeyStore;
@@ -233,6 +247,7 @@ export class SessionRuntime implements SessionHost {
   readonly #firstAttempt = Promise.withResolvers<void>();
   #transport: Transport | null = null;
   #driver: Driver | null = null;
+  #sftp: SftpChannel | null = null;
   #pendingHostKey: PresentedHostKey | null = null;
   #mismatchKey: { type: string; fingerprint: string; revoked: boolean } | null = null;
   #authPrompt: AuthPrompt | null = null;
@@ -303,6 +318,10 @@ export class SessionRuntime implements SessionHost {
 
   get userId(): string {
     return this.#record.userId;
+  }
+
+  get serverId(): string | null {
+    return this.#record.serverId;
   }
 
   /** The session's name as the user last set it (D-28). */
@@ -712,6 +731,87 @@ export class SessionRuntime implements SessionHost {
     if (attachment) this.#resync(attachment);
   }
 
+  // ── files (FileHost, plan §5.12) ────────────────────────────────────────────
+
+  /**
+   * The SFTP channel of the current connection: opened on first use, shared by every caller of
+   * this connection generation, dropped with the connection (teardown, loss, stop) or when the
+   * server closes it. A failed open is not kept, so the next request tries again.
+   */
+  sftp(): Promise<SftpSession> {
+    const transport = this.#transport;
+    if (this.#state !== 'ready' || !transport) {
+      return Promise.reject(
+        new TermdockError(ErrorCode.SessionNotConnected, 'the session is not connected'),
+      );
+    }
+    const current = this.#sftp;
+    if (current && current.gen === this.#generation && current.transport === transport) {
+      return current.promise;
+    }
+    this.closeSftp();
+    if (!transport.openSftp) {
+      return Promise.reject(
+        new TermdockError(ErrorCode.SftpUnavailable, 'this session has no file access'),
+      );
+    }
+    const channel: SftpChannel = {
+      gen: this.#generation,
+      transport,
+      session: null,
+      promise: transport.openSftp().then(
+        (session) => {
+          if (this.#sftp !== channel) {
+            // The connection was torn down while the channel opened.
+            session.end();
+            throw new TermdockError(ErrorCode.SessionNotConnected, 'the session is not connected');
+          }
+          channel.session = session;
+          session.onClose(() => {
+            if (this.#sftp === channel) this.#sftp = null;
+          });
+          return session;
+        },
+        (err: unknown) => {
+          if (this.#sftp === channel) this.#sftp = null;
+          throw err;
+        },
+      ),
+    };
+    this.#sftp = channel;
+    return channel.promise;
+  }
+
+  closeSftp(): void {
+    const channel = this.#sftp;
+    this.#sftp = null;
+    channel?.session?.end();
+  }
+
+  /**
+   * The terminal's folder (tmux-control: the pane's current path), or null: not ready, a driver
+   * that cannot tell, or anything but an absolute single-line path.
+   */
+  async currentDirectory(): Promise<string | null> {
+    const driver = this.#driver;
+    if (this.#state !== 'ready' || !driver?.currentDirectory) return null;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const path = await Promise.race([
+        driver.currentDirectory(),
+        new Promise<null>((resolve) => {
+          timer = setTimeout(() => resolve(null), CURRENT_DIRECTORY_TIMEOUT_MS);
+        }),
+      ]);
+      return isAbsoluteLine(path) ? path : null;
+    } catch (err) {
+      this.#warn('current directory', err);
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   // ── connect loop ────────────────────────────────────────────────────────────
 
   #kick(): void {
@@ -826,7 +926,10 @@ export class SessionRuntime implements SessionHost {
       await own.connect(abort.signal);
     } catch (err) {
       if (transport) await closeQuietly(transport);
-      if (this.#transport === transport) this.#transport = null;
+      if (this.#transport === transport) {
+        this.#transport = null;
+        this.closeSftp();
+      }
       if (gen !== this.#generation) return 'stopped';
       return this.#connectFailed(err);
     } finally {
@@ -874,6 +977,7 @@ export class SessionRuntime implements SessionHost {
       if (gen !== this.#generation) return 'stopped';
       this.#driver = null;
       this.#transport = null;
+      this.closeSftp();
       await closeQuietly(transport);
       // start() may reject and the driver confirm a shell exit for the same attempt (ADR-0003):
       // one outcome per attempt, and a confirmed exit wins over a retry.
@@ -1186,6 +1290,7 @@ export class SessionRuntime implements SessionHost {
     const transport = this.#transport;
     this.#driver = null;
     this.#transport = null;
+    this.closeSftp();
     this.#setIngestPaused(false);
     if (transport) await closeQuietly(transport);
   }
@@ -1199,6 +1304,7 @@ export class SessionRuntime implements SessionHost {
     this.#wake?.();
     this.#driver = null;
     this.#transport = null;
+    this.closeSftp();
     this.#setIngestPaused(false);
   }
 
@@ -1578,6 +1684,16 @@ function cleanupFailureCode(err: unknown): string {
 /** The code a failed attempt leaves on the session (plan D-31): Termdock's own codes only. */
 function errorCode(err: unknown): string | null {
   return err instanceof TermdockError || err instanceof TransportError ? err.code : null;
+}
+
+/** A path the file panel can open: absolute, one line, NUL-free, within the protocol's bound. */
+function isAbsoluteLine(path: unknown): path is string {
+  return (
+    typeof path === 'string' &&
+    path.startsWith('/') &&
+    path.length <= FILES_LIMITS.path &&
+    !/[\0\r\n]/.test(path)
+  );
 }
 
 function sameTarget(a: SessionTarget, b: SessionTarget): boolean {

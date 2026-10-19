@@ -10,7 +10,7 @@ import {
   type UserNotifier,
 } from './session-runtime.ts';
 import type { TransportFactory } from './transport-factory.ts';
-import type { HostKeyStore, SessionHost, SessionRecord, SessionStore } from './types.ts';
+import type { FileHost, HostKeyStore, SessionHost, SessionRecord, SessionStore } from './types.ts';
 
 /** Boot restore (plan §5.8): at most 4 connects at once, spaced per host. */
 export const RESTORE_CONCURRENCY = 4;
@@ -137,6 +137,14 @@ export class SessionRegistry {
 
   /** A loaded runtime, or undefined. */
   host(sessionId: string): SessionRuntime | undefined {
+    return this.#runtimes.get(sessionId);
+  }
+
+  /**
+   * The file panel's view of a loaded runtime (plan §5.12). Not loaded, or loaded and not `ready`,
+   * the file service answers SESSION_NOT_CONNECTED.
+   */
+  fileHost(sessionId: string): FileHost | undefined {
     return this.#runtimes.get(sessionId);
   }
 

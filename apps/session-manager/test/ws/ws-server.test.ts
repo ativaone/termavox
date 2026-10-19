@@ -85,6 +85,7 @@ const authResponses: Array<[string, string, string[], string]> = [];
 
 const gateway: SessionGateway = {
   host: (id) => (id === 's-evicted' ? evicted.fresh : hosts.get(id)),
+  fileHost: () => undefined,
   attachable: async (id) => {
     if (id === 's-slow') {
       await slowAttach;

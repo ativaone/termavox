@@ -7,6 +7,7 @@ import type {
   ExecChannel,
   PtyChannel,
   PtyOptions,
+  SftpSession,
   Transport,
 } from '../../core/types.ts';
 import { TransportError } from '../../core/types.ts';
@@ -21,6 +22,7 @@ import {
   decideKeyboardInteractive,
   type KeyboardInteractiveRequest,
 } from './keyboard-interactive.ts';
+import { openSshSftp } from './sftp.ts';
 import type { TargetPolicy } from './target-policy.ts';
 
 const { Client } = ssh2;
@@ -296,6 +298,15 @@ export class SshTransport implements Transport {
         },
       );
     });
+  }
+
+  /** An SFTP channel on this connection (plan §5.12); see `openSshSftp` for its errors. */
+  async openSftp(): Promise<SftpSession> {
+    const client = this.#client;
+    if (this.#state !== 'ready' || !client) {
+      throw new TermdockError(ErrorCode.SessionNotConnected, 'the session is not connected');
+    }
+    return openSshSftp(client, { connected: () => this.#state === 'ready' });
   }
 
   async close(): Promise<void> {

@@ -25,6 +25,7 @@ import {
   type SessionRecordPatch,
   type SessionStore,
   type SessionTarget,
+  type SftpSession,
   type Transport,
   TransportError,
 } from '../../src/core/types.ts';
@@ -340,6 +341,8 @@ export interface FakeTransportBehavior {
    * recorded in `FakeTransport.commands`.
    */
   exec?: (command: string) => FakeExecResult | Promise<FakeExecResult> | undefined;
+  /** Opens an SFTP channel (plan §5.12); absent: the transport has no `openSftp`. */
+  sftp?: () => Promise<SftpSession>;
 }
 
 export class FakeTransport implements Transport {
@@ -354,11 +357,21 @@ export class FakeTransport implements Transport {
   readonly #hooks: TransportHooks;
   connected = false;
   closed = false;
+  /** Set when the behavior has `sftp`, like a transport with file access. */
+  openSftp?: () => Promise<SftpSession>;
+  sftpOpens = 0;
 
   constructor(hooks: TransportHooks, behavior: FakeTransportBehavior = {}) {
     this.#hooks = hooks;
     this.hooks = hooks;
     this.#behavior = behavior;
+    const sftp = behavior.sftp;
+    if (sftp) {
+      this.openSftp = () => {
+        this.sftpOpens++;
+        return sftp();
+      };
+    }
   }
 
   async connect(signal: AbortSignal): Promise<void> {

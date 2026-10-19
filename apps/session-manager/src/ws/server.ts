@@ -6,6 +6,7 @@ import {
   type ClientMessage,
   CloseCode,
   decodeFrame,
+  FILES_LIMITS,
   FrameType,
   NonceCache,
   PROTOCOL_VERSION,
@@ -13,14 +14,14 @@ import {
   type ServerMessage,
   verifyTicket,
 } from '@termdock/protocol';
-import { ErrorCode } from '@termdock/shared';
+import { ErrorCode, isTermdockError } from '@termdock/shared';
 import { type RawData, WebSocket, WebSocketServer } from 'ws';
 import { type Logger, silentLogger } from '../config/logger.ts';
 import type { UserNotifier } from '../core/session-runtime.ts';
 import type { AttachmentClient, OwnershipCheck } from '../core/types.ts';
 import { WsAttachmentHandle } from './attachment-handle.ts';
 import { clientAddress, TrustedProxies } from './client-ip.ts';
-import type { AuthSessionValidator, SessionGateway } from './types.ts';
+import type { AuthSessionValidator, FileGateway, SessionGateway } from './types.ts';
 
 export const WS_PATH = '/ws';
 export const HELLO_TIMEOUT_MS = 5_000;
@@ -55,6 +56,8 @@ export interface WsServerOptions {
   authSessions: AuthSessionValidator;
   ownership: OwnershipCheck;
   sessions: SessionGateway;
+  /** The file panel's requests (plan §5.12); absent: every one is FILES_DISABLED. */
+  files?: FileGateway;
   logger?: Logger;
   /** Shared by every verifier in the process (single-use tickets). */
   nonces?: NonceCache;
@@ -74,11 +77,15 @@ interface Binding {
   handle: WsAttachmentHandle;
 }
 
+type FileReply = Pick<Extract<ServerMessage, { type: 'files.result' }>, 'result' | 'error'>;
+
 class Connection {
   readonly id = randomUUID();
   readonly ws: WebSocket;
   readonly client: AttachmentClient;
   readonly channels = new Map<number, Binding>();
+  /** `files.request`s running, by request id: aborted by `files.cancel` and by the close. */
+  readonly fileRequests = new Map<string, AbortController>();
   userId: string | null = null;
   authSessionId: string | null = null;
   closing = false;
@@ -386,9 +393,77 @@ export class WsServer implements UserNotifier {
         // A stale promptId is discarded silently (§5.10). Answers are never logged.
         sessions.authResponse(message.sessionId, message.promptId, message.answers, userId);
         return;
+      case 'files.request':
+        // Dispatched, never awaited here: a slow listing must not hold later keystrokes.
+        this.#fileRequest(conn, message);
+        return;
+      case 'files.cancel':
+        conn.fileRequests.get(message.requestId)?.abort();
+        return;
+      case 'transfer.cancel':
+        this.#options.files?.cancelTransfer(userId, message.transferId);
+        return;
       case 'ping':
         conn.send({ type: 'pong', t: message.t });
         return;
+    }
+  }
+
+  /**
+   * A file panel request (plan §5.12), answered by exactly one `files.result`: at most
+   * FILES_LIMITS.requestsInFlight per connection (RATE_LIMITED beyond), the session's ownership
+   * checked like an attach (FORBIDDEN, whether or not the session exists), then the file service.
+   */
+  #fileRequest(conn: Connection, message: Extract<ClientMessage, { type: 'files.request' }>): void {
+    const { requestId } = message;
+    const reply = (body: FileReply): void =>
+      conn.send({ type: 'files.result', requestId, ...body });
+    if (conn.fileRequests.has(requestId)) {
+      reply({ error: { code: ErrorCode.BadRequest, message: 'request id already in use' } });
+      return;
+    }
+    if (conn.fileRequests.size >= FILES_LIMITS.requestsInFlight) {
+      reply({ error: { code: ErrorCode.RateLimited, message: 'too many file requests' } });
+      return;
+    }
+    const abort = new AbortController();
+    conn.fileRequests.set(requestId, abort);
+    void this.#runFileRequest(conn, message, abort.signal).then((body) => {
+      if (conn.fileRequests.get(requestId) === abort) conn.fileRequests.delete(requestId);
+      reply(body);
+    });
+  }
+
+  async #runFileRequest(
+    conn: Connection,
+    message: Extract<ClientMessage, { type: 'files.request' }>,
+    signal: AbortSignal,
+  ): Promise<FileReply> {
+    const { requestId, sessionId, request } = message;
+    try {
+      if (!(await this.#isOwner(conn, sessionId))) {
+        return { error: { code: ErrorCode.Forbidden, message: 'forbidden' } };
+      }
+      const files = this.#options.files;
+      if (!files) {
+        return { error: { code: ErrorCode.FilesDisabled, message: 'file transfer is turned off' } };
+      }
+      const result = await files.handle(
+        {
+          requestId,
+          userId: conn.userId!,
+          sessionId,
+          client: conn.client,
+          signal,
+          send: (out) => conn.send(out),
+        },
+        request,
+      );
+      return { result };
+    } catch (err) {
+      if (isTermdockError(err)) return { error: { code: err.code, message: err.message } };
+      this.#log.error({ err, connectionId: conn.id }, 'file request failed');
+      return { error: { code: ErrorCode.Internal, message: 'internal error' } };
     }
   }
 
@@ -481,13 +556,17 @@ export class WsServer implements UserNotifier {
 
   /** Ownership check; sends FORBIDDEN (without revealing whether the session exists). */
   async #owns(conn: Connection, sessionId: string, channel?: number): Promise<boolean> {
-    const owner = await this.#options.ownership.sessionOwner(sessionId);
-    if (owner !== null && owner === conn.userId) return true;
+    if (await this.#isOwner(conn, sessionId)) return true;
     this.#error(conn, ErrorCode.Forbidden, 'forbidden', {
       sessionId,
       ...(channel !== undefined ? { channel } : {}),
     });
     return false;
+  }
+
+  async #isOwner(conn: Connection, sessionId: string): Promise<boolean> {
+    const owner = await this.#options.ownership.sessionOwner(sessionId);
+    return owner !== null && owner === conn.userId;
   }
 
   async #isValid(authSessionId: string, userId: string): Promise<boolean> {
@@ -549,6 +628,9 @@ export class WsServer implements UserNotifier {
       this.#options.sessions.host(binding.sessionId)?.detach(binding.handle.id, conn.client);
     }
     conn.channels.clear();
+    // Nobody is left to read their results: a running removal stops (CANCELLED).
+    for (const abort of conn.fileRequests.values()) abort.abort();
+    conn.fileRequests.clear();
   }
 }
 

@@ -17,14 +17,16 @@ import { createLogger, type Logger } from './config/logger.ts';
 import { createDataPlane, type DataPlane, type DataPlaneDeps } from './core/data-plane.ts';
 import { SshTransportFactory } from './core/transport-factory.ts';
 import { TmuxControlDriver } from './drivers/tmux-control/index.ts';
+import { cachedFileSettings } from './files/settings.ts';
 import { InternalApi, type InternalApiOptions } from './internal-api/server.ts';
 import { SqliteAuthSessionValidator, SqliteOwnership } from './store/access.ts';
+import { insertAudit } from './store/audit.ts';
 import { BatchedWriter } from './store/batched-writer.ts';
 import { lockDataDir } from './store/data-dir-lock.ts';
 import { auditHostKeyMismatches, SqliteHostKeyStore } from './store/host-key-store.ts';
 import { RetentionJob, type RetentionJobOptions } from './store/retention.ts';
 import { SqliteSessionStore } from './store/session-store.ts';
-import { ensureInstallationId } from './store/settings.ts';
+import { ensureInstallationId, readFileSettings } from './store/settings.ts';
 import { TargetPolicy } from './transport/ssh/index.ts';
 import { CredentialService, VaultCredentialProvider } from './vault/credentials.ts';
 import { openVault } from './vault/vault.ts';
@@ -113,6 +115,13 @@ export async function startDaemon(
         hostKeys,
       ),
       tmuxControl: (opts) => new TmuxControlDriver(opts),
+      // File panel (plan §5.12): web's settings, read through a 2 s cache; audit rows queued.
+      files: {
+        settings: cachedFileSettings(() => readFileSettings(db.$client), {
+          onError: (err) => log.warn({ err }, 'file settings not read'),
+        }),
+        audit: (input) => writer.enqueue(input.type, (sqlite) => insertAudit(sqlite, input)),
+      },
       logger: log,
       ...(overrides.registry ? { registry: overrides.registry } : {}),
       ...(overrides.wsOptions ? { wsOptions: overrides.wsOptions } : {}),

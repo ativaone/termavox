@@ -16,6 +16,13 @@ export {
   type KeyboardInteractiveRequest,
 } from './keyboard-interactive.ts';
 export {
+  type OpenSftpOptions,
+  openSshSftp,
+  SFTP_OPEN_TIMEOUT_MS,
+  type SftpClient,
+  SshSftpSession,
+} from './sftp.ts';
+export {
   DEFAULT_KEEPALIVE_COUNT_MAX,
   DEFAULT_KEEPALIVE_INTERVAL_MS,
   DEFAULT_READY_TIMEOUT_MS,
