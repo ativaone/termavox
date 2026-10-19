@@ -1297,7 +1297,7 @@
         "auth_password_reset": "Senha redefinida",
         "auth_totp_enable": "Duas etapas ativada",
         "auth_totp_disable": "Duas etapas desativada",
-        "auth_totp_reset": "Duas etapas redefinida pelo admin",
+        "auth_totp_reset": "Duas etapas redefinida",
         "auth_session_revoke": "Logins revogados",
         "user_create": "Usuário criado",
         "user_ban": "Conta desativada",

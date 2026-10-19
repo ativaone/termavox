@@ -1018,13 +1018,19 @@ async function terminate(page: CdpPage, ids: string[]): Promise<void> {
 async function resetPassword(page: CdpPage, nextPassword: string): Promise<void> {
   // 11. deploy/scripts/reset-password.sh (D-36): it ends the browser's sign-in, its temporary
   // password signs in, and the forced change leads back to the workspace.
-  const result = await deployScript('reset-password.sh', [ADMIN.username]);
+  const result = await deployScript('reset-password.sh', ['--reset-totp', ADMIN.username]);
   const temporary = /^temporary password: ([a-z2-7]{20})$/m.exec(result.stdout)?.[1] ?? '';
   check(
     '11 reset',
     result.code === 0 && temporary !== '',
-    `reset-password.sh ${ADMIN.username} printed a temporary password`,
+    `reset-password.sh --reset-totp ${ADMIN.username} printed a temporary password`,
     `exit ${result.code}: ${result.stderr.trim()}`,
+  );
+  check(
+    '11 reset',
+    result.stdout.includes('TOTP was not on for this user: nothing to reset.'),
+    'the admin had no TOTP, and the script says there was nothing to reset',
+    result.stdout.trim(),
   );
   check(
     '11 reset',
@@ -1150,16 +1156,25 @@ async function backup(ids: string[], renamedId: string): Promise<void> {
     );
     const resets = db
       .prepare(
-        "SELECT actor_user_id, target_type, detail_json FROM audit_events WHERE type = 'auth.password_reset'",
+        `SELECT type, actor_user_id, target_type, detail_json FROM audit_events
+         WHERE type IN ('auth.password_reset', 'auth.totp_reset') ORDER BY type`,
       )
-      .all() as Array<{ actor_user_id: string | null; target_type: string; detail_json: string }>;
+      .all() as Array<{
+      type: string;
+      actor_user_id: string | null;
+      target_type: string;
+      detail_json: string;
+    }>;
     check(
       '12 backup',
-      resets.length === 1 &&
-        resets[0]?.actor_user_id === null &&
-        resets[0]?.target_type === 'user' &&
-        (JSON.parse(resets[0]?.detail_json ?? '{}') as { via?: string }).via === 'operator',
-      'the reset is audited: one auth.password_reset row from the operator, with no actor',
+      resets.map((r) => r.type).join() === 'auth.password_reset,auth.totp_reset' &&
+        resets.every(
+          (r) =>
+            r.actor_user_id === null &&
+            r.target_type === 'user' &&
+            (JSON.parse(r.detail_json) as { via?: string }).via === 'operator',
+        ),
+      'the reset is audited: auth.password_reset and auth.totp_reset from the operator, no actor',
       js(resets),
     );
     if (PROXY) {

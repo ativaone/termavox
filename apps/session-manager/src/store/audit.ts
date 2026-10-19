@@ -3,10 +3,11 @@ import { execute, type Sqlite } from './sqlite.ts';
 
 /**
  * Audit event types written by session-manager (plan §10.2; web writes the others): the daemon's
- * own, and `auth.password_reset` from the `reset-password` CLI (plan D-36).
+ * own, and `auth.password_reset` / `auth.totp_reset` from the `reset-password` CLI (plan D-36).
  */
 export type DaemonAuditType =
   | 'auth.password_reset'
+  | 'auth.totp_reset'
   | 'credential.create'
   | 'credential.rename'
   | 'credential.delete'

@@ -45,6 +45,33 @@ async function addUser(
   return id;
 }
 
+/** TOTP on, as Better Auth leaves it: the secret row, the flag and one trusted device. */
+function enableTotp(sqlite: Sqlite, userId: string): void {
+  const now = Date.now();
+  sqlite.prepare('UPDATE user SET two_factor_enabled = 1 WHERE id = ?').run(userId);
+  sqlite
+    .prepare('INSERT INTO two_factor (id, secret, backup_codes, user_id) VALUES (?, ?, ?, ?)')
+    .run(uuidv7(), 'encrypted-secret', 'encrypted-codes', userId);
+  sqlite
+    .prepare(
+      `INSERT INTO verification (id, identifier, value, expires_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    )
+    .run(uuidv7(), `trust-device-${uuidv7()}`, userId, now + 86_400_000, now, now);
+}
+
+function totpState(sqlite: Sqlite, userId: string) {
+  return {
+    enabled: count(sqlite, 'SELECT two_factor_enabled AS n FROM user WHERE id = ?', userId),
+    secrets: count(sqlite, 'SELECT count(*) AS n FROM two_factor WHERE user_id = ?', userId),
+    trustedDevices: count(
+      sqlite,
+      "SELECT count(*) AS n FROM verification WHERE value = ? AND identifier LIKE 'trust-device-%'",
+      userId,
+    ),
+  };
+}
+
 function passwordOf(sqlite: Sqlite, userId: string): string {
   return (
     sqlite
@@ -196,6 +223,100 @@ describe('reset-password (plan D-36)', () => {
     expect(printed).toContain('This account is disabled: an admin must enable it');
   });
 
+  it('leaves TOTP on without --reset-totp, and says how to reset it', async () => {
+    fixture = tempDb();
+    const sqlite = fixture.db.$client;
+    const id = await addUser(sqlite, fixture.db, 'alice', { role: 'admin' });
+    enableTotp(sqlite, id);
+    const run = io();
+    expect(await runResetPassword(['--data-dir', '.', 'alice'], run.io, fakeDeps().deps)).toBe(
+      EXIT.ok,
+    );
+    expect(totpState(sqlite, id)).toEqual({ enabled: 1, secrets: 1, trustedDevices: 1 });
+    expect(run.out.join('\n')).toContain(
+      'TOTP stays on: sign-in still asks for a code or a backup code. If the authenticator is ' +
+        'lost too, run this again with --reset-totp.',
+    );
+  });
+
+  it('--reset-totp removes the authenticator, backup codes and trusted devices, audited', async () => {
+    fixture = tempDb();
+    const sqlite = fixture.db.$client;
+    const id = await addUser(sqlite, fixture.db, 'alice', { role: 'admin' });
+    const other = await addUser(sqlite, fixture.db, 'bob');
+    enableTotp(sqlite, id);
+    enableTotp(sqlite, other);
+    const run = io();
+    const argv = ['--reset-totp', '--data-dir', '.', 'alice'];
+    expect(await runResetPassword(argv, run.io, fakeDeps().deps)).toBe(EXIT.ok);
+
+    expect(totpState(sqlite, id)).toEqual({ enabled: 0, secrets: 0, trustedDevices: 0 });
+    expect(totpState(sqlite, other)).toEqual({ enabled: 1, secrets: 1, trustedDevices: 1 });
+    expect(run.out.join('\n')).toContain(
+      'TOTP was reset: two-factor sign-in is off until they turn it on again in their account ' +
+        'settings.',
+    );
+    const audit = sqlite
+      .prepare('SELECT actor_user_id, type, target_id, detail_json FROM audit_events ORDER BY id')
+      .all();
+    expect(audit).toEqual([
+      {
+        actor_user_id: null,
+        type: 'auth.password_reset',
+        target_id: id,
+        detail_json: JSON.stringify({ via: 'operator', signInsEnded: 0 }),
+      },
+      {
+        actor_user_id: null,
+        type: 'auth.totp_reset',
+        target_id: id,
+        detail_json: JSON.stringify({ via: 'operator' }),
+      },
+    ]);
+  });
+
+  it('--reset-totp says the user enrolls again when TOTP is required for them', async () => {
+    fixture = tempDb();
+    const sqlite = fixture.db.$client;
+    const perUser = await addUser(sqlite, fixture.db, 'alice');
+    sqlite.prepare('UPDATE user SET totp_required = 1 WHERE id = ?').run(perUser);
+    enableTotp(sqlite, perUser);
+    enableTotp(sqlite, await addUser(sqlite, fixture.db, 'bob'));
+    await addUser(sqlite, fixture.db, 'carol');
+    const required =
+      'TOTP was reset: after the new password, they set up their authenticator again (TOTP ' +
+      'is required for them).';
+
+    const first = io();
+    const args = ['--reset-totp', '--data-dir', '.'];
+    expect(await runResetPassword([...args, 'alice'], first.io, fakeDeps().deps)).toBe(EXIT.ok);
+    expect(first.out).toContain(required);
+
+    // Instance-wide (Admin → Settings), stored as web stores it.
+    sqlite
+      .prepare('INSERT INTO instance_settings (key, value_json, updated_at) VALUES (?, ?, ?)')
+      .run('require_totp', 'true', Date.now());
+    const second = io();
+    expect(await runResetPassword([...args, 'bob'], second.io, fakeDeps().deps)).toBe(EXIT.ok);
+    expect(second.out).toContain(required);
+    const notOn = io();
+    expect(await runResetPassword([...args, 'carol'], notOn.io, fakeDeps().deps)).toBe(EXIT.ok);
+    expect(notOn.out).toContain(
+      'TOTP was not on: after the new password, they set up their authenticator (TOTP is ' +
+        'required for them).',
+    );
+  });
+
+  it('--reset-totp on a user without TOTP says there was nothing to reset', async () => {
+    fixture = tempDb();
+    const sqlite = fixture.db.$client;
+    await addUser(sqlite, fixture.db, 'alice');
+    const run = io();
+    const argv = ['--reset-totp', '--data-dir', '.', 'alice'];
+    expect(await runResetPassword(argv, run.io, fakeDeps().deps)).toBe(EXIT.ok);
+    expect(run.out).toContain('TOTP was not on for this user: nothing to reset.');
+  });
+
   it('never creates a database at a wrong path', async () => {
     fixture = tempDb();
     const empty = mkdtempSync(join(tmpdir(), 'termdock-reset-'));
@@ -212,7 +333,9 @@ describe('reset-password (plan D-36)', () => {
     for (const argv of [[], ['alice', 'bob'], ['--nope', 'alice'], ['  ']]) {
       const run = io();
       expect(await runResetPassword(argv, run.io, fakeDeps().deps)).toBe(EXIT.usage);
-      expect(run.err.at(-1)).toMatch(/^Usage: node src\/cli\/reset-password\.ts <username>/);
+      expect(run.err.at(-1)).toMatch(
+        /^Usage: node src\/cli\/reset-password\.ts \[options\] <username>/,
+      );
     }
     const help = io();
     expect(await runResetPassword(['--help'], help.io)).toBe(EXIT.ok);

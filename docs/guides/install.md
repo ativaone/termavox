@@ -303,6 +303,7 @@ An admin resets another user's password on that user's admin page. When no admin
 
 ```bash
 deploy/scripts/reset-password.sh <username>
+deploy/scripts/reset-password.sh --reset-totp <username>   # the authenticator is lost too
 ```
 
 The script runs `reset-password` inside the running session-manager container and prints a temporary password once:
@@ -318,8 +319,8 @@ Sign in with it: Termdock then asks for a new password.
 - Give the username, not the email: Termdock signs in by username. An unknown username changes nothing, and the message lists the existing usernames.
 - The user signs in with the temporary password and must choose a new one before anything else opens.
 - Every sign-in of the user ends and their open terminals disconnect; their sessions keep running.
-- TOTP stays as it is. A user who lost their authenticator needs an admin to reset it on their admin page.
-- The audit log records it as **Password reset**, with **System** as the actor.
+- TOTP stays on: sign-in still asks for a code, or for one of the backup codes shown when TOTP was set up. When the authenticator and the backup codes are both lost, add `--reset-totp`: it removes the authenticator, the backup codes and the trusted devices. The user sets TOTP up again right after the new password when it is required for them, and otherwise whenever they want, in their account settings.
+- The audit log records it as **Password reset** (and **Two-step reset** with `--reset-totp`), with **System** as the actor.
 - After several failed attempts, sign-in stays locked for that username and address for up to 15 minutes. The lockout lives in web's memory: `docker compose -f deploy/compose.yaml restart web` clears it.
 
 Anyone who can run Docker commands on the host can do this. That is no new power: such access already reaches the database and the master key.

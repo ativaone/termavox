@@ -1297,7 +1297,7 @@
         "auth_password_reset": "Password reset",
         "auth_totp_enable": "Two-step turned on",
         "auth_totp_disable": "Two-step turned off",
-        "auth_totp_reset": "Two-step reset by admin",
+        "auth_totp_reset": "Two-step reset",
         "auth_session_revoke": "Sign-ins revoked",
         "user_create": "User created",
         "user_ban": "Account disabled",

@@ -130,8 +130,8 @@ out at their next sign-in, but nothing technical stops it. Better Auth's imperso
 are disabled, so an admin cannot act as another user silently. Keep the number of admins small.
 
 Whoever can run Docker commands on the host can do the same without an account:
-`deploy/scripts/reset-password.sh` sets a temporary password for any user (plan D-36), for when no
-admin can sign in. It adds no power that host access lacked (the database and the master key are
+`deploy/scripts/reset-password.sh` sets a temporary password for any user, and with `--reset-totp`
+also resets their TOTP (plan D-36), for when no admin can sign in. It adds no power that host access lacked (the database and the master key are
 already within reach), and the reset is audited the same way, without an actor.
 
 **Local direct mode** (Phase 6, not implemented yet) would run shells as the daemon's OS user,

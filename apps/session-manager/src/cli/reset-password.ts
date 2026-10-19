@@ -2,19 +2,21 @@
  * `reset-password` (plan D-36): a new temporary password for a user when no admin can reset it
  * from the admin pages, typically because the only admin forgot theirs.
  *
- *   node src/cli/reset-password.ts <username> [--data-dir <dir>]
+ *   node src/cli/reset-password.ts [--reset-totp] [--data-dir <dir>] <username>
  *
  * It does what an admin's reset does (apps/web/lib/auth/account.ts, setTemporaryPassword): a
  * generated temporary password, a forced change at the next sign-in, every sign-in of the user
  * ended and their open WebSockets closed (through the internal API, best effort), and an
- * `auth.password_reset` audit row, here without an actor. It runs next to the running stack:
+ * `auth.password_reset` audit row, here without an actor. `--reset-totp` also does what an
+ * admin's TOTP reset does (resetTotp in @termdock/db, audited as `auth.totp_reset`), for a user
+ * who lost their authenticator and their backup codes too. It runs next to the running stack:
  * deploy/scripts/reset-password.sh runs it in the session-manager container. The temporary
  * password is printed once, on stdout, and nowhere else.
  */
 import { existsSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { openDb } from '@termdock/db';
+import { openDb, resetTotp } from '@termdock/db';
 import { INTERNAL_API_PREFIX } from '@termdock/protocol';
 import { hashPassword, randomToken } from '@termdock/shared';
 import { readSecretFile } from '../config/config.ts';
@@ -30,13 +32,15 @@ export const EXIT = {
   unexpected: 70,
 } as const;
 
-export const USAGE = `Usage: node src/cli/reset-password.ts <username> [options]
+export const USAGE = `Usage: node src/cli/reset-password.ts [options] <username>
 
 Sets a new temporary password for a user and prints it. The user signs in with it and must then
 choose a new password. Every sign-in of the user ends and their open terminals disconnect; their
 sessions keep running. Meant for when no admin can sign in: otherwise an admin resets passwords
 on the user's admin page.
 
+  --reset-totp      also remove the user's TOTP (authenticator, backup codes, trusted devices),
+                    for a lost authenticator; they set it up again when it is required
   --data-dir <dir>  the directory holding app.db (default: $TERMDOCK_DATA_DIR, else /data)
   -h, --help        show this help
 
@@ -70,6 +74,11 @@ export interface ResetResult {
   role: string;
   disabled: boolean;
   signInsEnded: number;
+  /** TOTP was on before the reset. */
+  totpEnabled: boolean;
+  totpReset: boolean;
+  /** TOTP is mandatory for the user (their own flag or the instance setting). */
+  totpRequired: boolean;
 }
 
 interface UserRow {
@@ -78,6 +87,23 @@ interface UserRow {
   role: string;
   banned: number;
   ban_expires: number | null;
+  two_factor_enabled: number;
+  totp_required: number;
+}
+
+/** Instance-wide TOTP requirement, read like web does (`instance_settings` key `require_totp`). */
+function totpRequiredInstanceWide(sqlite: Sqlite): boolean {
+  const row = getRow<{ value_json: string }>(
+    sqlite,
+    'SELECT value_json FROM instance_settings WHERE key = ?',
+    'require_totp',
+  );
+  if (!row) return false;
+  try {
+    return JSON.parse(row.value_json) === true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -87,7 +113,7 @@ interface UserRow {
  */
 export function resetPassword(
   sqlite: Sqlite,
-  input: { username: string; passwordHash: string; now?: number },
+  input: { username: string; passwordHash: string; resetTotp?: boolean; now?: number },
 ): ResetResult {
   const now = input.now ?? Date.now();
   const username = input.username.trim().toLowerCase();
@@ -95,7 +121,8 @@ export function resetPassword(
     .transaction((): ResetResult => {
       const user = getRow<UserRow>(
         sqlite,
-        'SELECT id, username, role, banned, ban_expires FROM user WHERE username = ?',
+        `SELECT id, username, role, banned, ban_expires, two_factor_enabled, totp_required
+         FROM user WHERE username = ?`,
         username,
       );
       if (!user) {
@@ -136,12 +163,26 @@ export function resetPassword(
         detail: { via: 'operator', signInsEnded },
         at: now,
       });
+      if (input.resetTotp) {
+        resetTotp(sqlite, user.id, now);
+        insertAudit(sqlite, {
+          type: 'auth.totp_reset',
+          actorUserId: null,
+          targetType: 'user',
+          targetId: user.id,
+          detail: { via: 'operator' },
+          at: now,
+        });
+      }
       return {
         userId: user.id,
         username: user.username,
         role: user.role,
         disabled: user.banned === 1 && (user.ban_expires === null || user.ban_expires > now),
         signInsEnded,
+        totpEnabled: user.two_factor_enabled === 1,
+        totpReset: input.resetTotp === true,
+        totpRequired: user.totp_required === 1 || totpRequiredInstanceWide(sqlite),
       };
     })
     .immediate();
@@ -170,18 +211,33 @@ export async function closeConnectionsViaInternalApi(
   }
 }
 
+function totpResetMessage(result: ResetResult): string {
+  if (result.totpRequired) {
+    return result.totpEnabled
+      ? 'TOTP was reset: after the new password, they set up their authenticator again (TOTP ' +
+          'is required for them).'
+      : 'TOTP was not on: after the new password, they set up their authenticator (TOTP is ' +
+          'required for them).';
+  }
+  return result.totpEnabled
+    ? 'TOTP was reset: two-factor sign-in is off until they turn it on again in their account ' +
+        'settings.'
+    : 'TOTP was not on for this user: nothing to reset.';
+}
+
 /** Runs the command; resolves with the exit status. */
 export async function runResetPassword(
   argv: string[],
   io: CliIo,
   deps: Partial<ResetPasswordDeps> = {},
 ): Promise<number> {
-  let values: { 'data-dir'?: string; help?: boolean };
+  let values: { 'reset-totp'?: boolean; 'data-dir'?: string; help?: boolean };
   let positionals: string[];
   try {
     ({ values, positionals } = parseArgs({
       args: argv,
       options: {
+        'reset-totp': { type: 'boolean' },
         'data-dir': { type: 'string' },
         help: { type: 'boolean', short: 'h' },
       },
@@ -216,7 +272,11 @@ export async function runResetPassword(
   const db = openDb(dbFile);
   let result: ResetResult;
   try {
-    result = resetPassword(db.$client, { username: positionals[0], passwordHash });
+    result = resetPassword(db.$client, {
+      username: positionals[0],
+      passwordHash,
+      resetTotp: values['reset-totp'] === true,
+    });
   } catch (err) {
     if (!(err instanceof ResetPasswordError)) throw err;
     io.err(`reset-password: ${err.message}`);
@@ -239,6 +299,14 @@ export async function runResetPassword(
         : 'open terminals could not be disconnected (session-manager did not answer); they ' +
           'close when session-manager restarts.'),
   );
+  if (result.totpReset) {
+    io.out(totpResetMessage(result));
+  } else if (result.totpEnabled) {
+    io.out(
+      'TOTP stays on: sign-in still asks for a code or a backup code. If the authenticator is ' +
+        'lost too, run this again with --reset-totp.',
+    );
+  }
   if (result.disabled) {
     io.out('This account is disabled: an admin must enable it before it can sign in.');
   }

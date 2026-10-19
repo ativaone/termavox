@@ -1,5 +1,5 @@
 import '../server-guard.ts';
-import type { TermdockDb } from '@termdock/db';
+import { resetTotp as resetTotpRecords, type TermdockDb } from '@termdock/db';
 
 /**
  * Small direct reads and writes the auth core needs outside Better Auth. Raw SQL on the shared
@@ -28,17 +28,5 @@ export function isTotpRequiredInstanceWide(db: TermdockDb): boolean {
  * and forgets every trusted device, in one transaction. Returns false if the user does not exist.
  */
 export function resetTotp(db: TermdockDb, userId: string, now: number = Date.now()): boolean {
-  const sqlite = db.$client;
-  return sqlite.transaction(() => {
-    const updated = sqlite
-      .prepare('UPDATE user SET two_factor_enabled = 0, updated_at = ? WHERE id = ?')
-      .run(now, userId);
-    if (updated.changes === 0) return false;
-    sqlite.prepare('DELETE FROM two_factor WHERE user_id = ?').run(userId);
-    // Trusted-device records are Better Auth verification rows `trust-device-*` valued with the user id.
-    sqlite
-      .prepare("DELETE FROM verification WHERE value = ? AND identifier LIKE 'trust-device-%'")
-      .run(userId);
-    return true;
-  })();
+  return resetTotpRecords(db.$client, userId, now);
 }
