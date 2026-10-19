@@ -45,6 +45,7 @@ import {
   listRemoteSessions,
   RemoteHostError,
   type RemoteSessionsDeps,
+  remoteHostMessage,
   terminateRemoteSession,
 } from './remote-sessions.ts';
 import { type ServerTestDeps, testServer } from './server-test.ts';
@@ -315,6 +316,8 @@ export class InternalApi {
     let status = 500;
     let code: string = ErrorCode.Internal;
     let message = 'internal error';
+    // What actually failed, for the debug log only (a remote host's transport text).
+    let detail: string | undefined;
     if (err instanceof HttpError) {
       ({ status, code, message } = err);
     } else if (err instanceof TermdockError) {
@@ -322,10 +325,12 @@ export class InternalApi {
       code = err.code;
       message = status === 500 ? 'internal error' : err.message;
     } else if (err instanceof RemoteHostError) {
-      // The remote host failed, not the daemon (remote sessions, plan D-30).
+      // The remote host failed, not the daemon (remote sessions, plan D-30). What ssh2, DNS or
+      // the host said stays in the debug log: the body carries a fixed message per code.
       status = 502;
       code = err.code;
-      message = err.message;
+      message = remoteHostMessage(err.code);
+      detail = err.message.slice(0, 300);
     }
     if (status >= 500 && status !== 502) {
       // Our own errors never carry secrets; request bodies are never logged.
@@ -335,7 +340,10 @@ export class InternalApi {
         'internal API request failed',
       );
     } else {
-      this.#log.debug({ method: req.method, status, code }, 'internal API request rejected');
+      this.#log.debug(
+        { method: req.method, status, code, ...(detail !== undefined ? { detail } : {}) },
+        'internal API request rejected',
+      );
     }
     if (res.headersSent) {
       res.destroy();

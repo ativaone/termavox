@@ -9,6 +9,7 @@
 import type { Emulator } from '../../core/types.ts';
 import type { CommandResult } from './correlator.ts';
 import { TmuxDesyncError } from './correlator.ts';
+import { hostMessage, hostText } from './host-text.ts';
 import { concatBytes } from './lines.ts';
 import { unescapeOutput } from './unescape.ts';
 
@@ -150,8 +151,9 @@ const EMPTY = new Uint8Array(0);
 /** tmux prints UINT_MAX for an unset saved cursor. */
 const MAX_COORD = 100_000;
 
+/** `message` may quote the reply (host text): cleaned and capped like any such message. */
 function fail(message: string): never {
-  throw new TmuxDesyncError(`snapshot: ${message}`);
+  throw new TmuxDesyncError(hostMessage('snapshot: ', message));
 }
 
 /** Parses the STATE_FORMAT reply line. Throws TmuxDesyncError when it is malformed. */
@@ -242,8 +244,7 @@ export function parseCapture(blocks: readonly CommandResult[]): PaneCapture {
   const count = Object.keys(SNAPSHOT_BLOCKS).length;
   if (blocks.length !== count) fail(`expected ${count} reply blocks, got ${blocks.length}`);
   const failed = blocks.findIndex((b) => !b.ok);
-  if (failed !== -1)
-    fail(`command ${failed} failed: ${decoder.decode(concatLines(blocks[failed]!.lines))}`);
+  if (failed !== -1) fail(`command ${failed} failed: ${hostText(blocks[failed]!.lines)}`);
   const block = (key: keyof typeof SNAPSHOT_BLOCKS): Uint8Array[] =>
     blocks[SNAPSHOT_BLOCKS[key]]!.lines;
   const stateLines = block('state');

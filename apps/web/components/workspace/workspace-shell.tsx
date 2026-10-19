@@ -29,7 +29,7 @@ import type { SessionActionResult } from '../../lib/sessions/action-result.ts';
 import { sessionLabels, toBayData } from '../../lib/sessions/live.ts';
 import { sessionTarget } from '../../lib/sessions/target.ts';
 import type { BayData, BaySession } from '../../lib/sessions/types.ts';
-import { TermdockConnection } from '../../lib/terminal/index.ts';
+import { pasteText, TermdockConnection } from '../../lib/terminal/index.ts';
 import { useConnectionState } from '../../lib/terminal/react.ts';
 import { encodeKey, type TerminalKey } from '../../lib/workspace/keys.ts';
 import {
@@ -653,11 +653,9 @@ export function WorkspaceShell({
       setPhoneNotice(t('pane.clipboardDenied'));
       return;
     }
-    // Through xterm, so bracketed paste mode is honoured.
+    // Through xterm, so bracketed paste mode is honoured; sanitized like every paste.
     navigator.clipboard.readText().then(
-      (text) => {
-        if (text) handle.terminal.paste(text);
-      },
+      (text) => pasteText(handle.terminal, text),
       () => setPhoneNotice(t('pane.clipboardDenied')),
     );
   };

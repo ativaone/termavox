@@ -24,6 +24,10 @@ export interface TerminalLike extends ParserHost {
   onData(listener: (data: string) => void): Disposable;
   /** Raw bytes as a latin1 string (legacy X10 mouse reports). */
   onBinary(listener: (data: string) => void): Disposable;
+  /** `sendFocusMode`: the program asked for focus reports (DECSET 1004). */
+  readonly modes: { readonly sendFocusMode: boolean };
+  /** The browser terminal's input element (absent in headless terminals): real focus changes. */
+  readonly textarea?: Pick<EventTarget, 'addEventListener' | 'removeEventListener'> | undefined;
 }
 
 // Method-shorthand types are bivariant, so the DOM WebSocket and the `ws` package (whose event

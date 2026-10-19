@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { migrateDb, openDb } from '@termdock/db';
+import { DEFAULT_LOCKOUT_POLICY, type LockoutPolicy } from '../lib/auth/lockout.ts';
 import { type AuthRuntime, createAuthRuntime } from '../lib/auth/runtime.ts';
 import type { WebLogger } from '../lib/logger.ts';
 
@@ -10,6 +11,11 @@ export const PUBLIC_URL = 'https://termdock.test';
 export const PASSWORD = 'correct horse battery';
 /** Cheap argon2id parameters for tests; production defaults are covered in password.test.ts. */
 export const FAST_ARGON2 = { memoryKiB: 1024, passes: 1, parallelism: 1 };
+/**
+ * Test files sign in far more than 10 times a minute from one IP; the production IP budget is
+ * covered in auth.test.ts with DEFAULT_LOCKOUT_POLICY.
+ */
+export const TEST_LOCKOUT_POLICY: LockoutPolicy = { ...DEFAULT_LOCKOUT_POLICY, ipAttempts: 1_000 };
 
 export interface TestRuntime {
   rt: AuthRuntime;
@@ -21,7 +27,13 @@ export interface TestRuntime {
 
 /** A Better Auth runtime over a fresh temp SQLite database with every migration applied. */
 export function makeRuntime(
-  opts: { wsSecret?: Uint8Array; dir?: string; migrate?: boolean } = {},
+  opts: {
+    wsSecret?: Uint8Array;
+    dir?: string;
+    migrate?: boolean;
+    lockoutPolicy?: LockoutPolicy;
+    lockoutNow?: () => number;
+  } = {},
 ): TestRuntime {
   const dir = opts.dir ?? mkdtempSync(join(tmpdir(), 'termdock-web-'));
   const dbFile = join(dir, 'app.db');
@@ -42,6 +54,8 @@ export function makeRuntime(
     argon2: FAST_ARGON2,
     // Isolates Termdock's own lockout from Better Auth's per-IP limiter (3 sign-ins / 10 s).
     rateLimit: false,
+    lockoutPolicy: opts.lockoutPolicy ?? TEST_LOCKOUT_POLICY,
+    ...(opts.lockoutNow ? { lockoutNow: opts.lockoutNow } : {}),
   });
   return {
     rt,

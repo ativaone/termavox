@@ -16,8 +16,8 @@
 #      were, session-manager starts again on the current key, and the script exits non-zero.
 #
 # Keep master_key.old until session-manager works with the new key, then delete it together
-# with the pre-rotate backup (only the old key opens it). The script refuses to run while
-# master_key.new or master_key.old exists.
+# with the pre-rotate backup (only the old key opens it; so do older backups, see the install
+# guide). The script refuses to run while master_key.new or master_key.old exists.
 #
 # Usage: deploy/scripts/rotate-master-key.sh [--yes]
 #   --yes  do not ask for confirmation (required when stdin is not a terminal)
@@ -279,8 +279,8 @@ if [[ "$backup_in_volume" =~ ^/data/pre-rotate-[0-9]{8}T[0-9]{6}Z\.db$ ]]; then
   mkdir -p -m 0700 -- "$backup_dir"
   host_backup="$backup_dir/$(basename -- "$backup_in_volume")"
   if [[ ! -e "$host_backup" ]] &&
-    compose run --rm --no-deps -T --entrypoint cat session-manager "$backup_in_volume" \
-      >"$host_backup.partial" &&
+    (set -o noclobber && compose run --rm --no-deps -T --entrypoint cat session-manager \
+      "$backup_in_volume" >"$host_backup.partial") &&
     [[ "$(head -c 15 -- "$host_backup.partial")" == "SQLite format 3" ]]; then
     mv -- "$host_backup.partial" "$host_backup"
   else
@@ -328,5 +328,7 @@ stage=done
   printf '  rm %s%s\n' "$old_key" "${host_backup:+ $host_backup}"
   [[ -z "$backup_in_volume" ]] ||
     printf '  docker compose -f %s exec session-manager rm -f %s\n' "$compose_file" "$backup_in_volume"
+  printf 'Older backups (backup.sh files, app.db.pre-restore-* in the volume) also open with\n'
+  printf 'the old key: delete them, or keep them as safe as the old key.\n'
   printf '\n%s\n' "$rollback"
 } >&2

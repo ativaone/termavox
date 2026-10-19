@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDriverFactory } from '../../src/core/driver-factory.ts';
-import { RUNTIME_IDLE_TTL_MS, SessionRegistry } from '../../src/core/session-registry.ts';
+import {
+  MAX_IDLE_RUNTIMES_PER_USER,
+  RUNTIME_IDLE_TTL_MS,
+  SessionRegistry,
+  type SessionRegistryOptions,
+} from '../../src/core/session-registry.ts';
 import type { SessionRuntime } from '../../src/core/session-runtime.ts';
 import type { SessionRecord } from '../../src/core/types.ts';
 import {
@@ -15,7 +20,7 @@ import {
 const TTL = RUNTIME_IDLE_TTL_MS;
 const VIEWPORT = { cols: 80, rows: 24 };
 
-function setup() {
+function setup(options: Partial<SessionRegistryOptions> = {}) {
   const store = new MemorySessionStore();
   const registry = new SessionRegistry({
     store,
@@ -25,14 +30,16 @@ function setup() {
     notifier: new RecordingNotifier(),
     installationId: 'install-1',
     runtime: { resizeDebounceMs: 1, lagPollMs: 5 },
+    ...options,
   });
   const load = async (id: string) => (await registry.attachable(id)) as SessionRuntime;
   return { store, registry, load };
 }
 
-function ended(id: string): SessionRecord {
+function ended(id: string, userId = 'user-1'): SessionRecord {
   return makeRecord({
     id,
+    userId,
     state: 'ended',
     status: 'ended',
     desiredState: 'terminated',
@@ -189,5 +196,108 @@ describe('idle runtime eviction (M4)', () => {
     expect(registry.host('s7')).toBe(runtime); // shut down with the others, not evicted
     expect(runtime.idle).toBe(false);
     expect(await registry.attachable('s-unknown')).toBeNull();
+  });
+});
+
+describe('idle runtimes per user (cap)', () => {
+  const CAP = 3;
+  const loaded = (registry: SessionRegistry, ids: string[]) =>
+    ids.filter((id) => registry.host(id) !== undefined);
+
+  it(`defaults to ${MAX_IDLE_RUNTIMES_PER_USER} idle runtimes per user`, async () => {
+    const { store, registry, load } = setup();
+    const ids = Array.from({ length: MAX_IDLE_RUNTIMES_PER_USER + 4 }, (_, i) => `d${i}`);
+    for (const id of ids) store.add(ended(id));
+    for (const id of ids) await load(id);
+    expect(loaded(registry, ids)).toEqual(ids.slice(4));
+    await registry.shutdown();
+  });
+
+  it('attaching to more ended sessions than the cap evicts the least recently idle at once', async () => {
+    const { store, registry, load } = setup({ maxIdleRuntimesPerUser: CAP });
+    const ids = ['e1', 'e2', 'e3', 'e4', 'e5', 'e6'];
+    for (const id of ids) store.add(ended(id));
+    const first = await load('e1');
+    await load('e2');
+    await load('e3');
+    // e1 was used again (attach, detach): now e2 is the least recently idle.
+    first.attach(new FakeAttachment('a'), VIEWPORT);
+    first.detach('a');
+    await load('e4');
+    expect(loaded(registry, ids)).toEqual(['e1', 'e3', 'e4']);
+    await load('e5');
+    await load('e6');
+    // No timer ran: the cap evicts right away, never more than CAP idle runtimes stay loaded.
+    expect(loaded(registry, ids)).toEqual(['e4', 'e5', 'e6']);
+    expect(registry.size).toBe(CAP);
+    // The evicted runtime is closed for good; a later attach loads the session again.
+    first.attach(new FakeAttachment('late'), VIEWPORT);
+    expect(first.attachmentCount).toBe(0);
+    const again = await load('e1');
+    expect(again).not.toBe(first);
+    expect(loaded(registry, ids)).toEqual(['e1', 'e5', 'e6']);
+    await registry.shutdown();
+  });
+
+  it('operations on ended sessions (retry, stop) load runtimes under the same cap', async () => {
+    const { store, registry } = setup({ maxIdleRuntimesPerUser: CAP });
+    const ids = ['o1', 'o2', 'o3', 'o4', 'o5'];
+    for (const id of ids) store.add(ended(id));
+    for (const id of ids) await registry.retry(id, 'user-1');
+    await expect(registry.stop('o1', 'user-1')).rejects.toMatchObject({ code: 'CONFLICT' });
+    expect(loaded(registry, ids)).toEqual(['o1', 'o4', 'o5']);
+    await registry.shutdown();
+  });
+
+  it('never evicts attached, running or pinned runtimes, nor another user’s idle ones', async () => {
+    const { store, registry, load } = setup({ maxIdleRuntimesPerUser: CAP });
+    // Attached: not idle.
+    store.add(ended('watched'));
+    const watched = await load('watched');
+    watched.attach(new FakeAttachment('w'), VIEWPORT);
+    // Running and connected, and parked on a failure (meant to run): not idle.
+    registry.create(store.add(makeRecord({ id: 'live' })));
+    const live = registry.host('live')!;
+    await vi.waitFor(() => expect(live.state).toBe('ready'));
+    store.add(
+      makeRecord({ id: 'parked', state: 'failed', status: 'disconnected', lastReadyAt: 1 }),
+    );
+    const parked = await load('parked');
+    // Pinned: a Retry of an idle runtime stalls on the store while the others load.
+    store.add(ended('pinned'));
+    const pinned = await load('pinned');
+    const get = store.get.bind(store);
+    let release!: () => void;
+    const stalled = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    store.get = async (id) => {
+      if (id === 'pinned') await stalled;
+      return get(id);
+    };
+    const retrying = registry.retry('pinned', 'user-1');
+    // Another user's idle runtimes, as many as the cap.
+    const others = ['b1', 'b2', 'b3'];
+    for (const id of others) store.add(ended(id, 'user-2'));
+    for (const id of others) await load(id);
+
+    const ids = ['e1', 'e2', 'e3', 'e4', 'e5'];
+    for (const id of ids) store.add(ended(id));
+    for (const id of ids) await load(id);
+    // The pinned runtime counts towards the cap but stays: two of the newest remain with it.
+    expect(registry.host('pinned')).toBe(pinned);
+    expect(loaded(registry, ids)).toEqual(['e4', 'e5']);
+    expect(registry.host('watched')).toBe(watched);
+    expect(registry.host('live')).toBe(live);
+    expect(live.state).toBe('ready');
+    expect(registry.host('parked')).toBe(parked);
+    expect(loaded(registry, others)).toEqual(others);
+
+    release();
+    await retrying;
+    // Unpinned and idle again (the most recent): still CAP idle runtimes for user-1.
+    expect(registry.host('pinned')).toBe(pinned);
+    expect(loaded(registry, ids)).toEqual(['e4', 'e5']);
+    await registry.shutdown();
   });
 });

@@ -42,6 +42,11 @@ export const ENDED_GUARD_MS = 60_000;
 /** One background sweep per (user, address, user name on the server) and process in this time. */
 export const SWEEP_INTERVAL_MS = 15 * 60_000;
 export const SCAN_TIMEOUT_MS = 10_000;
+/**
+ * (server, set of unknown sockets) notices remembered per daemon run so each is told once: keys
+ * come from host output, so the oldest are forgotten beyond this many (and may be told again).
+ */
+export const NOTIFIED_MAX = 1024;
 /** `killServerCommand` waits up to ~1 s for tmux processes; the exec gets some slack. */
 export const KILL_TIMEOUT_MS = 5_000;
 
@@ -353,6 +358,8 @@ export interface RemoteSweeperOptions {
   intervalMs?: number;
   scanTimeoutMs?: number;
   killTimeoutMs?: number;
+  /** Default NOTIFIED_MAX. */
+  notifiedMax?: number;
 }
 
 /**
@@ -360,8 +367,8 @@ export interface RemoteSweeperOptions {
  * Termdock tmux servers on the host, ends the leftovers of sessions the user already ended, and
  * tells the user (`server.remote_sessions`) about servers no session record knows. At most once
  * per (user, address, user name) every SWEEP_INTERVAL_MS per process; the notice at most once per
- * daemon run per server and set of sockets. Detached from the session: it never delays or fails
- * it, and its errors are only logged.
+ * daemon run per server and set of sockets (the last NOTIFIED_MAX remembered). Detached from the
+ * session: it never delays or fails it, and its errors are only logged.
  */
 export class RemoteSweeper {
   readonly #lookup: RemoteSessionLookup;
@@ -374,8 +381,9 @@ export class RemoteSweeper {
   readonly #killTimeoutMs: number;
   /** Last sweep start per (user, address, user name). */
   readonly #lastSweep = new Map<string, number>();
-  /** (server, sorted sockets) already told to its owner in this daemon run. */
+  /** (server, sorted sockets) already told to its owner in this daemon run, oldest first. */
   readonly #notified = new Set<string>();
+  readonly #notifiedMax: number;
 
   constructor(options: RemoteSweeperOptions) {
     this.#lookup = options.lookup;
@@ -386,6 +394,12 @@ export class RemoteSweeper {
     this.#intervalMs = options.intervalMs ?? SWEEP_INTERVAL_MS;
     this.#scanTimeoutMs = options.scanTimeoutMs ?? SCAN_TIMEOUT_MS;
     this.#killTimeoutMs = options.killTimeoutMs ?? KILL_TIMEOUT_MS;
+    this.#notifiedMax = Math.max(1, options.notifiedMax ?? NOTIFIED_MAX);
+  }
+
+  /** Notices remembered (diagnostics and tests). */
+  get notifiedCount(): number {
+    return this.#notified.size;
   }
 
   /**
@@ -466,6 +480,11 @@ export class RemoteSweeper {
     const serverName = await this.#lookup.serverName(target.serverId);
     if (serverName === null) return;
     this.#notified.add(key);
+    // A Set iterates in insertion order: the first key is the oldest.
+    for (const oldest of this.#notified) {
+      if (this.#notified.size <= this.#notifiedMax) break;
+      this.#notified.delete(oldest);
+    }
     this.#notifier.sendToUser(target.userId, {
       type: 'server.remote_sessions',
       serverId: target.serverId,

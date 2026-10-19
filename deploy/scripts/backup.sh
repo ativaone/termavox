@@ -82,7 +82,8 @@ JS
 printf 'backup: VACUUM INTO %s (inside session-manager)\n' "$remote" >&2
 compose exec -T --workdir /app/packages/db session-manager node -e "$backup_js" "$remote" >&2
 
-compose exec -T session-manager cat -- "$remote" >"$out.partial"
+# noclobber: the partial file is created exclusively, never an existing file or link in DEST_DIR.
+(set -o noclobber && compose exec -T session-manager cat -- "$remote" >"$out.partial")
 [[ "$(head -c 15 -- "$out.partial")" == "SQLite format 3" ]] ||
   die "the copied file is not a SQLite database"
 mv -- "$out.partial" "$out"

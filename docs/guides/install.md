@@ -17,7 +17,7 @@ This guide runs the whole system on one Linux host with a single command: **Cadd
 - One origin: the browser only talks to Caddy. `/ws` goes to session-manager, everything else to web.
 - Two networks. `edge` connects Caddy to web and session-manager. `internal` connects only web and session-manager. Caddy is not on `internal`, and the daemon's internal API listens only on its `internal` address.
 - One shared volume, `termdock-data`, holds the SQLite database (`/data/app.db`). session-manager applies migrations at boot, and web waits for it to be healthy.
-- Hardened containers: web and session-manager run as UID/GID `10001`, with a read-only root filesystem, a `/tmp` tmpfs, every Linux capability dropped and `no-new-privileges`. Caddy runs the same way but keeps only `NET_BIND_SERVICE`.
+- Hardened containers: web and session-manager run as UID/GID `10001`, with a read-only root filesystem, a `/tmp` tmpfs, every Linux capability dropped and `no-new-privileges`. Caddy has the same read-only root filesystem, tmpfs and `no-new-privileges`, and drops every capability but `NET_BIND_SERVICE`; it runs as root inside its container, the official image's default.
 
 ## Prerequisites
 
@@ -138,6 +138,8 @@ Browsers do not trust Caddy's local CA by default. To trust it on a machine, exp
 docker compose -f deploy/compose.yaml cp caddy:/data/caddy/pki/authorities/local/root.crt ./termdock-local-ca.crt
 ```
 
+The local root certificate can sign a certificate for any name, and its key lives in the `caddy-data` volume: a machine that trusts it trusts, for every HTTPS site, whoever can read that volume or take over Caddy. Prefer a real domain with ACME where you can (a DNS challenge works for a LAN-only name too); otherwise import it into a dedicated browser profile rather than the system trust store.
+
 If you accept the browser's security warning instead, the browser accepts that one certificate. When Caddy renews it (about every 20 days with `internal`, every 8 hours with `auto` on localhost), new requests are refused until you reload the page and accept the warning again, while terminals already open keep working: an action then says it could not reach Termdock. Importing the root certificate avoids this.
 
 The certificates and the local CA live in the `caddy-data` volume, so they survive restarts and upgrades.
@@ -162,7 +164,7 @@ TERMDOCK_PUBLIC_URL=https://termdock.example.com
 
 - **`TERMDOCK_TLS=off`**: Caddy serves plain HTTP on `TERMDOCK_HTTP_PORT`, with no certificate and no redirect. `TERMDOCK_HTTPS_PORT` is not used, but Docker still reserves it on the host: pick a free port, never the proxy's 443.
 - **`TERMDOCK_BIND_ADDRESS=127.0.0.1`** publishes the ports on the loopback address only, so nothing reaches Termdock without going through the proxy. Leave it unset when the proxy runs on another machine, and limit access with a firewall instead.
-- **`TERMDOCK_REVERSE_PROXY`** is required: the proxy's address as Caddy sees it. Caddy believes `X-Forwarded-For` only from that address, so login rate limits, lockout and the activity and audit logs see each user's own address; without it, every user shows up with the proxy's address. A proxy on the same host reaches Termdock through the gateway of Docker's `edge` network, `172.30.10.1` (the subnet is set in `deploy/compose.yaml`). For a proxy elsewhere, use its address; separate several addresses or CIDR ranges with spaces. If the activity page shows the same address for every user, that address is the proxy's.
+- **`TERMDOCK_REVERSE_PROXY`** is required: the proxy's address as Caddy sees it. Caddy believes `X-Forwarded-For` only from that address, so login rate limits, lockout and the activity and audit logs see each user's own address; without it, every user would show up with the proxy's address and share one sign-in lockout and rate limit, so Caddy answers every request with `503` and a message naming the setting until it is set. A proxy on the same host reaches Termdock through the gateway of Docker's `edge` network, `172.30.10.1` (the subnet is set in `deploy/compose.yaml`). For a proxy elsewhere, use its address; separate several addresses or CIDR ranges with spaces. If the activity page shows the same address for every user, that address is the proxy's.
 - **`TERMDOCK_PUBLIC_URL`** is the address browsers use, without a port.
 
 Then `docker compose -f deploy/compose.yaml up -d`.
@@ -232,7 +234,7 @@ deploy/scripts/backup.sh                 # writes deploy/backups/termdock-<UTC t
 deploy/scripts/backup.sh /srv/backups    # or another directory
 ```
 
-The backup is safe while everything runs. Inside the session-manager container, SQLite's `VACUUM INTO` writes a consistent copy, and `PRAGMA integrity_check` verifies it. The script then streams the copy to the host (directory mode `0700`, file mode `0600`). The file contains password hashes and encrypted credentials, so store it like a secret. It never contains the master key: back up `deploy/secrets/master_key` separately.
+The backup is safe while everything runs. Inside the session-manager container, SQLite's `VACUUM INTO` writes a consistent copy, and `PRAGMA integrity_check` verifies it. The script then streams the copy to the host (directory mode `0700`, file mode `0600`). The file contains password hashes and encrypted credentials, so store it like a secret, in a directory only you can write to. It never contains the master key: back up `deploy/secrets/master_key` separately.
 
 The script needs no TTY, so you can schedule it, for example with this crontab line (daily at 03:15):
 
@@ -276,6 +278,8 @@ Afterwards:
 
 - **Back up the new `master_key`** in place of your copy of the old one.
 - Check that sessions connect. Then delete `deploy/secrets/master_key.old` and the pre-rotate backup, both on the host and in the volume (the script prints the commands). Only the old key opens that backup.
+- Older database copies are still encrypted under the old key: the files `backup.sh` wrote and the `app.db.pre-restore-*` copies in the volume. If the old key may have leaked, delete them or keep them as safe as the old key.
+- Rotating the master key does not change the SSH secrets themselves. If a database copy may have leaked together with the old key, replace the credentials on the servers too (new keys, new passwords).
 - The script refuses to run again while `master_key.old` or `master_key.new` exists.
 
 To roll back, for example when session-manager does not become healthy with the new key, return to the old key and the pre-rotate backup. Changes made after the rotation are lost:

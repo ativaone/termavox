@@ -23,7 +23,11 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     {
-      source: '/((?!api|_next/static|_next/image|favicon.ico).*)',
+      // Anchored exclusions: only `/api` and `/api/…`, `/_next/static/…`, `/_next/image` (and
+      // `/_next/image/…`) and `/favicon.ico` skip the proxy. Unanchored, `/apix` or
+      // `/favicon.icox` (a 404 document) would be served without a CSP, since the static API
+      // policy covers `/api/…` only.
+      source: '/((?!api(?:/|$)|_next/static/|_next/image(?:/|$)|favicon\\.ico$).*)',
       missing: [
         { type: 'header', key: 'next-router-prefetch' },
         { type: 'header', key: 'purpose', value: 'prefetch' },

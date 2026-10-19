@@ -19,6 +19,7 @@ import { WebglAddon } from '@xterm/addon-webgl';
 import { type ITerminalOptions, Terminal } from '@xterm/xterm';
 import type { Size } from './layout.ts';
 import { hyperlinkHandler, type LinkConfirm, openLink } from './links.ts';
+import { interceptPaste } from './paste.ts';
 import type { Dimensions, Disposable } from './types.ts';
 
 export type { LinkConfirm } from './links.ts';
@@ -83,6 +84,8 @@ export function createBrowserTerminal(
   terminal.loadAddon(new Unicode11Addon());
   terminal.unicode.activeVersion = UNICODE_VERSION;
   terminal.open(container);
+  // Native pastes go through the same sanitizing as the UI's paste actions.
+  const pasteGuard = terminal.element ? interceptPaste(terminal.element, terminal) : null;
   const fit = new FitAddon();
   terminal.loadAddon(fit);
   terminal.loadAddon(new WebLinksAddon((_event, uri) => openLink(uri, options.confirmLink)));
@@ -131,6 +134,7 @@ export function createBrowserTerminal(
       Object.assign(terminal.options, appearance);
     },
     dispose() {
+      pasteGuard?.dispose();
       silencer.dispose();
       webgl?.dispose();
       terminal.dispose();

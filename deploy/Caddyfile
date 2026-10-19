@@ -47,6 +47,10 @@
 	}
 
 	handle {
+		# WebSocket (and any other protocol) upgrades belong to /ws: Next.js never serves one
+		# (plan §10.2).
+		@upgrade header Upgrade *
+		respond @upgrade 400
 		reverse_proxy web:3000 {
 			header_up X-Forwarded-For {client_ip}
 		}
@@ -58,6 +62,10 @@
 	@hsts not host localhost
 	header @hsts Strict-Transport-Security "max-age=31536000"
 	header -Server
+	# Caddy's own error responses (an upstream that is down: 502) skip the routes above.
+	handle_errors {
+		header -Server
+	}
 }
 
 # Plain HTTP: redirect to HTTPS on the published port. Caddy's automatic redirect leaves the port
@@ -67,6 +75,7 @@
 (redirect) {
 	http://{$TERMDOCK_DOMAIN:localhost} {
 		redir https://{host}:{$TERMDOCK_HTTPS_PORT:443}{uri} 308
+		header -Server
 	}
 }
 
@@ -99,10 +108,16 @@
 }
 
 # TERMDOCK_TLS=off: a reverse proxy in front terminates TLS and forwards plain HTTP here (plan
-# D-35). No certificate, no redirect and no HTTPS listener; TERMDOCK_REVERSE_PROXY must name the
-# proxy, or every client shows up with the proxy's address.
+# D-35). No certificate, no redirect and no HTTPS listener. TERMDOCK_REVERSE_PROXY must name the
+# proxy: without it every client would show up with the proxy's address and share its sign-in
+# lockout and rate limits, so one client could keep everyone from signing in. Until it is set, web
+# answers 503 (this handle sorts before the catch-all one; /ws needs a signed-in user anyway).
 (site_off) {
 	http://{$TERMDOCK_DOMAIN:localhost} {
+		@no_reverse_proxy expression `"{$TERMDOCK_REVERSE_PROXY}" == ""`
+		handle @no_reverse_proxy {
+			respond "TERMDOCK_REVERSE_PROXY must name the reverse proxy when TERMDOCK_TLS=off (see the install guide)." 503
+		}
 		import routes
 	}
 }

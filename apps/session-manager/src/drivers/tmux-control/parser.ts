@@ -38,6 +38,31 @@ export type ControlEvent =
   /** Any other notification, a malformed known one (`malformed: true`), or a stray line. */
   | { type: 'unknown'; name: string; text: string; malformed?: boolean };
 
+/**
+ * Bytes a reply block to one of our commands may hold. The largest legitimate one is the rebuild's
+ * history capture (`capture-pane -p -e -J -N … -S - -E -1`, rebuild.ts): at most 10,000 lines (the
+ * web's SCROLLBACK_MAX, which is tmux's history-limit) at up to 1,000 columns (the protocol's
+ * viewport maximum), so 10 M cells. UTF-8 alone may take 4 bytes a cell (40 MB) before any SGR
+ * change; the SGR-heavy 80-column captures measured in ADR-0003 average about 1.3 bytes a cell
+ * (13 MB at that size). tmux 3.8 caps a buffered reply at 64 MiB, as LineSplitter caps a line, so
+ * this refuses nothing tmux sends and still bounds a host that never closes its block.
+ */
+export const DEFAULT_MAX_BLOCK_BYTES = 64 * 1024 * 1024;
+/** Same for a block that answers none of our commands (flags 0): only the launch argv's, tiny. */
+export const DEFAULT_MAX_UNSOLICITED_BLOCK_BYTES = 64 * 1024;
+/**
+ * What a block line costs on top of its bytes (about the view and array slot that hold it), so a
+ * flood of empty lines is bounded like a flood of bytes.
+ */
+export const BLOCK_LINE_OVERHEAD = 128;
+
+export interface ControlParserOptions {
+  /** Default DEFAULT_MAX_BLOCK_BYTES. */
+  maxBlockBytes?: number;
+  /** Default DEFAULT_MAX_UNSOLICITED_BLOCK_BYTES. */
+  maxUnsolicitedBlockBytes?: number;
+}
+
 const PERCENT = 0x25;
 const SPACE = 0x20;
 const decoder = new TextDecoder('utf-8');
@@ -66,17 +91,30 @@ function nthSpace(line: Uint8Array, n: number, from = 0): number {
 /**
  * Stateful control-mode line parser (plan §6.4). Feed it the lines of the control client's
  * stdout in order. Inside a `%begin` block every line is data, even one starting with `%`, until
- * a `%end`/`%error` guard carrying the same `time num flags` triple.
+ * a `%end`/`%error` guard carrying the same `time num flags` triple. A block that grows past its
+ * cap (each line counted as its bytes plus BLOCK_LINE_OVERHEAD) is dropped with a RangeError: the
+ * stream is not what we think it is.
  */
 export class ControlParser {
-  #block: { guard: BlockGuard; lines: Uint8Array[] } | null = null;
+  readonly #maxBlockBytes: number;
+  readonly #maxUnsolicitedBlockBytes: number;
+  #block: { guard: BlockGuard; lines: Uint8Array[]; bytes: number; limit: number } | null = null;
+
+  constructor(options: ControlParserOptions = {}) {
+    this.#maxBlockBytes = options.maxBlockBytes ?? DEFAULT_MAX_BLOCK_BYTES;
+    this.#maxUnsolicitedBlockBytes =
+      options.maxUnsolicitedBlockBytes ?? DEFAULT_MAX_UNSOLICITED_BLOCK_BYTES;
+  }
 
   /** True while a `%begin` block is open. */
   get inBlock(): boolean {
     return this.#block !== null;
   }
 
-  /** Returns the event for `line`, or null for a line absorbed into an open block. */
+  /**
+   * Returns the event for `line`, or null for a line absorbed into an open block. Throws
+   * RangeError when the line takes the open block past its cap; the block is dropped.
+   */
   push(line: Uint8Array): ControlEvent | null {
     const block = this.#block;
     if (block) {
@@ -88,6 +126,11 @@ export class ControlParser {
           guard: block.guard,
           lines: block.lines,
         };
+      }
+      block.bytes += line.byteLength + BLOCK_LINE_OVERHEAD;
+      if (block.bytes > block.limit) {
+        this.#block = null;
+        throw new RangeError(`control-mode reply block exceeds ${block.limit} bytes`);
       }
       block.lines.push(line);
       return null;
@@ -144,7 +187,9 @@ export class ControlParser {
       case 'begin': {
         const guard = this.#guard(line);
         if (!guard) return this.#malformed(name, line);
-        this.#block = { guard: guard.value, lines: [] };
+        const solicited = (guard.value.flags & 1) === 1;
+        const limit = solicited ? this.#maxBlockBytes : this.#maxUnsolicitedBlockBytes;
+        this.#block = { guard: guard.value, lines: [], bytes: 0, limit };
         return { type: 'blockBegin', guard: guard.value };
       }
       case 'end':

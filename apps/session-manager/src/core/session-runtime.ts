@@ -22,6 +22,7 @@ import {
   encodeSnapshotFrame,
 } from '../attachments/wire.ts';
 import { type Logger, silentLogger } from '../config/logger.ts';
+import { hostText } from '../drivers/tmux-control/host-text.ts';
 import { HeadlessEmulator } from '../emulator/headless-emulator.ts';
 import { type ProbeResult, runProbe, storableProbe } from '../probe/index.ts';
 import type { KeyboardInteractiveRequest } from '../transport/ssh/index.ts';
@@ -1157,7 +1158,8 @@ export class SessionRuntime implements SessionHost {
       },
       onDesync: (reason) => {
         if (!live()) return;
-        this.#event('desync', { reason });
+        // Stored in session_events: may quote the host, so cleaned and capped like driver errors.
+        this.#event('desync', { reason: hostText(reason) });
         life.resolve('lost');
       },
     };

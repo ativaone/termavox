@@ -47,6 +47,48 @@ describe('terminal link policy (L1)', () => {
     expect(opened).toEqual([['http://example.test/osc8', '_blank', 'noopener,noreferrer']]);
   });
 
+  it('confirms and opens the parsed URL: invisible characters encoded, IDN hosts in punycode', async () => {
+    const asked: string[] = [];
+    const confirm = (uri: string) => {
+      asked.push(uri);
+      return true;
+    };
+    // U+202E in the user info would show the rest reversed, as if it were the host.
+    openLink('https://bank.example‮@evil.test/login', confirm);
+    openLink('https://exаmple.test/', confirm); // Cyrillic а
+    openLink('HTTPS://Example.TEST/café?q=​', confirm);
+    await tick();
+    expect(asked).toEqual([
+      'https://bank.example%E2%80%AE@evil.test/login',
+      'https://xn--exmple-4nf.test/',
+      'https://example.test/caf%C3%A9?q=%E2%80%8B',
+    ]);
+    for (const uri of asked) expect(uri).toMatch(/^[!-~]+$/); // printable ASCII only
+    expect(opened).toEqual(asked.map((uri) => [uri, '_blank', 'noopener,noreferrer']));
+  });
+
+  it('opens nothing for other schemes or text the URL parser refuses', async () => {
+    const asked: string[] = [];
+    const confirm = (uri: string) => {
+      asked.push(uri);
+      return true;
+    };
+    for (const uri of [
+      'javascript:alert(1)',
+      'data:text/html,x',
+      'https://exa mple.test/',
+      'https://evil‮.test/',
+      'http://',
+      'https://[::1',
+      ' https://example.test/',
+    ]) {
+      openLink(uri, confirm);
+    }
+    await tick();
+    expect(asked).toEqual([]);
+    expect(opened).toEqual([]);
+  });
+
   it('opens nothing without a confirmation callback', async () => {
     hyperlinkHandler(undefined).activate({} as MouseEvent, 'https://example.test', {
       start: { x: 1, y: 1 },

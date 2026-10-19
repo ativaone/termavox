@@ -1,7 +1,7 @@
 /**
  * Remote text the UI renders (terminal titles, keyboard-interactive prompts) is cleaned by the
- * daemon before it is sent and again by the web client before it is shown; both sides share
- * this character set.
+ * daemon before it is sent, with this character set. The web client cleans titles again with
+ * it before showing them; prompt text it only trims.
  */
 
 /**

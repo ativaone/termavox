@@ -9,6 +9,8 @@ import {
   signOutSession,
 } from '../lib/auth/account.ts';
 import { authGate } from '../lib/auth/gate.ts';
+import { DEFAULT_LOCKOUT_POLICY } from '../lib/auth/lockout.ts';
+import { authErrorInfo } from '../lib/auth-errors.ts';
 import {
   call,
   createUser,
@@ -63,6 +65,13 @@ describe('Better Auth core (S6)', () => {
       body: { email: 'x@example.test', password: PASSWORD, name: 'x' },
     });
     expect(signUp.status).toBe(404);
+    // Nor the username oracle or self-service profile edits (the admin list shows the name).
+    const available = await call(t.rt, 'POST', '/is-username-available', {
+      body: { username: 'alice' },
+    });
+    expect(available.status).toBe(404);
+    const rename = await call(t.rt, 'POST', '/update-user', { body: { name: 'root' }, jar });
+    expect(rename.status).toBe(404);
   });
 
   it('locks a (username, IP) pair after 5 failures while another IP still signs in', async () => {
@@ -77,6 +86,53 @@ describe('Better Auth core (S6)', () => {
     expect(await locked.res.json()).toMatchObject({ code: 'SIGN_IN_LOCKED' });
     const otherIp = await signIn(t.rt, 'bob', { ip: '192.0.2.2' });
     expect(otherIp.res.status).toBe(200);
+  });
+
+  it('caps sign-in attempts per client IP at 10 a minute, on the Server Action path too', async () => {
+    // Its own runtime: the production policy, and a lockout clock the test moves.
+    let now = 1_000_000;
+    const own = makeRuntime({ lockoutPolicy: DEFAULT_LOCKOUT_POLICY, lockoutNow: () => now });
+    // The login form's Server Action calls the endpoint in process (lib/actions/auth.ts).
+    const attempt = async (username: string, ip: string, password = 'wrong password!') => {
+      try {
+        await own.rt.auth.api.signInUsername({
+          body: { username, password },
+          headers: new Headers({ 'x-forwarded-for': ip }),
+        });
+        return { status: 200 };
+      } catch (err) {
+        const info = authErrorInfo(err);
+        if (!info) throw err;
+        return info;
+      }
+    };
+    try {
+      await createUser(own.rt, 'kim');
+      const { ipAttempts, ipWindowMs } = DEFAULT_LOCKOUT_POLICY;
+      // Distinct unknown usernames: each one is a fresh (username, IP) pair.
+      for (let i = 0; i < ipAttempts; i++) {
+        expect(await attempt(`nobody${i}`, '198.51.100.20')).toMatchObject({ status: 401 });
+      }
+      // Refused before the password is checked, with the pair lockout's answer (and form message).
+      const refused = { status: 429, code: 'SIGN_IN_LOCKED', retryAfterS: 60 };
+      expect(await attempt(`nobody${ipAttempts}`, '198.51.100.20')).toEqual(refused);
+      expect(await attempt('kim', '198.51.100.20', PASSWORD)).toEqual(refused);
+      const overHttp = await signIn(own.rt, 'kim', { ip: '198.51.100.20' });
+      expect(overHttp.res.status).toBe(429);
+      expect(overHttp.res.headers.get('retry-after')).toBe('60');
+      expect(await attempt('nobody99', '198.51.100.21')).toMatchObject({ status: 401 });
+
+      // Refusals spend nothing; the next window gives the IP a fresh budget.
+      now += ipWindowMs - 1_000;
+      expect(await attempt('kim', '198.51.100.20', PASSWORD)).toEqual({
+        ...refused,
+        retryAfterS: 1,
+      });
+      now += 1_000;
+      expect(await attempt('kim', '198.51.100.20', PASSWORD)).toEqual({ status: 200 });
+    } finally {
+      own.cleanup();
+    }
   });
 
   it('requires the TOTP code at sign-in once enrolled, then trusts the device', async () => {

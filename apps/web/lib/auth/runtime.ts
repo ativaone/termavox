@@ -28,11 +28,13 @@ export interface CreateAuthRuntimeOptions {
   argon2?: Argon2Params;
   rateLimit?: boolean;
   lockoutPolicy?: LockoutPolicy;
+  /** The lockout's clock; tests move it instead of waiting. */
+  lockoutNow?: () => number;
 }
 
 export function createAuthRuntime(options: CreateAuthRuntimeOptions): AuthRuntime {
   const logger = options.logger ?? consoleLogger;
-  const lockout = new LoginLockout(options.lockoutPolicy);
+  const lockout = new LoginLockout(options.lockoutPolicy, options.lockoutNow);
   const auth = createAuth({
     db: options.db,
     publicUrl: options.publicUrl,

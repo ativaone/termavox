@@ -4,10 +4,12 @@
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
+import { Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import type { TermdockDb } from '@termdock/db';
 import { ListRemoteSessionsResponse, type SessionSummary } from '@termdock/protocol';
 import { randomToken, uuidv7 } from '@termdock/shared';
+import { pino } from 'pino';
 import ssh2 from 'ssh2';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { tmuxSocketName } from '../../src/core/driver-factory.ts';
@@ -27,7 +29,11 @@ import { SqliteOwnership } from '../../src/store/access.ts';
 import { BatchedWriter } from '../../src/store/batched-writer.ts';
 import { SqliteHostKeyStore } from '../../src/store/host-key-store.ts';
 import { SqliteSessionStore } from '../../src/store/session-store.ts';
-import { parsePublicKeyLine, TargetPolicy } from '../../src/transport/ssh/index.ts';
+import {
+  parsePublicKeyLine,
+  type ResolveAll,
+  TargetPolicy,
+} from '../../src/transport/ssh/index.ts';
 import { CredentialService, VaultCredentialProvider } from '../../src/vault/credentials.ts';
 import { insertServer, insertUser, type TempDb, tempDb, testVault } from '../store/fixture.ts';
 
@@ -140,6 +146,10 @@ let userA: string;
 let userB: string;
 /** userA's server at the in-process host, with a stored password credential. */
 let serverA: string;
+/** How the target policy resolves a server's host name: no test reaches DNS. */
+let resolveName: ResolveAll;
+/** The internal API's log lines (debug and up), parsed. */
+let logs: Array<Record<string, unknown>>;
 
 async function call(
   method: string,
@@ -166,6 +176,16 @@ beforeEach(async () => {
   hostKeys = new SqliteHostKeyStore(db, writer);
   host = await startHost();
   clock = { now: Date.now() };
+  resolveName = async (hostname) => {
+    throw Object.assign(new Error(`getaddrinfo ENOTFOUND ${hostname}`), { code: 'ENOTFOUND' });
+  };
+  logs = [];
+  const sink = new Writable({
+    write(chunk, _encoding, done) {
+      logs.push(JSON.parse(String(chunk)));
+      done();
+    },
+  });
   api = new InternalApi({
     host: '127.0.0.1',
     port: 0,
@@ -180,7 +200,12 @@ beforeEach(async () => {
     connections: { revoke: () => 0 },
     enableLocalShell: false,
     // The in-process host listens on loopback.
-    targetPolicy: new TargetPolicy({ allowLocalTargets: true, localAddresses: () => [] }),
+    targetPolicy: new TargetPolicy({
+      allowLocalTargets: true,
+      localAddresses: () => [],
+      resolve: (hostname, options) => resolveName(hostname, options),
+    }),
+    logger: pino({ level: 'debug' }, sink),
     installationId: INSTALLATION_ID,
     version: 'test',
     remoteSessions: { readyTimeoutMs: 5_000 },
@@ -536,6 +561,33 @@ describe('POST /servers/:id/remote-sessions/terminate', () => {
       status: 502,
       json: { code: 'CREDENTIAL_REQUIRED' },
     });
+  });
+
+  it('a 502 says what failed in fixed words; what the transport said stays in the debug log', async () => {
+    const marker = 'leak-marker-7f3a9c';
+    const { credentialId } = await credentials.create({
+      actingUserId: userA,
+      kind: 'password',
+      name: 'pw 2',
+      password: PASSWORD,
+    });
+    const named = insertServer(fixture.db, userA, {
+      hostname: `${marker}.example.invalid`,
+      port: host.port,
+      credentialId,
+    });
+    const res = await terminate(OTHER, userA, named);
+    expect(res).toEqual({
+      status: 502,
+      json: { code: 'HOST_UNREACHABLE', message: 'the server could not be reached' },
+    });
+    expect(JSON.stringify(res.json)).not.toContain(marker);
+    const rejected = logs.find(
+      (l) => l.msg === 'internal API request rejected' && l.status === 502,
+    );
+    expect(rejected).toMatchObject({ level: 20, code: 'HOST_UNREACHABLE' });
+    expect(rejected?.detail).toContain(marker);
+    expect(host.connections).toBe(0);
   });
 });
 

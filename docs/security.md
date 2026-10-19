@@ -50,7 +50,7 @@ flowchart LR
 | Browser | The auth-session cookie; the terminal view (xterm.js) | Untrusted. Never the source of truth for terminal state; it renders and sends input. |
 | Caddy | TLS keys and its local CA (`caddy-data` volume) | The only published service. Routes `/ws` to session-manager and everything else to web. Replaces any client `X-Forwarded-For` with the TCP peer address, or, behind a reverse proxy named in `TERMDOCK_REVERSE_PROXY`, with the address that proxy forwarded (read right to left). Not on the `internal` network, so it cannot reach the internal API. |
 | web | `auth_secret`, `ws_secret`, `internal_token` | Control plane: sign-in, users, servers, layout, audit view, WebSocket ticket issuer. Never holds the master key. A secret passes through web only when a user creates a credential, and web can never read one back. |
-| session-manager | `master_key`, `ws_secret`, `internal_token`; decrypted credentials, in memory, only while connecting | Data plane: SSH connections, server-side emulators, the WebSocket server, the internal API and the credential vault. Writes every credential and known-host-key row. |
+| session-manager | `master_key`, `ws_secret`, `internal_token`; decrypted credentials, in memory, while the SSH connection that uses them is open | Data plane: SSH connections, server-side emulators, the WebSocket server, the internal API and the credential vault. Writes every credential and known-host-key row. |
 | SQLite (`termdock-data` volume) | Users and argon2id password hashes, TOTP secrets (encrypted by Better Auth), encrypted credentials, host keys, sessions, audit events | Shared by web and session-manager. Assume it can leak through backups: SSH secrets in it are ciphertext only. |
 | `deploy/secrets/` | The four secret files | Mounted read-only into the containers as Docker secrets. `master_key` is mounted into session-manager only. |
 | Remote hosts | The user's shell and a per-session tmux server | Reached over SSH with strict host-key verification. Termdock installs nothing on them. |
@@ -88,14 +88,16 @@ The summary table is in [plan §10.1](implementation-plan.md#101-threat-model-su
 - **Forged or replayed WebSocket connections.** The upgrade must carry the instance's `Origin`,
   and the first frame must present a 30-second, single-use ticket signed by web and bound to the
   user and the auth session.
-- **Online password guessing.** argon2id, Better Auth's per-IP rate limiter, a progressive
-  lockout per (username, client IP), and optional or mandatory TOTP.
+- **Online password guessing.** argon2id, a sign-in budget per client IP, a progressive lockout
+  per (username, client IP), and optional or mandatory TOTP.
 - **Man-in-the-middle on SSH.** Explicit trust on first use, a hard failure on mismatch, revoked
   keys that fail closed, and SHA-2 host-key signatures only.
 - **Hostile output from a remote host.** Terminal titles, hyperlinks, clipboard writes, terminal
   queries and keyboard-interactive prompt text are filtered or framed (see
-  [Terminal escape handling](#terminal-escape-handling)), and the scan for leftover tmux servers
-  reads only numbers through a strict parser (see [Remote tmux leftovers](#remote-tmux-leftovers)).
+  [Terminal escape handling](#terminal-escape-handling)), the scan for leftover tmux servers
+  reads only numbers through a strict parser (see [Remote tmux leftovers](#remote-tmux-leftovers)),
+  tmux control-mode replies are size-capped, and host text quoted in the daemon's errors, logs
+  and session events is cleaned and cut short (see [Logging and redaction](#logging-and-redaction)).
 - **Using the daemon to reach its own machine.** SSH targets on loopback, link-local,
   multicast, unspecified or the daemon's own addresses are refused by default.
 - **Script injection in the UI.** A strict, nonce-based Content-Security-Policy.
@@ -127,7 +129,8 @@ including its audit rows.
 An admin can set a temporary password for any user and reset their TOTP, then sign in as that
 user. Both actions are audited (`auth.password_reset`, `auth.totp_reset`), and the user finds
 out at their next sign-in, but nothing technical stops it. Better Auth's impersonation endpoints
-are disabled, so an admin cannot act as another user silently. Keep the number of admins small.
+are disabled and its other admin endpoints are not served over HTTP, so an admin cannot act as
+another user silently or bypass the audited admin pages. Keep the number of admins small.
 
 Whoever can run Docker commands on the host can do the same without an account:
 `deploy/scripts/reset-password.sh` sets a temporary password for any user, and with `--reset-totp`
@@ -156,16 +159,22 @@ secrets, the volumes and the containers' memory.
 
 - TOTP codes can be replayed within their validity window (about 90 s); there is no used-code
   cache ([ADR-0004](adr/0004-auth-better-auth.md#other-findings)).
-- The sign-in lockout and Better Auth's rate limiter keep their state in web's memory: a web
-  restart clears them.
+- The sign-in lockout and the per-IP sign-in budget keep their state in web's memory: a web
+  restart clears them. Users behind one address (a NAT, an unnamed reverse proxy) share one
+  budget.
 - web trusts `X-Forwarded-For` because only Caddy can reach it. Anyone who can connect to
   `web:3000` directly can spoof the client IP and weaken the lockout, the rate limits and the
   audit trail.
 - Behind a reverse proxy (`TERMDOCK_TLS=off`), Caddy believes the proxy's `X-Forwarded-For` only
-  from `TERMDOCK_REVERSE_PROXY`. Naming too wide a range (for example a whole public subnet) lets
-  anyone in it choose their apparent address; and a port published on every interface lets
-  clients skip the proxy, so publish it on loopback (`TERMDOCK_BIND_ADDRESS=127.0.0.1`) or
-  firewall it.
+  from `TERMDOCK_REVERSE_PROXY`, and answers `503` while that setting is empty (every client
+  would otherwise share the proxy's address). Naming too wide a range (for example a whole public
+  subnet) lets anyone in it choose their apparent address; and a port published on every
+  interface lets clients skip the proxy, so publish it on loopback
+  (`TERMDOCK_BIND_ADDRESS=127.0.0.1`) or firewall it.
+- On a host with IPv6, Docker forwards IPv6 clients to the IPv4-only `edge` network through its
+  userland proxy, from the network's gateway address: Termdock sees them as one client, with one
+  sign-in lockout, one rate limit and one address in the logs. Publish on IPv4 only
+  (`TERMDOCK_BIND_ADDRESS=0.0.0.0`) or put a reverse proxy in front if users connect over IPv6.
 - Audit and session-event rows are kept for 180 days by default
   (`TERMDOCK_EVENT_RETENTION_DAYS`; `0` keeps them forever). Older rows are deleted for good:
   raise the setting, or keep database backups, if you need a longer trail.
@@ -193,8 +202,17 @@ plugins.
   password is checked (`429` with `Retry-After`). Unknown usernames are locked the same way, so
   the lockout does not reveal which accounts exist. Second-factor failures have their own
   lockout in Better Auth (10 failures lock the account for 15 min).
-- **Rate limits.** Better Auth's limiter is enabled in every environment, in memory, per IP
-  (sign-in: 3 requests per 10 s).
+- **Sign-in budget per IP.** Each client IP may make 10 sign-in attempts per minute, whatever
+  their outcome; further attempts are refused before the password is checked, the same way as a
+  locked pair, until the minute ends. Refused attempts spend nothing. The lockout tracks at most
+  10,000 pairs and 10,000 addresses; when full it forgets quiet entries first and drops a running
+  lock or a spent budget last, so flooding other usernames cannot clear a lock.
+- **Better Auth over HTTP.** `/api/auth/*` serves only `GET /api/auth/get-session` (the open
+  workspace's keep-alive); every other request answers `404` before reaching Better Auth. Sign-in,
+  the second step, password changes, sign-out and every admin action run in Server Actions, which
+  apply Termdock's checks and audit rows. Better Auth's other endpoints (profile edits, the
+  username availability check, its raw admin endpoints) are not reachable. Better Auth's own
+  per-IP limiter stays on for what remains.
 - **Auth sessions.** Cookies are `HttpOnly; Secure; SameSite=Strict` with the `__Secure-`
   prefix, valid for 7 days and slid forward at most once a day; the open workspace keeps them
   sliding. Closing the browser does not sign you out. Every check reads the `auth_session`
@@ -238,9 +256,10 @@ Next.js. Details: [plan §7.1](implementation-plan.md#71-connection-and-authenti
    (close `4403`), and closes a connection that does not send a valid `hello` within 5 s
    (`4401`).
 4. It checks that the auth session still exists, has not expired and belongs to a user who is
-   not disabled, at `hello` and again every 60 s. A sign-out, password change, admin password or
-   TOTP reset, or disabling a user closes the affected WebSockets at once through the internal
-   API (`auth-sessions/revoke`).
+   not disabled, at `hello` and again every 60 s; when that check fails three times in a row
+   (the database not answering), the connection is closed. A sign-out, password change, admin
+   password or TOTP reset, or disabling a user closes the affected WebSockets at once through the
+   internal API (`auth-sessions/revoke`).
 
 ### Internal API bearer
 
@@ -261,9 +280,10 @@ Bodies are JSON of at most 64 KiB, validated with zod. Routes:
 - **Master key.** `TERMDOCK_MASTER_KEY_FILE`: base64 of exactly 32 random bytes. The daemon
   stores a key-check value in `instance_settings` (`vault_key_check`) on first boot and refuses
   to start when the key does not match it.
-- **Who decrypts.** Only session-manager, and only to connect. web forwards a new credential to
-  the internal API when the user creates it and never receives a secret back. Private keys are parsed with ssh2 before
-  they are stored; generated keys are ed25519. The UI never shows a secret after creation.
+- **Who decrypts.** Only session-manager, and only to connect; the connection keeps the
+  decrypted secret in memory while it is open. web forwards a new credential to the internal API
+  when the user creates it and never receives a secret back. Private keys are parsed with ssh2
+  before they are stored; generated keys are ed25519. The UI never shows a secret after creation.
 - **Rotation.** A `vault rotate` command of session-manager and the wrapper script
   `deploy/scripts/rotate-master-key.sh` re-encrypt every stored credential under a new master
   key. Follow [Rotating the master key](guides/install.md#rotating-the-master-key) in the
@@ -340,7 +360,8 @@ page with **End** and **Adopt**.
   login reaches the host.
 - **Bounded.** At most 4 one-shot cleanups run at once in the process, one sweep per user,
   address and user name every 15 minutes, and 20 server-page lists or ends per user and minute;
-  every remote step has a timeout.
+  every remote step has a timeout. A failed End answers with a fixed message per error code,
+  never the text ssh2, DNS or the host produced.
 
 ### Keyboard-interactive prompts
 
@@ -365,19 +386,28 @@ Remote programs control what they print, so the browser treats terminal output a
   terminal settings. Clipboard reads are never answered.
 - **Links (OSC 8 and plain-text URLs).** Both go through the same handler: only `http` and
   `https` open, only after a confirmation that shows the full URL (on by default), and always in
-  a new tab with `noopener,noreferrer`. xterm never opens a link by itself.
+  a new tab with `noopener,noreferrer`. xterm never opens a link by itself. The confirmation
+  shows the parsed URL, which is exactly what opens: invisible and bidi characters
+  percent-encoded and international host names in punycode (`xn--…`), so a link cannot display
+  one host and open another.
+- **Paste.** Every paste (keyboard, context menu, the phone key bar) loses its control
+  characters first: ESC and the other C0 controls except TAB, LF and CR, DEL and the C1
+  controls. Clipboard text from a web page or an allowed OSC 52 write cannot end a bracketed
+  paste early and run the rest as typed input.
 - **Terminal queries.** Device attributes, cursor and status reports, mode, version and color
   queries are answered exactly once: by tmux for protected sessions, by the server emulator
   otherwise. The browser never answers, so output cannot make a viewer's browser type
-  into the session.
+  into the session. Focus reports (`ESC[?1004h`) are sent by the browser only for a real focus
+  change of the terminal, and focus-out only by the active viewer.
 - **Titles.** Window titles are stripped of control characters and invisible formatting and cut
   to 256 characters by the daemon, and cleaned again by the browser.
 - Terminal output is never interpreted as HTML; no escape sequence reaches the DOM.
 
 ### Content-Security-Policy and headers
 
-- **Pages** get a per-request nonce CSP: `default-src 'self'; script-src 'self' 'nonce-…'
-  'strict-dynamic'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src
+- **Pages** (every path but `/api` and `/api/…`, `/_next/static/…`, `/_next/image` and
+  `/favicon.ico`, matched by whole path segment) get a per-request nonce CSP: `default-src
+  'self'; script-src 'self' 'nonce-…' 'strict-dynamic'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src
   'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self';
   frame-ancestors 'none'`. `style-src` allows inline styles because xterm's DOM renderer injects
   them. Development builds add `'unsafe-eval'`.
@@ -387,7 +417,9 @@ Remote programs control what they print, so the browser treats terminal output a
   `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()` and
   `Cross-Origin-Opener-Policy: same-origin`, and no `X-Powered-By`.
 - **Caddy** adds `Strict-Transport-Security: max-age=31536000` for every name except
-  `localhost`, and removes its `Server` header.
+  `localhost`, removes its `Server` header (from redirects and its own error responses too), and
+  answers `400` to an upgrade request on any path but `/ws`, so no WebSocket ever reaches
+  Next.js.
 - **CSRF.** Auth cookies are `SameSite=Strict`. Server Actions check the origin; the ticket and
   layout route handlers compare `Origin` with `TERMDOCK_PUBLIC_URL`'s origin exactly; Better
   Auth trusts only that origin.
@@ -411,8 +443,13 @@ From [`deploy/compose.yaml`](../deploy/compose.yaml) and the Dockerfiles:
   terminals across them (more attaches get `RATE_LIMITED`), and the admin setting
   `max_running_sessions_per_user` (default 50). Per connection: 32 channels (one more closes it
   with `4400`), 64 messages in flight (`4429`), 1 MiB per client frame. A runtime whose session
-  is not meant to run and has no viewer is freed after 60 s. Output to a slow browser stops at
-  2 MiB buffered and resumes with a fresh snapshot; capability-probe output is read up to 64 KiB.
+  is not meant to run and has no viewer is freed after 60 s, and a user keeps at most 16 such
+  idle runtimes loaded: opening or retrying more ended sessions frees the least recently idle
+  ones at once. Output to a slow browser stops at 2 MiB buffered and resumes with a fresh
+  snapshot; capability-probe output is read up to 64 KiB. A tmux control-mode reply block may
+  hold 64 MiB when it answers the daemon's own command (a full history capture stays far below)
+  and 64 KiB otherwise; a larger one ends the control connection, and the session reconnects
+  with its usual backoff.
 
 ### Logging and redaction
 
@@ -420,6 +457,10 @@ From [`deploy/compose.yaml`](../deploy/compose.yaml) and the Dockerfiles:
   stdout.
 - **Terminal contents are never logged.** The code does not log terminal input or output bytes,
   keyboard-interactive answers, tickets or credential material.
+- **Host text is cut short.** Where a tmux reply, an exit reason or the control channel's stderr
+  ends up in a daemon error (and so in the logs and a session's `desync` event), it is stripped
+  of control and invisible formatting characters and the whole message is capped at 300
+  characters.
 - As a safety net, both processes censor these keys wherever they appear in structured log
   fields: `ticket`, `answers`, `password`, `passphrase`, `privateKey`, `secret`, `payload`,
   `data`, `input`, `env`, `policies`, `authorization`, `cookie`, `token`. web also censors them

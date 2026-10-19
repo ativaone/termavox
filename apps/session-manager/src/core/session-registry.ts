@@ -24,6 +24,13 @@ export const SHUTDOWN_BUDGET_MS = 20_000;
  */
 export const RUNTIME_IDLE_TTL_MS = 60_000;
 /**
+ * Idle runtimes one user may have loaded at once (each holds an emulator of about 0.5 MiB at the
+ * default scrollback). Attaching to many ended sessions, or retrying them, within the idle TTL
+ * would otherwise load one per session: beyond the cap, the user's least recently idle runtimes
+ * are evicted at once.
+ */
+export const MAX_IDLE_RUNTIMES_PER_USER = 16;
+/**
  * A terminate answers within this long (web's internal API calls time out after 5 s): a remote
  * cleanup still running then (plan D-30) ends the session later, through `session.status`.
  */
@@ -53,6 +60,8 @@ export interface SessionRegistryOptions {
   restoreHostSpacingMs?: number;
   /** Default RUNTIME_IDLE_TTL_MS. */
   idleTtlMs?: number;
+  /** Default MAX_IDLE_RUNTIMES_PER_USER. */
+  maxIdleRuntimesPerUser?: number;
   /** Default TERMINATE_ANSWER_MS. */
   terminateAnswerMs?: number;
   /** Background leftover sweep (plan D-30) handed to every runtime; absent: none. */
@@ -91,7 +100,9 @@ function requireServer(record: SessionRecord | null): void {
  * still idle, still the session's runtime and not in use by a registry operation (pinned), it
  * leaves the map first and is disposed after. The map entry is the only way to reach a runtime,
  * so a later attach loads a fresh one, never the disposed one, and never a second one while the
- * first is live. Timers stop at shutdown.
+ * first is live. Timers stop at shutdown. A user with more than `maxIdleRuntimesPerUser` idle
+ * runtimes loses the least recently idle ones at once, through the same path (never a pinned one,
+ * nor the one that just became idle).
  */
 export class SessionRegistry {
   readonly #options: SessionRegistryOptions;
@@ -102,7 +113,14 @@ export class SessionRegistry {
   readonly #evictions = new Map<string, ReturnType<typeof setTimeout>>();
   /** Registry operations in progress per session: their runtime is never evicted meanwhile. */
   readonly #pins = new Map<string, number>();
+  /**
+   * When each idle runtime last became idle (or was used by an operation), as an increasing
+   * sequence number: the cap evicts the lowest first, the order the idle TTL would take.
+   */
+  readonly #idleSince = new Map<string, number>();
+  #idleSeq = 0;
   readonly #idleTtlMs: number;
+  readonly #maxIdlePerUser: number;
   readonly #terminateAnswerMs: number;
   /** Shared by every runtime's one-shot remote cleanup (plan D-30). */
   readonly #cleanups = new Limiter(REMOTE_CLEANUP_CONCURRENCY);
@@ -112,6 +130,7 @@ export class SessionRegistry {
   constructor(options: SessionRegistryOptions) {
     this.#options = options;
     this.#idleTtlMs = options.idleTtlMs ?? RUNTIME_IDLE_TTL_MS;
+    this.#maxIdlePerUser = options.maxIdleRuntimesPerUser ?? MAX_IDLE_RUNTIMES_PER_USER;
     this.#terminateAnswerMs = options.terminateAnswerMs ?? TERMINATE_ANSWER_MS;
     this.#log = options.logger ?? silentLogger();
   }
@@ -279,6 +298,7 @@ export class SessionRegistry {
     const runtime = this.#runtimes.get(sessionId);
     if (runtime) {
       this.#runtimes.delete(sessionId);
+      this.#idleSince.delete(sessionId);
       await runtime
         .shutdown()
         .catch((err) => this.#log.warn({ err, sessionId }, 'removed runtime shutdown failed'));
@@ -333,6 +353,7 @@ export class SessionRegistry {
     const { attachments, activeId, seq } = old.handoff();
     old.dispose();
     this.#runtimes.delete(sessionId);
+    this.#idleSince.delete(sessionId);
     const patch = {
       desiredState: 'running' as const,
       state: 'new' as const,
@@ -452,7 +473,11 @@ export class SessionRegistry {
     return runtime;
   }
 
-  /** (Re)starts the idle timer of a session's runtime; the check happens when it fires. */
+  /**
+   * (Re)starts the idle timer of a session's runtime (the check happens when it fires), and keeps
+   * its user within the idle cap: called whenever the runtime is idle after a load, a detach, an
+   * end or an operation.
+   */
   #scheduleEviction(sessionId: string): void {
     if (this.#closed) return;
     clearTimeout(this.#evictions.get(sessionId));
@@ -462,6 +487,32 @@ export class SessionRegistry {
     }, this.#idleTtlMs);
     timer.unref?.();
     this.#evictions.set(sessionId, timer);
+    const runtime = this.#runtimes.get(sessionId);
+    if (!runtime) return;
+    this.#idleSince.set(sessionId, ++this.#idleSeq);
+    this.#capIdle(runtime.userId, sessionId);
+  }
+
+  /**
+   * Evicts the least recently idle runtimes of `userId` at once while the user has more idle
+   * runtimes than the cap. Pinned ones and `keep` (the one that just became idle) count but stay;
+   * attached ones and those meant to run are not idle. Other users are untouched.
+   */
+  #capIdle(userId: string, keep: string): void {
+    let idle = 0;
+    const evictable: Array<[sessionId: string, since: number]> = [];
+    for (const [id, runtime] of this.#runtimes) {
+      if (runtime.userId !== userId || !runtime.idle) continue;
+      idle++;
+      if (id !== keep && !this.#pins.has(id)) evictable.push([id, this.#idleSince.get(id) ?? 0]);
+    }
+    if (idle <= this.#maxIdlePerUser) return;
+    evictable.sort((a, b) => a[1] - b[1]);
+    for (const [id] of evictable.slice(0, idle - this.#maxIdlePerUser)) {
+      clearTimeout(this.#evictions.get(id));
+      this.#evictions.delete(id);
+      this.#evict(id);
+    }
   }
 
   #evict(sessionId: string): void {
@@ -469,6 +520,7 @@ export class SessionRegistry {
     if (this.#closed || !runtime?.idle || this.#pins.has(sessionId)) return;
     // Out of the map first: from now on an attach loads the session again.
     this.#runtimes.delete(sessionId);
+    this.#idleSince.delete(sessionId);
     void runtime
       .shutdown()
       .catch((err) => this.#log.warn({ err, sessionId }, 'evicted runtime shutdown failed'))

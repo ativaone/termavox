@@ -18,6 +18,9 @@ export const VIEWPORT_DEBOUNCE_MS = 50;
 export const MAX_INPUT_CHUNK = 64 * 1024;
 /** Protocol bounds for a reported viewport (`dimension` in packages/protocol). */
 const MAX_DIMENSION = 1000;
+/** Focus reports (DECSET 1004): focus in, focus out. */
+const FOCUS_IN = '\x1b[I';
+const FOCUS_OUT = '\x1b[O';
 
 /**
  * - `idle`: no session.
@@ -160,11 +163,34 @@ export class TerminalChannel {
       hint: null,
       error: null,
     });
-    // Keystrokes, paste, focus and mouse reports. INPUT also makes this the active attachment
-    // on the server (plan §5.5), so no separate activate is needed.
+    // Keystrokes, paste and mouse reports. INPUT also makes this the active attachment on the
+    // server (plan §5.5), so no separate activate is needed.
+    //
+    // xterm emits focus reports on its own: on every `ESC[?1004h` in the output (a snapshot
+    // replays it on each attach) it reports the current focus with no user action. Output must
+    // never type into the session, so onData payloads that are exactly a focus report are
+    // dropped, and real focus changes are reported below. No input produces exactly these
+    // strings in xterm 6: a key arrives as one event with one sequence (Keyboard.ts has no
+    // `CSI I` / `CSI O`; Alt+[ is `ESC [`, the `I` that follows is its own event), mouse, wheel
+    // and alt-click reports are `CSI M…`, `CSI <…` and cursor keys, IME and soft-keyboard text
+    // is typed text, and a paste arrives whole, either bracketed (`ESC[200~…`) or as plain text
+    // without ESC (paste.ts).
+    const textarea = this.terminal.textarea;
+    const onFocus = (): void => this.#reportFocus(true);
+    const onBlur = (): void => this.#reportFocus(false);
+    textarea?.addEventListener('focus', onFocus);
+    textarea?.addEventListener('blur', onBlur);
     this.#subscriptions = [
-      this.terminal.onData((data) => this.input(data)),
+      this.terminal.onData((data) => {
+        if (data !== FOCUS_IN && data !== FOCUS_OUT) this.input(data);
+      }),
       this.terminal.onBinary((data) => this.input(latin1Bytes(data))),
+      {
+        dispose: () => {
+          textarea?.removeEventListener('focus', onFocus);
+          textarea?.removeEventListener('blur', onBlur);
+        },
+      },
     ];
   }
 
@@ -352,6 +378,17 @@ export class TerminalChannel {
   #isAttached(): boolean {
     const { phase } = this.#store.getSnapshot();
     return phase === 'syncing' || phase === 'live';
+  }
+
+  /**
+   * Focus reports for a real focus change of the terminal, while the program asked for them.
+   * Focus-in makes this pane active, as a focus does anyway; focus-out is only sent by the active
+   * attachment, or leaving a pane would make it the one that sizes the session.
+   */
+  #reportFocus(focused: boolean): void {
+    if (!this.terminal.modes.sendFocusMode) return;
+    if (focused) this.input(FOCUS_IN);
+    else if (this.#store.getSnapshot().active) this.input(FOCUS_OUT);
   }
 
   #sendAttach(): void {

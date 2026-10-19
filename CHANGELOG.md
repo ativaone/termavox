@@ -10,6 +10,9 @@ The first release, v0.1.0, is being prepared.
 
 ### Upgrade notes
 
+- With `TERMDOCK_TLS=off`, Caddy now answers `503` until `TERMDOCK_REVERSE_PROXY` names the reverse
+  proxy (the install guide always required it). Without it every user shared the proxy's address,
+  and with it one sign-in lockout and rate limit.
 - Certificates from Caddy's local CA (`TERMDOCK_TLS=internal`) now last 30 days instead of 12
   hours. A `localhost` or IP install that never set `TERMDOCK_TLS` uses `auto`, which keeps 12-hour
   certificates there: add `TERMDOCK_TLS=internal` to `deploy/.env`. Caddy switches within about a
@@ -105,5 +108,28 @@ Hardening from the internal pre-release security review:
 - Client IPs use the rightmost untrusted `X-Forwarded-For` value; log redaction covers
   environment values, tokens and cookies; `Permissions-Policy` and
   `Cross-Origin-Opener-Policy` headers are sent.
+
+From the second internal review (2026-10-19):
+
+- Sign-in is limited to 10 attempts per minute per client address, on top of the per-username
+  lockout. Better Auth's own limiter never applied to the sign-in form. A lockout can no longer
+  be cleared early by flooding failures for other usernames.
+- `/api/auth/*` serves only the workspace's session keep-alive. Better Auth's other endpoints,
+  which the app never used, answer 404: an anonymous check of which usernames exist, users
+  editing the display name admins see, and raw admin endpoints that skipped Termdock's own
+  checks and audit log.
+- Pasting into a terminal removes control characters first, so clipboard text cannot end a
+  bracketed paste early and run commands as if typed.
+- The link confirmation shows exactly the address that opens: invisible and right-to-left
+  characters percent-encoded and international host names in their `xn--` form.
+- Terminal output can no longer make the browser send focus reports: they follow real focus
+  changes only, and attaching from another device no longer takes over the session's size.
+- The 404 page and other pages under paths such as `/apix` get the Content-Security-Policy too.
+- The daemon keeps at most 16 idle runtimes of ended sessions per user, caps tmux control-mode
+  replies, cuts host text in its errors, logs and session events to 300 clean characters,
+  closes a WebSocket whose sign-in check keeps failing, and answers a failed leftover End with
+  a fixed message instead of the transport's text.
+- Caddy answers `400` to WebSocket upgrades outside `/ws` and removes its `Server` header from
+  redirects and error responses too. Backups write their partial file exclusively.
 
 [Unreleased]: https://github.com/ativaone/termdock/commits/main

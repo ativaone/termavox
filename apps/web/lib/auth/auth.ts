@@ -48,13 +48,19 @@ export const PENDING_ALLOWED_PATHS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Routes Termdock never serves: sign-in is by username only (an email sign-in would bypass the
- * per-username lockout), there is no public sign-up, and admins cannot impersonate users (D-08:
- * users are isolated; impersonation would let an admin drive another user's terminals).
+ * Routes `auth.handler` never serves. The primary control is the route's HTTP allowlist
+ * (lib/auth/http-surface.ts: only get-session reaches the handler); this list is defense in depth
+ * for anything that calls the handler directly, and it never affects `auth.api` calls. Sign-in is
+ * by username only (an email sign-in would bypass the per-username lockout), there is no public
+ * sign-up, nobody can probe which usernames exist, users cannot edit their own profile (the name
+ * the admin user list shows), and admins cannot impersonate users (D-08: users are isolated;
+ * impersonation would let an admin drive another user's terminals).
  */
 export const DISABLED_PATHS = [
   '/sign-in/email',
   '/sign-up/email',
+  '/is-username-available',
+  '/update-user',
   '/admin/impersonate-user',
   '/admin/stop-impersonating',
 ];
@@ -146,19 +152,12 @@ export function createAuth(options: CreateAuthOptions) {
         if (ctx.path === SIGN_IN_PATH) {
           const name = signInUsername(ctx.body);
           if (!name) return;
-          const retryMs = lockout.retryAfterMs(name, clientIp(headers, ctx.context.options));
-          if (retryMs > 0) {
-            const retryAfter = Math.ceil(retryMs / 1000);
-            throw new APIError(
-              'TOO_MANY_REQUESTS',
-              {
-                code: 'SIGN_IN_LOCKED',
-                message: 'Too many failed sign-in attempts. Try again later.',
-                retryAfter,
-              },
-              { 'Retry-After': String(retryAfter) },
-            );
-          }
+          const ip = clientIp(headers, ctx.context.options);
+          // The pair's lock first, then the IP's budget, which every attempt past it spends.
+          const pairRetryMs = lockout.retryAfterMs(name, ip);
+          if (pairRetryMs > 0) throw signInLocked(pairRetryMs);
+          const ipRetryMs = lockout.takeIpAttempt(ip);
+          if (ipRetryMs > 0) throw signInLocked(ipRetryMs);
           return;
         }
         if (ctx.path === '/change-password') {
@@ -257,6 +256,23 @@ export type AuthSession = TermdockAuth['$Infer']['Session'];
 function signInUsername(body: unknown): string | null {
   const value = (body as { username?: unknown } | undefined)?.username;
   return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+/**
+ * The refusal for a locked pair and for a spent IP budget alike, so the login form shows its
+ * lockout message for both. Thrown before the password is checked.
+ */
+function signInLocked(retryMs: number): APIError {
+  const retryAfter = Math.ceil(retryMs / 1000);
+  return new APIError(
+    'TOO_MANY_REQUESTS',
+    {
+      code: 'SIGN_IN_LOCKED',
+      message: 'Too many failed sign-in attempts. Try again later.',
+      retryAfter,
+    },
+    { 'Retry-After': String(retryAfter) },
+  );
 }
 
 function clientIp(headers: Headers | undefined, options: Parameters<typeof getIP>[1]): string {

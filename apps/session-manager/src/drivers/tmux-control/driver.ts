@@ -38,6 +38,7 @@ import {
   type CommandResult,
   TmuxDesyncError,
 } from './correlator.ts';
+import { hostMessage, hostText } from './host-text.ts';
 import { encodeInput, MAX_INPUT_BYTES_PER_COMMAND } from './input.ts';
 import { concatBytes, LineSplitter } from './lines.ts';
 import { type ControlEvent, ControlParser, paneSizeFromLayout } from './parser.ts';
@@ -446,7 +447,7 @@ export class TmuxControlDriver implements Driver {
       displayFormat('#{session_created} #{pane_pid} #{pane_id} #{window_id}'),
     );
     const match = /^(\d+) (\d+) %(\d+) @(\d+)$/.exec(text(reply.lines));
-    if (!match) throw new TmuxDesyncError(`unexpected identity reply: ${text(reply.lines)}`);
+    if (!match) throw new TmuxDesyncError(hostMessage('unexpected identity reply: ', reply.lines));
     this.#paneId = Number(match[3]);
     this.#windowId = Number(match[4]);
     return { sessionCreated: Number(match[1]), panePid: Number(match[2]) };
@@ -463,7 +464,7 @@ export class TmuxControlDriver implements Driver {
   async #command(command: string): Promise<CommandResult> {
     const result = await this.#correlator!.send(command);
     if (!result.ok) {
-      throw new TmuxDesyncError(`'${command.split(' ')[0]}' failed: ${text(result.lines)}`);
+      throw new TmuxDesyncError(hostMessage(`'${command.split(' ')[0]}' failed: `, result.lines));
     }
     return result;
   }
@@ -515,7 +516,7 @@ export class TmuxControlDriver implements Driver {
       const captureMs = performance.now() - sentAt;
       let capture: PaneCapture | null = null;
       let problem: string | null = null;
-      if (!result.ok) problem = text(result.blocks.at(-1)?.lines ?? []) || 'command failed';
+      if (!result.ok) problem = hostText(result.blocks.at(-1)?.lines ?? []) || 'command failed';
       else if (gate.violated) problem = 'pane output inside the snapshot reply';
       else {
         capture = parseCapture(result.blocks.slice(prefix.length));
@@ -526,7 +527,7 @@ export class TmuxControlDriver implements Driver {
         this.#heldBytes = 0;
         this.#pauseReading('rebuild', false);
         if (attempt >= SNAPSHOT_ATTEMPTS) {
-          throw new TmuxDesyncError(`snapshot (${reason}) failed: ${problem}`);
+          throw new TmuxDesyncError(hostMessage(`snapshot (${reason}) failed: `, problem ?? ''));
         }
         await this.#followActivePane();
         continue;
@@ -572,7 +573,9 @@ export class TmuxControlDriver implements Driver {
   async #followActivePane(): Promise<boolean> {
     const reply = await this.#command(displayFormat('#{window_id} #{pane_id}'));
     const match = /^@(\d+) %(\d+)$/.exec(text(reply.lines));
-    if (!match) throw new TmuxDesyncError(`unexpected active pane reply: ${text(reply.lines)}`);
+    if (!match) {
+      throw new TmuxDesyncError(hostMessage('unexpected active pane reply: ', reply.lines));
+    }
     const windowId = Number(match[1]);
     const paneId = Number(match[2]);
     const changed = windowId !== this.#windowId || paneId !== this.#paneId;
@@ -602,7 +605,9 @@ export class TmuxControlDriver implements Driver {
       const rest = splitter.end();
       if (rest) this.#onLine(rest);
     } catch (err) {
-      // A line longer than tmux can produce: the stream is not what we think it is.
+      // A line or reply block larger than tmux can produce (LineSplitter, ControlParser): the
+      // stream is not what we think it is. The loop is left, so the channel's queue discards the
+      // rest, and the runtime reconnects with its usual backoff.
       if (err instanceof RangeError) this.#fail(new TmuxDesyncError(err.message));
     } finally {
       this.#flushForward();
@@ -649,7 +654,7 @@ export class TmuxControlDriver implements Driver {
     if ((event.guard.flags & 1) !== 0 || this.#launchSeen >= this.#launchBlocks) return;
     this.#launchSeen++;
     if (event.type === 'blockError') {
-      this.#launch?.reject(new Error(`tmux launch failed: ${text(event.lines)}`));
+      this.#launch?.reject(new Error(hostMessage('tmux launch failed: ', event.lines)));
     } else if (this.#launchSeen === this.#launchBlocks) {
       this.#launched = true;
       this.#launch?.resolve(event.lines.some((l) => decoder.decode(l) === SESSION_CREATED_MARKER));
@@ -714,7 +719,7 @@ export class TmuxControlDriver implements Driver {
         return;
       case 'unknown':
         if (event.malformed && (event.name === 'output' || event.name === 'extended-output')) {
-          this.#fail(new TmuxDesyncError(`malformed %${event.name}: ${event.text.slice(0, 80)}`));
+          this.#fail(new TmuxDesyncError(`malformed %${event.name}: ${hostText(event.text, 80)}`));
         } else if (
           event.name === 'session-window-changed' ||
           event.name === 'unlinked-window-close'
@@ -814,7 +819,11 @@ export class TmuxControlDriver implements Driver {
    */
   #onExit(reason: string | undefined): void {
     this.#channelDone = true;
-    const err = new Error(`tmux control client exited${reason ? ` (${reason})` : ''}`);
+    const err = new Error(
+      reason
+        ? hostMessage('tmux control client exited (', reason, ')')
+        : 'tmux control client exited',
+    );
     this.#correlator?.failAll(err);
     this.#launch?.reject(err);
     this.#exitWaiter?.resolve();
@@ -853,8 +862,9 @@ export class TmuxControlDriver implements Driver {
    */
   #onEof(): void {
     this.#channelDone = true;
+    const stderr = this.#stderr.trim();
     const err = new Error(
-      `tmux control channel closed${this.#stderr ? `: ${this.#stderr.trim().slice(0, 300)}` : ''}`,
+      stderr ? hostMessage('tmux control channel closed: ', stderr) : 'tmux control channel closed',
     );
     const phase = this.#phase;
     if (phase === 'running' || phase === 'starting') this.#phase = 'closed';
@@ -879,6 +889,7 @@ export class TmuxControlDriver implements Driver {
     this.#correlator?.failAll(desync);
     this.#launch?.reject(desync);
     this.#endChannel();
-    if (phase === 'running') this.#ctx?.onDesync(desync.message);
+    // Host text in the message was cleaned where it entered; this keeps any other error safe too.
+    if (phase === 'running') this.#ctx?.onDesync(hostText(desync.message));
   }
 }

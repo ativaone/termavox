@@ -8,6 +8,7 @@ import {
   classifySocket,
   ENDED_GUARD_MS,
   endLeftovers,
+  NOTIFIED_MAX,
   parseRemoteScan,
   REMOTE_SCAN_MAX_ENTRIES,
   RemoteSweeper,
@@ -29,6 +30,7 @@ const TOKEN_B = 'mnopqrstuvwx';
 const TOKEN_C = 'yz234567abcd';
 const OTHER = 'td-zzzzzzzz-abcdefghijkl';
 const TMUX = '/usr/bin/tmux';
+const B32 = 'abcdefghijklmnopqrstuvwxyz234567';
 
 const line = (socket: string, created = '1700000000', activity = '1700000100', attached = '0') =>
   `${socket}\t${created}\t${activity}\t${attached}`;
@@ -441,6 +443,54 @@ describe('RemoteSweeper (background sweep after ready)', () => {
     await second.instance.sweep(target, hostWith(line(OTHER)).transport, TMUX, () => false);
     expect(stale.lookups).toBe(0);
     expect(second.notifier.messages).toEqual([]);
+  });
+
+  it(`remembers at most ${NOTIFIED_MAX} notices, forgetting the oldest first`, async () => {
+    // A token per number, in the socket name alphabet (base 32).
+    const token = (n: number) =>
+      n
+        .toString(32)
+        .padStart(12, '0')
+        .replace(/[0-9a-v]/g, (c) => B32[Number.parseInt(c, 32)]!);
+    const clock = { now: 1 };
+    const sweepOnce = async (instance: RemoteSweeper, sockets: string[]) => {
+      clock.now += SWEEP_INTERVAL_MS; // past the rate limit of the target
+      await instance.sweep(
+        target,
+        hostWith(sockets.map((s) => line(s)).join('\n')).transport,
+        TMUX,
+        () => true,
+      );
+    };
+
+    const { instance, notifier } = sweeper(new MemoryLookup(), clock);
+    for (let n = 0; n < NOTIFIED_MAX + 50; n++) await sweepOnce(instance, [own(token(n))]);
+    expect(notifier.messages).toHaveLength(NOTIFIED_MAX + 50);
+    expect(instance.notifiedCount).toBe(NOTIFIED_MAX);
+
+    const small = new RemoteSweeper({
+      lookup: new MemoryLookup(),
+      notifier,
+      installationId: `${PREFIX}-0000-7000-8000-000000000000`,
+      now: () => clock.now,
+      notifiedMax: 2,
+    });
+    notifier.messages.length = 0;
+    const sets = [[own(TOKEN_A)], [own(TOKEN_B)], [own(TOKEN_A), own(TOKEN_C)]];
+    for (const set of sets) await sweepOnce(small, set);
+    expect(small.notifiedCount).toBe(2);
+    // The last two sets are still remembered; the oldest was forgotten and is told again.
+    await sweepOnce(small, [own(TOKEN_C), own(TOKEN_A)]);
+    await sweepOnce(small, [own(TOKEN_B)]);
+    expect(notifier.messages).toHaveLength(3);
+    await sweepOnce(small, [own(TOKEN_A)]);
+    expect(notifier.messages.map((m) => m.message)).toEqual([
+      expect.objectContaining({ count: 1 }),
+      expect.objectContaining({ count: 1 }),
+      expect.objectContaining({ count: 2 }),
+      expect.objectContaining({ count: 1 }),
+    ]);
+    expect(small.notifiedCount).toBe(2);
   });
 
   it('never rejects: a failing scan is only logged', async () => {

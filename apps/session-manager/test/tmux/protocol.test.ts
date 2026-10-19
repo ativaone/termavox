@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BLOCK_LINE_OVERHEAD,
   CommandCorrelator,
   type ControlEvent,
   ControlParser,
+  DEFAULT_MAX_BLOCK_BYTES,
+  DEFAULT_MAX_UNSOLICITED_BLOCK_BYTES,
   encodeInput,
   LineSplitter,
   singlePaneLayout,
@@ -156,6 +159,66 @@ describe('ControlParser', () => {
       { type: 'unknown', name: 'sessions-changed', text: '' },
       { type: 'unknown', name: '', text: 'stray text' },
     ]);
+  });
+
+  it('drops a reply block that grows past its cap: RangeError, none of its lines kept', () => {
+    const parser = new ControlParser({ maxBlockBytes: 4096 });
+    const line = new Uint8Array(100).fill(0x61);
+    expect(parser.push(enc('%begin 1 2 1'))).toMatchObject({ type: 'blockBegin' });
+    const fits = Math.floor(4096 / (100 + BLOCK_LINE_OVERHEAD));
+    for (let i = 0; i < fits; i++) expect(parser.push(line)).toBeNull();
+    expect(() => parser.push(line)).toThrow(RangeError);
+    expect(parser.inBlock).toBe(false);
+    // The dropped block's guard is now a stray line; a new block holds only its own lines.
+    expect(parser.push(enc('%end 1 2 1'))).toMatchObject({ type: 'unknown', malformed: true });
+    expect(parser.push(enc('%exit'))).toEqual({ type: 'exit' });
+    parser.push(enc('%begin 1 3 1'));
+    parser.push(line);
+    expect(parser.push(enc('%end 1 3 1'))).toMatchObject({ type: 'blockEnd', lines: [line] });
+  });
+
+  it('counts every line, so a flood of empty lines is bounded too', () => {
+    const parser = new ControlParser({ maxBlockBytes: 64 * 1024 });
+    parser.push(enc('%begin 1 2 1'));
+    let kept = 0;
+    expect(() => {
+      for (;;) {
+        parser.push(new Uint8Array(0));
+        kept++;
+      }
+    }).toThrow(RangeError);
+    expect(kept).toBe((64 * 1024) / BLOCK_LINE_OVERHEAD);
+  });
+
+  it('caps unsolicited blocks (flags 0) much lower than replies to our commands', () => {
+    const big = new Uint8Array(DEFAULT_MAX_UNSOLICITED_BLOCK_BYTES);
+    const unsolicited = new ControlParser();
+    unsolicited.push(enc('%begin 1 2 0'));
+    expect(() => unsolicited.push(big)).toThrow(RangeError);
+    const solicited = new ControlParser();
+    solicited.push(enc('%begin 1 2 1'));
+    expect(solicited.push(big)).toBeNull();
+    const end = solicited.push(enc('%end 1 2 1')) as Extract<ControlEvent, { type: 'blockEnd' }>;
+    expect(end.type).toBe('blockEnd');
+    expect(end.lines).toHaveLength(1);
+    expect(end.lines[0]).toBe(big);
+  });
+
+  it('still parses large replies under the default cap', () => {
+    const parser = new ControlParser();
+    // A 10,000-line history of 400-byte lines, then 60 MiB in 2 MiB lines (one shared buffer).
+    const historyLine = new Uint8Array(400).fill(0x62);
+    parser.push(enc('%begin 1 2 1'));
+    for (let i = 0; i < 10_000; i++) parser.push(historyLine);
+    const history = parser.push(enc('%end 1 2 1'));
+    expect(history).toMatchObject({ type: 'blockEnd' });
+    expect((history as Extract<ControlEvent, { type: 'blockEnd' }>).lines).toHaveLength(10_000);
+    const chunk = new Uint8Array(2 * 1024 * 1024);
+    const count = Math.floor((DEFAULT_MAX_BLOCK_BYTES - 4 * 1024 * 1024) / chunk.byteLength);
+    parser.push(enc('%begin 1 3 1'));
+    for (let i = 0; i < count; i++) expect(parser.push(chunk)).toBeNull();
+    const big = parser.push(enc('%end 1 3 1'));
+    expect((big as Extract<ControlEvent, { type: 'blockEnd' }>).lines).toHaveLength(count);
   });
 
   it('flags malformed known notifications', () => {

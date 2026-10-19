@@ -25,6 +25,12 @@ import type { AuthSessionValidator, SessionGateway } from './types.ts';
 export const WS_PATH = '/ws';
 export const HELLO_TIMEOUT_MS = 5_000;
 export const REVALIDATE_INTERVAL_MS = 60_000;
+/**
+ * Consecutive revalidation passes whose auth-session check failed (the store did not answer)
+ * after which a connection is closed with 4401: a passing outage is ridden out, a lasting one
+ * fails closed like the hello does.
+ */
+export const REVALIDATE_MAX_FAILURES = 3;
 export const MAX_CHANNELS = 32;
 /** Concurrent connections per user; the next one is closed with 4429. */
 export const MAX_CONNECTIONS_PER_USER = 16;
@@ -79,6 +85,8 @@ class Connection {
   queue: Promise<void> = Promise.resolve();
   /** Messages received and not handled yet (the queue's length). */
   inFlight = 0;
+  /** Revalidation passes in a row whose check failed; reset by one that answered. */
+  revalidateFailures = 0;
   helloTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(ws: WebSocket, client: AttachmentClient) {
@@ -498,10 +506,15 @@ export class WsServer implements UserNotifier {
       try {
         valid = await this.#options.authSessions.isValid(conn.authSessionId, conn.userId);
       } catch (err) {
-        // A transient store error must not disconnect everyone; the next pass re-checks.
-        this.#log.warn({ err }, 'auth session revalidation failed');
+        // A transient store error must not disconnect everyone; the next pass re-checks. One
+        // that lasts closes the connection (fail closed, as the hello does).
+        this.#log.warn({ err, connectionId: conn.id }, 'auth session revalidation failed');
+        if (++conn.revalidateFailures >= REVALIDATE_MAX_FAILURES) {
+          this.#close(conn, CloseCode.Unauthenticated, 'auth session check failed');
+        }
         continue;
       }
+      conn.revalidateFailures = 0;
       if (!valid) this.#close(conn, CloseCode.Unauthenticated, 'auth session invalid');
     }
   }

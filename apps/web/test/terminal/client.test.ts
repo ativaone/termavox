@@ -214,6 +214,73 @@ describe('TerminalChannel', () => {
     socket!.deliver(s.attached(1, SESSION));
     await until(() => channel.getSnapshot().hint === null);
   });
+
+  it('sends focus reports for a real focus change only, never because the output asked', async () => {
+    const server = new FakeServer();
+    server.sessions = [summary(SESSION)];
+    const s = session();
+    let socket: FakeSocket | null = null;
+    server.onAttach = (sock, message) => {
+      socket = sock;
+      sock.deliver(s.attached(message.channel, message.sessionId));
+    };
+    const { connection } = setup(server);
+    connection.connect();
+    // A browser terminal's surface: xterm's onData and its textarea's focus and blur.
+    const noop = { dispose() {} };
+    const textarea = new EventTarget();
+    const modes = { sendFocusMode: true };
+    let emitData: (data: string) => void = () => {};
+    const terminal = {
+      cols: 80,
+      rows: 24,
+      options: {},
+      modes,
+      textarea,
+      write(_data: unknown, callback?: () => void) {
+        callback?.();
+      },
+      reset() {},
+      resize() {},
+      onData: (listener: (data: string) => void) => {
+        emitData = listener;
+        return noop;
+      },
+      onBinary: () => noop,
+      parser: {},
+    } as unknown as TerminalLike;
+    const channel = connection.openChannel({ terminal });
+    channel.attach(SESSION, VIEWPORT);
+    await until(() => channel.getSnapshot().phase === 'syncing');
+    const inputs = () =>
+      server.last.binary
+        .filter((frame) => frame.type === FrameType.Input)
+        .map((frame) => new TextDecoder().decode(frame.payload));
+
+    // `ESC[?1004h` in the output makes xterm report the focus by itself: never sent.
+    emitData('\x1b[I');
+    emitData('\x1b[O');
+    expect(inputs()).toEqual([]);
+    emitData('a');
+    expect(inputs()).toEqual(['a']);
+
+    // A real focus while the program asked for reports.
+    textarea.dispatchEvent(new Event('focus'));
+    expect(inputs()).toEqual(['a', '\x1b[I']);
+    // Not asked for: nothing either way.
+    modes.sendFocusMode = false;
+    textarea.dispatchEvent(new Event('focus'));
+    textarea.dispatchEvent(new Event('blur'));
+    expect(inputs()).toEqual(['a', '\x1b[I']);
+    // Focus-out comes only from the active attachment (INPUT would make a left pane active).
+    modes.sendFocusMode = true;
+    textarea.dispatchEvent(new Event('blur'));
+    expect(inputs()).toEqual(['a', '\x1b[I']);
+    socket!.deliver(s.resized(channel.id, true));
+    await until(() => channel.getSnapshot().active, 3_000, 'active');
+    textarea.dispatchEvent(new Event('blur'));
+    expect(inputs()).toEqual(['a', '\x1b[I', '\x1b[O']);
+  });
 });
 
 describe('TermdockConnection', () => {

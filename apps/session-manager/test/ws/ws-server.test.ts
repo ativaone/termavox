@@ -12,6 +12,7 @@ import {
   MAX_CHANNELS,
   MAX_CONNECTIONS_PER_USER,
   MAX_IN_FLIGHT,
+  REVALIDATE_MAX_FAILURES,
   WsServer,
 } from '../../src/ws/server.ts';
 import type { SessionGateway } from '../../src/ws/types.ts';
@@ -363,6 +364,55 @@ describe('WebSocket server', () => {
     await client.next((m) => m.type === 'session.attached');
     expect(evicted.stale.attached).toHaveLength(0);
     expect(evicted.fresh.attached).toHaveLength(1);
+    await client.close();
+  });
+});
+
+describe('auth-session revalidation', () => {
+  /** How each auth session's revalidation checks answer, in order; the hello's check passes. */
+  const plans = new Map<string, Array<'ok' | 'throw'>>();
+  const checks = new Map<string, number>();
+  let revalidating: WsServer;
+  let revalidatingUrl: string;
+
+  beforeAll(async () => {
+    revalidating = new WsServer({
+      host: '127.0.0.1',
+      port: 0,
+      publicOrigin: ORIGIN,
+      secret: SECRET,
+      revalidateIntervalMs: 20,
+      authSessions: {
+        isValid: async (asid) => {
+          const n = checks.get(asid) ?? 0;
+          checks.set(asid, n + 1);
+          if (n > 0 && plans.get(asid)?.[n - 1] === 'throw') throw new Error('store unavailable');
+          return true;
+        },
+      },
+      ownership: { sessionOwner: async () => null },
+      sessions: gateway,
+    });
+    revalidatingUrl = `ws://127.0.0.1:${(await revalidating.listen()).port}/ws`;
+  });
+
+  afterAll(async () => {
+    await revalidating.close();
+  });
+
+  it(`closes with 4401 once ${REVALIDATE_MAX_FAILURES} passes in a row could not check it`, async () => {
+    plans.set('asid-down', Array(10).fill('throw'));
+    const client = await TestClient.connect(revalidatingUrl, ORIGIN, ticket('erin', 'asid-down'));
+    expect((await client.closed).code).toBe(CloseCode.Unauthenticated);
+    // The hello, then the failing passes: closed at the third, never checked again.
+    expect(checks.get('asid-down')).toBe(1 + REVALIDATE_MAX_FAILURES);
+  });
+
+  it('a pass that answers resets the count: failures that do not last keep it open', async () => {
+    plans.set('asid-flaky', ['throw', 'ok', 'throw', 'throw', 'ok', 'throw', 'throw', 'ok']);
+    const client = await TestClient.connect(revalidatingUrl, ORIGIN, ticket('frank', 'asid-flaky'));
+    await until(() => (checks.get('asid-flaky') ?? 0) > 10);
+    expect(client.ws.readyState).toBe(client.ws.OPEN);
     await client.close();
   });
 });

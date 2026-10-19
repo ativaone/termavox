@@ -80,7 +80,8 @@ function hardStop(
 
 /**
  * The remote host could not be reached, signed in to or asked (terminate route; the internal API
- * answers `502 { code, message }`). `code` is the one a list reports in `error`.
+ * answers `502 { code, message }` with the fixed `remoteHostMessage(code)`). `code` is the one a
+ * list reports in `error`; `message` may carry what ssh2, DNS or the host said: debug log only.
  */
 export class RemoteHostError extends Error {
   readonly code: string;
@@ -90,6 +91,29 @@ export class RemoteHostError extends Error {
     this.name = 'RemoteHostError';
     this.code = code;
   }
+}
+
+/** The 502 message per code: our own words, never transport text (web shows its own anyway). */
+const REMOTE_HOST_MESSAGES: Readonly<Record<string, string>> = {
+  [ErrorCode.CredentialRequired]:
+    'the server has no stored credential: its sign-in would need a prompt',
+  [ErrorCode.HostUnreachable]: 'the server could not be reached',
+  [ErrorCode.TargetNotAllowed]: 'the server address is not allowed',
+  [ErrorCode.HostKeyRejected]: 'the server host key is not trusted',
+  [ErrorCode.HostKeyMismatch]: 'the server host key does not match the trusted one',
+  [ErrorCode.AuthRejected]: 'the server rejected the sign-in',
+  [ErrorCode.AuthTimeout]: 'the sign-in timed out',
+  [ErrorCode.CredentialInvalid]: 'the stored credential cannot be used',
+  [ErrorCode.ConnectionLost]: 'the connection to the server was lost',
+  [ErrorCode.ChannelFailed]: 'a command on the server failed',
+  PROBE_TIMEOUT: 'the server did not answer in time',
+  REMOTE_TIMEOUT: 'the server did not answer in time',
+  SCAN_TIMEOUT: 'the server did not answer in time',
+};
+
+/** The message of a terminate's 502 for `code`. */
+export function remoteHostMessage(code: string): string {
+  return REMOTE_HOST_MESSAGES[code] ?? 'the remote host failed';
 }
 
 interface OwnedServer {

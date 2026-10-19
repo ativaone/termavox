@@ -3,6 +3,7 @@
 import '@xterm/xterm/css/xterm.css';
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { pasteText } from '../../lib/terminal/paste.ts';
 import { useTerminalChannel } from '../../lib/terminal/react.ts';
 import { altChar, ctrlChar } from '../../lib/workspace/keys.ts';
 import { cleanTitle } from '../../lib/workspace/title.ts';
@@ -185,9 +186,7 @@ export function TerminalPane({
         return;
       }
       navigator.clipboard.readText().then(
-        (text) => {
-          if (text) terminal.paste(text);
-        },
+        (text) => pasteText(terminal, text),
         () => setNotice(clipboardDenied),
       );
     };
