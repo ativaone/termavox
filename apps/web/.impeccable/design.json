@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-17T00:15:06.530Z",
+  "generatedAt": "2026-10-19T14:04:25.000Z",
   "title": "Design System: Termdock",
   "extensions": {
     "colorMeta": {
@@ -361,7 +361,7 @@
       {
         "name": "light",
         "value": "0 0 0 1px rgb(76 201 255 / 0.55), 0 0 22px -6px rgb(76 201 255 / 0.55)",
-        "purpose": "The followed session's ring and halo."
+        "purpose": "The followed session's ring and halo, on the row and the rail tile only."
       },
       {
         "name": "edge-start",
@@ -486,13 +486,13 @@
   ],
   "narrative": {
     "northStar": "The Night Cabin",
-    "overview": "Termdock is used in dim rooms, at night, next to near-black terminals. The interface is a cabin at cruise: the room is dimmed to a deep violet-navy with a faint magenta and violet glow at two frame edges, every working surface is a translucent card lit from within, and one cyan reading light marks the session you follow. Everything else that carries meaning is a small lamp beside its word. It refuses the neon hacker console and the white SaaS dashboard alike: one ground, one accent, cards for forms, tables and overlays, never for the page's structure.",
+    "overview": "Termdock is used in dim rooms, at night, next to near-black terminals. The interface is a cabin at cruise: the room is dimmed to a deep violet-navy with a faint magenta and violet glow at two frame edges, every working surface is a translucent card lit from within (a faint white fill and a 1 px light line), and one cyan reading light marks the seat you are in: the session you follow. Everything else that carries meaning is a small lamp beside its word: green, blue, amber, magenta, red or slate for session state, never for decoration.\n\nThe system refuses two category defaults. It is not the neon hacker console (near-black, glowing edges, monospace as a costume): the terminal keeps its own near-black pane and the chrome around it is calm, sentence-case and proportional. It is not the white SaaS dashboard either (grey ground, blue buttons, a card for everything): there is one ground, one accent, and cards hold forms, tables and overlays, never the page's structure.\n\nDensity is operator density on a compact fixed scale: 48 px session rows, 36 px navigation rows, 32 px tabs, one or two type sizes per component with hierarchy carried by weight and ink level. Motion is two crisp steps on an exponential ease-out (120 ms to recolour or press, 180 ms to move) and stills completely under reduced motion. Dark only (plan D-26).",
     "keyCharacteristics": [
       "One ground (#171431) with two static edge glows; opaque near-black panes (#0c0b16) for terminals.",
       "Translucent cards: white at 4.5 % with a 1 px white line at 9 % and 16 px corners.",
       "One accent, sky cyan (#4cc9ff): primary actions, selection, focus and the followed session.",
       "Magenta (#ff5fae) means attention: Action required and bells, nothing else.",
-      "Plus Jakarta Sans, sentence case, 400 / 500 / 600; JetBrains Mono only for codes and keys.",
+      "Plus Jakarta Sans, sentence case, 400 / 500 / 600; JetBrains Mono only for codes, keys and fingerprints.",
       "The reading light: the followed session's fill and cyan ring travel with it from row to tab to pane."
     ],
     "rules": [
@@ -503,35 +503,40 @@
       },
       {
         "name": "The Lamp Beside the Word Rule",
-        "body": "A state colour appears only as a lamp and always with its state word in reach.",
+        "body": "A state colour appears only as a lamp (or the ring of a group count) and always with its state word in reach: in the group header, the chip, the tab's screen-reader text or the tile's accessible name.",
         "section": "colors"
       },
       {
         "name": "The Opaque Over Terminals Rule",
-        "body": "Anything drawn over a live terminal is surface-solid with no backdrop-filter; the scrim is a flat alpha of the pane colour.",
+        "body": "Anything drawn over a live terminal (overlay cards, the progress chip, the palette) is surface-solid with no backdrop-filter; the scrim is a flat alpha of the pane colour.",
         "section": "colors"
       },
       {
         "name": "The Tabular Rule",
-        "body": "Every live value is set in tabular figures so changing digits never shift.",
+        "body": "Every live value (uptime, age, count, code) is set in tabular figures so changing digits never shift.",
         "section": "typography"
       },
       {
         "name": "The Two Sizes Rule",
-        "body": "A row, tab or chip uses at most two sizes; rank comes from weight and ink level.",
+        "body": "A row, tab or chip uses at most two sizes; rank comes from weight and ink level (ink over ink-muted), never from a third size.",
+        "section": "typography"
+      },
+      {
+        "name": "The Mono Is Data Rule",
+        "body": "JetBrains Mono appears where a value is read as data or measurement (durations, counts, codes, keys, fingerprints, addresses), never as a costume for prose or labels.",
         "section": "typography"
       },
       {
         "name": "The Float Earns Its Shadow Rule",
-        "body": "A card at rest has a line and no shadow; only what floats over other content gets Float or Card.",
+        "body": "A card at rest has a line and no shadow; only what floats over other content gets Float or Card. Never a shadow for emphasis.",
         "section": "elevation"
       }
     ],
     "dos": [
-      "Do read every colour through the tokens; new chrome goes on the ground, new reading surfaces in a card.",
+      "Do read every colour through the tokens (ink, ink-muted, line, surface, accent, the lamps); new chrome goes on the ground, new reading surfaces in a card.",
       "Do give every session its lamp with the state word in reach, and every live value tabular figures.",
-      "Do keep transitions at the two tokens (120 ms step, 180 ms move) on cubic-bezier(0.16, 1, 0.3, 1); both drop to 0 under reduced motion.",
-      "Do draw icons from components/icons and keep them decorative with the name on the control.",
+      "Do keep transitions at the two tokens (--duration-step 120 ms, --duration-move 180 ms) on cubic-bezier(0.16, 1, 0.3, 1); both drop to 0 under reduced motion.",
+      "Do draw icons from components/icons (24-unit grid, 1.75 stroke, round caps) and keep them decorative with the name on the control.",
       "Do make anything over a live terminal surface-solid, with no blur and no gradient."
     ],
     "donts": [
