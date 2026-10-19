@@ -6,6 +6,8 @@
 
 A self-hosted, persistent terminal-session runtime for SSH, accessible from the web.
 
+**[Website and documentation](https://ativaone.github.io/termdock)** · [Help](https://ativaone.github.io/termdock/docs/help/) · [Ajuda em português](https://ativaone.github.io/termdock/pt-BR/docs/help/)
+
 [![Status: pre-alpha](https://img.shields.io/badge/status-pre--alpha-orange)](#status-and-roadmap)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -193,8 +195,11 @@ docs/                guides, security model, architecture overview, implementati
 
 ## Documentation
 
+The guides below are also published on the [project site](https://ativaone.github.io/termdock/docs/), rendered from these files at every change, next to the user help.
+
 | Document | What it covers |
 |---|---|
+| [User help](https://ativaone.github.io/termdock/docs/help/) ([pt-BR](https://ativaone.github.io/termdock/pt-BR/docs/help/)) | What happens to a session in each situation, every status and message, and what to do: what the app's help button opens |
 | [Installation guide](docs/guides/install.md) | Running Termdock with Docker Compose: secrets, domains and TLS, backups, upgrades, troubleshooting |
 | [Configuration reference](docs/guides/configuration.md) | Every environment variable, secret file, port, volume and instance setting |
 | [Security model](docs/security.md) | Trust boundaries, threat model, controls and operator recommendations |

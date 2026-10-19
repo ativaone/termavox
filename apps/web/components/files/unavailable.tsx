@@ -3,6 +3,7 @@
 import type { SessionStatus } from '@termdock/protocol/client';
 import { useTranslations } from 'next-intl';
 import type { ReactNode } from 'react';
+import { LearnMore } from '../help-links.tsx';
 import { HomeIcon, RetryIcon } from '../icons/index.tsx';
 import { Button } from '../ui/button.tsx';
 import { CopyButton } from '../ui/copy-button.tsx';
@@ -72,7 +73,8 @@ export function SftpCard({ target, onRetry }: { target: string; onRetry(): void 
           {t.rich('sftpBody', {
             target,
             data: (chunks) => <span className="font-mono text-ink text-xs">{chunks}</span>,
-          })}
+          })}{' '}
+          <LearnMore section="files-sftp" />
         </p>
         <p className="font-semibold text-sm">{t('sftpSteps')}</p>
         <ol className="flex list-decimal flex-col gap-3 ps-5 text-sm marker:text-ink-muted">

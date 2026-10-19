@@ -1,6 +1,7 @@
 # Termdock
 
-- Everything in the repository is in English: code, comments, docs and commit messages.
+- Everything in the repository is in English: code, comments, docs and commit messages. The
+  pt-BR UI catalog and the site's pt-BR pages are the translations that ship.
 - Product and architecture decisions are the D-xx rows in `docs/implementation-plan.md`. A change
   that departs from one adds a new row that supersedes it, rather than silently diverging. Its §3
   glossary is the vocabulary: servers, credentials, sessions. The host and connection-profile
@@ -11,6 +12,11 @@
   purpose in `apps/web/PRODUCT.md`, operator procedures in `docs/guides/`, spike outcomes in
   `docs/adr/`, user-visible changes in `CHANGELOG.md` under `[Unreleased]`, and anything an
   existing install must do under its "Upgrade notes".
+- The project site (`site/`, D-40) is part of the same change: the user help explains every
+  user-visible behaviour, in English and pt-BR (`site/src/docs/help/`,
+  `site/src/pt-BR/docs/help/`), and the home pages follow the README. The guides are rendered
+  from `docs/` at build time. How the site works: the `site` skill; `site/test` guards the help
+  against the UI's catalogs and the built site's links.
 - Each verified functional block is committed and pushed to `origin main` (owner decision D-20,
   plan §16.2.1): the block's files by explicit path; subagents never commit. Verification is lean
   (D-21, plan §15): `pnpm check` always; when an area changed, its integration tests:

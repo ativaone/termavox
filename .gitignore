@@ -22,3 +22,6 @@ apps/web/.impeccable/review/
 
 # Local Claude Code notes (machine-specific)
 CLAUDE.local.md
+
+# impeccable review screenshots of the site (local evidence, not versioned)
+site/.impeccable/review/

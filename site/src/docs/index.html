@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>Documentation · Termdock</title>
+<meta name="description" content="Using, installing and running Termdock: the user help, the install guide, the configuration reference, the architecture and the security model.">
+{{head}}
+</head>
+<body>
+{{bar}}
+<div class="page page-single">
+  <main id="main" class="doc">
+    <header class="head">
+      <h1>Documentation</h1>
+      <p>Using Termdock, installing it and running it. The guides are generated from the repository's own docs at every change, so they always describe the code on <code>main</code>.</p>
+    </header>
+
+    <section class="shelf" aria-labelledby="using">
+      <h2 id="using">Using Termdock</h2>
+      <ul class="entries">
+        <li>
+          <a class="entry" href="help/">
+            <span class="entry-title">Help</span>
+            <span class="entry-text">What happens to a session in each situation, what every status and message means, and where things are. The app's help button opens it.</span>
+            <span class="entry-meta">English · <span lang="pt-BR">Português</span></span>
+          </a>
+        </li>
+      </ul>
+    </section>
+
+    <section class="shelf" aria-labelledby="running">
+      <h2 id="running">Running Termdock</h2>
+      <ul class="entries">
+        <li>
+          <a class="entry" href="install/">
+            <span class="entry-title">Installation guide</span>
+            <span class="entry-text">Docker Compose on one Linux host: secrets, domains and TLS, reverse proxies, backups, upgrades and troubleshooting.</span>
+          </a>
+        </li>
+        <li>
+          <a class="entry" href="configuration/">
+            <span class="entry-title">Configuration reference</span>
+            <span class="entry-text">Every environment variable, secret file, port, volume and instance setting.</span>
+          </a>
+        </li>
+        <li>
+          <a class="entry" href="changelog/">
+            <span class="entry-title">Changelog</span>
+            <span class="entry-text">What changed in each version, with the upgrade notes an existing install follows.</span>
+          </a>
+        </li>
+      </ul>
+    </section>
+
+    <section class="shelf" aria-labelledby="inside">
+      <h2 id="inside">How it is built</h2>
+      <ul class="entries">
+        <li>
+          <a class="entry" href="architecture/">
+            <span class="entry-title">Architecture overview</span>
+            <span class="entry-text">Components, session lifecycle, protection modes, protocol and persistence, for contributors.</span>
+          </a>
+        </li>
+        <li>
+          <a class="entry" href="security/">
+            <span class="entry-title">Security model</span>
+            <span class="entry-text">Trust boundaries, threat model, controls, operator recommendations and how to report a vulnerability.</span>
+          </a>
+        </li>
+      </ul>
+      <p class="shelf-more">More in the repository: the <a href="https://github.com/ativaone/termdock/blob/main/docs/implementation-plan.md" rel="noopener">implementation plan</a> with its decision log, the <a href="https://github.com/ativaone/termdock/blob/main/docs/adr/README.md" rel="noopener">architecture decision records</a> and the <a href="https://github.com/ativaone/termdock/blob/main/docs/release-checklist.md" rel="noopener">release checklist</a>.</p>
+    </section>
+  </main>
+</div>
+{{foot}}
+</body>
+</html>

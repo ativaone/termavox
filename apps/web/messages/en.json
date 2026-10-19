@@ -1576,5 +1576,11 @@
       "transferFailed": "The transfer didn't finish.",
       "generic": "Something went wrong. Try again."
     }
+  },
+  "help": {
+    "label": "Help",
+    "newTab": "(opens in a new tab)",
+    "learnMore": "Learn more",
+    "source": "Source code on GitHub"
   }
 }

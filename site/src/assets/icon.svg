@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <title>Termdock</title>
+  <!-- The Termdock mark (components/ui/wordmark.tsx) as a tab icon: the tile fills the square and the prompt is a little heavier, so it holds at 16 px. -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4cc9ff"/>
+      <stop offset="1" stop-color="#8b6cff"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="8" fill="url(#tile)"/>
+  <path d="M9.75 10.85 15.45 16l-5.7 5.15M17.15 21.7h5.7" fill="none" stroke="#0a1226" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>Termdock · Persistent SSH terminals in your browser, self-hosted</title>
+<meta name="description" content="A self-hosted web terminal for SSH: your sessions keep running on the server when you close the browser, lose Wi-Fi or switch to your phone. Invisible tmux protection, split panes and file transfer. Open source, AGPL-3.0.">
+{{head}}
+</head>
+<body class="home">
+{{bar}}
+<main id="main">
+  <section class="hero">
+    <div class="hero-text">
+      <h1>Your terminals, docked.</h1>
+      <p class="hero-sub">Close the browser, come back anywhere, and pick up exactly where you left off. Termdock is a self-hosted runtime that holds your SSH sessions open on a server you control; the browser is only a view.</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="docs/install/">Install it</a>
+        <a class="btn btn-secondary" href="docs/">Read the docs</a>
+      </div>
+      <p class="hero-meta"><span class="tag tag-none">Pre-alpha</span><span>Free software under the AGPL-3.0</span><a href="https://github.com/ativaone/termdock">Source on GitHub</a></p>
+    </div>
+    <figure class="shot shot-hero">
+      <picture>
+        <source media="(max-width: 40rem)" srcset="assets/screenshots/phone-session.png" width="780" height="1688">
+        <img src="assets/screenshots/workspace.png" width="1440" height="900" alt="The Termdock workspace: named sessions grouped by state on the left, a live shell on the right">
+      </picture>
+    </figure>
+  </section>
+
+  <section class="band" aria-labelledby="idea">
+    <div class="band-head">
+      <h2 id="idea">The browser lifecycle is not the terminal lifecycle.</h2>
+      <p>In most web SSH tools, the browser tab <em>is</em> the session: close the laptop or lose Wi-Fi, and the connection dies with it. Termdock flips that around. It keeps every session open on its own server, indefinitely, until you end it. Browsers only attach and detach, and when you come back, from the same laptop, another computer or your phone, the terminal is exactly as you left it.</p>
+    </div>
+    <div class="table table-stack compare">
+      <table>
+        <thead><tr><th scope="col">What happens…</th><th scope="col">Typical web SSH</th><th scope="col">Termdock</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">You close the browser tab</th><td><span class="cell-label">Typical web SSH</span>The SSH session dies</td><td><span class="cell-label">Termdock</span><span class="tag tag-keeps">Keeps running</span>Nothing; the session keeps running</td></tr>
+          <tr><th scope="row">You reopen it on another device</th><td><span class="cell-label">Typical web SSH</span>You start over</td><td><span class="cell-label">Termdock</span><span class="tag tag-none">Same screen</span>Instantly, full-screen apps included</td></tr>
+          <tr><th scope="row">Your Wi-Fi drops for a minute</th><td><span class="cell-label">Typical web SSH</span>The session is lost</td><td><span class="cell-label">Termdock</span><span class="tag tag-none">Reconnects</span>Behind the scenes; the shell never noticed</td></tr>
+          <tr><th scope="row">The Termdock service restarts</th><td><span class="cell-label">Typical web SSH</span>—</td><td><span class="cell-label">Termdock</span><span class="tag tag-none">Restores</span>Protected sessions come back as they were</td></tr>
+          <tr><th scope="row">Two devices open the same session</th><td><span class="cell-label">Typical web SSH</span>Usually not supported</td><td><span class="cell-label">Termdock</span><span class="tag tag-none">Both attach</span>The one you are typing on sets the size</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="band" aria-labelledby="how">
+    <div class="band-head">
+      <h2 id="how">How it works</h2>
+      <p>Three ideas carry the design.</p>
+    </div>
+    <figure class="map map-wide" aria-label="Any browser connects to Termdock over HTTPS and a WebSocket; Termdock connects to your servers over SSH, with tmux in control mode">
+      <div class="node">
+        <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#laptop"/></svg>
+        <span class="node-name">Any browser</span>
+        <span class="node-note">A synchronized view, laptop or phone</span>
+      </div>
+      <div class="link">
+        <span class="wire wire-browser" aria-hidden="true"></span>
+        <span class="link-text"><span class="link-name">HTTPS and a WebSocket: a snapshot, then live output</span></span>
+      </div>
+      <div class="node node-home">
+        <img src="assets/icon.svg" alt="" width="30" height="30">
+        <span class="node-name">Termdock</span>
+        <span class="node-note">Self-hosted: authoritative terminal emulators</span>
+      </div>
+      <div class="link">
+        <span class="wire wire-session" aria-hidden="true"></span>
+        <span class="link-text"><span class="link-name">SSH, tmux in control mode</span></span>
+      </div>
+      <div class="node">
+        <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#server"/></svg>
+        <span class="node-name">Your servers</span>
+        <span class="node-note">Invisible tmux: shell, <code>vim</code>, <code>htop</code>…</span>
+      </div>
+    </figure>
+    <dl class="ideas">
+      <div>
+        <dt>A terminal emulator lives on the server</dt>
+        <dd>For every session, Termdock keeps an authoritative emulator fed with the raw SSH output. A browser that attaches receives a snapshot of that state followed by the live stream, so it renders an exact copy, alternate screen and terminal modes included.</dd>
+      </div>
+      <div>
+        <dt>tmux protects sessions, and you never see it</dt>
+        <dd>Every SSH session runs inside a dedicated tmux on its server, driven through tmux's control mode: no status bar, no prefix key, normal scrollback. After a network drop or a restart, Termdock reattaches and rebuilds the screen and history. Servers without tmux still work, marked as not protected.</dd>
+      </div>
+      <div>
+        <dt>Sessions belong to the service, not the browser</dt>
+        <dd>The web app manages users, servers, credentials and layout; the session manager owns connections, emulators and reconnection. Deploying a new web version never drops a terminal.</dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="band" aria-labelledby="fits">
+    <div class="band-head">
+      <h2 id="fits">Where it fits</h2>
+      <p>For anyone who keeps shells open on remote machines and wants to reach them from anywhere.</p>
+    </div>
+    <dl class="ideas ideas-two">
+      <div>
+        <dt>A development server or a VPS</dt>
+        <dd>Keep editors, builds, test watchers and log tails running on the machine where the code lives, and pick them up from your laptop, another computer or your phone.</dd>
+      </div>
+      <div>
+        <dt>Long-running jobs and coding agents</dt>
+        <dd>A deploy, a migration, a data job or an AI coding agent working in a terminal keeps going while your laptop sleeps. Check on it from any browser.</dd>
+      </div>
+      <div>
+        <dt>A remote shell in the browser</dt>
+        <dd>A self-hosted, web-based SSH client, and an alternative to Apache Guacamole when what you need are terminals that stay open: no SSH client or key on the device you happen to use, host keys verified, credentials encrypted on your server.</dd>
+      </div>
+      <div>
+        <dt>On call from a phone</dt>
+        <dd>The session list, a full-screen terminal and an extra-key bar for Esc, Ctrl, Alt, Tab and the arrows.</dd>
+      </div>
+    </dl>
+    <p class="band-note">It works alongside the tools you already use. Termdock runs tmux for you, invisibly, so you never type <code>tmux attach</code> again, and your own tmux, Zellij, Herdr or any other terminal program still runs inside a session and keeps going when the browser leaves.</p>
+  </section>
+
+  <section class="band" aria-labelledby="tour">
+    <div class="band-head">
+      <h2 id="tour">A look around</h2>
+      <p>Real captures against test SSH servers.</p>
+    </div>
+    <div class="gallery">
+      <figure class="shot">
+        <img src="assets/screenshots/first-run.png" width="1440" height="900" loading="lazy" alt="First use: the workspace explains the three steps to connect a first server">
+        <figcaption><strong>First use.</strong> With no server yet, the workspace explains the three steps and offers one action.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="assets/screenshots/server.png" width="1440" height="900" loading="lazy" alt="A server's page: its details, diagnostics and host keys">
+        <figcaption><strong>A server's page.</strong> Its details, the diagnostics that check tmux and the login, and the trusted host keys.</figcaption>
+      </figure>
+      <figure class="shot shot-tall">
+        <img src="assets/screenshots/add-server.png" width="1440" height="1461" loading="lazy" alt="Add server: the server and its credential on one page">
+        <figcaption><strong>Add server.</strong> The server and its credential on one page; nothing is saved until you submit it.</figcaption>
+      </figure>
+      <div class="phones">
+        <figure class="shot shot-phone">
+          <img src="assets/screenshots/phone-sessions.png" width="780" height="1688" loading="lazy" alt="The session list on a phone">
+          <figcaption><strong>On a phone.</strong> The session list fills the screen.</figcaption>
+        </figure>
+        <figure class="shot shot-phone">
+          <img src="assets/screenshots/phone-session.png" width="780" height="1688" loading="lazy" alt="A session on a phone, with the extra-key bar and Alt armed">
+          <figcaption>A session with the extra-key bar.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" aria-labelledby="features">
+    <div class="band-head">
+      <h2 id="features">What you get</h2>
+    </div>
+    <ul class="features">
+      <li><strong>Persistent SSH sessions</strong> that survive closed tabs, flaky networks and service restarts.</li>
+      <li><strong>Automatic, invisible tmux protection</strong>, detected per server, with an honest fallback.</li>
+      <li><strong>A workspace</strong> with a session sidebar, tabs and split panes, saved on the server and restored in any browser.</li>
+      <li><strong>A file panel</strong> beside each terminal: upload, download, rename, delete and new folders, over the session's own SSH connection.</li>
+      <li><strong>Usable from a phone</strong>, with a responsive layout and an extra-key bar.</li>
+      <li><strong>Several users, strictly isolated</strong>: each sees only their own servers, credentials and sessions.</li>
+      <li><strong>Built like a bastion</strong>: credentials encrypted with a key only the data plane holds, explicit host-key trust, two-step login, audit logs.</li>
+      <li><strong>SSH keys, passwords and 2FA prompts</strong>, the prompts relayed to your browser.</li>
+      <li><strong>English and Brazilian Portuguese.</strong></li>
+      <li><strong>One-command deployment</strong> with Docker Compose and Caddy, automatic HTTPS included.</li>
+    </ul>
+  </section>
+
+  <section class="band" aria-labelledby="run">
+    <div class="band-head">
+      <h2 id="run">Run it</h2>
+      <p>One command starts three containers behind a single origin: Caddy for TLS, the web app and the session manager. You need Docker with Compose v2 on a Linux host.</p>
+    </div>
+    <pre class="code"><code>git clone https://github.com/ativaone/termdock.git termdock &amp;&amp; cd termdock
+deploy/scripts/init-secrets.sh                      # generate the secrets; back up deploy/secrets/master_key
+docker compose -f deploy/compose.yaml up -d --build # build both images and start the stack
+docker compose -f deploy/compose.yaml logs web      # the one-time token to create the first admin at /setup</code></pre>
+    <p class="run-after">Out of the box it serves <code>https://localhost</code> with a certificate from Caddy's local CA. The installation guide covers domains and TLS, reverse proxies, backups, upgrades and troubleshooting.</p>
+    <div class="actions">
+      <a class="btn btn-primary" href="docs/install/">Installation guide</a>
+      <a class="btn btn-secondary" href="docs/configuration/">Configuration reference</a>
+    </div>
+    <aside class="note note-warning">
+      <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#alert"/></svg>
+      <div class="note-body"><p class="note-title">Termdock is pre-alpha</p><p>The runtime, the web workspace and the Docker deployment work end to end and have had an internal security review, but there is no release yet. Keep it away from production servers until v0.1.0.</p></div>
+    </aside>
+  </section>
+</main>
+{{foot}}
+</body>
+</html>

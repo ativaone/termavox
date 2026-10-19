@@ -52,6 +52,16 @@
   },
   "overrides": [
     {
+      "includes": ["site/**/*.css"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noDescendingSpecificity": "off"
+          }
+        }
+      }
+    },
+    {
       "includes": [
         "apps/web/**",
         "!apps/web/lib/repo/**",

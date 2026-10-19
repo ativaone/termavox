@@ -31,7 +31,7 @@ This guide runs the whole system on one Linux host with a single command: **Cadd
 ## 1. Get the code
 
 ```bash
-git clone <repository-url> termdock
+git clone https://github.com/ativaone/termdock.git termdock
 cd termdock
 ```
 

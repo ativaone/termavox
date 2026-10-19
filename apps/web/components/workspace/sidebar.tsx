@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import type { Locale } from '../../i18n/locales.ts';
 import { ROUTES } from '../../lib/routes.ts';
 import type { BayData, BaySession } from '../../lib/sessions/types.ts';
+import { HelpButton } from '../help-links.tsx';
 import {
   ActivityIcon,
   KeyIcon,
@@ -78,8 +79,9 @@ function ToggleButton({
  * under it (D-38: the head's rows keep their heights in both modes, so the toggle stays exactly
  * where it was and the pointer stays on it), the sessions
  * grouped by state with "End all sessions…" at their foot (D-30), the management links and the
- * account row. As a rail it keeps the same things as icons and tiles, without End all. On a phone
- * it is the switcher screen, full width.
+ * account row with the help button at its end (D-40). As a rail it keeps the same things as icons
+ * and tiles, without End all, the help button over the avatar. On a phone it is the switcher
+ * screen, full width, with the help button and the avatar in its head.
  */
 export function Sidebar({
   username,
@@ -173,6 +175,7 @@ export function Sidebar({
           {nav.map((item) => (
             <NavIcon key={item.href} href={item.href} icon={item.icon} label={item.label} />
           ))}
+          <HelpButton />
           <AccountMenu username={username} isAdmin={isAdmin} locale={locale} compact />
         </div>
       </aside>
@@ -193,6 +196,7 @@ export function Sidebar({
         <div className="flex h-10 items-center gap-1">
           <Wordmark className="ps-1 md:ps-0" />
           <span className="flex-1" />
+          <HelpButton className="md:hidden" />
           <span className="md:hidden">
             <AccountMenu
               username={username}
@@ -237,8 +241,11 @@ export function Sidebar({
             ))}
           </ul>
         </nav>
-        <div className="max-md:hidden">
-          <AccountMenu username={username} isAdmin={isAdmin} locale={locale} />
+        <div className="flex items-center gap-1 max-md:hidden">
+          <div className="min-w-0 flex-1">
+            <AccountMenu username={username} isAdmin={isAdmin} locale={locale} />
+          </div>
+          <HelpButton />
         </div>
       </div>
     </aside>

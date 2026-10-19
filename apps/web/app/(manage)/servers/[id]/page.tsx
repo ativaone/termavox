@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
+import { LearnMore } from '../../../../components/help-links.tsx';
 import { ArrowLeftIcon, CopyIcon } from '../../../../components/icons/index.tsx';
 import { DoneNotice } from '../../../../components/manage/done-notice.tsx';
 import {
@@ -267,10 +268,17 @@ export default async function ServerPage({
               <SectionHeading
                 id="remote-sessions-title"
                 title={tr('title')}
-                description={tr.rich('intro', {
-                  target: `${ssh.username}@${formatEndpoint(ssh.hostname, ssh.port)}`,
-                  mono: (chunks) => <span className="break-all font-mono text-sm">{chunks}</span>,
-                })}
+                description={
+                  <>
+                    {tr.rich('intro', {
+                      target: `${ssh.username}@${formatEndpoint(ssh.hostname, ssh.port)}`,
+                      mono: (chunks) => (
+                        <span className="break-all font-mono text-sm">{chunks}</span>
+                      ),
+                    })}{' '}
+                    <LearnMore section="remote-sessions" />
+                  </>
+                }
               />
             </PanelSection>
             <PanelSection ruled>

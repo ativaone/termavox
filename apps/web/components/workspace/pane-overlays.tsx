@@ -15,6 +15,7 @@ import type {
   SessionEntry,
   TerminalLayout,
 } from '../../lib/terminal/index.ts';
+import { LearnMore } from '../help-links.tsx';
 import { RetryIcon } from '../icons/index.tsx';
 import { Button, ButtonLink } from '../ui/button.tsx';
 import { cx } from '../ui/cx.ts';
@@ -211,7 +212,9 @@ function HostKeyPanel({
           <dt className="font-semibold text-ink-muted text-sm">{t('hostKey.fingerprint')}</dt>
           <dd className="break-all font-mono text-ink text-xs leading-5">{prompt.fingerprint}</dd>
         </dl>
-        <p className="text-ink-muted text-sm">{t('hostKey.compare')}</p>
+        <p className="text-ink-muted text-sm">
+          {t('hostKey.compare')} <LearnMore section="host-keys" />
+        </p>
         {offline ? <Notice tone="warning">{t('overlay.offline')}</Notice> : null}
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="primary" autoFocus={autoFocus} onClick={() => decide(true)}>
@@ -252,16 +255,17 @@ function MismatchPanel({ entry, prompt }: { entry: SessionEntry; prompt: HostKey
             <dd className="break-all font-mono text-ink text-xs leading-5">{prompt.fingerprint}</dd>
           </dl>
         ) : null}
-        {entry.serverId ? (
-          <div>
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-base">
+          {entry.serverId ? (
             <Link
               href={serverHref(entry.serverId)}
               className="font-medium text-accent text-base underline decoration-accent/50 underline-offset-4 hover:decoration-accent"
             >
               {t('mismatch.review')}
             </Link>
-          </div>
-        ) : null}
+          ) : null}
+          <LearnMore section="host-keys" />
+        </div>
       </div>
     </Panel>
   );
@@ -435,7 +439,11 @@ function ReconnectingSlip({ entry, deadline }: { entry: SessionEntry; deadline: 
       titleId={titleId}
       inline
       title={title}
-      body={body}
+      body={
+        <>
+          {body} <LearnMore section="reconnecting" />
+        </>
+      }
       error={action.error}
       actions={
         <>
@@ -485,7 +493,11 @@ function DisconnectedSlip({ entry, detail }: { entry: SessionEntry; detail: stri
       titleId={titleId}
       inline
       title={t('overlay.disconnectedTitle')}
-      body={key ? t(`failure.${key}`) : t('failure.generic')}
+      body={
+        <>
+          {key ? t(`failure.${key}`) : t('failure.generic')} <LearnMore section="messages" />
+        </>
+      }
       error={action.error}
       actions={
         serverDeleted ? (
@@ -553,7 +565,10 @@ function EndedSlip({
       title={t('overlay.endedTitle')}
       body={
         <>
-          <span className="block">{key ? t(`endReason.${key}`) : t('endReason.unknown')}</span>
+          <span className="block">
+            {key ? t(`endReason.${key}`) : t('endReason.unknown')}{' '}
+            <LearnMore section="what-happens" />
+          </span>
           {/* Plan D-30: its tmux is still running on the server until the next connection. */}
           {entry.remoteCleanup ? (
             <span className="mt-1 block">
@@ -825,13 +840,16 @@ export function PaneOverlays({
       <Notice key="reboot" tone="warning" title={t('overlay.rebootTitle')}>
         <span className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
           <span>{t('overlay.rebootBody')}</span>
-          <button
-            type="button"
-            className="font-semibold underline underline-offset-2"
-            onClick={() => connection.acknowledgeRemoteReboot(sessionId)}
-          >
-            {t('overlay.acknowledge')}
-          </button>
+          <span className="flex flex-wrap gap-x-4 gap-y-1">
+            <LearnMore tone="action" section="server-restarted" />
+            <button
+              type="button"
+              className="font-semibold underline underline-offset-2"
+              onClick={() => connection.acknowledgeRemoteReboot(sessionId)}
+            >
+              {t('overlay.acknowledge')}
+            </button>
+          </span>
         </span>
       </Notice>,
     );
@@ -901,6 +919,7 @@ export function PaneOverlays({
             >
               {t('overlay.nestedTmuxNever')}
             </button>
+            <LearnMore tone="action" section="own-tmux" />
           </span>
         </span>
       </Notice>,

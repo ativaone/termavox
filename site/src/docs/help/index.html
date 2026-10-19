@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>Help: sessions, reconnecting and tmux protection · Termdock</title>
+<meta name="description" content="How Termdock looks after your sessions, what each status and notice means, and where everything is.">
+{{head}}
+</head>
+<body>
+{{bar}}
+<div class="page">
+  <main id="main" class="doc">
+    <header class="head">
+      <h1>Help</h1>
+      <p>How Termdock looks after your sessions, what each status and notice means, and where everything is.</p>
+      {{index-inline}}
+    </header>
+
+    <section class="sec" id="essentials">
+      <h2>The essentials</h2>
+      <p class="lead"><strong>The session lives in Termdock, not in the browser.</strong> Termdock keeps every session open on its own server. The browser only shows it: close the tab, shut the laptop or switch to your phone, and the terminal is exactly as you left it when you come back, with <code>vim</code> or <code>htop</code> still running.</p>
+      <figure class="map" aria-label="Where a session lives: your browser, Termdock and your server, and the two connections between them">
+        <div class="node">
+          <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#laptop"/></svg>
+          <span class="node-name">Your browser</span>
+          <span class="node-note">Shows the session</span>
+        </div>
+        <div class="link">
+          <span class="wire wire-browser" aria-hidden="true"></span>
+          <span class="link-text"><span class="link-name">Your connection</span></span>
+        </div>
+        <div class="node node-home">
+          <img src="{{root}}assets/icon.svg" alt="" width="30" height="30">
+          <span class="node-name">Termdock</span>
+          <span class="node-note">Your sessions live here</span>
+        </div>
+        <div class="link">
+          <span class="wire wire-session" aria-hidden="true"></span>
+          <span class="link-text"><span class="link-name">The session's connection</span><span class="link-note"><svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#shield"/></svg>Protection covers this one</span></span>
+        </div>
+        <div class="node">
+          <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#server"/></svg>
+          <span class="node-name">Your server</span>
+          <span class="node-note">Runs the shell, inside tmux when protected</span>
+        </div>
+      </figure>
+      <dl class="rules">
+        <div><dt>Closing doesn't end anything</dt><dd>Closing a tab, a pane or the browser only detaches the view. The session keeps running until you use <strong>End</strong>.</dd></div>
+        <div><dt>Protected sessions ride out drops</dt><dd>With tmux on the server, a session survives network drops and Termdock restarts. The shield next to it says whether it is protected.</dd></div>
+        <div><dt>tmux stays invisible</dt><dd>Termdock uses tmux underneath, with no status bar and no prefix key. Scrolling, selection and copy are the browser's own.</dd></div>
+      </dl>
+    </section>
+
+    <section class="sec" id="what-happens" data-group="Sessions">
+      <h2>What happens when…</h2>
+      <p>Two sessions on the same server can react differently to the same drop. It depends on whether the session is <strong>protected</strong> (filled shield) or <strong>not protected</strong>.</p>
+      <div class="table table-stack">
+        <table>
+          <thead><tr><th scope="col">Situation</th><th scope="col"><svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#shield"/></svg>Protected</th><th scope="col"><svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#shield-off"/></svg>Not protected</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">You close the tab, the browser or the laptop</th><td><span class="cell-label">Protected</span><span class="tag tag-keeps">Keeps running</span>The session goes on. When you come back, the same screen, at once.</td><td><span class="cell-label">Not protected</span><span class="tag tag-keeps">Keeps running</span>The same: closing the browser never affects a session.</td></tr>
+            <tr><th scope="row">Your internet connection drops</th><td><span class="cell-label">Protected</span><span class="tag tag-keeps">Keeps running</span>A strip says “Offline, retrying”. When the connection is back, the screen catches up.</td><td><span class="cell-label">Not protected</span><span class="tag tag-keeps">Keeps running</span>The same: the session runs in Termdock, not on your computer.</td></tr>
+            <tr><th scope="row">The connection between Termdock and the server drops</th><td><span class="cell-label">Protected</span><span class="tag tag-keeps">Keeps running</span>“Reconnecting…”: Termdock reconnects and rebuilds the same screen and history. The programs never stopped on the server.</td><td><span class="cell-label">Not protected</span><span class="tag tag-fresh">New shell</span>The shell and its programs are lost. A new shell opens in the same terminal, below a notice line, with the earlier history still visible.</td></tr>
+            <tr><th scope="row">Termdock restarts or is updated</th><td><span class="cell-label">Protected</span><span class="tag tag-keeps">Keeps running</span>“Restoring…” for a few seconds, then the same screen is back.</td><td><span class="cell-label">Not protected</span><span class="tag tag-fresh">New shell</span>The shell and the earlier screen are lost. A new shell opens with a notice line.</td></tr>
+            <tr><th scope="row">The server reboots</th><td><span class="cell-label">Protected</span><span class="tag tag-fresh">New shell</span>tmux doesn't survive a reboot. The reconnect starts a new shell, and the pane says “The server restarted”.</td><td><span class="cell-label">Not protected</span><span class="tag tag-fresh">New shell</span>Like a dropped connection: a new shell, with a notice line.</td></tr>
+            <tr><th scope="row">The session's tmux dies on the server (<code>pkill tmux</code>, out of memory)</th><td><span class="cell-label">Protected</span><span class="tag tag-ends">Ends</span>While the session is connected, it moves to Ended with “The shell exited.”; <strong>Reopen</strong> starts another shell. If it was disconnected, the return brings a new shell and the notice “The server restarted”.</td><td><span class="cell-label">Not protected</span><span class="tag tag-none">Doesn't apply</span>Unprotected sessions don't use tmux.</td></tr>
+            <tr><th scope="row">You type <code>exit</code>, or the shell exits</th><td><span class="cell-label">Protected</span><span class="tag tag-ends">Ends</span>The session moves to Ended. <strong>Reopen</strong> starts a new shell.</td><td><span class="cell-label">Not protected</span><span class="tag tag-ends">Ends</span>The same.</td></tr>
+            <tr><th scope="row">You use <strong>End</strong></th><td><span class="cell-label">Protected</span><span class="tag tag-ends">Ends</span>The shell and every program stop on the server, and the session's tmux is removed. This can't be undone.</td><td><span class="cell-label">Not protected</span><span class="tag tag-ends">Ends</span>The shell and every program stop on the server.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <aside class="note note-warning" id="server-restarted">
+        <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#alert"/></svg>
+        <div class="note-body"><p class="note-title">“The server restarted” isn't always a reboot</p><p>The notice shows whenever Termdock reconnects and the session's tmux no longer exists. It may have been a reboot, but also a tmux killed by hand or by the system (when it ran out of memory, for example) while the session was disconnected.</p></div>
+      </aside>
+      <aside class="note note-tip">
+        <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#tip"/></svg>
+        <div class="note-body"><p class="note-title"><code>tmux kill-server</code> inside the session doesn't take the session down</p><p>Termdock's tmux uses a socket of its own, separate from yours: <code>tmux kill-server</code> only closes your tmux. <code>pkill tmux</code> and <code>killall tmux</code>, though, kill every tmux of the user, the session's included.</p></div>
+      </aside>
+      <aside class="note note-info">
+        <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#info"/></svg>
+        <div class="note-body"><p class="note-title">Not protected and no new shell</p><p>The new shell depends on <strong>Reopen unprotected sessions automatically</strong>, under <strong>Advanced</strong> on the server's page (on by default). When it is off, the session moves to Ended instead.</p></div>
+      </aside>
+    </section>
+
+    <section class="sec" id="protection" data-group="Sessions">
+      <h2>Protected sessions</h2>
+      <p>A protected session runs inside a tmux on the server, which Termdock drives without showing it. If the connection drops or Termdock restarts, tmux holds on to the shell and its programs, and Termdock rebuilds the screen from it.</p>
+      <p>The shield next to each session says which case it is; hover it to read:</p>
+      <ul class="shields">
+        <li><svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#shield"/></svg><span><strong>Filled:</strong> “Protected: survives restarts and network drops”.</span></li>
+        <li><svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#shield-off"/></svg><span><strong>Struck through:</strong> “Not protected: the shell is lost if the connection drops”. The session keeps running with the browser closed; what it can't survive is losing its connection to the server.</span></li>
+        <li><svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#shield-pending"/></svg><span><strong>Dashed:</strong> “Protection is decided when the session starts”.</span></li>
+      </ul>
+      <p>To protect its sessions, the server needs <strong>tmux 3.2 or newer</strong> and a <strong>UTF-8 locale</strong>, with <strong>Session protection</strong> set to <strong>Auto</strong> (the default) on the server's page. Under <strong>Diagnostics → Test connection</strong>, the server's page shows what it has and what is missing.</p>
+      <aside class="note note-info">
+        <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#info"/></svg>
+        <div class="note-body"><p class="note-title">Protection is decided when the session starts</p><p>Installed tmux later? New sessions start protected; the ones already running stay as they were. If a reconnect no longer finds tmux, the session loses its protection and says so: it never changes silently. The <strong>Activity</strong> page shows each session's protection.</p></div>
+      </aside>
+      <aside class="note note-warning" id="linger">
+        <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#alert"/></svg>
+        <div class="note-body"><p class="note-title">“The server may kill tmux on disconnect”</p><p>Some servers (systemd-logind with <code>KillUserProcesses=yes</code>) kill the user's processes when the SSH login ends, tmux included. With that notice on the server's page, enable linger for the user (<code>loginctl enable-linger</code>) and make sure <code>systemd-run</code> exists; without it, protection isn't reliable.</p></div>
+      </aside>
+      <aside class="note note-tip" id="own-tmux">
+        <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#tip"/></svg>
+        <div class="note-body"><p class="note-title">You don't need a tmux of your own</p><p>It works, but with a tmux inside the session, scrolling, selection and copy become tmux's instead of the browser's. The pane says so when it sees one; the tip can be turned off under <strong>Settings → Terminal</strong>.</p></div>
+      </aside>
+    </section>
+
+    <section class="sec" id="statuses" data-group="Sessions">
+      <h2>Statuses and reconnecting</h2>
+      <div class="table table-stack statuses">
+        <table>
+          <thead><tr><th scope="col">Status</th><th scope="col">Means</th></tr></thead>
+          <tbody>
+            <tr><th scope="row"><span class="word"><span class="lamp lamp-connecting" aria-hidden="true"></span>Connecting…</span></th><td><span class="cell-label">Means</span>First connection: signing in to the server and starting the shell.</td></tr>
+            <tr><th scope="row"><span class="word"><span class="lamp lamp-restoring" aria-hidden="true"></span>Restoring…</span></th><td><span class="cell-label">Means</span>Coming back to a session that was connected before, after a drop, a restart or <strong>Retry</strong>.</td></tr>
+            <tr><th scope="row"><span class="word"><span class="lamp lamp-connected" aria-hidden="true"></span>Connected</span></th><td><span class="cell-label">Means</span>Ready to use.</td></tr>
+            <tr><th scope="row"><span class="word"><span class="lamp lamp-action" aria-hidden="true"></span>Action required</span></th><td><span class="cell-label">Means</span>The server is waiting for you: to trust a host key, or to answer a sign-in prompt such as a verification code.</td></tr>
+            <tr><th scope="row"><span class="word"><span class="lamp lamp-reconnecting" aria-hidden="true"></span>Reconnecting…</span></th><td><span class="cell-label">Means</span>The connection to the server dropped and Termdock is trying again on its own. The pane shows when the next attempt is.</td></tr>
+            <tr><th scope="row"><span class="word"><span class="lamp lamp-disconnected" aria-hidden="true"></span>Disconnected</span></th><td><span class="cell-label">Means</span>The attempts ran out, you pressed <strong>Stop</strong>, or the problem won't fix itself (a rejected credential, a different host key). Nothing retries until you ask. The reason is in <a href="#messages">Messages and what to do</a>.</td></tr>
+            <tr><th scope="row"><span class="word"><span class="lamp lamp-ended" aria-hidden="true"></span>Ended</span></th><td><span class="cell-label">Means</span>The session is over. <strong>Reopen</strong> starts a new shell.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3 id="reconnecting">Two different connections</h3>
+      <ul>
+        <li><strong>Your connection (browser ⇄ Termdock).</strong> When it drops, a strip says “Offline, retrying”. Sessions feel nothing; the screen catches up when it is back.</li>
+        <li><strong>The session's connection (Termdock ⇄ server).</strong> When it drops, the pane shows “Reconnecting…”. This is the one protection covers.</li>
+      </ul>
+      <p>When the session's connection drops:</p>
+      <ul>
+        <li><strong>A session that never connected</strong> tries a few times and stops: it is almost always a wrong address, port or credential. Fix it on the server's page and use <strong>Retry</strong>; the fix is used by the next attempt.</li>
+        <li><strong>A session that was connected</strong> keeps trying for up to 30 minutes; the pane shows until when. After that it is Disconnected.</li>
+        <li><strong>Retry now</strong> skips the wait. <strong>Stop</strong> ends the attempts.</li>
+      </ul>
+      <aside class="note note-tip">
+        <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#tip"/></svg>
+        <div class="note-body"><p class="note-title">Disconnected isn't lost</p><p>In a protected session, tmux keeps running on the server while the session is Disconnected, even after <strong>Stop</strong>. When the server is back, <strong>Retry</strong> finds the same screen.</p></div>
+      </aside>
+      <aside class="note note-info">
+        <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#info"/></svg>
+        <div class="note-body"><p class="note-title">“Termdock was updated”</p><p>After an update, reload the page to load the new version. Sessions keep running meanwhile.</p></div>
+      </aside>
+    </section>
+
+    <section class="sec" id="ending" data-group="Sessions">
+      <h2>Close, end, reopen and remove</h2>
+      <ul>
+        <li><strong>Closing</strong> a tab or a pane only detaches the view. The session stays in the list, running.</li>
+        <li><strong>End…</strong> (the session's menu) stops the shell and every program on the server. If the server is down, the session ends at once and its tmux is ended by the next connection to that server.</li>
+        <li><strong>End all sessions…</strong>, at the foot of the list, does the same for every running session.</li>
+        <li><strong>Reopen</strong> brings an ended session back with a new shell, keeping its name.</li>
+        <li><strong>Remove from list…</strong> (ended sessions only) deletes the session and its history. <strong>Remove all ended…</strong> does that in one go.</li>
+      </ul>
+      <aside class="note note-caution">
+        <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#caution"/></svg>
+        <div class="note-body"><p class="note-title">End can't be undone</p><p>A deploy in progress, a <code>vim</code> with unsaved changes: everything stops on the server. Only leaving? Close the tab, the pane or the browser.</p></div>
+      </aside>
+    </section>
+
+    <section class="sec" id="several-places" data-group="Sessions">
+      <h2>One session in several places</h2>
+      <p>Open the same session on your laptop, another computer and your phone at the same time: they all see the same screen and they can all type.</p>
+      <p>The terminal's size follows the window where someone <strong>last typed or clicked</strong>. The others show the session scaled down or letterboxed, with “Sized by another window. Click to fit.”</p>
+      <aside class="note note-tip">
+        <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#tip"/></svg>
+        <div class="note-body"><p class="note-title">Back from the phone and the screen is narrow?</p><p>Click the terminal: it goes back to this window's size, and programs like <code>vim</code> and <code>htop</code> redraw.</p></div>
+      </aside>
+    </section>
+
+    <section class="sec" id="workspace" data-group="Day to day">
+      <h2>Workspace and shortcuts</h2>
+      <ul>
+        <li>The list on the left groups sessions by status. The button right under <strong>New session</strong> collapses the list into a column of icons.</li>
+        <li>Split a tab with <strong>Split right</strong> and <strong>Split down</strong>, and drag the divider to adjust. <strong>Open in a new tab</strong> is in the session's menu.</li>
+        <li>Rename a session from its menu, or double-click its tab. Everyone who sees the session sees the new name.</li>
+        <li>Tabs, splits and sizes are stored in Termdock and come back in any browser you sign in to.</li>
+      </ul>
+      <div class="table table-stack keys">
+        <table>
+          <thead><tr><th scope="col">Shortcut</th><th scope="col">Does</th></tr></thead>
+          <tbody>
+            <tr><th scope="row"><span class="combo"><kbd>Ctrl</kbd>+<kbd>K</kbd> or <kbd>⌘</kbd>+<kbd>K</kbd></span></th><td><span class="cell-label">Does</span>Find a session or start a new one (with the focus outside the terminal).</td></tr>
+            <tr><th scope="row"><span class="combo"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> or <kbd>⌘</kbd>+<kbd>⇧</kbd>+<kbd>K</kbd></span></th><td><span class="cell-label">Does</span>The same, from inside a terminal, where <kbd>Ctrl</kbd>+<kbd>K</kbd> belongs to the shell.</td></tr>
+            <tr><th scope="row"><span class="combo"><kbd>↑</kbd> <kbd>↓</kbd> <kbd>Enter</kbd> <kbd>Esc</kbd></span></th><td><span class="cell-label">Does</span>In the finder: move, open, close.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <aside class="note note-info">
+        <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#info"/></svg>
+        <div class="note-body"><p class="note-title">With a terminal focused, the keys belong to the terminal</p><p>Apart from the finder shortcut, nothing in Termdock intercepts the keyboard inside a terminal.</p></div>
+      </aside>
+    </section>
+
+    <section class="sec" id="clipboard" data-group="Day to day">
+      <h2>Copy, paste and links</h2>
+      <p>Under <strong>Settings → Terminal</strong>:</p>
+      <ul>
+        <li><strong>Copy on select</strong> (off by default): selected text goes to the clipboard right away.</li>
+        <li><strong>Paste with right click</strong> (off): right click pastes instead of opening the browser menu.</li>
+        <li><strong>Confirm before opening links</strong> (on): a link clicked in the terminal shows its full address before it opens in a new tab.</li>
+      </ul>
+      <aside class="note note-warning">
+        <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#alert"/></svg>
+        <div class="note-body"><p class="note-title">OSC 52 lets remote programs write to your clipboard</p><p>When it is on, <code>vim</code> or tmux on the server can overwrite what you copied, without asking. Leave it off unless you need it.</p></div>
+      </aside>
+    </section>
+
+    <section class="sec" id="phone" data-group="Day to day">
+      <h2>On a phone</h2>
+      <ul>
+        <li>The session list fills the screen; a session opens full screen, and <strong>Sessions</strong> goes back to the list.</li>
+        <li>The key bar has <kbd>Esc</kbd> <kbd>Tab</kbd> <kbd>Ctrl</kbd> <kbd>Alt</kbd>, the arrows, the pipe and <strong>Paste</strong>.</li>
+        <li><kbd>Ctrl</kbd> and <kbd>Alt</kbd> stay armed for the next key: tap <kbd>Ctrl</kbd>, then <kbd>c</kbd>, to send Ctrl+C.</li>
+        <li>If the browser doesn't let the bar paste, long-press the terminal.</li>
+        <li>You can install Termdock as an app from the browser's menu (“Add to Home screen”).</li>
+      </ul>
+    </section>
+
+    <section class="sec" id="files" data-group="Day to day">
+      <h2>File panel</h2>
+      <p>The <strong>Files</strong> button on a session's pane opens the server's files beside the terminal. It uses the session's own SSH connection, as the same user: no second sign-in and nothing installed on the server. That is also why it works only while the session is connected.</p>
+      <ul>
+        <li><strong>Upload</strong> several files at once, or drag and drop them on the panel. <strong>Download</strong>, <strong>Rename</strong> and <strong>Delete</strong> act on the selected items; <strong>New folder</strong> is at the top.</li>
+        <li>When a file already exists: <strong>Replace</strong> (keeps the current file's permissions), <strong>Keep both</strong> or <strong>Skip these</strong>.</li>
+        <li><strong>Go to the terminal's folder</strong> exists in protected sessions only.</li>
+        <li>Whole folders can't be uploaded or downloaded yet: select the files inside them.</li>
+        <li>Keyboard: the arrows move, <kbd>Space</kbd> selects, <kbd>Enter</kbd> opens a folder, <kbd>F2</kbd> renames, <kbd>Delete</kbd> deletes.</li>
+      </ul>
+      <aside class="note note-caution">
+        <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#caution"/></svg>
+        <div class="note-body"><p class="note-title">Deleting a folder deletes everything inside it, on the server</p><p>This can't be undone. Links are deleted as links: their targets are not touched.</p></div>
+      </aside>
+      <aside class="note note-info" id="files-sftp">
+        <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#info"/></svg>
+        <div class="note-body"><p class="note-title">The panel says the server doesn't offer SFTP?</p><p>Whoever runs the server must enable <code>Subsystem sftp internal-sftp</code> in <code>sshd_config</code> and reload sshd. If the <strong>Files</strong> button doesn't show anywhere, the Termdock administrator turned the panel off.</p></div>
+      </aside>
+    </section>
+
+    <section class="sec" id="servers" data-group="Setup and security">
+      <h2>Servers and credentials</h2>
+      <ul>
+        <li>A <strong>server</strong> holds everything an <code>ssh user@address</code> needs: the address, port, user name, credential and the session options. The same machine with another user is another server; <strong>Duplicate</strong> helps.</li>
+        <li>Changes to a server apply to new sessions. The running ones keep the address they started with.</li>
+        <li>To sign in, prefer <strong>Generate a new key</strong>: the private key never leaves Termdock, and you install the public key on the server. You can also paste a key, use a password, or choose <strong>None</strong> (the server asks for the password in the terminal).</li>
+        <li>Under <strong>Advanced</strong>: protection, startup command, environment variables, keepalive, scrollback lines and reopening unprotected sessions.</li>
+        <li>Termdock runs in Docker on the same machine you want to reach? Use <strong>Add this Docker host</strong>.</li>
+      </ul>
+      <aside class="note note-warning">
+        <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#alert"/></svg>
+        <div class="note-body"><p class="note-title">Secrets show only once</p><p>Once saved, passwords and private keys never come back to the browser, and a generated public key is shown only when it is created. Copy it right away.</p></div>
+      </aside>
+    </section>
+
+    <section class="sec" id="host-keys" data-group="Setup and security">
+      <h2>Host keys and server sign-in</h2>
+      <ul>
+        <li>On the first connection Termdock asks <strong>Trust this host key?</strong>. Compare the fingerprint with the server's (there, <code>ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</code>) before you trust it.</li>
+        <li>The decision applies to the <strong>address</strong>: every one of your servers at that address, and only for you.</li>
+        <li>To trust a key before the first session, use <strong>Test connection</strong> or <strong>Paste expected fingerprint</strong> on the server's page.</li>
+        <li>Servers that ask for a code (2FA) or a password show the question in the pane. Answers go to the server and are never stored. If the prompt expires, use <strong>Retry</strong>.</li>
+      </ul>
+      <aside class="note note-caution">
+        <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#caution"/></svg>
+        <div class="note-body"><p class="note-title">“Host key changed”</p><p>Someone may be intercepting the connection, and Termdock refuses to connect; there is no way to accept it there. If you know the server was reinstalled or changed its key, go to the server's page and use <strong>Replace trusted key</strong>, typing the address to confirm. When in doubt, don't connect.</p></div>
+      </aside>
+    </section>
+
+    <section class="sec" id="remote-sessions" data-group="Setup and security">
+      <h2>Sessions left running on a server</h2>
+      <p>A protected session's tmux keeps running on its server while Termdock is down. That is on purpose: when Termdock is back, it reconnects to it. It is only left behind when Termdock forgets it: another Termdock installation, or this one after its database was reset.</p>
+      <ul>
+        <li>The workspace says <strong>Sessions found on…</strong> when it sees one of these while connecting.</li>
+        <li>On the server's page, <strong>Sessions on this server → Check now</strong> lists them. <strong>Adopt</strong> brings one into the workspace, with the same screen; <strong>End…</strong> stops its programs.</li>
+        <li>Sessions you had already ended that were still running there are ended automatically.</li>
+      </ul>
+    </section>
+
+    <section class="sec" id="account" data-group="Setup and security">
+      <h2>Account and administration</h2>
+      <ul>
+        <li><strong>Password</strong> (Settings → Account): changing it signs out your other browsers. Forgot it? Ask an administrator for a temporary password.</li>
+        <li><strong>Two-step verification</strong>: a code from an authenticator app at every sign-in. An administrator can make it required.</li>
+        <li><strong>Language</strong>: in the account menu, under <strong>Language…</strong>.</li>
+        <li><strong>Activity</strong> shows what happened to your sessions. Terminal input and output are never recorded.</li>
+        <li>Administrators create users, can require two-step verification, cap the running sessions per user (default: 50), turn the file panel on or off and read the audit log.</li>
+      </ul>
+    </section>
+
+    <section class="sec" id="messages" data-group="Reference">
+      <h2>Messages and what to do</h2>
+      <h3>When a session is Disconnected</h3>
+      <div class="table table-stack messages">
+        <table>
+          <thead><tr><th scope="col">Message</th><th scope="col">What to do</th></tr></thead>
+          <tbody>
+            <tr><td>The server rejected the credential.</td><td><span class="cell-label">What to do</span>Check the user name and the credential on the server's page (is the public key in that user's <code>~/.ssh/authorized_keys</code>?), then use <strong>Retry</strong>.</td></tr>
+            <tr><td>The stored credential can't be used. Check it on the credentials page.</td><td><span class="cell-label">What to do</span>Create the credential again under <strong>Credentials</strong> and pick it on the server's page.</td></tr>
+            <tr><td>You rejected the host key.</td><td><span class="cell-label">What to do</span>If that was a mistake, <strong>Retry</strong> asks again.</td></tr>
+            <tr><td>The server can't be reached. Retry when it's back.</td><td><span class="cell-label">What to do</span>The server is off or out of the network. In a protected session, tmux is still there: use <strong>Retry</strong> when it is back.</td></tr>
+            <tr><td>The server can't be reached. Check its address and port: a fix on the server's page is used when you retry.</td><td><span class="cell-label">What to do</span>Fix the address or the port with <strong>Edit server</strong>, then use <strong>Retry</strong>.</td></tr>
+            <tr><td>This session's server was deleted, so it can't connect again.</td><td><span class="cell-label">What to do</span>End the session. To reach that machine again, add the server again.</td></tr>
+            <tr><td>Your account isn't allowed to open this session.</td><td><span class="cell-label">What to do</span>Ask a Termdock administrator.</td></tr>
+            <tr><td>Local shells aren't available yet: direct mode arrives in a later version.</td><td><span class="cell-label">What to do</span>Use an SSH server; for Termdock's own machine, <strong>Add this Docker host</strong>.</td></tr>
+            <tr><td>The server presented a different key than the trusted one.</td><td><span class="cell-label">What to do</span>See <a href="#host-keys">Host keys</a>. Don't trust it without confirming that the key really changed.</td></tr>
+            <tr><td>The server's startup command or environment contains characters Termdock can't pass to it safely. Edit the server, then retry.</td><td><span class="cell-label">What to do</span>Adjust the startup command or the variables under <strong>Advanced</strong> on the server's page.</td></tr>
+            <tr><td>This server's address points at the machine running Termdock, or at a loopback, link-local or multicast address, which this installation doesn't allow.</td><td><span class="cell-label">What to do</span>To reach Termdock's own machine, use <strong>Add this Docker host</strong>.</td></tr>
+            <tr><td>The connection to the server dropped.</td><td><span class="cell-label">What to do</span>The automatic attempts ran out. Use <strong>Retry</strong> when the server is back.</td></tr>
+            <tr><td>The server accepted the connection but couldn't start the terminal.</td><td><span class="cell-label">What to do</span>The server refused to open the shell (an account without a valid shell, or an sshd limit). Try the same login with <code>ssh</code>, then retry.</td></tr>
+            <tr><td>The server didn't finish the sign-in in time.</td><td><span class="cell-label">What to do</span>The server is slow, or it waited for an answer that never came. Use <strong>Retry</strong>.</td></tr>
+            <tr><td>You stopped the attempts. The session waits until you retry or end it.</td><td><span class="cell-label">What to do</span><strong>Retry</strong> whenever you like, or <strong>End</strong>.</td></tr>
+            <tr><td>The connection failed and won't be retried automatically.</td><td><span class="cell-label">What to do</span>Use <strong>Retry</strong>. If it happens again, the <strong>Activity</strong> page has the details.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>When a session ends</h3>
+      <div class="table table-stack messages">
+        <table>
+          <thead><tr><th scope="col">Message</th><th scope="col">What to do</th></tr></thead>
+          <tbody>
+            <tr><td>The session was ended.</td><td><span class="cell-label">What to do</span>Someone used <strong>End</strong> (you, in another window, or an administrator). <strong>Reopen</strong> starts a new shell.</td></tr>
+            <tr><td>The shell exited.</td><td><span class="cell-label">What to do</span>The shell exited (<code>exit</code>), crashed, or the session's tmux was killed. <strong>Reopen</strong> starts a new shell.</td></tr>
+            <tr><td>The connection dropped and the session wasn't protected.</td><td><span class="cell-label">What to do</span><strong>Reopen</strong>. To keep the shell next time, see <a href="#protection">Protected sessions</a>.</td></tr>
+            <tr><td>Termdock restarted and the session wasn't protected.</td><td><span class="cell-label">What to do</span><strong>Reopen</strong>. To keep the shell next time, see <a href="#protection">Protected sessions</a>.</td></tr>
+            <tr><td>The session stopped after an error.</td><td><span class="cell-label">What to do</span><strong>Reopen</strong>. If it happens again, the <strong>Activity</strong> page has the details.</td></tr>
+            <tr><td>The session is over.</td><td><span class="cell-label">What to do</span><strong>Reopen</strong> starts a new shell.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  {{index}}
+</div>
+{{foot}}
+</body>
+</html>

@@ -5,7 +5,10 @@ import { useTranslations } from 'next-intl';
 import { useRef } from 'react';
 import type { Locale } from '../../i18n/locales.ts';
 import { signOut } from '../../lib/actions/auth.ts';
+import { REPOSITORY_URL } from '../../lib/links.ts';
 import {
+  ExternalLinkIcon,
+  GitHubIcon,
   GlobeIcon,
   SettingsIcon,
   SignOutIcon,
@@ -17,6 +20,7 @@ import { Avatar } from '../ui/avatar.tsx';
 import { cx } from '../ui/cx.ts';
 import {
   MENU_ITEM_CLASSES,
+  MENU_ITEM_QUIET_CLASSES,
   MenuItem,
   MenuLabel,
   MenuLink,
@@ -30,9 +34,10 @@ const MENU_WIDTH = 248;
 
 /**
  * The account menu (plan D-28): the user's name with a gear opens settings (account, terminal,
- * and "Language…", which opens the language dialog), Admin for administrators, and Sign out. A
- * native popover, placed above or below its control; sign-out stays a form post. `compact` shows
- * the avatar alone (the rail, the phone header).
+ * and "Language…", which opens the language dialog), Admin for administrators, and Sign out,
+ * then a smaller, quieter row to the source code on GitHub in a new tab (plan D-40). A native
+ * popover, placed above or below its control; sign-out stays a form post. `compact` shows the
+ * avatar alone (the rail, the phone header).
  */
 export function AccountMenu({
   username,
@@ -53,6 +58,7 @@ export function AccountMenu({
   const t = useTranslations('workspace.account');
   const tn = useTranslations('nav');
   const tc = useTranslations('common');
+  const th = useTranslations('help');
   const menu = usePopoverMenu({ width: MENU_WIDTH, align: compact ? 'start' : 'end' });
   const languageRef = useRef<HTMLDialogElement>(null);
 
@@ -133,6 +139,25 @@ export function AccountMenu({
               <span className="min-w-0 flex-1 truncate">{tc('signOut')}</span>
             </button>
           </form>
+          <MenuSeparator />
+          <a
+            href={REPOSITORY_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            role="menuitem"
+            tabIndex={-1}
+            onClick={menu.hide}
+            className={MENU_ITEM_QUIET_CLASSES}
+          >
+            <span className="flex w-4 shrink-0 justify-center">
+              <GitHubIcon size={14} />
+            </span>
+            <span className="min-w-0 flex-1 truncate">
+              {th('source')}
+              <span className="sr-only"> {th('newTab')}</span>
+            </span>
+            <ExternalLinkIcon size={12} className="shrink-0" />
+          </a>
         </div>
       </MenuPopover>
       <LanguageDialog dialogRef={languageRef} locale={locale} />

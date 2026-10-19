@@ -38,7 +38,7 @@ The browser lifecycle is not the terminal lifecycle. Unlike web SSH gateways tha
 - Login with username + password and optional TOTP (an admin can require it). Admin pages: users, instance settings, audit log.
 - UI language: English by default, pt-BR selectable; both ship in the first release. All strings are externalized.
 - Terminal rendering inside panes is xterm.js; the app chrome around it is ours to design.
-- License: AGPL-3.0-only (plan D-24). Undecided: the public repository/organization name.
+- License: AGPL-3.0-only (plan D-24). Public repository `github.com/ativaone/termdock`; the project site with the documentation and the user help is on GitHub Pages, and the app's help button and "Learn more" links open it (plan D-40).
 
 ## Brand Commitments
 

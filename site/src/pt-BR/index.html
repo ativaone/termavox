@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<title>Termdock · Terminais SSH persistentes no navegador, auto-hospedado</title>
+<meta name="description" content="Um terminal web auto-hospedado para SSH: as sessões continuam rodando no servidor quando você fecha o navegador, perde o Wi-Fi ou troca para o celular. Proteção invisível com tmux, painéis divididos e transferência de arquivos. Código aberto, AGPL-3.0.">
+{{head}}
+</head>
+<body class="home">
+{{bar}}
+<main id="main">
+  <section class="hero">
+    <div class="hero-text">
+      <h1>Seus terminais, ancorados.</h1>
+      <p class="hero-sub">Feche o navegador, volte de qualquer lugar e continue exatamente de onde parou. O Termdock é um runtime auto-hospedado que mantém suas sessões SSH abertas num servidor que você controla; o navegador é só uma janela para elas.</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="{{root}}docs/install/" hreflang="en">Instalar</a>
+        <a class="btn btn-secondary" href="docs/">Ver a documentação</a>
+      </div>
+      <p class="hero-meta"><span class="tag tag-none">Pré-alfa</span><span>Software livre, sob a AGPL-3.0</span><a href="https://github.com/ativaone/termdock">Código-fonte no GitHub</a></p>
+    </div>
+    <figure class="shot shot-hero">
+      <picture>
+        <source media="(max-width: 40rem)" srcset="{{root}}assets/screenshots/phone-session.png" width="780" height="1688">
+        <img src="{{root}}assets/screenshots/workspace.png" width="1440" height="900" alt="A área de trabalho do Termdock: sessões nomeadas agrupadas por estado à esquerda e um shell ao vivo à direita">
+      </picture>
+    </figure>
+  </section>
+
+  <section class="band" aria-labelledby="idea">
+    <div class="band-head">
+      <h2 id="idea">A vida do navegador não é a vida do terminal.</h2>
+      <p>Na maioria das ferramentas de SSH pela web, a aba do navegador <em>é</em> a sessão: fechou o notebook ou caiu o Wi-Fi, a conexão morre junto. O Termdock inverte isso. Ele mantém cada sessão aberta no servidor dele, sem prazo, até você encerrá-la. Os navegadores só se conectam e se desconectam, e quando você volta, do mesmo notebook, de outro computador ou do celular, o terminal está exatamente como você deixou.</p>
+    </div>
+    <div class="table table-stack compare">
+      <table>
+        <thead><tr><th scope="col">O que acontece quando…</th><th scope="col">SSH web comum</th><th scope="col">Termdock</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Você fecha a aba do navegador</th><td><span class="cell-label">SSH web comum</span>A sessão SSH morre</td><td><span class="cell-label">Termdock</span><span class="tag tag-keeps">Continua</span>Nada; a sessão segue rodando</td></tr>
+          <tr><th scope="row">Você abre de novo em outro aparelho</th><td><span class="cell-label">SSH web comum</span>Começa do zero</td><td><span class="cell-label">Termdock</span><span class="tag tag-none">Mesma tela</span>Na hora, até apps de tela cheia</td></tr>
+          <tr><th scope="row">O Wi-Fi cai por um minuto</th><td><span class="cell-label">SSH web comum</span>A sessão se perde</td><td><span class="cell-label">Termdock</span><span class="tag tag-none">Reconecta</span>Por trás; o shell nem percebe</td></tr>
+          <tr><th scope="row">O serviço do Termdock reinicia</th><td><span class="cell-label">SSH web comum</span>—</td><td><span class="cell-label">Termdock</span><span class="tag tag-none">Restaura</span>As sessões protegidas voltam como estavam</td></tr>
+          <tr><th scope="row">Dois aparelhos abrem a mesma sessão</th><td><span class="cell-label">SSH web comum</span>Em geral não dá</td><td><span class="cell-label">Termdock</span><span class="tag tag-none">Os dois</span>Quem está digitando define o tamanho</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="band" aria-labelledby="how">
+    <div class="band-head">
+      <h2 id="how">Como funciona</h2>
+      <p>Três ideias sustentam o projeto.</p>
+    </div>
+    <figure class="map map-wide" aria-label="Qualquer navegador se conecta ao Termdock por HTTPS e WebSocket; o Termdock se conecta aos seus servidores por SSH, com o tmux em modo de controle">
+      <div class="node">
+        <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#laptop"/></svg>
+        <span class="node-name">Qualquer navegador</span>
+        <span class="node-note">Uma janela sincronizada, no notebook ou no celular</span>
+      </div>
+      <div class="link">
+        <span class="wire wire-browser" aria-hidden="true"></span>
+        <span class="link-text"><span class="link-name">HTTPS e WebSocket: uma foto da tela, depois a saída ao vivo</span></span>
+      </div>
+      <div class="node node-home">
+        <img src="{{root}}assets/icon.svg" alt="" width="30" height="30">
+        <span class="node-name">Termdock</span>
+        <span class="node-note">Auto-hospedado: os emuladores de terminal de referência</span>
+      </div>
+      <div class="link">
+        <span class="wire wire-session" aria-hidden="true"></span>
+        <span class="link-text"><span class="link-name">SSH, tmux em modo de controle</span></span>
+      </div>
+      <div class="node">
+        <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#server"/></svg>
+        <span class="node-name">Seus servidores</span>
+        <span class="node-note">tmux invisível: shell, <code>vim</code>, <code>htop</code>…</span>
+      </div>
+    </figure>
+    <dl class="ideas">
+      <div>
+        <dt>Um emulador de terminal mora no servidor</dt>
+        <dd>Para cada sessão, o Termdock mantém um emulador de referência alimentado com a saída SSH bruta. O navegador que se conecta recebe uma foto desse estado e depois a saída ao vivo, então desenha uma cópia exata, com tela alternativa e modos do terminal.</dd>
+      </div>
+      <div>
+        <dt>O tmux protege as sessões, e você nunca o vê</dt>
+        <dd>Cada sessão SSH roda dentro de um tmux só dela no servidor, controlado pelo modo de controle do tmux: sem barra de status, sem tecla de prefixo, com a rolagem normal. Depois de uma queda de rede ou de um reinício, o Termdock se reconecta e reconstrói a tela e o histórico. Servidores sem tmux também funcionam, marcados como sem proteção.</dd>
+      </div>
+      <div>
+        <dt>As sessões pertencem ao serviço, não ao navegador</dt>
+        <dd>O app web cuida de usuários, servidores, credenciais e layout; o gerenciador de sessões cuida das conexões, dos emuladores e da reconexão. Publicar uma versão nova do app web nunca derruba um terminal.</dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="band" aria-labelledby="fits">
+    <div class="band-head">
+      <h2 id="fits">Onde ele se encaixa</h2>
+      <p>Para quem mantém shells abertos em máquinas remotas e quer chegar a eles de qualquer lugar.</p>
+    </div>
+    <dl class="ideas ideas-two">
+      <div>
+        <dt>Um servidor de desenvolvimento ou uma VPS</dt>
+        <dd>Editores, builds, testes em modo watch e logs continuam rodando na máquina onde o código está, e você retoma tudo do notebook, de outro computador ou do celular.</dd>
+      </div>
+      <div>
+        <dt>Tarefas longas e agentes de código</dt>
+        <dd>Um deploy, uma migração, um processamento de dados ou um agente de IA trabalhando no terminal continua enquanto o notebook dorme. Acompanhe de qualquer navegador.</dd>
+      </div>
+      <div>
+        <dt>Um shell remoto no navegador</dt>
+        <dd>Um cliente SSH web auto-hospedado, e uma alternativa ao Apache Guacamole quando o que você precisa são terminais que continuam abertos: sem cliente SSH nem chave no aparelho que você estiver usando, com chaves do host verificadas e credenciais cifradas no seu servidor.</dd>
+      </div>
+      <div>
+        <dt>Plantão pelo celular</dt>
+        <dd>A lista de sessões, um terminal em tela cheia e uma barra de teclas com Esc, Ctrl, Alt, Tab e as setas.</dd>
+      </div>
+    </dl>
+    <p class="band-note">Ele trabalha junto com as ferramentas que você já usa. O Termdock roda o tmux por você, de forma invisível, então você nunca mais digita <code>tmux attach</code>; o seu próprio tmux, o Zellij, o Herdr ou qualquer outro programa de terminal continua rodando dentro de uma sessão, mesmo depois que o navegador fecha.</p>
+  </section>
+
+  <section class="band" aria-labelledby="tour">
+    <div class="band-head">
+      <h2 id="tour">Por dentro</h2>
+      <p>Capturas reais, feitas contra servidores SSH de teste. A interface também fala português.</p>
+    </div>
+    <div class="gallery">
+      <figure class="shot">
+        <img src="{{root}}assets/screenshots/first-run.png" width="1440" height="900" loading="lazy" alt="Primeiro uso: a área de trabalho explica os três passos para conectar o primeiro servidor">
+        <figcaption><strong>Primeiro uso.</strong> Sem nenhum servidor ainda, a área de trabalho explica os três passos e oferece uma ação.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="{{root}}assets/screenshots/server.png" width="1440" height="900" loading="lazy" alt="A página de um servidor: dados, diagnóstico e chaves do host">
+        <figcaption><strong>A página de um servidor.</strong> Os dados, o diagnóstico que confere o tmux e o login, e as chaves do host confiadas.</figcaption>
+      </figure>
+      <figure class="shot shot-tall">
+        <img src="{{root}}assets/screenshots/add-server.png" width="1440" height="1461" loading="lazy" alt="Adicionar servidor: o servidor e a credencial em uma página só">
+        <figcaption><strong>Adicionar servidor.</strong> O servidor e a credencial em uma página só; nada é salvo até você confirmar.</figcaption>
+      </figure>
+      <div class="phones">
+        <figure class="shot shot-phone">
+          <img src="{{root}}assets/screenshots/phone-sessions.png" width="780" height="1688" loading="lazy" alt="A lista de sessões no celular">
+          <figcaption><strong>No celular.</strong> A lista de sessões ocupa a tela.</figcaption>
+        </figure>
+        <figure class="shot shot-phone">
+          <img src="{{root}}assets/screenshots/phone-session.png" width="780" height="1688" loading="lazy" alt="Uma sessão no celular, com a barra de teclas e o Alt armado">
+          <figcaption>Uma sessão com a barra de teclas extras.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" aria-labelledby="features">
+    <div class="band-head">
+      <h2 id="features">O que você ganha</h2>
+    </div>
+    <ul class="features">
+      <li><strong>Sessões SSH persistentes</strong>, que sobrevivem a abas fechadas, redes instáveis e reinícios do serviço.</li>
+      <li><strong>Proteção automática e invisível com tmux</strong>, detectada por servidor, com um aviso honesto quando falta.</li>
+      <li><strong>Uma área de trabalho</strong> com lista de sessões, abas e painéis divididos, guardada no servidor e restaurada em qualquer navegador.</li>
+      <li><strong>Um painel de arquivos</strong> ao lado de cada terminal: enviar, baixar, renomear, apagar e criar pastas, pela própria conexão SSH da sessão.</li>
+      <li><strong>Dá para usar no celular</strong>, com layout responsivo e uma barra de teclas extras.</li>
+      <li><strong>Vários usuários, isolados</strong>: cada um vê só os próprios servidores, credenciais e sessões.</li>
+      <li><strong>Feito como um bastion</strong>: credenciais cifradas com uma chave que só o plano de dados tem, confiança explícita nas chaves do host, login em duas etapas e log de auditoria.</li>
+      <li><strong>Chaves SSH, senhas e pedidos de 2FA</strong>, com os pedidos repassados ao seu navegador.</li>
+      <li><strong>Inglês e português do Brasil.</strong></li>
+      <li><strong>Instalação com um comando</strong>, usando Docker Compose e Caddy, com HTTPS automático.</li>
+    </ul>
+  </section>
+
+  <section class="band" aria-labelledby="run">
+    <div class="band-head">
+      <h2 id="run">Rode o Termdock</h2>
+      <p>Um comando sobe três contêineres atrás de uma origem só: o Caddy para o TLS, o app web e o gerenciador de sessões. Você precisa de Docker com Compose v2 num host Linux.</p>
+    </div>
+    <pre class="code"><code>git clone https://github.com/ativaone/termdock.git termdock &amp;&amp; cd termdock
+deploy/scripts/init-secrets.sh                      # gera os segredos; faça backup de deploy/secrets/master_key
+docker compose -f deploy/compose.yaml up -d --build # constrói as duas imagens e sobe tudo
+docker compose -f deploy/compose.yaml logs web      # o token de uso único para criar o primeiro admin em /setup</code></pre>
+    <p class="run-after">Logo de saída ele atende em <code>https://localhost</code>, com um certificado da CA local do Caddy. O guia de instalação, em inglês, cobre domínio e TLS, proxy reverso, backups, atualizações e solução de problemas.</p>
+    <div class="actions">
+      <a class="btn btn-primary" href="{{root}}docs/install/" hreflang="en">Guia de instalação</a>
+      <a class="btn btn-secondary" href="{{root}}docs/configuration/" hreflang="en">Referência de configuração</a>
+    </div>
+    <aside class="note note-warning">
+      <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#alert"/></svg>
+      <div class="note-body"><p class="note-title">O Termdock está em pré-alfa</p><p>O runtime, a área de trabalho e a instalação com Docker funcionam de ponta a ponta e passaram por uma revisão de segurança interna, mas ainda não há release. Mantenha-o longe de servidores de produção até a v0.1.0.</p></div>
+    </aside>
+  </section>
+</main>
+{{foot}}
+</body>
+</html>

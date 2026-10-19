@@ -33,6 +33,17 @@ The first release, v0.1.0, is being prepared.
 
 ### Added
 
+- A project site at https://ativaone.github.io/termdock, in English and Brazilian Portuguese: a
+  home page with screenshots, and a documentation area with the installation guide, the
+  configuration reference, the architecture, the security model and this changelog, rendered
+  from the repository's docs at every change. Every page carries search and link-preview
+  metadata, and the site publishes a sitemap.
+- Help in the app: a help button beside the account menu opens the documentation, and its user
+  guide explains what happens to a session in each situation (closed browser, network drops,
+  restarts, a server reboot, tmux killed on the server), every status and message, and what to
+  do. "Learn more" links in the reconnecting, disconnected and ended panels, the server-restarted
+  notice, the tmux tip, host-key prompts, the file panel and the server page open it at the right
+  section. The account menu links to the source code on GitHub.
 - A Files panel inside a session's pane, beside its terminal: browse the server as the session's
   user, upload and download several files at once with progress bars, rename, delete, create
   folders, show hidden files and refresh. It uses the session's own SSH connection (SFTP), so it

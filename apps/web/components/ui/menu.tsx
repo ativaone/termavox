@@ -177,11 +177,17 @@ export function MenuPopover({
   );
 }
 
-export const MENU_ITEM_CLASSES =
-  'flex h-9 w-full items-center gap-2.5 rounded-sm px-2.5 text-start text-base text-ink ' +
+/** A menu row without its height and text: the shape, hover, focus and disabled states. */
+const MENU_ROW_CLASSES =
+  'flex w-full items-center gap-2.5 rounded-sm px-2.5 text-start ' +
   'transition-colors duration-(--duration-step) ease-(--ease-out) hover:bg-surface-raised ' +
   'focus-visible:bg-surface-raised focus-visible:outline-2 focus-visible:outline-focus focus-visible:-outline-offset-2 ' +
   'disabled:cursor-not-allowed disabled:text-ink-faint disabled:hover:bg-transparent';
+
+export const MENU_ITEM_CLASSES = `${MENU_ROW_CLASSES} h-9 text-base text-ink`;
+
+/** A step smaller and quieter: a link at a menu's foot (the account menu's source code row). */
+export const MENU_ITEM_QUIET_CLASSES = `${MENU_ROW_CLASSES} h-8 text-ink-muted text-sm hover:text-ink focus-visible:text-ink`;
 
 export function MenuItem({
   icon,
@@ -195,7 +201,13 @@ export function MenuItem({
       type="button"
       role="menuitem"
       tabIndex={-1}
-      className={cx(MENU_ITEM_CLASSES, tone === 'danger' && 'text-danger', className)}
+      // One text colour only: Tailwind emits text-danger before text-ink, so both together are ink.
+      className={cx(
+        MENU_ROW_CLASSES,
+        'h-9 text-base',
+        tone === 'danger' ? 'text-danger' : 'text-ink',
+        className,
+      )}
       {...props}
     >
       {icon ? (

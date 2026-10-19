@@ -12,6 +12,7 @@ import {
 } from '../../lib/manage/forms.ts';
 import type { ServerKind } from '../../lib/repo/servers.ts';
 import type { ServerOptionsValues } from '../../lib/servers/options.ts';
+import { LearnMore } from '../help-links.tsx';
 import { CloseIcon, PlusIcon } from '../icons/index.tsx';
 import { Button } from '../ui/button.tsx';
 import { Checkbox } from '../ui/checkbox.tsx';
@@ -319,6 +320,10 @@ export function ServerOptionsFields({
             <span className="max-w-[60ch] text-ink-muted text-sm">{t('protectionOffHelp')}</span>
           </span>
         </label>
+        {/* Outside the labels, so it never joins a choice's accessible name. */}
+        <p className="ps-8 text-sm">
+          <LearnMore section="protection" />
+        </p>
       </fieldset>
 
       <div className="flex flex-col gap-5 border-line border-t pt-5">

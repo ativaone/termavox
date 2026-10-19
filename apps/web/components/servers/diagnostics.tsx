@@ -11,6 +11,7 @@ import {
 } from '../../lib/actions/servers.ts';
 import { connectCodeKey } from '../../lib/manage/connect-codes.ts';
 import type { ManageState } from '../../lib/manage/forms.ts';
+import { LearnMore } from '../help-links.tsx';
 import { ChevronRightIcon } from '../icons/index.tsx';
 import { DisclosureSummary } from '../ui/disclosure-summary.tsx';
 import { FormMessage, Notice } from '../ui/notice.tsx';
@@ -184,12 +185,13 @@ function ProbeReport({ result }: { result: NonNullable<DiagnosticsState['result'
         </Notice>
       ) : (
         <Notice tone="info" title={t('unprotected')}>
-          {t(`reason.${probe.reason ?? 'no_tmux'}`)}
+          {t(`reason.${probe.reason ?? 'no_tmux'}`)}{' '}
+          <LearnMore tone="action" section="protection" />
         </Notice>
       )}
       {probe.lingerWarning ? (
         <Notice tone="warning" title={t('lingerTitle')}>
-          {t('lingerBody')}
+          {t('lingerBody')} <LearnMore tone="action" section="linger" />
         </Notice>
       ) : null}
     </div>

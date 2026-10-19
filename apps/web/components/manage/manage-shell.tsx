@@ -2,6 +2,7 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import type { ReactNode } from 'react';
 import { isLocale } from '../../i18n/locales.ts';
 import { ROUTES } from '../../lib/routes.ts';
+import { HelpButton } from '../help-links.tsx';
 import {
   ActivityIcon,
   KeyIcon,
@@ -18,8 +19,9 @@ import { ManageNav, ManageNavRow, type NavItem } from './manage-nav.tsx';
 /**
  * Frame of the secondary pages (hosts, credentials, activity, settings, admin): the same
  * sidebar vocabulary as the workspace, with the workspace first (the terminal comes first), the
- * section rows, and the account menu at the foot. On a phone the sidebar folds into a top bar
- * with a sideways row of links. Content sits on the ground in cards.
+ * section rows, and the account menu at the foot with the help button at its end (plan D-40). On
+ * a phone the sidebar folds into a top bar (the help button, the avatar) with a sideways row of
+ * links. Content sits on the ground in cards.
  */
 export async function ManageShell({
   username,
@@ -62,7 +64,8 @@ export async function ManageShell({
       <aside className="flex shrink-0 flex-col md:sticky md:top-0 md:h-dvh md:w-(--sidebar-width)">
         <div className="flex h-14 items-center justify-between gap-2 px-4 md:h-16">
           <Wordmark />
-          <span className="md:hidden">
+          <span className="flex items-center gap-1 md:hidden">
+            <HelpButton />
             <AccountMenu
               username={username}
               isAdmin={isAdmin}
@@ -78,8 +81,11 @@ export async function ManageShell({
         <div className="hidden min-h-0 flex-1 flex-col px-3 pb-2 md:flex">
           <ManageNav items={items} label={t('label')} />
           <span className="flex-1" />
-          <div className="border-line border-t pt-2">
-            <AccountMenu username={username} isAdmin={isAdmin} locale={current} />
+          <div className="flex items-center gap-1 border-line border-t pt-2">
+            <div className="min-w-0 flex-1">
+              <AccountMenu username={username} isAdmin={isAdmin} locale={current} />
+            </div>
+            <HelpButton />
           </div>
         </div>
       </aside>

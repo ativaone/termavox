@@ -26,7 +26,11 @@ release notes or the delivery report.
    its README and the project README show) from a real run (`scripts/ui-capture.ts`): desktop
    1440×900 at 1x, phone 390×844 at 2x, default font hinting. Otherwise optional: worth doing only when a capture run
    happens anyway.
-8. **CHANGELOG and version.** `CHANGELOG.md` moves the release out of `[Unreleased]` with the
+8. **Project site.** Read the user help (both languages) against `[Unreleased]` in the
+   changelog: every user-visible change is explained, nothing unshipped is described. The home
+   pages still match the README. After the push, the Pages workflow passed and
+   https://ativaone.github.io/termdock shows the new help and guides (the `site` skill).
+9. **CHANGELOG and version.** `CHANGELOG.md` moves the release out of `[Unreleased]` with the
    date; the `version` fields match the tag; the upgrade notes mention anything operators must
    do.
-9. **Tag.** Create the annotated tag `vX.Y.Z` on the tested commit and push it.
+10. **Tag.** Create the annotated tag `vX.Y.Z` on the tested commit and push it.

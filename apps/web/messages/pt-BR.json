@@ -1576,5 +1576,11 @@
       "transferFailed": "A transferência não terminou.",
       "generic": "Algo deu errado. Tente de novo."
     }
+  },
+  "help": {
+    "label": "Ajuda",
+    "newTab": "(abre em uma nova aba)",
+    "learnMore": "Saiba mais",
+    "source": "Código-fonte no GitHub"
   }
 }
