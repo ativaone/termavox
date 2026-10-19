@@ -297,6 +297,35 @@ pnpm --filter @termdock/session-manager vault:rotate \
 
 `--dry-run` checks that every credential decrypts with the old key and writes nothing. The CLI refuses equal keys and a wrong old key, refuses to run while session-manager holds the data directory (`session-manager.lock` beside `app.db`; the lock is released when its holder exits, even after a crash), and never prints key material. Exit status 3 means the database already uses the new key.
 
+## Resetting a password
+
+An admin resets another user's password on that user's admin page. When no admin can sign in, for example because the only admin forgot their password, reset it from the host:
+
+```bash
+deploy/scripts/reset-password.sh <username>
+```
+
+The script runs `reset-password` inside the running session-manager container and prints a temporary password once:
+
+```text
+reset-password: alice (admin)
+temporary password: k3v7qz2mxa5rtw4ybn6d
+
+Sign in with it: Termdock then asks for a new password.
+2 sign-ins ended; open terminals were disconnected (their sessions keep running).
+```
+
+- Give the username, not the email: Termdock signs in by username. An unknown username changes nothing, and the message lists the existing usernames.
+- The user signs in with the temporary password and must choose a new one before anything else opens.
+- Every sign-in of the user ends and their open terminals disconnect; their sessions keep running.
+- TOTP stays as it is. A user who lost their authenticator needs an admin to reset it on their admin page.
+- The audit log records it as **Password reset**, with **System** as the actor.
+- After several failed attempts, sign-in stays locked for that username and address for up to 15 minutes. The lockout lives in web's memory: `docker compose -f deploy/compose.yaml restart web` clears it.
+
+Anyone who can run Docker commands on the host can do this. That is no new power: such access already reaches the database and the master key.
+
+**Without Compose** (session-manager run by hand, plan §13.3): `pnpm --filter @termdock/session-manager reset-password <username> --data-dir /path/to/data`. Without the internal API settings in its environment, it cannot ask session-manager to disconnect open terminals, and says so.
+
 ## Upgrades
 
 Termdock is built from the source you check out, so an upgrade is: new source, new images, restart. Run every command from the repository root.
@@ -339,6 +368,7 @@ What users notice: web restarts freely. Protected (tmux) sessions keep running o
 | Status and health | `docker compose -f deploy/compose.yaml ps` |
 | Logs (session-manager logs JSON) | `docker compose -f deploy/compose.yaml logs -f session-manager web caddy` |
 | Stop / start | `docker compose -f deploy/compose.yaml stop` / `... start` |
+| Temporary password for a user (no admin can sign in) | `deploy/scripts/reset-password.sh <username>` |
 | Remove the containers, keep the data | `docker compose -f deploy/compose.yaml down` |
 | Remove **everything**, including the database and certificates (irreversible) | `docker compose -f deploy/compose.yaml down -v` |
 
@@ -350,4 +380,5 @@ The health endpoints are `GET /api/health` on web and `GET /internal/v1/health` 
 - **session-manager exits at boot with a vault key check error.** `master_key` is not the key the database is encrypted with: the original key, or the newest one after a rotation. Put that key back (after a rotation, `master_key.old` holds the previous one).
 - **session-manager exits at boot because the data directory is in use.** Another session-manager or a running `vault rotate` holds `/data/session-manager.lock`. Let the rotation finish, or stop the other process; the lock is released as soon as its holder exits.
 - **Login or setup fails with an origin error, or the terminal never connects.** The URL in the browser's address bar must match `TERMDOCK_PUBLIC_URL` (scheme, host and port). Set it explicitly when the default `https://<domain>:<https port>` is not what browsers use.
+- **Nobody can sign in as an admin, or a password you are sure of is refused.** Sign-in is by username, not email. Set a temporary password from the host with `deploy/scripts/reset-password.sh <username>` (see [Resetting a password](#resetting-a-password)).
 - **`bind: address already in use` on start.** Another service holds port 80 or 443. Pick other ports with `TERMDOCK_HTTP_PORT` and `TERMDOCK_HTTPS_PORT`, or stop that service.

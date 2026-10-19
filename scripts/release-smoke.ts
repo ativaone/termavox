@@ -1015,24 +1015,72 @@ async function terminate(page: CdpPage, ids: string[]): Promise<void> {
   }
 }
 
+async function resetPassword(page: CdpPage, nextPassword: string): Promise<void> {
+  // 11. deploy/scripts/reset-password.sh (D-36): it ends the browser's sign-in, its temporary
+  // password signs in, and the forced change leads back to the workspace.
+  const result = await deployScript('reset-password.sh', [ADMIN.username]);
+  const temporary = /^temporary password: ([a-z2-7]{20})$/m.exec(result.stdout)?.[1] ?? '';
+  check(
+    '11 reset',
+    result.code === 0 && temporary !== '',
+    `reset-password.sh ${ADMIN.username} printed a temporary password`,
+    `exit ${result.code}: ${result.stderr.trim()}`,
+  );
+  check(
+    '11 reset',
+    result.stdout.includes('open terminals were disconnected'),
+    "session-manager closed the admin's WebSockets (internal API /auth-sessions/revoke)",
+    result.stdout.trim(),
+  );
+  await page.navigate(`${BASE}/workspace`);
+  await page.waitFor(`location.pathname === '/login'`, 'the redirect to /login after the reset');
+  pass('11 reset', "the reset ended the browser's sign-in (the workspace redirects to /login)");
+  await page.waitHydrated(`$('input[name=username]')?.closest('form')`, 'the login form');
+  await page.fill(`$('input[name=username]')`, ADMIN.username, 'username');
+  await page.fill(`$('input[name=password]')`, temporary, 'password');
+  await page.click(
+    `$('input[name=username]').closest('form').querySelector('button[type=submit]')`,
+    'Sign in',
+  );
+  await page.waitFor(
+    `location.pathname === '/login/change-password'`,
+    'the forced password change after signing in with the temporary password',
+    60_000,
+  );
+  await page.waitHydrated(`$('input[name=newPassword]')?.closest('form')`, 'the change form');
+  await page.fill(`$('input[name=currentPassword]')`, temporary, 'current password');
+  await page.fill(`$('input[name=newPassword]')`, nextPassword, 'new password');
+  await page.fill(`$('input[name=confirm]')`, nextPassword, 'confirmation');
+  await page.click(
+    `$('input[name=newPassword]').closest('form').querySelector('button[type=submit]')`,
+    'Change password',
+  );
+  await page.waitFor(
+    `location.pathname === '/workspace'`,
+    'the workspace after the change',
+    60_000,
+  );
+  pass('11 reset', 'signed in with the temporary password; the forced change led to the workspace');
+}
+
 async function backup(ids: string[], renamedId: string): Promise<void> {
-  // 11. An online backup through backup.sh, checked independently.
+  // 12. An online backup through backup.sh, checked independently.
   const dest = join(backupDir, 'smoke');
   const result = await deployScript('backup.sh', [dest]);
   const file = result.stdout.trim().split('\n').at(-1) ?? '';
   check(
-    '11 backup',
+    '12 backup',
     result.code === 0 && existsSync(file),
     `backup.sh wrote ${file}`,
     `exit ${result.code}`,
   );
   check(
-    '11 backup',
+    '12 backup',
     result.stderr.includes('integrity_check: ok'),
     "backup.sh's own integrity check passed inside the container",
   );
   check(
-    '11 backup',
+    '12 backup',
     readFileSync(file).subarray(0, 15).toString() === 'SQLite format 3',
     'the file is a SQLite database',
   );
@@ -1047,7 +1095,7 @@ async function backup(ids: string[], renamedId: string): Promise<void> {
       label: string;
     }>;
     check(
-      '11 backup',
+      '12 backup',
       Object.values(integrity)[0] === 'ok',
       'PRAGMA integrity_check on the host copy: ok',
     );
@@ -1058,7 +1106,7 @@ async function backup(ids: string[], renamedId: string): Promise<void> {
     }>;
     const counts = `users ${count('user')}, servers ${servers.length}, credentials ${count('credentials')}, sessions ${sessions.length}`;
     check(
-      '11 backup',
+      '12 backup',
       count('user') === 1 &&
         servers.length === 2 &&
         servers.every(
@@ -1086,7 +1134,7 @@ async function backup(ids: string[], renamedId: string): Promise<void> {
     }>;
     const atAddress = keys.filter((k) => k.hostname === SSHD_SERVICE && k.port === 22);
     check(
-      '11 backup',
+      '12 backup',
       atAddress.length === 1 &&
         atAddress[0]?.status === 'trusted' &&
         atAddress[0]?.fingerprint_sha256 === hostFp,
@@ -1095,10 +1143,24 @@ async function backup(ids: string[], renamedId: string): Promise<void> {
     );
     const stored = sessions.find((s) => s.id === renamedId)?.label;
     check(
-      '11 backup',
+      '12 backup',
       stored === NAMES.renamed,
       `the rename is stored: session ${renamedId} is labelled "${NAMES.renamed}"`,
       `label: "${stored}"`,
+    );
+    const resets = db
+      .prepare(
+        "SELECT actor_user_id, target_type, detail_json FROM audit_events WHERE type = 'auth.password_reset'",
+      )
+      .all() as Array<{ actor_user_id: string | null; target_type: string; detail_json: string }>;
+    check(
+      '12 backup',
+      resets.length === 1 &&
+        resets[0]?.actor_user_id === null &&
+        resets[0]?.target_type === 'user' &&
+        (JSON.parse(resets[0]?.detail_json ?? '{}') as { via?: string }).via === 'operator',
+      'the reset is audited: one auth.password_reset row from the operator, with no actor',
+      js(resets),
     );
     if (PROXY) {
       // The browser reached the front proxy from 127.0.0.1; Caddy saw only the proxy (the edge
@@ -1110,7 +1172,7 @@ async function backup(ids: string[], renamedId: string): Promise<void> {
         ...ips('SELECT DISTINCT ip FROM audit_events WHERE ip IS NOT NULL'),
       ];
       check(
-        '11 backup',
+        '12 backup',
         recorded.length > 0 && recorded.every((ip) => ip === '127.0.0.1'),
         "session and audit events carry the browser's address (127.0.0.1), never the proxy's",
         js(recorded),
@@ -1186,6 +1248,7 @@ for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) {
 async function main(): Promise<number> {
   const started = Date.now();
   const password = `Smoke-${randomBytes(12).toString('base64url')}`;
+  const nextPassword = `Smoke-${randomBytes(12).toString('base64url')}`;
   const nonce = randomBytes(4).toString('hex');
   const markers = [`termdock-smoke-${nonce}`, `termdock-smoke-${nonce}-2`];
   let failed = false;
@@ -1253,6 +1316,7 @@ async function main(): Promise<number> {
     const secondId = await rotateAndReconnect(page, firstId, markers[1] ?? '');
     const thirdId = await duplicateServer(page, serverId);
     await terminate(page, [thirdId, secondId, firstId]);
+    await resetPassword(page, nextPassword);
     check(
       'csp',
       cspViolations.length === 0,

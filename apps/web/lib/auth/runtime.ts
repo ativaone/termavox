@@ -1,9 +1,9 @@
 import '../server-guard.ts';
 import type { TermdockDb } from '@termdock/db';
+import type { Argon2Params } from '@termdock/shared';
 import { consoleLogger, type WebLogger } from '../logger.ts';
 import { createAuth, type TermdockAuth } from './auth.ts';
 import { type LockoutPolicy, LoginLockout } from './lockout.ts';
-import type { Argon2Params } from './password.ts';
 import { SetupToken } from './setup.ts';
 
 /** Everything the auth core needs, built once per process (lib/auth/server.ts) or per test. */

@@ -7,7 +7,8 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "start": "node src/main.ts",
-    "vault:rotate": "node src/cli/vault-rotate.ts"
+    "vault:rotate": "node src/cli/vault-rotate.ts",
+    "reset-password": "node src/cli/reset-password.ts"
   },
   "dependencies": {
     "@termdock/db": "workspace:*",

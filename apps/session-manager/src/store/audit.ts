@@ -1,8 +1,12 @@
 import { uuidv7 } from '@termdock/shared';
 import { execute, type Sqlite } from './sqlite.ts';
 
-/** Audit event types written by the daemon (plan §10.2; web writes the others). */
+/**
+ * Audit event types written by session-manager (plan §10.2; web writes the others): the daemon's
+ * own, and `auth.password_reset` from the `reset-password` CLI (plan D-36).
+ */
 export type DaemonAuditType =
+  | 'auth.password_reset'
   | 'credential.create'
   | 'credential.rename'
   | 'credential.delete'
@@ -20,7 +24,7 @@ export type DaemonAuditType =
 export interface AuditInput {
   type: DaemonAuditType;
   actorUserId: string | null;
-  targetType: 'credential' | 'server' | 'session';
+  targetType: 'credential' | 'server' | 'session' | 'user';
   /** Null only for a host-key event whose server is gone (the decision outlives servers). */
   targetId: string | null;
   /** Public data only (ids, key types, fingerprints, names, labels); never secret material. */

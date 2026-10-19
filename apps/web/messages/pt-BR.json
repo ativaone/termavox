@@ -1294,7 +1294,7 @@
         "auth_login_failure": "Falha no login",
         "auth_lockout": "Login bloqueado",
         "auth_password_change": "Senha alterada",
-        "auth_password_reset": "Senha redefinida pelo admin",
+        "auth_password_reset": "Senha redefinida",
         "auth_totp_enable": "Duas etapas ativada",
         "auth_totp_disable": "Duas etapas desativada",
         "auth_totp_reset": "Duas etapas redefinida pelo admin",

@@ -1294,7 +1294,7 @@
         "auth_login_failure": "Sign-in failed",
         "auth_lockout": "Sign-in locked",
         "auth_password_change": "Password changed",
-        "auth_password_reset": "Password reset by admin",
+        "auth_password_reset": "Password reset",
         "auth_totp_enable": "Two-step turned on",
         "auth_totp_disable": "Two-step turned off",
         "auth_totp_reset": "Two-step reset by admin",

@@ -22,6 +22,10 @@ The first release, v0.1.0, is being prepared.
 
 ### Added
 
+- `deploy/scripts/reset-password.sh <username>` sets a temporary password from the host when no
+  admin can sign in, for example when the only admin forgot their password. The user must choose
+  a new password at the next sign-in. The audit log now labels every reset "Password reset", and
+  its actor column says who did it.
 - Running behind your own reverse proxy (nginx, Traefik…) that terminates TLS: `TERMDOCK_TLS=off`
   serves plain HTTP, `TERMDOCK_BIND_ADDRESS` keeps the port on loopback, and
   `TERMDOCK_REVERSE_PROXY` names the proxy so each user's own address is still seen. The install

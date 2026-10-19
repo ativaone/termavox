@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_ARGON2_PARAMS, hashPassword, verifyPassword } from '../lib/auth/password.ts';
+import { DEFAULT_ARGON2_PARAMS, hashPassword, verifyPassword } from './password.ts';
 
 describe('argon2id password hashing', () => {
   it('hashes to a PHC string with the production parameters and verifies it', async () => {

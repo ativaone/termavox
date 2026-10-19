@@ -1,10 +1,9 @@
-import '../server-guard.ts';
 import { argon2, randomBytes, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 
 /**
- * argon2id password hashing for Better Auth (`emailAndPassword.password`), built on Node's
- * `crypto.argon2` (Node >= 24.7). Hashes are PHC strings, so each one carries the parameters it
+ * argon2id password hashing, built on Node's `crypto.argon2` (Node >= 24.7): web's Better Auth
+ * (`emailAndPassword.password`) and session-manager's `reset-password` CLI both use it. Hashes are PHC strings, so each one carries the parameters it
  * was made with and a later parameter change keeps verifying old hashes.
  */
 export interface Argon2Params {

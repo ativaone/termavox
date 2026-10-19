@@ -1,7 +1,13 @@
 import '../server-guard.ts';
 import type { TermdockDb } from '@termdock/db';
 import { schema } from '@termdock/db';
-import { uuidv7 } from '@termdock/shared';
+import {
+  type Argon2Params,
+  DEFAULT_ARGON2_PARAMS,
+  hashPassword,
+  uuidv7,
+  verifyPassword,
+} from '@termdock/shared';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { APIError, createAuthMiddleware, getIP, isAPIError } from 'better-auth/api';
@@ -14,12 +20,6 @@ import { findUserIdByUsername } from '../repo/admin-users.ts';
 import { insertAuditEvent } from '../repo/audit.ts';
 import { auditPlugin } from './audit-plugin.ts';
 import type { LoginLockout } from './lockout.ts';
-import {
-  type Argon2Params,
-  DEFAULT_ARGON2_PARAMS,
-  hashPassword,
-  verifyPassword,
-} from './password.ts';
 import { isTotpRequiredInstanceWide } from './queries.ts';
 import {
   type BanUser,
