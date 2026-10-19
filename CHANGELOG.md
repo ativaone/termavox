@@ -10,6 +10,10 @@ The first release, v0.1.0, is being prepared.
 
 ### Upgrade notes
 
+- `deploy/Caddyfile` gained the file panel's `/transfer/*` route. After `docker compose -f
+  deploy/compose.yaml up -d --build`, run `docker compose -f deploy/compose.yaml restart caddy`:
+  Caddy reads its Caddyfile only when it starts, and an unchanged Caddy container is not
+  recreated. Without it, uploads and downloads fail while browsing still works.
 - Behind your own reverse proxy, file panel uploads need it to pass request bodies of any size
   without buffering them: for nginx, add `client_max_body_size 0;`, `proxy_request_buffering off;`
   and `proxy_send_timeout 1h;` to the Termdock `location` (install guide, "Behind a reverse

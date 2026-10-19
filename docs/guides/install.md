@@ -351,7 +351,7 @@ Termdock is built from the source you check out, so an upgrade is: new source, n
    docker compose -f deploy/compose.yaml up -d --build
    ```
 
-   This rebuilds the images from the new source and recreates the containers that changed. Database migrations apply on their own when session-manager starts; there is no separate migration command. Your secrets in `deploy/secrets/` and `deploy/.env` are kept.
+   This rebuilds the images from the new source and recreates the containers that changed. Database migrations apply on their own when session-manager starts; there is no separate migration command. Your secrets in `deploy/secrets/` and `deploy/.env` are kept. When the new source changed `deploy/Caddyfile`, also run `docker compose -f deploy/compose.yaml restart caddy`: Caddy reads its Caddyfile only when it starts, and its container is not recreated for that.
 5. **Check it.** `docker compose -f deploy/compose.yaml ps` shows every service `healthy` after a minute; `docker compose -f deploy/compose.yaml logs session-manager` shows the migrations it applied, if any.
 6. **Optionally reclaim disk.** `docker image prune` removes the previous images.
 
