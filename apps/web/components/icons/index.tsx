@@ -316,12 +316,27 @@ export function SearchIcon(props: IconProps) {
   );
 }
 
-/** Collapse or expand the session sidebar (a panel with its left column). */
-export function PanelLeftIcon(props: IconProps) {
+/**
+ * Collapse the session sidebar: a panel with its left column and, inside the frame, a chevron
+ * pointing where the column goes (never a bare arrow, which would read as "back").
+ */
+export function PanelLeftCloseIcon(props: IconProps) {
   return (
     <Icon {...props}>
       <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
       <path d="M9.5 4.5v15" />
+      <path d="m16.25 9.5-2.5 2.5 2.5 2.5" />
+    </Icon>
+  );
+}
+
+/** Expand the session sidebar: the same panel with the chevron pointing out. */
+export function PanelLeftOpenIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+      <path d="M9.5 4.5v15" />
+      <path d="m13.75 9.5 2.5 2.5-2.5 2.5" />
     </Icon>
   );
 }

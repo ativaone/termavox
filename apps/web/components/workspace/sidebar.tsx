@@ -5,7 +5,13 @@ import type { ReactNode } from 'react';
 import type { Locale } from '../../i18n/locales.ts';
 import { ROUTES } from '../../lib/routes.ts';
 import type { BayData, BaySession } from '../../lib/sessions/types.ts';
-import { ActivityIcon, KeyIcon, PanelLeftIcon, ServerIcon } from '../icons/index.tsx';
+import {
+  ActivityIcon,
+  KeyIcon,
+  PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
+  ServerIcon,
+} from '../icons/index.tsx';
 import { cx } from '../ui/cx.ts';
 import { NavIcon, NavRow } from '../ui/nav-row.tsx';
 import { BrandTile, Wordmark } from '../ui/wordmark.tsx';
@@ -62,13 +68,14 @@ function ToggleButton({
         className,
       )}
     >
-      <PanelLeftIcon size={18} />
+      {rail ? <PanelLeftOpenIcon size={18} /> : <PanelLeftCloseIcon size={18} />}
     </button>
   );
 }
 
 /**
- * The session sidebar (plan D-28): the mark and the collapse toggle, New session, the sessions
+ * The session sidebar (plan D-28): the mark, New session with the collapse toggle after it
+ * (D-37: never beside the mark, in the same reading order in both modes), the sessions
  * grouped by state with "End all sessions…" at their foot (D-30), the management links and the
  * account row. As a rail it keeps the same things as icons and tiles, without End all. On a phone
  * it is the switcher screen, full width.
@@ -150,8 +157,8 @@ export function Sidebar({
           <span className="flex h-10 items-center">
             <BrandTile />
           </span>
-          <ToggleButton rail onClick={() => onModeChange('expanded')} />
           <NewSessionButton disabled={serverCount === 0} compact />
+          <ToggleButton rail onClick={() => onModeChange('expanded')} />
         </div>
         <div id={SESSION_LIST_ID} className="min-h-0 flex-1 overflow-y-auto px-1.5 pt-1 pb-3">
           {list}
@@ -178,11 +185,6 @@ export function Sidebar({
       {/* The head and the foot ride above a sliding row (globals.css, sidebar-head/foot). */}
       <div className="flex flex-col gap-3 px-3 pt-3 pb-2 [view-transition-name:sidebar-head]">
         <div className="flex h-10 items-center gap-1">
-          <ToggleButton
-            rail={false}
-            onClick={() => onModeChange('rail')}
-            className="max-md:hidden"
-          />
           <Wordmark className="ps-1 md:ps-0" />
           <span className="flex-1" />
           <span className="md:hidden">
@@ -195,7 +197,16 @@ export function Sidebar({
             />
           </span>
         </div>
-        <NewSessionButton disabled={serverCount === 0} />
+        <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <NewSessionButton disabled={serverCount === 0} />
+          </div>
+          <ToggleButton
+            rail={false}
+            onClick={() => onModeChange('rail')}
+            className="max-md:hidden"
+          />
+        </div>
       </div>
 
       <div id={SESSION_LIST_ID} className="min-h-0 flex-1 overflow-y-auto px-3 pt-1 pb-3">
