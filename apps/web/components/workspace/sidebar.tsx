@@ -74,8 +74,9 @@ function ToggleButton({
 }
 
 /**
- * The session sidebar (plan D-28): the mark, New session with the collapse toggle after it
- * (D-37: never beside the mark, in the same reading order in both modes), the sessions
+ * The session sidebar (plan D-28): the mark, New session and the collapse toggle on its own row
+ * under it (D-38: the head's rows keep their heights in both modes, so the toggle stays exactly
+ * where it was and the pointer stays on it), the sessions
  * grouped by state with "End all sessions…" at their foot (D-30), the management links and the
  * account row. As a rail it keeps the same things as icons and tiles, without End all. On a phone
  * it is the switcher screen, full width.
@@ -153,12 +154,17 @@ export function Sidebar({
         data-sidebar="rail"
         className="flex w-(--rail-width) shrink-0 flex-col items-center"
       >
-        <div className="flex flex-col items-center gap-1.5 pt-3 pb-2 [view-transition-name:sidebar-head]">
+        {/* The same rows as the expanded head (mark, New session, toggle), at the same heights. */}
+        <div className="flex flex-col items-center gap-3 pt-3 pb-2 [view-transition-name:sidebar-head]">
           <span className="flex h-10 items-center">
             <BrandTile />
           </span>
-          <NewSessionButton disabled={serverCount === 0} compact />
-          <ToggleButton rail onClick={() => onModeChange('expanded')} />
+          <div className="flex flex-col items-center gap-1">
+            <span className="flex h-11 items-center">
+              <NewSessionButton disabled={serverCount === 0} compact />
+            </span>
+            <ToggleButton rail onClick={() => onModeChange('expanded')} />
+          </div>
         </div>
         <div id={SESSION_LIST_ID} className="min-h-0 flex-1 overflow-y-auto px-1.5 pt-1 pb-3">
           {list}
@@ -197,14 +203,15 @@ export function Sidebar({
             />
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="min-w-0 flex-1">
+        <div className="flex flex-col gap-1">
+          <div className="flex h-11 items-center">
             <NewSessionButton disabled={serverCount === 0} />
           </div>
+          {/* Pulled 2 px out to the rail's centred column, so collapsing never moves it. */}
           <ToggleButton
             rail={false}
             onClick={() => onModeChange('rail')}
-            className="max-md:hidden"
+            className="-ms-0.5 max-md:hidden"
           />
         </div>
       </div>
