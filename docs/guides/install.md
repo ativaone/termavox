@@ -187,7 +187,7 @@ map $http_upgrade $connection_upgrade {
 
 server {
     listen 443 ssl;
-    http2 on;
+    # HTTP/2 is optional: `http2 on;` needs nginx 1.25.1 or newer (older ones fail on it).
     server_name termdock.example.com;
 
     ssl_certificate     /etc/letsencrypt/live/termdock.example.com/fullchain.pem;
