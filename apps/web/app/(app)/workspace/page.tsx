@@ -12,6 +12,7 @@ import { listServers } from '../../../lib/repo/servers.ts';
 import { listBaySessions } from '../../../lib/repo/sessions.ts';
 import { ROUTES } from '../../../lib/routes.ts';
 import { formatTarget } from '../../../lib/servers/target.ts';
+import { VERSION } from '../../../lib/version.ts';
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('meta');
@@ -45,6 +46,7 @@ export default async function WorkspacePage() {
       renderedAt={Date.now()}
       username={user.username ?? user.name}
       locale={isLocale(locale) ? locale : 'en'}
+      version={VERSION}
       workspaceHref={ROUTES.workspace}
       serversHref={ROUTES.servers}
       addServerHref={withReturnPath(ROUTES.addServer, ROUTES.workspace)}

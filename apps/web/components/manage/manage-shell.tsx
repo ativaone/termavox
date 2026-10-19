@@ -2,6 +2,7 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import type { ReactNode } from 'react';
 import { isLocale } from '../../i18n/locales.ts';
 import { ROUTES } from '../../lib/routes.ts';
+import { VERSION } from '../../lib/version.ts';
 import { HelpButton } from '../help-links.tsx';
 import {
   ActivityIcon,
@@ -70,6 +71,7 @@ export async function ManageShell({
               username={username}
               isAdmin={isAdmin}
               locale={current}
+              version={VERSION}
               compact
               placement="below"
             />
@@ -83,7 +85,12 @@ export async function ManageShell({
           <span className="flex-1" />
           <div className="flex items-center gap-1 border-line border-t pt-2">
             <div className="min-w-0 flex-1">
-              <AccountMenu username={username} isAdmin={isAdmin} locale={current} />
+              <AccountMenu
+                username={username}
+                isAdmin={isAdmin}
+                locale={current}
+                version={VERSION}
+              />
             </div>
             <HelpButton />
           </div>

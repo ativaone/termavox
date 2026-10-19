@@ -44,6 +44,8 @@ The first release, v0.1.0, is being prepared.
   do. "Learn more" links in the reconnecting, disconnected and ended panels, the server-restarted
   notice, the tmux tip, host-key prompts, the file panel and the server page open it at the right
   section. The account menu links to the source code on GitHub.
+- The running version, at the foot of the account menu for signed-in users and logged once by
+  web and session-manager at startup; the user help says to include it when reporting a problem.
 - A Files panel inside a session's pane, beside its terminal: browse the server as the session's
   user, upload and download several files at once with progress bars, rename, delete, create
   folders, show hidden files and refresh. It uses the session's own SSH connection (SFTP), so it

@@ -35,14 +35,17 @@ const MENU_WIDTH = 248;
 /**
  * The account menu (plan D-28): the user's name with a gear opens settings (account, terminal,
  * and "Language…", which opens the language dialog), Admin for administrators, and Sign out,
- * then a smaller, quieter row to the source code on GitHub in a new tab (plan D-40). A native
- * popover, placed above or below its control; sign-out stays a form post. `compact` shows the
- * avatar alone (the rail, the phone header).
+ * then a smaller, quieter row to the source code on GitHub in a new tab (plan D-40) and, under it,
+ * the running version as plain text (not a menu item). A native popover, placed above or below its
+ * control; sign-out stays a form post. `compact` shows the avatar alone (the rail, the phone
+ * header). `version` comes from a server component that required a session (lib/version.ts), so
+ * it never reaches a signed-out visitor.
  */
 export function AccountMenu({
   username,
   isAdmin,
   locale,
+  version,
   compact = false,
   placement = 'above',
   className,
@@ -50,6 +53,8 @@ export function AccountMenu({
   username: string;
   isAdmin: boolean;
   locale: Locale;
+  /** The running Termdock version, shown at the menu's foot. */
+  version: string;
   compact?: boolean;
   /** Preferred side; the menu flips when there is no room. */
   placement?: 'above' | 'below';
@@ -158,6 +163,13 @@ export function AccountMenu({
             </span>
             <ExternalLinkIcon size={12} className="shrink-0" />
           </a>
+          {/* Information, not an action: never focused, aligned with the text of the row above. */}
+          <p role="presentation" className="ps-9 pe-2.5 pt-0.5 pb-1.5 text-ink-muted text-xs">
+            {t.rich('version', {
+              version,
+              data: (chunks) => <span className="font-data">{chunks}</span>,
+            })}
+          </p>
         </div>
       </MenuPopover>
       <LanguageDialog dialogRef={languageRef} locale={locale} />

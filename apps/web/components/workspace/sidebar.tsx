@@ -30,6 +30,8 @@ export interface SidebarProps {
   username: string;
   isAdmin: boolean;
   locale: Locale;
+  /** The running Termdock version, for the account menu's foot. */
+  version: string;
   serverCount: number;
   data: BayData;
   followedId: string | null;
@@ -87,6 +89,7 @@ export function Sidebar({
   username,
   isAdmin,
   locale,
+  version,
   serverCount,
   data,
   followedId,
@@ -176,7 +179,13 @@ export function Sidebar({
             <NavIcon key={item.href} href={item.href} icon={item.icon} label={item.label} />
           ))}
           <HelpButton />
-          <AccountMenu username={username} isAdmin={isAdmin} locale={locale} compact />
+          <AccountMenu
+            username={username}
+            isAdmin={isAdmin}
+            locale={locale}
+            version={version}
+            compact
+          />
         </div>
       </aside>
     );
@@ -202,6 +211,7 @@ export function Sidebar({
               username={username}
               isAdmin={isAdmin}
               locale={locale}
+              version={version}
               compact
               placement="below"
             />
@@ -243,7 +253,7 @@ export function Sidebar({
         </nav>
         <div className="flex items-center gap-1 max-md:hidden">
           <div className="min-w-0 flex-1">
-            <AccountMenu username={username} isAdmin={isAdmin} locale={locale} />
+            <AccountMenu username={username} isAdmin={isAdmin} locale={locale} version={version} />
           </div>
           <HelpButton />
         </div>

@@ -265,7 +265,8 @@
       "accountSettings": "Account settings",
       "terminalSettings": "Terminal settings",
       "language": "Language…",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "version": "Termdock <data>{version}</data>"
     },
     "rename": {
       "title": "Rename session",

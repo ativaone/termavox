@@ -101,6 +101,8 @@ export interface WorkspaceShellProps {
   renderedAt: number;
   username: string;
   locale: Locale;
+  /** The running Termdock version (lib/version.ts), for the account menu's foot. */
+  version: string;
   workspaceHref: string;
   serversHref: string;
   /** The Add server form, carrying the way back to the workspace (plan D-27). */
@@ -263,6 +265,7 @@ export function WorkspaceShell({
   renderedAt,
   username,
   locale,
+  version,
   workspaceHref,
   serversHref,
   addServerHref,
@@ -828,6 +831,7 @@ export function WorkspaceShell({
           username={username}
           isAdmin={isAdmin}
           locale={locale}
+          version={version}
           serverCount={serverCount}
           data={bay}
           followedId={followedId}
