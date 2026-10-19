@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { FileRequest, FileResult, TransferState } from '../files.ts';
 import { Protection, SessionState, SessionStatus } from '../session-state.ts';
 
 export const PROTOCOL_VERSION = 1;
@@ -50,6 +51,17 @@ export const ClientMessage = z.discriminatedUnion('type', [
     promptId: id,
     answers: z.array(z.string().max(4096)).max(16),
   }),
+  /** File panel (plan §5.12): answered by one `files.result` with the same `requestId`. */
+  z.object({
+    type: z.literal('files.request'),
+    requestId: id,
+    sessionId: id,
+    request: FileRequest,
+  }),
+  /** Stops a request still running (a `remove`): its result is CANCELLED. */
+  z.object({ type: z.literal('files.cancel'), requestId: id }),
+  /** Stops an upload or a download, or voids its URL if it has not been used yet. */
+  z.object({ type: z.literal('transfer.cancel'), transferId: id }),
   z.object({ type: z.literal('ping'), t: z.number() }),
 ]);
 export type ClientMessage = z.infer<typeof ClientMessage>;
@@ -191,13 +203,40 @@ export const ServerMessage = z.discriminatedUnion('type', [
     channel: channel.optional(),
     sessionId: id.optional(),
   }),
+  /** Exactly one of `result` and `error` (plan §5.12). */
+  z.object({
+    type: z.literal('files.result'),
+    requestId: id,
+    result: FileResult.optional(),
+    error: z.object({ code: z.string(), message: z.string() }).optional(),
+  }),
+  /** A `remove` in progress: entries removed so far (at most about four per second). */
+  z.object({
+    type: z.literal('files.progress'),
+    requestId: id,
+    removed: z.number().int().nonnegative(),
+  }),
+  /**
+   * An upload or download minted by this connection: bytes written to the server (upload) or sent
+   * to the browser (download) so far. Sent when it starts, at most about four per second while it
+   * runs, and once when it ends (`code` with `failed`).
+   */
+  z.object({
+    type: z.literal('transfer.progress'),
+    transferId: id,
+    bytes: z.number().int().nonnegative(),
+    size: z.number().int().nonnegative(),
+    state: TransferState,
+    code: z.string().optional(),
+  }),
   z.object({ type: z.literal('pong'), t: z.number() }),
 ]);
 export type ServerMessage = z.infer<typeof ServerMessage>;
 
 /**
  * Parses a text frame. Unknown message types are ignored (returns null) so additive
- * protocol changes stay compatible within v1; malformed known types throw.
+ * protocol changes stay compatible within v1; malformed known types throw, including a known
+ * type whose nested union (a file request's `op`) has a value this side does not know.
  */
 export function parseClientMessage(raw: string): ClientMessage | null {
   return parseWith(ClientMessage, raw);
@@ -215,7 +254,10 @@ function parseWith<T>(schema: z.ZodType<T>, raw: string): T | null {
     typeof json === 'object' &&
     json !== null &&
     'type' in json &&
-    result.error.issues.every((issue) => issue.code !== 'invalid_union');
+    !result.error.issues.some(
+      (issue) =>
+        issue.code === 'invalid_union' && issue.path.length === 1 && issue.path[0] === 'type',
+    );
   if (!isKnownType) return null;
   throw result.error;
 }

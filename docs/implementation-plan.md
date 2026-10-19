@@ -46,7 +46,7 @@ It is conceptually close to Apache Guacamole, but structured differently: SSH on
 
 ### 1.2 MVP non-goals
 
-Other protocols (RDP/VNC); Agent mode (outbound agent on target servers); RBAC and sharing hosts/sessions between users; terminal recording; HA/multi-instance; jump hosts (ProxyJump); SSH agent forwarding; SFTP/file transfer; SSO/OIDC; passkeys. All of these are in the roadmap (§18).
+Other protocols (RDP/VNC); Agent mode (outbound agent on target servers); RBAC and sharing hosts/sessions between users; terminal recording; HA/multi-instance; jump hosts (ProxyJump); SSH agent forwarding; SSO/OIDC; passkeys. All of these are in the roadmap (§18). File transfer left this list with D-39 (§5.12).
 
 ---
 
@@ -94,6 +94,7 @@ Other protocols (RDP/VNC); Agent mode (outbound agent on target servers); RBAC a
 | D-36 | **Operator password reset.** When no admin can sign in (the only admin forgot their password), `deploy/scripts/reset-password.sh <username>` runs session-manager's `reset-password` CLI in the running container. It does what an admin's reset does: a generated temporary password printed once, a forced change at the next sign-in, every sign-in of the user ended and their WebSockets closed, an `auth.password_reset` audit row (no actor, `via: operator`). Any user, not only admins: whoever runs Docker on the host already holds the database and the master key, so a narrower rule would protect nothing. `--reset-totp` also does what an admin's TOTP reset does (authenticator, backup codes and trusted devices removed, `auth.totp_reset`), for a user who lost the authenticator and the backup codes too; without it TOTP stays on. The argon2id hashing moved to `@termdock/shared` and the TOTP reset to `@termdock/db`, so web and the CLI share one implementation of each. | Owner, 2026-10-18 |
 | D-37 | *(The toggle's place superseded by D-38 on 2026-10-19; the glyph stands.)* **The sidebar toggle leaves the mark's row.** The owner found the collapse toggle wrong beside the Termdock mark, whose `>_` glyph already reads like a chevron, and saw it jump below the mark in the rail. It now ends the New session row in the expanded sidebar and sits under the round New session button in the rail, so the reading order is mark, New session, toggle in both modes; the mark stands alone on its row. Its glyph says what a click does: the panel with its left column and a chevron inside the frame, pointing in to collapse and out to expand (never a bare arrow, which reads as "back"). Supersedes D-28's "toggle at its left". | Owner, 2026-10-19 |
 | D-38 | **The sidebar toggle has its own row and never moves.** At the end of the New session row it still sat beside New session when expanded and under the round button in the rail, so it changed place with every click. It now has its own row under New session in both modes, and the head's rows (mark, New session, toggle) keep the same heights in both, so the toggle is drawn at exactly the same spot expanded and collapsed: the pointer stays on it and a second click undoes the first. The glyph of D-37 stays. Supersedes D-37's placement. | Owner, 2026-10-19 |
+| D-39 | **A file panel per session (SFTP), superseding the §1.2 non-goal "SFTP/file transfer".** Operators need to move files to and from the servers they work on. A session's pane can open a **Files** panel beside its terminal, inside the same pane (not a split): it browses that session's server as the session's user, with upload and download of several files at once (each with a progress bar), rename, delete, new folder, a hidden-files toggle and refresh. **It runs over the session's own SSH connection** (an SFTP channel on it), so it works wherever the terminal does, including servers that ask for a password or a code at sign-in, and only while the session is connected. **One download per file** (no archive). The toggle lives on the pane it opens: in the tab row for a tab with one pane, in each pane's caption in a split, in the header on a phone (full screen). The panel opens at the terminal's folder when tmux protects the session, at home otherwise, and keeps no state across reloads. When the server offers no SFTP, the panel says what to enable there; Termdock never installs anything on it (D-10). Instance settings: **file transfer** (on by default) and **file operations in the activity log** (off by default). Out of scope for now: folder download, chmod, creating links. Specification: §5.12. | Owner, 2026-10-19 |
 
 ### 2.2 Technical decisions (orchestrator; reversible, with rationale)
 
@@ -538,6 +539,38 @@ Version strings like `next-3.9`, `openbsd-7.6` and `3.4a` must parse (iTerm2 les
 | `yes` | `yes`, and `systemd-run` present | `systemd-run --user --scope --quiet <tmux …>`, so the tmux server escapes the login-session scope |
 | `yes` | `yes`, but `systemd-run` absent | **No reliable protection** (linger does not protect processes inside the login-session scope): same warning as the next row. |
 | `yes` | `no` | **No reliable protection.** The session still runs `tmux-control`, but the UI and host diagnostics show the warning "remote may kill tmux on disconnect — enable linger". Protection is never claimed silently. |
+
+### 5.12 File panel (D-39)
+
+A session's pane can show the files of its server beside the terminal. Everything runs as the session's user, over an **SFTP channel on the session's own SSH connection**: no second sign-in (servers that prompt for a password or a code work as the terminal does), nothing installed on the server, and no file panel while the session is not connected. Local sessions (D-15) have none until their transport gets a file-system adapter. Schemas: `packages/protocol/src/files.ts`.
+
+**Channel.** The runtime opens the SFTP channel on first use (`FileHost.sftp()`, implemented by `SessionRuntime`) and reuses it while the connection lives; a lost connection, a reconnect or the end of the session drops it, and the file service closes it after 5 minutes without requests or transfers. A server that refuses the `sftp` subsystem (or whose sftp-server exits at once) answers `SFTP_UNAVAILABLE`; the panel then explains what to enable on the server (`Subsystem sftp internal-sftp` in `sshd_config`, then reload sshd). A session that is not `ready` answers `SESSION_NOT_CONNECTED`.
+
+**Requests (WebSocket).** Metadata travels over the tab's WebSocket as `files.request { requestId, sessionId, request }`, answered by exactly one `files.result { requestId, result | error }` (§7.3). The daemon checks ownership like an attach, never awaits a file request inside the connection's message queue (a slow listing must not delay keystrokes), and allows 8 in flight per connection (`RATE_LIMITED` beyond). Operations:
+
+| `op` | Does | Result |
+|---|---|---|
+| `open` | — | `home` (SFTP `realpath .`), `cwd`: the terminal's folder (`#{pane_current_path}` in `tmux-control`, §6.13), null in `none` |
+| `list` | `realpath` then `readdir`; links get a `stat` for their target and a `readlink` | canonical `path`, `entries` (lstat view), `truncated` beyond 10 000 entries |
+| `mkdir` | refuses an existing name (`CONFLICT`) | the new entry |
+| `rename` | refuses an existing target (`CONFLICT`); never replaces | the entry at its new path |
+| `remove` | depth first, `lstat` only: a link is removed as a link, never followed; `files.progress { removed }` while it runs; `files.cancel` stops it (`CANCELLED`) | `removed` (nested entries included) |
+| `upload` | checks the name; without `overwrite`, an existing name is `CONFLICT`; mints a URL | `transferId`, `url` |
+| `download` | the path must be a file (links followed); mints a URL | `transferId`, `url`, `name`, `size` |
+
+Names follow `fileNameProblem` (non-empty, not `.`/`..`, no `/` or NUL, at most 255 UTF-8 bytes; `NAME_INVALID`). SFTP statuses map to `NOT_FOUND` (no such file), `PERMISSION_DENIED`, and `FILE_OP_FAILED` (generic failure, with the server's message cleaned and capped); a connection that drops mid-request is `SESSION_NOT_CONNECTED`.
+
+**Transfers (HTTP).** Bytes never go over the WebSocket: its queue would hold keystrokes behind a file, and frames are capped at 1 MiB. Caddy forwards `/transfer/*` to session-manager's `:3001` listener, beside `/ws` (§4.3). An `upload` or `download` request mints a **single-use URL** valid 60 s (`/transfer/upload/<token>`, `/transfer/download/<token>`; 32 random bytes), bound to the user, the auth session, the session, the direction and the path; the daemon re-validates the auth session when the URL is used, and revoking it (sign-out, password change, ban) cancels the user's transfers and voids unused URLs.
+
+- **Upload:** `POST` with the raw bytes (one file per request). `Origin` must be the public origin. The daemon writes a temporary file in the target folder (`.<name>.td-<random>.part`, created exclusively), then renames it into place: a failed or cancelled upload leaves no partial file. **Replace** keeps the old file's permission bits and is atomic where the server offers `posix-rename@openssh.com` (OpenSSH); elsewhere the old file is removed first. The answer is `{ entry }` or `{ code, message }`.
+- **Download:** a plain `GET` the browser's own download manager handles (any size, phones included). `Sec-Fetch-Site`, when sent, must be `same-origin` or `none`. Headers: `Content-Type: application/octet-stream`, `Content-Disposition: attachment` with an RFC 6266/5987 file name, `Content-Length` from the size at open time (exactly that many bytes are sent, so a growing log still ends cleanly), `X-Content-Type-Options: nosniff`, `Content-Security-Policy: sandbox; default-src 'none'`, `Cache-Control: no-store`. A downloaded HTML file can never run as a Termdock page.
+- **Progress:** `transfer.progress { transferId, bytes, size, state }` to the connection that minted the URL: at the start, at most four per second, and at the end. It counts bytes written to the server (upload) or sent towards the browser (download), so a buffering proxy cannot make a bar run ahead. `transfer.cancel` stops a transfer or voids an unused URL.
+- **Throughput.** ssh2's SFTP streams keep one request in flight (about 650 KiB/s at 50 ms of latency), so the daemon pipelines its own reads and writes: 32 KiB requests, at most 16 in flight per transfer. The window is bounded on purpose: a transfer shares the TCP connection with the session's keystrokes.
+- **Limits:** 6 transfers per user at once (`RATE_LIMITED`); an upload that sends nothing for 60 s is cancelled; the listener's Node request timeout is off for these routes (an upload may take hours). Streams only: nothing is spooled to the daemon's disk or held in memory beyond the window.
+
+**Settings and audit.** Two web-owned instance settings, read by the daemon: `file_transfer_enabled` (default true; false: every request is `FILES_DISABLED` and the workspace hides the toggle) and `file_audit_enabled` (default false). With the audit on, the daemon writes `file.upload` and `file.download` (path, size), `file.mkdir`, `file.rename` (from, to) and `file.remove` (paths, count) to `audit_events`, with the client's address and user agent; file contents are never logged.
+
+**UI.** The toggle lives on the pane it opens (D-39): the tab row's **Files** button for a tab with one pane, a folder button in each pane caption of a split, a button in the phone's pane header. The panel docks at the pane's trailing edge (resizable; when the pane cannot keep a usable terminal beside it, the panel covers that pane's terminal instead), so opening it resizes that session only. On a phone it is a full-screen view with the way back to the terminal. Open state, width, folder and the hidden-files toggle live in the browser tab only (no persistence). Uploads (several files, from the picker or dropped on the panel) and downloads (several files, one browser download each) run two at a time per browser tab and keep running when the panel closes; a name already in the folder asks once: replace, keep both (`name (1).ext`) or skip. Delete is always confirmed. Components and states: `apps/web/DESIGN.md`, "File panel".
 
 ---
 
@@ -1530,7 +1563,8 @@ Each session runs in its own detached **session host** process (`termdock-sessio
 - Secret backends: HashiCorp Vault, AWS/GCP/Azure secret managers / KMS-wrapped KEK.
 - SSO/OIDC, passkeys (WebAuthn).
 - Optional encrypted periodic checkpoints of unprotected emulators (restore the last screen read-only after a restart).
-- Per-attachment "lock size" and "follow" modes; notifications (bell/activity/command finished); SFTP/file transfer; a CLI client attaching over the same protocol; emulator memory compaction for idle sessions.
+- Per-attachment "lock size" and "follow" modes; notifications (bell/activity/command finished); a CLI client attaching over the same protocol; emulator memory compaction for idle sessions.
+- File panel follow-ups (§5.12): folder download (an archive), folder upload, permissions (chmod), creating links, file editing.
 
 ---
 

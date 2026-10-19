@@ -30,6 +30,20 @@ export const ErrorCode = {
   RetriesStopped: 'RETRIES_STOPPED',
   /** A session label is empty or longer than 120 characters once cleaned and trimmed. */
   LabelInvalid: 'LABEL_INVALID',
+  /** File panel (plan §5.12): the session is not connected, so it has no SFTP channel. */
+  SessionNotConnected: 'SESSION_NOT_CONNECTED',
+  /** The server refused the SFTP subsystem (sshd without `Subsystem sftp`). */
+  SftpUnavailable: 'SFTP_UNAVAILABLE',
+  /** An administrator turned file transfer off (instance setting `file_transfer_enabled`). */
+  FilesDisabled: 'FILES_DISABLED',
+  /** The server refused a file operation for lack of permission (SFTP PERMISSION_DENIED). */
+  PermissionDenied: 'PERMISSION_DENIED',
+  /** A file or folder name is empty, `.`/`..`, holds `/` or NUL, or exceeds 255 UTF-8 bytes. */
+  NameInvalid: 'NAME_INVALID',
+  /** The server failed a file operation without a more precise status (SFTP FAILURE). */
+  FileOpFailed: 'FILE_OP_FAILED',
+  /** The user cancelled a file request or a transfer. */
+  Cancelled: 'CANCELLED',
   Internal: 'INTERNAL',
 } as const;
 

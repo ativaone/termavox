@@ -1,3 +1,4 @@
+export * from './files.ts';
 export * from './internal-api.ts';
 export * from './layout.ts';
 export * from './session-state.ts';

@@ -11,6 +11,8 @@ PermitEmptyPasswords no
 KbdInteractiveAuthentication no
 X11Forwarding no
 AllowTcpForwarding no
+# The file panel (plan §5.12) needs SFTP; internal-sftp is built into sshd (no package).
+Subsystem sftp internal-sftp
 PrintMotd no
 PrintLastLog no
 LogLevel VERBOSE
