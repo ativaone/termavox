@@ -6,7 +6,7 @@
  */
 
 /** Width a panel opens at, the narrowest it gets, and what a docked panel leaves the terminal. */
-export const PANEL_DEFAULT_WIDTH = 380;
+export const PANEL_DEFAULT_WIDTH = 440;
 export const PANEL_MIN_WIDTH = 300;
 export const TERMINAL_MIN_WIDTH = 320;
 /** The draggable gap between the terminal and a docked panel. */
@@ -23,7 +23,8 @@ export interface PaneFilesState {
 }
 
 export function closedState(sessionId: string): PaneFilesState {
-  return { sessionId, open: false, width: PANEL_DEFAULT_WIDTH, path: null, showHidden: false };
+  // Hidden files show by default: on servers, dot-files are often the ones being looked for.
+  return { sessionId, open: false, width: PANEL_DEFAULT_WIDTH, path: null, showHidden: true };
 }
 
 export class PaneFilesStore {

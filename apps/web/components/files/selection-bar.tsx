@@ -7,8 +7,10 @@ import { cx } from '../ui/cx.ts';
 
 /**
  * What can be done with the selection: Download (files and links to files), Rename (exactly one
- * entry) and Delete (always confirmed), with the count and a way to clear it. A lit
- * `accent-soft` strip, the selection's colour; on a phone it sits at the bottom, 44 px controls.
+ * entry) and Delete (always confirmed), as labelled buttons, with the count and a way to clear
+ * it. A lit `accent-soft` strip, the selection's colour. One row where the panel is wide enough;
+ * narrower, the count and Clear stay on the first row and the actions take the second, so no
+ * label is cut. On a phone it sits at the bottom, always in two rows, with 44 px controls.
  */
 export function SelectionBar({
   count,
@@ -30,66 +32,68 @@ export function SelectionBar({
   onClear(): void;
 }) {
   const t = useTranslations('files.selection');
-  const size = phone ? 'lg' : 'sm';
-  const iconSize = phone ? 20 : 15;
+  const iconSize = phone ? 18 : 15;
+  // Small type at the 44 px touch height on a phone, sharing the row's width.
+  const action = phone ? 'h-11 flex-1' : undefined;
   return (
     <div
       role="toolbar"
       aria-label={t('count', { count })}
       className={cx(
-        'flex shrink-0 items-center gap-1 rounded-control bg-accent-soft',
-        phone ? 'mx-3 mt-2 mb-3 gap-1.5 p-1.5 ps-3' : 'mx-2.5 mb-2 p-1 ps-3',
+        'grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1 rounded-control bg-accent-soft',
+        phone ? 'mx-3 mt-2 mb-3 gap-y-1.5 p-1.5 ps-3' : 'mx-2.5 mb-2 p-1 ps-3 @min-[30rem]:flex',
       )}
     >
       <span
         className={cx(
-          'min-w-0 flex-1 truncate font-semibold tabular-nums',
+          'col-start-1 row-start-1 min-w-0 flex-1 truncate font-semibold tabular-nums',
           phone ? 'text-base' : 'text-sm',
         )}
         aria-live="polite"
       >
         {t('count', { count })}
       </span>
-      <Button
-        variant="secondary"
-        size={size}
-        disabled={!canDownload}
-        onClick={onDownload}
-        icon={<DownloadIcon size={iconSize} />}
-        title={t('download')}
-        className="@max-[23rem]:w-8 @max-[23rem]:px-0"
-      >
-        <span className={phone ? 'sr-only' : '@max-[23rem]:sr-only'}>{t('download')}</span>
-      </Button>
+      <div className="col-span-2 row-start-2 flex items-center gap-1">
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={!canDownload}
+          onClick={onDownload}
+          icon={<DownloadIcon size={iconSize} />}
+          className={action}
+        >
+          {t('download')}
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={!canRename}
+          onClick={onRename}
+          icon={<PencilIcon size={iconSize} />}
+          className={action}
+        >
+          {t('rename')}
+        </Button>
+        <Button
+          variant="destructive"
+          size="sm"
+          isolated={false}
+          onClick={onDelete}
+          icon={<TrashIcon size={iconSize} />}
+          className={cx(action, 'ms-1')}
+        >
+          {t('delete')}
+        </Button>
+      </div>
       <Button
         variant="quiet"
-        size={size}
-        iconOnly
-        disabled={!canRename}
-        onClick={onRename}
-        aria-label={t('rename')}
-        title={t('rename')}
-        icon={<PencilIcon size={iconSize} />}
-      />
-      <Button
-        variant="destructive"
-        size={size}
-        iconOnly
-        isolated={false}
-        onClick={onDelete}
-        aria-label={t('delete')}
-        title={t('delete')}
-        icon={<TrashIcon size={iconSize} />}
-        className={phone ? 'ms-3' : 'ms-2'}
-      />
-      <Button
-        variant="quiet"
-        size={size}
+        size={phone ? 'lg' : 'sm'}
         iconOnly
         onClick={onClear}
         aria-label={t('clear')}
         title={t('clear')}
-        icon={<CloseIcon size={iconSize} />}
+        icon={<CloseIcon size={phone ? 20 : 15} />}
+        className="col-start-2 row-start-1"
       />
     </div>
   );

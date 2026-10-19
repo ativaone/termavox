@@ -152,7 +152,7 @@ describe('file panel per pane', () => {
     store.toggle('p1', 's1');
     store.update('p1', 's1', { path: '/srv', showHidden: true });
     const state = store.get('p1', 's1');
-    expect(state).toMatchObject({ open: true, path: '/srv', showHidden: true, width: 380 });
+    expect(state).toMatchObject({ open: true, path: '/srv', showHidden: true, width: 440 });
     store.update('p1', 's1', { path: '/srv' });
     expect(store.get('p1', 's1')).toBe(state); // nothing changed: same snapshot
     expect(calls).toBe(2);

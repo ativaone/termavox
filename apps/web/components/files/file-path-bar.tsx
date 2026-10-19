@@ -76,7 +76,9 @@ export function FilePathBar({
 
   const height = phone ? 'h-11' : 'h-8';
   return (
-    <div className={cx('flex shrink-0 flex-col gap-1', phone ? 'px-3 pt-2.5 pb-2' : 'px-2.5 pb-2')}>
+    <div
+      className={cx('flex shrink-0 flex-col gap-1', phone ? 'px-3 pt-2.5 pb-2' : 'px-2.5 pt-2.5')}
+    >
       <div className="flex items-center gap-1.5">
         <Button
           variant="secondary"

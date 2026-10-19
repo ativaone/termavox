@@ -98,7 +98,7 @@ export const FilePanel = memo(function FilePanel({
   const target = session ? sessionTarget(session, tw('localTarget')) : '';
   const tabOnline = connectionState.status === 'open';
   const available = tabOnline && session?.state === 'ready';
-  const showHidden = usePaneFilesField(paneId, sessionId, (pane) => pane?.showHidden ?? false);
+  const showHidden = usePaneFilesField(paneId, sessionId, (pane) => pane?.showHidden ?? true);
   const rememberedPath = usePaneFilesField(paneId, sessionId, (pane) => pane?.path ?? null);
   const files = useMemo(() => sessionFiles(connection, sessionId), [connection, sessionId]);
 
@@ -472,17 +472,9 @@ export const FilePanel = memo(function FilePanel({
         </div>
       )}
 
-      {phone ? (
-        <>
-          {pathBar}
-          {toolbar}
-        </>
-      ) : (
-        <>
-          {toolbar}
-          {pathBar}
-        </>
-      )}
+      {/* Navigation always on top, then the actions, then what the selection can do. */}
+      {pathBar}
+      {toolbar}
 
       {deleting ? (
         <div

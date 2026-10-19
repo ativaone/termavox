@@ -12,9 +12,10 @@ const PRESSED =
   'aria-pressed:bg-accent-soft aria-pressed:text-accent aria-pressed:shadow-[inset_0_0_0_1px_var(--color-accent-ring)]';
 
 /**
- * The panel's actions: Upload (the one primary, a multi-file picker), New folder, then the
- * terminal's folder, the hidden-files toggle and Refresh. Icon-only controls carry their name
- * as a label and a tooltip. On a phone every control is 44 px and Upload takes the spare width.
+ * The panel's actions, under the path bar: Upload (a multi-file picker) and New folder as
+ * secondary buttons, like the path bar's Up, then the terminal's folder, the hidden-files toggle
+ * and Refresh. Icon-only controls carry their name as a label and a tooltip. On a phone every
+ * control is 44 px tall; New folder folds to its icon only where the row cannot hold its label.
  */
 export function FileToolbar({
   phone,
@@ -43,18 +44,18 @@ export function FileToolbar({
   const t = useTranslations('files.toolbar');
   const picker = useRef<HTMLInputElement>(null);
   const size = phone ? 'lg' : 'sm';
-  const iconSize = phone ? 20 : 16;
+  const iconSize = phone ? 18 : 16;
   const quiet = phone ? 'secondary' : 'quiet';
+  // The labelled buttons keep the small type and padding on a phone (both labels and the three
+  // icons fit 390 px), at the 44 px touch height.
+  const tall = phone ? 'h-11' : undefined;
   const terminalLabel = terminalFolderKnown ? t('terminalFolder') : t('terminalFolderUnknown');
 
   return (
     <div
       role="toolbar"
       aria-label={t('label')}
-      className={cx(
-        'flex shrink-0 items-center gap-1',
-        phone ? 'gap-1.5 px-3 pb-2.5' : 'h-12 px-2.5',
-      )}
+      className={cx('flex shrink-0 items-center gap-1', phone ? 'px-3 pb-2.5' : 'h-12 px-2.5')}
     >
       <input
         ref={picker}
@@ -69,39 +70,31 @@ export function FileToolbar({
         }}
       />
       <Button
-        variant="primary"
-        size={size}
+        variant="secondary"
+        size="sm"
         disabled={disabled}
         onClick={() => picker.current?.click()}
         icon={<UploadIcon size={iconSize} />}
-        className={phone ? 'flex-1' : undefined}
+        className={tall}
       >
         {t('upload')}
       </Button>
-      {phone ? (
-        <Button
-          variant="secondary"
-          size={size}
-          iconOnly
-          disabled={disabled}
-          onClick={onNewFolder}
-          aria-label={t('newFolder')}
-          title={t('newFolder')}
-          icon={<FolderPlusIcon size={iconSize} />}
-        />
-      ) : (
-        <Button
-          variant="secondary"
-          size={size}
-          disabled={disabled}
-          onClick={onNewFolder}
-          title={t('newFolder')}
-          icon={<FolderPlusIcon size={iconSize} />}
-          className="@max-[21rem]:w-8 @max-[21rem]:px-0"
-        >
-          <span className="@max-[21rem]:sr-only">{t('newFolder')}</span>
-        </Button>
-      )}
+      <Button
+        variant="secondary"
+        size="sm"
+        disabled={disabled}
+        onClick={onNewFolder}
+        title={t('newFolder')}
+        icon={<FolderPlusIcon size={iconSize} />}
+        className={cx(
+          tall,
+          phone ? '@max-[23.5rem]:w-11 @max-[23.5rem]:px-0' : '@max-[21rem]:w-8 @max-[21rem]:px-0',
+        )}
+      >
+        <span className={phone ? '@max-[23.5rem]:sr-only' : '@max-[21rem]:sr-only'}>
+          {t('newFolder')}
+        </span>
+      </Button>
       <span className="flex-1" />
       <Button
         variant={quiet}
