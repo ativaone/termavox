@@ -55,6 +55,8 @@ The first release, v0.1.0, is being prepared.
   password, a saved credential or none), then shows the public key with the command that
   installs it and starts a session in one click.
 - Phone support: responsive layout and an extra-key bar (Esc, Tab, Ctrl, Alt, arrows, paste).
+- The Termdock mark as the browser icon, and a web app manifest, so a pinned tab, a taskbar
+  shortcut or an installed app shows it too.
 - Multi-user with strict per-user isolation of servers, credentials, host keys and sessions.
 - SSH authentication with private keys (with passphrase), passwords and keyboard-interactive
   prompts (OTP/2FA) relayed to the browser.

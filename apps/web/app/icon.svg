@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <title>Termdock</title>
   <!-- The Termdock mark (components/ui/wordmark.tsx) as a tab icon: the tile fills the square and the prompt is a little heavier, so it holds at 16 px. -->
   <defs>
     <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
