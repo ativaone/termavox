@@ -96,6 +96,7 @@ Three ideas carry the design:
 - 🖥️ **Persistent SSH sessions** that survive closed tabs, flaky networks and service restarts.
 - 🛡️ **Automatic, invisible tmux protection**, with auto-detection and graceful fallback.
 - 🪟 **Workspace** with a session sidebar, tabs and split panes. Your layout is saved on the server and restored in any browser.
+- 📁 **Files panel** beside each terminal: browse the session's server, upload and download several files at once with progress, rename, delete and create folders, over the session's own SSH connection (SFTP).
 - 📱 **Usable from a phone**, with a responsive layout and an extra-key bar (Esc, Ctrl, Tab, arrows…).
 - 👥 **Multi-user with strict isolation**: each user sees only their own servers, credentials and sessions.
 - 🔐 **Built like a bastion**:

@@ -37,7 +37,7 @@ flowchart LR
   D[("SQLite<br/>/data/app.db")]
   H["Remote hosts<br/>sshd + per-session tmux"]
   B -- "HTTPS / WSS" --> C
-  C -- "/ws → :3001 (edge)" --> S
+  C -- "/ws, /transfer/* → :3001 (edge)" --> S
   C -- "everything else → :3000 (edge)" --> W
   W -- ":3002, bearer token (internal)" --> S
   W --- D
@@ -48,7 +48,7 @@ flowchart LR
 | Component | Holds | Notes |
 |---|---|---|
 | Browser | The auth-session cookie; the terminal view (xterm.js) | Untrusted. Never the source of truth for terminal state; it renders and sends input. |
-| Caddy | TLS keys and its local CA (`caddy-data` volume) | The only published service. Routes `/ws` to session-manager and everything else to web. Replaces any client `X-Forwarded-For` with the TCP peer address, or, behind a reverse proxy named in `TERMDOCK_REVERSE_PROXY`, with the address that proxy forwarded (read right to left). Not on the `internal` network, so it cannot reach the internal API. |
+| Caddy | TLS keys and its local CA (`caddy-data` volume) | The only published service. Routes `/ws` and the file panel's `/transfer/*` to session-manager and everything else to web. Replaces any client `X-Forwarded-For` with the TCP peer address, or, behind a reverse proxy named in `TERMDOCK_REVERSE_PROXY`, with the address that proxy forwarded (read right to left). Not on the `internal` network, so it cannot reach the internal API. |
 | web | `auth_secret`, `ws_secret`, `internal_token` | Control plane: sign-in, users, servers, layout, audit view, WebSocket ticket issuer. Never holds the master key. A secret passes through web only when a user creates a credential, and web can never read one back. |
 | session-manager | `master_key`, `ws_secret`, `internal_token`; decrypted credentials, in memory, while the SSH connection that uses them is open | Data plane: SSH connections, server-side emulators, the WebSocket server, the internal API and the credential vault. Writes every credential and known-host-key row. |
 | SQLite (`termdock-data` volume) | Users and argon2id password hashes, TOTP secrets (encrypted by Better Auth), encrypted credentials, host keys, sessions, audit events | Shared by web and session-manager. Assume it can leak through backups: SSH secrets in it are ciphertext only. |
@@ -71,7 +71,9 @@ that reads `$SHELL`, the tmux path and version, a UTF-8 locale, terminfo and the
 settings), and, for protected sessions, one tmux server per session on its own socket
 (`tmux -L td-<installation>-<token> -f /dev/null -C …`), so the user's own tmux configuration
 and sessions are never touched. With logind's `KillUserProcesses=yes` and linger enabled, tmux
-is started through `systemd-run --user --scope`.
+is started through `systemd-run --user --scope`. While someone uses a session's Files panel, the
+daemon also opens an SFTP channel on that session's own connection: the server's SFTP subsystem
+(`sftp-server` or `internal-sftp`) runs as the session's user, with that user's permissions.
 
 ## Threat model
 
@@ -260,6 +262,31 @@ Next.js. Details: [plan §7.1](implementation-plan.md#71-connection-and-authenti
    (the database not answering), the connection is closed. A sign-out, password change, admin
    password or TOTP reset, or disabling a user closes the affected WebSockets at once through the
    internal API (`auth-sessions/revoke`).
+
+### File panel transfers
+
+The Files panel ([plan §5.12](implementation-plan.md#512-file-panel-d-39)) reads and writes files
+on a session's server as the session's user, over an SFTP channel on the session's existing SSH
+connection: no second sign-in and no other credential use.
+
+- Listings, renames, deletes and new folders are WebSocket requests: the daemon checks that the
+  session belongs to the connection's user, as for an attach, and limits each connection to 8 in
+  flight. Bytes never travel over the WebSocket.
+- Uploads and downloads use single-use URLs under `/transfer/` that the daemon mints over the
+  authenticated WebSocket: 32 random bytes, valid 60 s, bound to the user, the auth session, the
+  session, the direction and the path. The daemon checks the auth session again when a URL is
+  used; a sign-out, password change or ban cancels the user's transfers and voids unused URLs. A
+  download URL may land in the browser's history, which is why it works once and briefly.
+- An upload must carry the instance's `Origin`. A download needs nothing but its URL, which no
+  other site can learn, and is always an attachment of type `application/octet-stream` with `nosniff`,
+  `Content-Security-Policy: sandbox` and `no-store`: a downloaded HTML or SVG file never renders
+  as a Termdock page.
+- Delete walks folders with `lstat` and removes a symbolic link as a link, never following it.
+  An upload is written to a temporary file in the target folder and renamed into place, so a
+  failed one leaves no partial file; replacing a file keeps its permission bits.
+- At most 6 transfers per user at once; nothing is spooled to the daemon's disk.
+- Admins can turn file transfer off for the instance and turn on an audit trail of file
+  operations (both in `/admin/settings`).
 
 ### Internal API bearer
 
@@ -480,7 +507,9 @@ From [`deploy/compose.yaml`](../deploy/compose.yaml) and the Dockerfiles:
     `host_key.pending`, `host_key.trust`, `host_key.replace`, `host_key.revoke`,
     `host_key.mismatch`, `host_key.revoked_presented`, `session.rename`,
     `remote_session.terminated` and `remote_session.adopted` (the server, the tmux socket name
-    and how it was classified).
+    and how it was classified), and, only when an admin turned the file log on,
+    `file.upload`, `file.download`, `file.mkdir`, `file.rename` and `file.remove` (the session's
+    server and the paths, with the client's address; never file contents).
 - `session_events`, shown to each user at `/activity`: creation, state changes, attach and
   detach (with client IP and user agent), connection loss, protection selected or degraded,
   restore and reopen, host-key and prompt events, and remote tmux cleanups
@@ -507,6 +536,9 @@ From [`deploy/compose.yaml`](../deploy/compose.yaml) and the Dockerfiles:
 - **Limit host access.** Membership in the `docker` group is root on the host: it can read every
   secret and volume.
 - **Require TOTP** for everyone (`/admin/settings`), and keep the number of admins small.
+- **Decide on file transfer.** Where users must not move files to or from servers through
+  Termdock, turn file transfer off in `/admin/settings`; where you must know who moved what, turn
+  on the file operations log there.
 - **Prefer key credentials** for high-value hosts, and verify host-key fingerprints out of band
   or pre-trust them.
 - **Keep the defaults** `TERMDOCK_SSH_ALLOW_LOCAL_TARGETS=false` and

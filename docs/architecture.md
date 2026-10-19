@@ -11,7 +11,7 @@ A map of Termdock for contributors. The full design is in the
 ```mermaid
 flowchart LR
   B["Browser<br/>xterm.js renderer + input"] -- "HTTPS" --> C["Caddy"]
-  B -- "WSS /ws" --> C
+  B -- "WSS /ws<br/>HTTPS /transfer/*" --> C
   C -- ":3000" --> W["web<br/>Next.js control plane"]
   C -- ":3001" --> S["session-manager<br/>Node.js data plane"]
   W -- "internal API :3002<br/>bearer token" --> S
@@ -22,9 +22,9 @@ flowchart LR
 
 | Component | Responsibilities |
 |---|---|
-| **Caddy** | TLS, the only public listener. `/ws` → session-manager, everything else → web. |
+| **Caddy** | TLS, the only public listener. `/ws` and `/transfer/*` → session-manager, everything else → web. |
 | **web** (`apps/web`) | UI, sign-in and TOTP (Better Auth), users and admin, servers, workspace layout, preferences, audit view. Issues WebSocket tickets. Asks the daemon to create, terminate, rename, retry or reopen sessions and to manage credentials and host keys. |
-| **session-manager** (`apps/session-manager`) | Owns every session: SSH connections, drivers, the authoritative server-side emulators, reconnection and restore. Serves the browsers' WebSockets and web's internal API. The only holder of the vault master key. |
+| **session-manager** (`apps/session-manager`) | Owns every session: SSH connections, drivers, the authoritative server-side emulators, reconnection and restore. Serves the browsers' WebSockets, the file panel's transfers and web's internal API. The only holder of the vault master key. |
 | **SQLite** | One database file shared by both processes. session-manager applies the migrations at boot. |
 
 The rule behind the split: **the browser lifecycle is not the terminal lifecycle.** Sessions
@@ -40,7 +40,9 @@ SessionRegistry            every runtime of the process; boot restore; idle evic
     │                      size policy, attachments, snapshots
     ├── Emulator           @xterm/headless + serialize addon + mode tracker (the authority)
     └── Driver             RawPtyDriver | TmuxControlDriver
-        └── Transport      SshTransport (ssh2): connect, host-key check, auth, exec, PTY
+        └── Transport      SshTransport (ssh2): connect, host-key check, auth, exec, PTY, SFTP
+FileService                the file panel: requests from the WebSockets, transfers on /transfer/*,
+                           over the SFTP channel each runtime opens on its connection (FileHost)
 ```
 
 - `main.ts` boots: parse the environment → take the data directory lock
@@ -135,6 +137,23 @@ invisible beyond a short "Restoring…".
 shell: with the server's `auto_reopen` (default on) the runtime opens a new shell in the same
 emulator after a dim banner line, keeping the old scrollback; otherwise the session ends.
 
+## File panel
+
+A session's pane can open a Files panel beside its terminal (D-39,
+[plan §5.12](implementation-plan.md#512-file-panel-d-39)). The daemon opens an SFTP channel on the
+session's own SSH connection when the panel first asks, so it works wherever the terminal does and
+only while the session is connected.
+
+- **Metadata** (open, list, mkdir, rename, remove, and minting transfer URLs) goes over the tab's
+  WebSocket as `files.request` / `files.result`, handled outside the connection's message queue
+  so a slow listing never delays keystrokes.
+- **Bytes** go over plain HTTP: `POST /transfer/upload/<token>` and `GET
+  /transfer/download/<token>`, served by session-manager on the `/ws` listener, with single-use
+  URLs minted over the WebSocket. The browser's own download manager saves downloads; progress
+  for both directions comes from the daemon as `transfer.progress`.
+- The daemon pipelines SFTP reads and writes (ssh2's own streams keep one request in flight),
+  with a bounded window because a transfer shares the TCP connection with the terminal.
+
 ## Snapshot plus live stream
 
 The server emulator is the source of truth; browsers mirror it
@@ -172,10 +191,12 @@ live in `packages/protocol` ([plan §7](implementation-plan.md#7-websocket-proto
   channel (u32), seq (u64); `SNAPSHOT` adds cols and rows (u16 each). 14-byte header, 18 for
   snapshots.
 - **Client messages.** `hello`, `session.attach`, `session.detach`, `terminal.viewport`,
-  `terminal.activate`, `terminal.resync`, `hostkey.decision`, `auth.response`, `ping`.
+  `terminal.activate`, `terminal.resync`, `hostkey.decision`, `auth.response`, `files.request`,
+  `files.cancel`, `transfer.cancel`, `ping`.
 - **Server messages.** `hello.ok`, `sessions.list`, `session.upsert`, `session.removed`,
   `session.status`, `session.attached` (then a `SNAPSHOT`), `terminal.resized`, `terminal.title`,
-  `terminal.bell`, `terminal.hint`, `hostkey.prompt`, `auth.prompt`, `server.shutting_down`, `error`, `pong`.
+  `terminal.bell`, `terminal.hint`, `hostkey.prompt`, `auth.prompt`, `files.result`,
+  `files.progress`, `transfer.progress`, `server.shutting_down`, `error`, `pong`.
 - **Close codes.** `4400` bad request, `4401` unauthenticated or revoked, `4403` forbidden or bad
   origin, `4409` unsupported protocol, `4429` rate limited, `4500` internal.
 - Additive changes stay in v1 (receivers ignore unknown fields and types); breaking changes bump
@@ -239,7 +260,9 @@ apps/
     config/            environment (zod) and logger (pino)
     core/              types, SessionRegistry, SessionRuntime, protection, backoff, factories,
                        remote tmux leftovers (scan, classification, sweep)
-    transport/ssh/     ssh2 transport, host-key check, keyboard-interactive, target policy
+    transport/ssh/     ssh2 transport, host-key check, keyboard-interactive, target policy, SFTP
+    files/             file panel: remote file operations, pipelined SFTP I/O, transfer URLs and
+                       routes, the file service
     drivers/           raw-pty/, tmux-control/ (parser, correlator, commands, rebuild, boundary)
     emulator/          headless emulator wrapper and serialize view
     probe/             capability probe and tmux version parsing
@@ -252,7 +275,8 @@ apps/
     app/               routes (App Router), API route handlers
     components/        UI
     lib/               auth (Better Auth), repo (user-scoped DB access), actions (Server
-                       Actions), terminal (xterm client), internal-api client, CSP
+                       Actions), terminal (xterm client), files (file panel client and transfer
+                       queue), internal-api client, CSP
     messages/          en.json, pt-BR.json
 packages/
   protocol/            WebSocket v1, internal API and layout schemas, frame codec, tickets

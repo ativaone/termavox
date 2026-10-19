@@ -10,6 +10,10 @@ The first release, v0.1.0, is being prepared.
 
 ### Upgrade notes
 
+- Behind your own reverse proxy, file panel uploads need it to pass request bodies of any size
+  without buffering them: for nginx, add `client_max_body_size 0;`, `proxy_request_buffering off;`
+  and `proxy_send_timeout 1h;` to the Termdock `location` (install guide, "Behind a reverse
+  proxy"). Without them nginx refuses files over 1 MB, and the panel says a proxy refused the file.
 - With `TERMDOCK_TLS=off`, Caddy now answers `503` until `TERMDOCK_REVERSE_PROXY` names the reverse
   proxy (the install guide always required it). Without it every user shared the proxy's address,
   and with it one sign-in lockout and rate limit.
@@ -25,6 +29,13 @@ The first release, v0.1.0, is being prepared.
 
 ### Added
 
+- A Files panel inside a session's pane, beside its terminal: browse the server as the session's
+  user, upload and download several files at once with progress bars, rename, delete, create
+  folders, show hidden files and refresh. It uses the session's own SSH connection (SFTP), so it
+  works wherever the terminal does, and opens at the terminal's folder in protected sessions. In
+  a split each pane has its own; on a phone it takes the whole screen. When a server offers no
+  SFTP the panel says what to enable there. Admin settings can turn file transfer off and record
+  file operations in the audit log (off by default).
 - `deploy/scripts/reset-password.sh <username>` sets a temporary password from the host when no
   admin can sign in, for example when the only admin forgot their password. The user must choose
   a new password at the next sign-in. `--reset-totp` also resets TOTP, for a lost authenticator

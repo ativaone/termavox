@@ -119,7 +119,7 @@ non-interactive pnpm install; it does not reach the runtime images.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `NEXT_PUBLIC_TERMDOCK_WS_URL` | unset: the browser uses same-origin `/ws` | A development override, for example `ws://localhost:3001/ws` when session-manager runs without the proxy. Next.js inlines it at `next build` (and in `next dev`), so setting it on a running container has no effect. When set, its origin is added to the page CSP's `connect-src`. The web Dockerfile does not set it. session-manager still requires the `Origin` of `TERMDOCK_PUBLIC_URL`. |
+| `NEXT_PUBLIC_TERMDOCK_WS_URL` | unset: the browser uses same-origin `/ws` | A development override, for example `ws://localhost:3001/ws` when session-manager runs without the proxy. Next.js inlines it at `next build` (and in `next dev`), so setting it on a running container has no effect. When set, its origin is added to the page CSP's `connect-src`, together with the matching `http(s)` origin, where the file panel's uploads go (`/transfer/*` on the same host; the daemon answers their CORS preflight for the `TERMDOCK_PUBLIC_URL` origin only). The web Dockerfile does not set it. session-manager still requires the `Origin` of `TERMDOCK_PUBLIC_URL`. |
 
 ## Caddy environment
 
@@ -203,6 +203,8 @@ effect without a restart, and every change is audited (`admin_setting.change`).
 | Require two-step verification for everyone | `require_totp` | off | Every user without TOTP, admins included, must enroll before anything else opens, and cannot disable TOTP. Admins can also require TOTP for single users. |
 | Maximum running sessions per user | `max_running_sessions_per_user` | `50` | A whole number from 1 to 1000. Creating or reopening a session is refused (`RATE_LIMITED`) when the user already has this many sessions meant to run. |
 | Show local shells (direct mode) to administrators | `local_shell_visible` | off | Offers the `local` host kind to admins. It has no effect until direct mode ships (Phase 6), and even then only with `TERMDOCK_ENABLE_LOCAL_SHELL=true` on the daemon. See the warning in the [security model](../security.md#admins-are-trusted). |
+| Allow the file panel (upload and download) | `file_transfer_enabled` | on | The Files panel of every session ([plan §5.12](../implementation-plan.md#512-file-panel-d-39)). Off: the panel's button disappears and the daemon refuses every file request (`FILES_DISABLED`); transfers already running finish. |
+| Record file operations in the audit log | `file_audit_enabled` | off | Writes `file.upload`, `file.download`, `file.mkdir`, `file.rename` and `file.remove` audit events (server, paths, sizes, client address; never contents). |
 
 session-manager also stores two keys of its own there, which are not settings: `installation_id`
 (used in the names of the remote tmux sockets) and `vault_key_check`.
@@ -232,6 +234,12 @@ These are constants in the code, not settings.
 | Idle runtime of a session that is not running | freed after 60 s without viewers |
 | Pending host keys | expire after 24 h |
 | Daemon shutdown budget | 25 s (`stop_grace_period: 30s` in compose) |
+| File panel requests in flight per connection | 8 (then `RATE_LIMITED`) |
+| File panel transfers per user, at once | 6 (then `RATE_LIMITED`); a browser tab runs 2 at a time |
+| Upload and download URL lifetime | 60 s, single use (at most 64 unused per user) |
+| Upload with no data | cancelled after 60 s |
+| Folder listing | first 10 000 entries |
+| Idle SFTP channel of a session | closed after 5 min |
 
 The test suites also read `TD_TMUX_IMAGES` and `TD_S4_PAUSE_MS` (under
 `apps/session-manager/test/`); they are test knobs, not product settings.

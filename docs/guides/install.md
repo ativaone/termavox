@@ -176,7 +176,8 @@ Whatever the proxy, it must:
 3. pass WebSocket upgrades (HTTP/1.1 with the `Upgrade` and `Connection` headers): every terminal runs over a WebSocket on `/ws`;
 4. keep idle connections open longer than a minute: the browser pings every 25 seconds;
 5. not buffer responses, so terminal output and page streams arrive as they are sent;
-6. redirect plain HTTP to HTTPS itself: in this mode Termdock never sees port 80.
+6. not limit or buffer request bodies: the file panel's uploads stream through `/transfer/` and can be any size. A proxy that limits them answers `413` and the panel says a proxy refused the file (nginx's default limit is 1 MB; Cloudflare's proxy caps uploads at 100 MB on its free plan);
+7. redirect plain HTTP to HTTPS itself: in this mode Termdock never sees port 80.
 
 An nginx example, with the certificate already in place (certbot or any other source):
 
@@ -205,6 +206,12 @@ server {
         proxy_set_header Connection $connection_upgrade;
         proxy_read_timeout 1h;
         proxy_buffering off;
+        # File panel uploads (/transfer/): any size, streamed to Termdock as they arrive. Without
+        # the first two lines nginx refuses files over 1 MB (413) and spools the others to its disk
+        # before passing them on; the third keeps a pause on a slow server from cutting an upload.
+        client_max_body_size 0;
+        proxy_request_buffering off;
+        proxy_send_timeout 1h;
     }
 }
 
