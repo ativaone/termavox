@@ -4,7 +4,9 @@
  * Styles allow `'unsafe-inline'` because the xterm.js DOM renderer injects style elements.
  * Development adds `'unsafe-eval'`, which React needs only for dev-time stack reconstruction.
  * The terminal WebSocket is same-origin `/ws` (`'self'`); when NEXT_PUBLIC_TERMDOCK_WS_URL points
- * elsewhere (development), pass it as `wsUrl` and its origin joins `connect-src`.
+ * elsewhere (development), pass it as `wsUrl` and its origin joins `connect-src`, in both its
+ * `ws(s):` and `http(s):` forms: the file panel's uploads are XHRs to the transfer routes beside
+ * the WebSocket (plan §5.12).
  */
 export function buildCsp(nonce: string, dev = false, wsUrl?: string): string {
   const directives: Record<string, string[]> = {
@@ -29,13 +31,17 @@ export function buildCsp(nonce: string, dev = false, wsUrl?: string): string {
     .join('; ');
 }
 
-/** The origin of a ws:/wss: URL as a CSP source, or nothing for an absent or unusable URL. */
+/**
+ * The origin of a ws:/wss: URL as CSP sources (the WebSocket's, then the HTTP origin of the
+ * transfer routes beside it), or nothing for an absent or unusable URL.
+ */
 export function wsSource(wsUrl: string | undefined): string[] {
   if (!wsUrl) return [];
   try {
     const url = new URL(wsUrl);
     if (url.protocol !== 'ws:' && url.protocol !== 'wss:') return [];
-    return [`${url.protocol}//${url.host}`];
+    const http = url.protocol === 'wss:' ? 'https:' : 'http:';
+    return [`${url.protocol}//${url.host}`, `${http}//${url.host}`];
   } catch {
     return [];
   }

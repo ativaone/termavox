@@ -52,6 +52,21 @@ export function InstanceSettingsForm({ initial }: { initial: InstanceSettings })
         />
         <Notice tone="warning">{t('localShellWarning')}</Notice>
       </section>
+      <section className="flex flex-col gap-3 border-line border-t pt-5">
+        <h3 className="font-semibold text-ink text-md">{t('files')}</h3>
+        <Checkbox
+          name="fileTransferEnabled"
+          label={t('fileTransfer')}
+          help={t('fileTransferHelp')}
+          defaultChecked={initial.fileTransferEnabled}
+        />
+        <Checkbox
+          name="fileAuditEnabled"
+          label={t('fileAudit')}
+          help={t('fileAuditHelp')}
+          defaultChecked={initial.fileAuditEnabled}
+        />
+      </section>
       <div className="border-line border-t pt-5">
         <SubmitButton size="lg">{t('submit')}</SubmitButton>
       </div>

@@ -2,6 +2,8 @@
 
 import type { Terminal } from '@xterm/xterm';
 import { createContext, type RefObject, useContext } from 'react';
+import type { PaneFilesStore } from '../../lib/files/pane-state.ts';
+import type { TransferQueue } from '../../lib/files/transfer-queue.ts';
 import type { TerminalPreferences } from '../../lib/preferences/terminal.ts';
 import type { SessionActionResult } from '../../lib/sessions/action-result.ts';
 import type { SessionLabel } from '../../lib/sessions/types.ts';
@@ -66,6 +68,14 @@ export interface WorkspaceContextValue {
   sessionAction(kind: SessionActionKind, sessionId: string): Promise<SessionActionResult>;
   /** A server's page (the mismatch panel links there). */
   serverHref(serverId: string): string;
+  /** File transfer is on for this installation (plan D-39): the file panel's toggles show. */
+  filesEnabled: boolean;
+  /** Each pane's file panel state, in this tab's memory only. */
+  filePanes: PaneFilesStore;
+  /** The tab's uploads and downloads (they outlive panels and panes). */
+  transfers: TransferQueue;
+  /** Gives the keyboard to a pane's terminal (after its file panel closes). */
+  focusPane(paneId: string): void;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);

@@ -2,11 +2,19 @@ import {
   type ClientMessage,
   CloseCode,
   decodeFrame,
+  type FileRequest,
+  type FileResultOf,
   PROTOCOL_VERSION,
   parseServerMessage,
   type ServerMessage,
   type SessionSummary,
 } from '@termdock/protocol/client';
+import {
+  type FileApi,
+  type FileRequestOptions,
+  FileRequests,
+  type TransferListener,
+} from '../files/requests.ts';
 import { type ChannelHost, TerminalChannel, type TerminalChannelOptions } from './channel.ts';
 import { fetchWsTicket, resolveWsUrl, TicketRequestError } from './config.ts';
 import { Store } from './store.ts';
@@ -133,6 +141,8 @@ export interface TermdockConnectionOptions {
   maxChannels?: number;
   random?: () => number;
   now?: () => number;
+  /** How long a file request may wait for its answer (default 30 s, plan §5.12). */
+  fileRequestTimeoutMs?: number;
 }
 
 export class ChannelLimitError extends Error {
@@ -201,9 +211,10 @@ function toBytes(data: unknown): Uint8Array | null {
  * The tab's single WebSocket to session-manager (plan §7): ticket → `hello` → `hello.ok`, the
  * session list and prompts as an observable store, app-level ping, reconnect with backoff and
  * fresh tickets, and channel multiplexing for `TerminalChannel`s (re-attached on reconnect;
- * the server then sends fresh snapshots).
+ * the server then sends fresh snapshots). The file panel's requests and transfer progress
+ * (plan §5.12) ride on it too, through `FileRequests`.
  */
-export class TermdockConnection {
+export class TermdockConnection implements FileApi {
   readonly #store = new Store<ConnectionState>(INITIAL_STATE);
   readonly #channels = new Map<number, TerminalChannel>();
   readonly #urlOverride: string | undefined;
@@ -225,6 +236,7 @@ export class TermdockConnection {
   #nextChannel = 1;
   /** Servers whose `server.remote_sessions` notice the user dismissed in this tab. */
   readonly #dismissedServers = new Set<string>();
+  readonly #files: FileRequests;
 
   constructor(options: TermdockConnectionOptions = {}) {
     // Resolved on first connect, so constructing during server rendering is harmless.
@@ -236,6 +248,12 @@ export class TermdockConnection {
     this.#maxChannels = Math.min(options.maxChannels ?? MAX_CHANNELS, MAX_CHANNELS);
     this.#random = options.random ?? Math.random;
     this.#now = options.now ?? Date.now;
+    this.#files = new FileRequests({
+      send: (message) => this.#send(message),
+      ...(options.fileRequestTimeoutMs !== undefined
+        ? { timeoutMs: options.fileRequestTimeoutMs }
+        : {}),
+    });
   }
 
   readonly getSnapshot = (): ConnectionState => this.#store.getSnapshot();
@@ -337,6 +355,30 @@ export class TermdockConnection {
     }
   }
 
+  // ── file panel (plan §5.12) ────────────────────────────────────────────────
+
+  /**
+   * One file request on `sessionId`, answered by its `files.result`. Rejects with a
+   * FileRequestError: the daemon's code, TIMEOUT after 30 s without an answer (none once a
+   * remove reports progress), or CONNECTION_LOST when this tab is not connected or drops.
+   */
+  fileRequest<R extends FileRequest>(
+    sessionId: string,
+    request: R,
+    options?: FileRequestOptions,
+  ): Promise<FileResultOf<R['op']>> {
+    return this.#files.fileRequest(sessionId, request, options);
+  }
+
+  cancelTransfer(transferId: string): boolean {
+    return this.#files.cancelTransfer(transferId);
+  }
+
+  /** `transfer.progress` of the uploads and downloads this tab minted, and socket drops. */
+  subscribeTransfers(listener: TransferListener): () => void {
+    return this.#files.subscribeTransfers(listener);
+  }
+
   // ── connection lifecycle ────────────────────────────────────────────────────
 
   async #start(): Promise<void> {
@@ -429,8 +471,10 @@ export class TermdockConnection {
         }
       }
     }
-    if (wasAuthenticated)
-      for (const channel of this.#channels.values()) channel.handleDisconnected();
+    if (!wasAuthenticated) return;
+    for (const channel of this.#channels.values()) channel.handleDisconnected();
+    // Answers of the old socket never arrive: file requests in flight fail now.
+    this.#files.disconnected();
   }
 
   #startPing(): void {
@@ -605,6 +649,11 @@ export class TermdockConnection {
       case 'terminal.bell':
       case 'terminal.hint':
         this.#channels.get(message.channel)?.handleMessage(message);
+        return;
+      case 'files.result':
+      case 'files.progress':
+      case 'transfer.progress':
+        this.#files.handle(message);
         return;
       case 'pong':
         return;

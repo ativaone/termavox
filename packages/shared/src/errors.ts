@@ -44,6 +44,8 @@ export const ErrorCode = {
   FileOpFailed: 'FILE_OP_FAILED',
   /** The user cancelled a file request or a transfer. */
   Cancelled: 'CANCELLED',
+  /** A transfer URL expired unused: the browser never started that download (or upload). */
+  TransferExpired: 'TRANSFER_EXPIRED',
   Internal: 'INTERNAL',
 } as const;
 

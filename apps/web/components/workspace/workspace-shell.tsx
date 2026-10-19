@@ -22,6 +22,8 @@ import {
   stopSession,
   terminateSession,
 } from '../../lib/actions/sessions.ts';
+import { createBrowserTransferQueue } from '../../lib/files/browser.ts';
+import { PaneFilesStore } from '../../lib/files/pane-state.ts';
 import { withReturnPath } from '../../lib/manage/return-to.ts';
 import type { TerminalPreferences } from '../../lib/preferences/terminal.ts';
 import { ROUTES } from '../../lib/routes.ts';
@@ -47,6 +49,9 @@ import {
   leaves,
   newId,
 } from '../../lib/workspace/tree.ts';
+import { FilePanel } from '../files/file-panel.tsx';
+import { FilesPhoneButton, FilesTabButton, filesAllowedFor } from '../files/files-toggle.tsx';
+import { useTransferLeaveGuard } from '../files/use-transfer-guard.ts';
 import { ChevronLeftIcon, RetryIcon } from '../icons/index.tsx';
 import { SkipLink } from '../skip-link.tsx';
 import { Button } from '../ui/button.tsx';
@@ -54,7 +59,7 @@ import { cx } from '../ui/cx.ts';
 import { Notice } from '../ui/notice.tsx';
 import { ProtectionMark } from '../ui/session-row.tsx';
 import { Spinner } from '../ui/spinner.tsx';
-import { StatusChip } from '../ui/status-chip.tsx';
+import { StateLamp, StatusChip } from '../ui/status-chip.tsx';
 import { FirstRunPanel, PickSessionPanel } from './empty-panels.tsx';
 import {
   clampCreateViewport,
@@ -107,6 +112,8 @@ export interface WorkspaceShellProps {
   initialLayout: StoredLayout;
   servers: PaletteServer[];
   preferences: TerminalPreferences;
+  /** Instance setting `file_transfer_enabled` (plan D-39): the file panel's toggles show. */
+  filesEnabled: boolean;
 }
 
 /** The tab's own WebSocket state, on the trailing edge of the tab bar and the phone header. */
@@ -264,9 +271,11 @@ export function WorkspaceShell({
   initialLayout,
   servers,
   preferences,
+  filesEnabled,
 }: WorkspaceShellProps) {
   const t = useTranslations('workspace');
   const tc = useTranslations('common');
+  const tf = useTranslations('files');
   const isDesktop = useIsDesktop();
   const hydrated = useHydrated();
   const searchParams = useSearchParams();
@@ -286,6 +295,11 @@ export function WorkspaceShell({
   useEffect(() => {
     if (connectionState.error?.kind === 'unauthenticated') goToLogin(loginHref);
   }, [connectionState.error, loginHref]);
+
+  // ── file panel (plan D-39): per-pane state and the tab's transfers, in memory only ──
+  const [filePanes] = useState(() => new PaneFilesStore());
+  const [transfers] = useState(() => createBrowserTransferQueue(connection));
+  useTransferLeaveGuard(transfers);
   useAuthSessionSlide(loginHref);
 
   const [sync] = useState(
@@ -352,6 +366,12 @@ export function WorkspaceShell({
 
   const current = activeLeaf(layout);
   const activePaneId = current?.leaf.id ?? null;
+  // Panes that left the layout forget their file panel.
+  useEffect(() => {
+    const panes = new Set(layout.tabs.flatMap((tab) => leaves(tab.root).map((leaf) => leaf.id)));
+    panes.add(PHONE_PANE);
+    filePanes.retain(panes);
+  }, [layout, filePanes]);
   // The bell is for panes you were not looking at.
   useEffect(() => {
     if (activePaneId && paneMeta[activePaneId]?.bell) setPaneMeta(activePaneId, { bell: false });
@@ -687,6 +707,10 @@ export function WorkspaceShell({
       openPalette,
       sessionAction,
       serverHref,
+      filesEnabled,
+      filePanes,
+      transfers,
+      focusPane: requestFocus,
     }),
     [
       connection,
@@ -707,6 +731,10 @@ export function WorkspaceShell({
       openPalette,
       sessionAction,
       serverHref,
+      filesEnabled,
+      filePanes,
+      transfers,
+      requestFocus,
     ],
   );
 
@@ -725,6 +753,37 @@ export function WorkspaceShell({
   const viewportHeight = useVisualViewportHeight(!isDesktop && phoneView === 'pane');
   const tab = current?.tab ?? null;
   const paneCount = tab ? leaves(tab.root).length : 0;
+
+  // The tab row's Files toggle: a tab with one pane bound to a session (a split's panes carry
+  // their own in their captions).
+  const onlyLeaf = tab && paneCount === 1 ? leaves(tab.root)[0] : undefined;
+  const tabFiles = onlyLeaf?.sessionId ? (
+    <FilesTabButton paneId={onlyLeaf.id} sessionId={onlyLeaf.sessionId} />
+  ) : null;
+
+  // The phone's files view: full screen over the session's pane, which stays attached.
+  const readPhoneFiles = useCallback(
+    () => (phoneSessionId ? filePanes.get(PHONE_PANE, phoneSessionId) : null),
+    [filePanes, phoneSessionId],
+  );
+  const phoneFilesState = useSyncExternalStore(filePanes.subscribe, readPhoneFiles, readPhoneFiles);
+  const phoneFiles =
+    !isDesktop &&
+    phoneSessionId !== null &&
+    (phoneFilesState?.open ?? false) &&
+    filesAllowedFor(filesEnabled, sessions.get(phoneSessionId));
+  const closePhoneFiles = useCallback(() => {
+    if (phoneSessionId) filePanes.update(PHONE_PANE, phoneSessionId, { open: false });
+  }, [filePanes, phoneSessionId]);
+  // Leaving a session on the phone (Back, another session) leaves its files view too.
+  const shownPhoneSession = useRef(phoneSessionId);
+  useEffect(() => {
+    const previous = shownPhoneSession.current;
+    shownPhoneSession.current = phoneSessionId;
+    if (previous && previous !== phoneSessionId) {
+      filePanes.update(PHONE_PANE, previous, { open: false });
+    }
+  }, [phoneSessionId, filePanes]);
 
   let desktopPanes: ReactNode;
   if (tab) {
@@ -785,10 +844,30 @@ export function WorkspaceShell({
         <main
           id="main"
           aria-label={t('pane.label')}
-          className={cx('flex min-w-0 flex-1 flex-col', phoneView === 'bay' && 'max-md:hidden')}
+          className={cx(
+            'relative flex min-w-0 flex-1 flex-col',
+            phoneView === 'bay' && 'max-md:hidden',
+          )}
         >
-          {phoneSessionId ? (
-            <div className="flex h-12 shrink-0 items-center gap-2 ps-1 pe-3 md:hidden">
+          {phoneSessionId && phoneFiles ? (
+            <div className="flex h-12 shrink-0 items-center gap-2 border-line border-b ps-1 pe-3 md:hidden">
+              <Button
+                variant="quiet"
+                size="sm"
+                icon={<ChevronLeftIcon size={18} />}
+                onClick={closePhoneFiles}
+              >
+                {tf('phone.back')}
+              </Button>
+              <div className="flex min-w-0 flex-1 items-center justify-center gap-2">
+                {phoneStatus ? <StateLamp status={phoneStatus} /> : null}
+                <span className="truncate font-semibold text-ink text-sm">{phoneLabel}</span>
+                {phoneStatus ? <span className="sr-only">{t(`status.${phoneStatus}`)}</span> : null}
+              </div>
+              <span className="shrink-0 text-ink-muted text-xs">{tf('title')}</span>
+            </div>
+          ) : phoneSessionId ? (
+            <div className="flex h-12 shrink-0 items-center gap-2 ps-1 pe-1 md:hidden">
               <Button
                 variant="quiet"
                 size="sm"
@@ -812,6 +891,7 @@ export function WorkspaceShell({
                   <StatusChip status={phoneStatus} label={t(`status.${phoneStatus}`)} />
                 ) : null}
               </div>
+              <FilesPhoneButton paneId={PHONE_PANE} sessionId={phoneSessionId} />
             </div>
           ) : null}
 
@@ -826,6 +906,7 @@ export function WorkspaceShell({
               canSplit={current !== null}
               revealKey={focusRequest?.seq ?? 0}
               trailing={<ConnectionChip connection={connection} />}
+              files={tabFiles}
               onRenameError={setNotice}
             />
           </div>
@@ -844,13 +925,16 @@ export function WorkspaceShell({
               desktopPanes
             ) : phoneSessionId && hydrated ? (
               <div className="relative min-h-0 flex-1 bg-pane">
-                <TerminalPane
-                  key={phoneSessionId}
-                  place={{ tabId: null, paneId: PHONE_PANE }}
-                  sessionId={phoneSessionId}
-                  active
-                  onClose={phoneBack}
-                />
+                {/* Under the files view the terminal stays attached at its size, out of reach. */}
+                <div className="absolute inset-0" inert={phoneFiles}>
+                  <TerminalPane
+                    key={phoneSessionId}
+                    place={{ tabId: null, paneId: PHONE_PANE }}
+                    sessionId={phoneSessionId}
+                    active
+                    onClose={phoneBack}
+                  />
+                </div>
               </div>
             ) : (
               <div className="min-h-0 flex-1 bg-pane" />
@@ -858,7 +942,8 @@ export function WorkspaceShell({
           </div>
 
           {!isDesktop && phoneSessionId ? (
-            <>
+            // Under the files view the key bar keeps its place (the session keeps its size).
+            <div inert={phoneFiles}>
               {phoneNotice ? (
                 <div className="px-2 pt-2">
                   <Notice tone="warning">
@@ -883,7 +968,19 @@ export function WorkspaceShell({
                 onKey={onKey}
                 onPaste={onPaste}
               />
-            </>
+            </div>
+          ) : null}
+          {phoneFiles && phoneSessionId ? (
+            // The phone's files view: everything under the header, over the attached terminal.
+            <div className="absolute inset-x-0 top-12 bottom-0 z-30 md:hidden">
+              <FilePanel
+                key={phoneSessionId}
+                paneId={PHONE_PANE}
+                sessionId={phoneSessionId}
+                variant="phone"
+                onClose={closePhoneFiles}
+              />
+            </div>
           ) : null}
         </main>
 

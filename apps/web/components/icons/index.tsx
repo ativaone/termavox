@@ -390,3 +390,120 @@ export function LanguageIcon(props: IconProps) {
     </Icon>
   );
 }
+
+// ── File panel (plan D-39) ─────────────────────────────────────────────────────
+
+const FOLDER =
+  'M3.5 7.25c0-.97.78-1.75 1.75-1.75h3.9l2 2h7.6c.97 0 1.75.78 1.75 1.75v8.5c0 .97-.78 1.75-1.75 1.75H5.25c-.97 0-1.75-.78-1.75-1.75V7.25Z';
+const FILE =
+  'M13.5 3.5H7.25C6.28 3.5 5.5 4.28 5.5 5.25v13.5c0 .97.78 1.75 1.75 1.75h9.5c.97 0 1.75-.78 1.75-1.75V8.5l-5-5Z';
+
+/** A folder (the file panel's toggle, folder rows). */
+export function FolderIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d={FOLDER} />
+    </Icon>
+  );
+}
+
+/** New folder: the folder with a plus inside. */
+export function FolderPlusIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d={FOLDER} />
+      <path d="M12 10.5v5M9.5 13h5" />
+    </Icon>
+  );
+}
+
+/** A link to a folder: the folder with a small arrow leaving it. */
+export function FolderLinkIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d={FOLDER} />
+      <path d="m10 15.5 4-4M11 11.5h3v3" />
+    </Icon>
+  );
+}
+
+/** A file (file rows). */
+export function FileIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d={FILE} />
+      <path d="M13.5 3.5v5h5" />
+    </Icon>
+  );
+}
+
+/** A link to a file, or a link whose target is gone. */
+export function FileLinkIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d={FILE} />
+      <path d="M13.5 3.5v5h5" />
+      <path d="m9.5 16.5 4-4M10.5 12.5h3v3" />
+    </Icon>
+  );
+}
+
+/** Upload: an arrow rising from a tray. */
+export function UploadIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 15.5V4.5M7.5 9 12 4.5 16.5 9" />
+      <path d="M4.5 15.5v2.75c0 .69.56 1.25 1.25 1.25h12.5c.69 0 1.25-.56 1.25-1.25V15.5" />
+    </Icon>
+  );
+}
+
+/** Download: an arrow falling into a tray. */
+export function DownloadIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 4.5v11M7.5 11l4.5 4.5 4.5-4.5" />
+      <path d="M4.5 15.5v2.75c0 .69.56 1.25 1.25 1.25h12.5c.69 0 1.25-.56 1.25-1.25V15.5" />
+    </Icon>
+  );
+}
+
+/** The user's home folder (the path bar's first segment). */
+export function HomeIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 11 12 4.5l8 6.5" />
+      <path d="M6.25 9.5v9.25c0 .41.34.75.75.75h3.5v-5h3v5H17c.41 0 .75-.34.75-.75V9.5" />
+    </Icon>
+  );
+}
+
+/** Edit in place (rename, type a path). */
+export function PencilIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4.5 19.5h3.75L18.9 8.85a2.12 2.12 0 0 0-3-3L5.25 16.5 4.5 19.5Z" />
+      <path d="m14.25 7.5 2.25 2.25" />
+    </Icon>
+  );
+}
+
+/** Delete. */
+export function TrashIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4.5 7h15M10 11v6M14 11v6" />
+      <path d="M6.5 7l.85 11.6c.07.9.82 1.65 1.75 1.65h5.8c.93 0 1.68-.75 1.75-1.65L17.5 7" />
+      <path d="M9.25 7V4.75c0-.41.34-.75.75-.75h4c.41 0 .75.34.75.75V7" />
+    </Icon>
+  );
+}
+
+/** A partial selection (the select-all checkbox when some rows are selected). */
+export function MinusIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M6 12h12" />
+    </Icon>
+  );
+}

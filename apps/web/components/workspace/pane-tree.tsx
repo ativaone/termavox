@@ -20,6 +20,8 @@ import {
   resizeSizes,
   type SplitNode,
 } from '../../lib/workspace/tree.ts';
+import { FilesDock } from '../files/files-dock.tsx';
+import { FilesCaptionButton } from '../files/files-toggle.tsx';
 import { CloseIcon, PlusIcon, TerminalIcon } from '../icons/index.tsx';
 import { Button } from '../ui/button.tsx';
 import { cx } from '../ui/cx.ts';
@@ -224,6 +226,9 @@ function PaneCaption({
       ) : (
         <span className="flex-1" />
       )}
+      {leaf.sessionId ? (
+        <FilesCaptionButton paneId={leaf.id} sessionId={leaf.sessionId} label={label} />
+      ) : null}
       <button
         type="button"
         onClick={() => closePane(place)}
@@ -343,14 +348,16 @@ function LeafView({ node, tab, paneCount, paneMeta }: TreeProps & { node: LeafNo
       ) : null}
       <div className="relative min-h-0 flex-1">
         {node.sessionId ? (
-          <TerminalPane
-            key={node.id}
-            place={place}
-            sessionId={node.sessionId}
-            active={active}
-            dim={multi && !active}
-            onClose={() => closePane(place)}
-          />
+          <FilesDock paneId={node.id} sessionId={node.sessionId}>
+            <TerminalPane
+              key={node.id}
+              place={place}
+              sessionId={node.sessionId}
+              active={active}
+              dim={multi && !active}
+              onClose={() => closePane(place)}
+            />
+          </FilesDock>
         ) : (
           <EmptyPane place={place} tab={tab} />
         )}

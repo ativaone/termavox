@@ -1263,7 +1263,12 @@
       "error": {
         "max": "Use a whole number from 1 to 1000.",
         "generic": "The settings could not be saved. Try again."
-      }
+      },
+      "files": "Files",
+      "fileTransfer": "Allow the file panel (upload and download)",
+      "fileTransferHelp": "Lets users browse their sessions' servers and upload and download files there, over the session's own SSH connection. Off: the file panel is hidden and the session service refuses file requests.",
+      "fileAudit": "Record file operations in the audit log",
+      "fileAuditHelp": "Uploads, downloads, new folders, renames and deletions, with their paths and sizes. File contents are never recorded."
     },
     "audit": {
       "tab": "Audit log",
@@ -1320,7 +1325,12 @@
         "remote_session_adopted": "Session on a server adopted",
         "server_create": "Server added",
         "server_update": "Server changed",
-        "server_delete": "Server deleted"
+        "server_delete": "Server deleted",
+        "file_upload": "File uploaded",
+        "file_download": "File downloaded",
+        "file_mkdir": "Folder created",
+        "file_rename": "File renamed",
+        "file_remove": "Files deleted"
       },
       "details": {
         "key": {
@@ -1345,7 +1355,11 @@
           "previousLabel": "Previous name",
           "label": "New name",
           "hostname": "Address",
-          "port": "Port"
+          "port": "Port",
+          "path": "Path",
+          "size": "Size",
+          "paths": "Paths",
+          "removed": "Items deleted"
         },
         "value": {
           "stage": {
@@ -1391,8 +1405,176 @@
         "off": "Off",
         "seconds": "{count} s",
         "change": "{setting}: {from} → {to}",
-        "rename": "{from} → {to}"
+        "rename": "{from} → {to}",
+        "more": "+{count} more"
       }
+    }
+  },
+  "files": {
+    "title": "Files",
+    "toggle": "Files",
+    "toggleLabel": "Files of {label}",
+    "panelLabel": "Files of {label}",
+    "close": "Close files",
+    "resize": "Resize the file panel",
+    "keyboardHint": "Arrow keys move, Space selects, Enter opens a folder, F2 renames, Delete deletes.",
+    "toolbar": {
+      "label": "File actions",
+      "upload": "Upload",
+      "newFolder": "New folder",
+      "terminalFolder": "Go to the terminal's folder",
+      "terminalFolderUnknown": "The terminal's folder is known in protected sessions only",
+      "hidden": "Show hidden files",
+      "refresh": "Refresh"
+    },
+    "path": {
+      "label": "Path",
+      "up": "Up one folder",
+      "home": "Home folder",
+      "root": "Root folder",
+      "edit": "Type a path",
+      "field": "Folder path",
+      "invalid": "That isn't a path Termdock can open."
+    },
+    "list": {
+      "label": "Contents of {folder}",
+      "name": "Name",
+      "size": "Size",
+      "modified": "Modified",
+      "selectAll": "Select all",
+      "folder": "Folder",
+      "linkTo": "→ {target}",
+      "dangling": "broken link",
+      "empty": "This folder is empty.",
+      "emptyHidden": "Only hidden files here. Turn on hidden files to see them.",
+      "loading": "Loading…",
+      "count": "{count, plural, one {# item} other {# items}}",
+      "hiddenCount": "{count} hidden",
+      "truncated": "This folder has more entries than Termdock lists: showing the first {count}.",
+      "folderMeta": "Folder · {modified}",
+      "linkMeta": "Link → {target}",
+      "fileMeta": "{size} · {modified}",
+      "goHome": "Go to the home folder",
+      "tryAgain": "Try again"
+    },
+    "selection": {
+      "count": "{count} selected",
+      "clear": "Clear selection",
+      "download": "Download",
+      "rename": "Rename",
+      "delete": "Delete",
+      "foldersSkipped": "{count, plural, one {# folder was left out} other {# folders were left out}}: folders can't be downloaded yet. Select the files inside instead."
+    },
+    "rename": {
+      "label": "New name for {name}"
+    },
+    "newFolder": {
+      "label": "Name of the new folder",
+      "placeholder": "Folder name"
+    },
+    "name": {
+      "empty": "Type a name.",
+      "dot": "“.” and “..” can't be used as names.",
+      "slash": "A name can't contain “/”.",
+      "nul": "A name can't contain a null character.",
+      "tooLong": "That name is too long: 255 bytes at most.",
+      "taken": "Something with that name is already here."
+    },
+    "delete": {
+      "title": "Delete {items}?",
+      "folders": "{count, plural, one {# folder} other {# folders}}",
+      "files": "{count, plural, one {# file} other {# files}}",
+      "links": "{count, plural, one {# link} other {# links}}",
+      "oneFolder": "The folder <path>{name}</path> and everything inside it will be deleted from the server. This can't be undone.",
+      "foldersWarning": "Folders are deleted with everything inside them. This can't be undone.",
+      "warning": "They will be deleted from the server. This can't be undone.",
+      "linksNote": "Links are removed as links: what they point to is not touched.",
+      "confirm": "Delete",
+      "running": "Deleting…",
+      "removed": "{count, plural, one {# item} other {# items}}",
+      "stop": "Stop",
+      "stopped": "Stopped after deleting {count, plural, one {# item} other {# items}}."
+    },
+    "conflict": {
+      "title": "{count, plural, one {# file already exists} other {# files already exist}} in {folder}",
+      "more": "and {count} more",
+      "question": "What should happen to them?",
+      "replace": "Replace",
+      "replaceHelp": "Keeps the current file's permissions.",
+      "keepBoth": "Keep both",
+      "keepBothHelp": "Uploads as {name}",
+      "skip": "Skip these",
+      "continue": "Continue",
+      "cancel": "Cancel upload"
+    },
+    "drop": {
+      "title": "Drop to upload",
+      "target": "to <path>{folder}</path>",
+      "foldersSkipped": "{count, plural, one {# folder was left out} other {# folders were left out}}: folders can't be uploaded yet."
+    },
+    "transfers": {
+      "label": "Transfers",
+      "running": "{count} in progress",
+      "clear": "Clear finished",
+      "upload": "Upload",
+      "download": "Download",
+      "progress": "{done} of {total}",
+      "queued": "Waiting",
+      "starting": "Starting…",
+      "done": "Done",
+      "handedOff": "Continues in your browser's downloads",
+      "cancelled": "Cancelled",
+      "cancel": "Cancel {name}",
+      "retry": "Retry",
+      "retryLabel": "Retry {name}",
+      "progressLabel": "Progress of {name}",
+      "summary": "{count, plural, one {# transfer} other {# transfers}}",
+      "show": "Show",
+      "hide": "Hide"
+    },
+    "unavailable": {
+      "offlineTitle": "Files come back when the session reconnects",
+      "offlineBody": "The panel uses this session's connection. Transfers that were running can be retried.",
+      "tabOfflineTitle": "Files come back when Termdock reconnects",
+      "tabOfflineBody": "This browser tab lost its connection to Termdock. It reconnects on its own.",
+      "sftpTitle": "Files need SFTP on this server",
+      "sftpBody": "The panel uses SSH's own SFTP, over this session's connection. The SSH server at <data>{target}</data> didn't offer it. Termdock installs nothing on the server, and the terminal keeps working as usual.",
+      "sftpSteps": "To turn it on, on the server:",
+      "sftpStep1": "Add this line to /etc/ssh/sshd_config:",
+      "sftpStep2": "Reload the SSH server:",
+      "tryAgain": "Try again",
+      "disabledTitle": "File transfer is off",
+      "disabledBody": "An administrator turned off file transfer on this Termdock."
+    },
+    "proxy": {
+      "title": "A proxy refused the upload of {name}",
+      "body": "The proxy in front of Termdock limits the size of uploads (answer 413). Whoever runs Termdock needs to raise that limit: see “Behind a reverse proxy” in the install guide."
+    },
+    "dismiss": "Dismiss",
+    "phone": {
+      "open": "Files",
+      "back": "Terminal"
+    },
+    "error": {
+      "sessionNotConnected": "The session isn't connected. Files come back when it reconnects.",
+      "sftpUnavailable": "This server doesn't offer SFTP.",
+      "filesDisabled": "An administrator turned off file transfer.",
+      "permissionDenied": "The server denied permission.",
+      "nameInvalid": "That name can't be used.",
+      "fileOpFailed": "The server couldn't do that.",
+      "fileOpFailedDetail": "The server couldn't do that: {detail}",
+      "cancelled": "Stopped.",
+      "transferExpired": "The browser didn't start this download in time. If it asked to allow several downloads, allow them and try again.",
+      "notFound": "It isn't there any more. Refresh the folder.",
+      "conflict": "Something with that name is already here.",
+      "rateLimited": "Too many file operations at once. Wait a moment and try again.",
+      "forbidden": "Not allowed. Sign in again if this keeps happening.",
+      "badRequest": "The service refused the request.",
+      "connectionLost": "The connection to Termdock dropped. Try again once it's back.",
+      "timeout": "The server took too long to answer. Try again.",
+      "proxyTooLarge": "Refused by a proxy: the file is too large for it.",
+      "transferFailed": "The transfer didn't finish.",
+      "generic": "Something went wrong. Try again."
     }
   }
 }

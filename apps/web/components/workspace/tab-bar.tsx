@@ -114,6 +114,7 @@ export function TabBar({
   canSplit,
   revealKey = 0,
   trailing,
+  files,
   onRenameError,
 }: {
   layout: WorkspaceLayout;
@@ -127,6 +128,8 @@ export function TabBar({
   /** Changes whenever a session is followed or a tab selected, even the already active one. */
   revealKey?: number;
   trailing?: ReactNode;
+  /** The Files toggle of a one-pane tab (plan D-39), before the split controls. */
+  files?: ReactNode;
   /** A rename the daemon refused (shown by the shell's notice bar). */
   onRenameError?(message: string): void;
 }) {
@@ -430,6 +433,7 @@ export function TabBar({
       </nav>
       <div className="flex shrink-0 items-center gap-1 self-center whitespace-nowrap">
         {trailing}
+        {files}
         <Button
           variant="quiet"
           size="sm"

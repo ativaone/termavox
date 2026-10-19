@@ -201,6 +201,8 @@ export async function saveInstanceSettings(
       requireTotp: checked(formData, 'requireTotp'),
       maxRunningSessionsPerUser: max,
       localShellVisible: checked(formData, 'localShellVisible'),
+      fileTransferEnabled: checked(formData, 'fileTransferEnabled'),
+      fileAuditEnabled: checked(formData, 'fileAuditEnabled'),
     }));
   } catch (err) {
     guard(err);

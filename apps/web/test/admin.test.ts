@@ -9,6 +9,7 @@ import {
   adminSetBanned,
   adminSetRole,
 } from '../lib/admin/core.ts';
+import { getInstanceSettings, SETTING_KEYS } from '../lib/repo/instance-settings.ts';
 import { createUser, type Jar, makeRuntime, signIn, type TestRuntime } from './helpers.ts';
 
 let t: TestRuntime;
@@ -71,6 +72,8 @@ describe('admin operations', () => {
         requireTotp: true,
         maxRunningSessionsPerUser: 1,
         localShellVisible: true,
+        fileTransferEnabled: false,
+        fileAuditEnabled: true,
       }),
     ).rejects.toEqual(notFound);
     await expect(
@@ -151,5 +154,51 @@ describe('admin operations', () => {
     expect(audit('auth.totp_reset')).toMatchObject([{ actor_user_id: admin, target_id: jill }]);
     expect(sessions()).toBe(0);
     expect((await signIn(t.rt, 'jill')).res.status).toBe(200); // a fresh sign-in still works
+  });
+
+  it('reads the file settings with their defaults (transfer on, audit off) and audits changes', async () => {
+    const write = (key: string, json: string) =>
+      t.rt.db.$client
+        .prepare(
+          `INSERT INTO instance_settings (key, value_json, updated_at) VALUES (?, ?, 0)
+           ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json`,
+        )
+        .run(key, json);
+    const clear = () =>
+      t.rt.db.$client
+        .prepare('DELETE FROM instance_settings WHERE key IN (?, ?)')
+        .run(SETTING_KEYS.fileTransferEnabled, SETTING_KEYS.fileAuditEnabled);
+    clear();
+    expect(getInstanceSettings(t.rt.db)).toMatchObject({
+      fileTransferEnabled: true,
+      fileAuditEnabled: false,
+    });
+    // Only a stored `false` turns transfer off; only a stored `true` turns the audit on.
+    write(SETTING_KEYS.fileTransferEnabled, '"no"');
+    write(SETTING_KEYS.fileAuditEnabled, '1');
+    expect(getInstanceSettings(t.rt.db)).toMatchObject({
+      fileTransferEnabled: true,
+      fileAuditEnabled: false,
+    });
+    clear();
+
+    const current = getInstanceSettings(t.rt.db);
+    const before = audit('admin_setting.change').length;
+    await adminSaveSettings(deps(), adminJar.headers(), {
+      ...current,
+      fileTransferEnabled: false,
+      fileAuditEnabled: true,
+    });
+    expect(getInstanceSettings(t.rt.db)).toMatchObject({
+      fileTransferEnabled: false,
+      fileAuditEnabled: true,
+    });
+    const changes = audit('admin_setting.change')
+      .slice(before)
+      .map((row) => JSON.parse(row.detail_json!));
+    expect(changes).toEqual([
+      { key: 'file_transfer_enabled', from: true, to: false },
+      { key: 'file_audit_enabled', from: false, to: true },
+    ]);
   });
 });

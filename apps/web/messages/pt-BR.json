@@ -1263,7 +1263,12 @@
       "error": {
         "max": "Use um número inteiro de 1 a 1000.",
         "generic": "Não foi possível salvar as configurações. Tente de novo."
-      }
+      },
+      "files": "Arquivos",
+      "fileTransfer": "Permitir o painel de arquivos (envio e download)",
+      "fileTransferHelp": "Permite que os usuários naveguem pelos servidores das suas sessões e enviem e baixem arquivos neles, pela própria conexão SSH da sessão. Desativado: o painel de arquivos some e o serviço de sessões recusa pedidos de arquivos.",
+      "fileAudit": "Registrar operações de arquivos no log de auditoria",
+      "fileAuditHelp": "Envios, downloads, novas pastas, renomeações e exclusões, com caminhos e tamanhos. O conteúdo dos arquivos nunca é registrado."
     },
     "audit": {
       "tab": "Log de auditoria",
@@ -1320,7 +1325,12 @@
         "remote_session_adopted": "Sessão no servidor adotada",
         "server_create": "Servidor adicionado",
         "server_update": "Servidor alterado",
-        "server_delete": "Servidor excluído"
+        "server_delete": "Servidor excluído",
+        "file_upload": "Arquivo enviado",
+        "file_download": "Arquivo baixado",
+        "file_mkdir": "Pasta criada",
+        "file_rename": "Arquivo renomeado",
+        "file_remove": "Arquivos apagados"
       },
       "details": {
         "key": {
@@ -1345,7 +1355,11 @@
           "previousLabel": "Nome anterior",
           "label": "Novo nome",
           "hostname": "Endereço",
-          "port": "Porta"
+          "port": "Porta",
+          "path": "Caminho",
+          "size": "Tamanho",
+          "paths": "Caminhos",
+          "removed": "Itens apagados"
         },
         "value": {
           "stage": {
@@ -1391,8 +1405,176 @@
         "off": "Desativado",
         "seconds": "{count} s",
         "change": "{setting}: {from} → {to}",
-        "rename": "{from} → {to}"
+        "rename": "{from} → {to}",
+        "more": "+{count}"
       }
+    }
+  },
+  "files": {
+    "title": "Arquivos",
+    "toggle": "Arquivos",
+    "toggleLabel": "Arquivos de {label}",
+    "panelLabel": "Arquivos de {label}",
+    "close": "Fechar arquivos",
+    "resize": "Redimensionar o painel de arquivos",
+    "keyboardHint": "As setas movem, Espaço seleciona, Enter abre uma pasta, F2 renomeia, Delete apaga.",
+    "toolbar": {
+      "label": "Ações de arquivos",
+      "upload": "Enviar",
+      "newFolder": "Nova pasta",
+      "terminalFolder": "Ir para a pasta do terminal",
+      "terminalFolderUnknown": "A pasta do terminal só é conhecida em sessões protegidas",
+      "hidden": "Mostrar arquivos ocultos",
+      "refresh": "Atualizar"
+    },
+    "path": {
+      "label": "Caminho",
+      "up": "Subir uma pasta",
+      "home": "Pasta pessoal",
+      "root": "Pasta raiz",
+      "edit": "Digitar um caminho",
+      "field": "Caminho da pasta",
+      "invalid": "Esse não é um caminho que o Termdock consiga abrir."
+    },
+    "list": {
+      "label": "Conteúdo de {folder}",
+      "name": "Nome",
+      "size": "Tamanho",
+      "modified": "Modificado",
+      "selectAll": "Selecionar tudo",
+      "folder": "Pasta",
+      "linkTo": "→ {target}",
+      "dangling": "link quebrado",
+      "empty": "Esta pasta está vazia.",
+      "emptyHidden": "Aqui só há arquivos ocultos. Ative os arquivos ocultos para vê-los.",
+      "loading": "Carregando…",
+      "count": "{count, plural, one {# item} other {# itens}}",
+      "hiddenCount": "{count} ocultos",
+      "truncated": "Esta pasta tem mais itens do que o Termdock lista: mostrando os primeiros {count}.",
+      "folderMeta": "Pasta · {modified}",
+      "linkMeta": "Link → {target}",
+      "fileMeta": "{size} · {modified}",
+      "goHome": "Ir para a pasta pessoal",
+      "tryAgain": "Tentar de novo"
+    },
+    "selection": {
+      "count": "{count, plural, one {# selecionado} other {# selecionados}}",
+      "clear": "Limpar seleção",
+      "download": "Baixar",
+      "rename": "Renomear",
+      "delete": "Apagar",
+      "foldersSkipped": "{count, plural, one {# pasta ficou de fora} other {# pastas ficaram de fora}}: ainda não dá para baixar pastas. Selecione os arquivos dentro delas."
+    },
+    "rename": {
+      "label": "Novo nome para {name}"
+    },
+    "newFolder": {
+      "label": "Nome da nova pasta",
+      "placeholder": "Nome da pasta"
+    },
+    "name": {
+      "empty": "Digite um nome.",
+      "dot": "“.” e “..” não podem ser usados como nome.",
+      "slash": "Um nome não pode ter “/”.",
+      "nul": "Um nome não pode ter o caractere nulo.",
+      "tooLong": "Esse nome é longo demais: no máximo 255 bytes.",
+      "taken": "Já existe algo com esse nome aqui."
+    },
+    "delete": {
+      "title": "Apagar {items}?",
+      "folders": "{count, plural, one {# pasta} other {# pastas}}",
+      "files": "{count, plural, one {# arquivo} other {# arquivos}}",
+      "links": "{count, plural, one {# link} other {# links}}",
+      "oneFolder": "A pasta <path>{name}</path> e tudo o que há dentro dela serão apagados do servidor. Não dá para desfazer.",
+      "foldersWarning": "As pastas são apagadas com tudo o que há dentro delas. Não dá para desfazer.",
+      "warning": "Eles serão apagados do servidor. Não dá para desfazer.",
+      "linksNote": "Links são apagados como links: o destino deles não é tocado.",
+      "confirm": "Apagar",
+      "running": "Apagando…",
+      "removed": "{count, plural, one {# item} other {# itens}}",
+      "stop": "Parar",
+      "stopped": "Parou depois de apagar {count, plural, one {# item} other {# itens}}."
+    },
+    "conflict": {
+      "title": "{count, plural, one {# arquivo já existe} other {# arquivos já existem}} em {folder}",
+      "more": "e mais {count}",
+      "question": "O que fazer com eles?",
+      "replace": "Substituir",
+      "replaceHelp": "Mantém as permissões do arquivo atual.",
+      "keepBoth": "Manter os dois",
+      "keepBothHelp": "Envia como {name}",
+      "skip": "Pular estes",
+      "continue": "Continuar",
+      "cancel": "Cancelar envio"
+    },
+    "drop": {
+      "title": "Solte para enviar",
+      "target": "para <path>{folder}</path>",
+      "foldersSkipped": "{count, plural, one {# pasta ficou de fora} other {# pastas ficaram de fora}}: ainda não dá para enviar pastas."
+    },
+    "transfers": {
+      "label": "Transferências",
+      "running": "{count} em andamento",
+      "clear": "Limpar concluídas",
+      "upload": "Envio",
+      "download": "Download",
+      "progress": "{done} de {total}",
+      "queued": "Na fila",
+      "starting": "Começando…",
+      "done": "Concluído",
+      "handedOff": "Continua nos downloads do navegador",
+      "cancelled": "Cancelado",
+      "cancel": "Cancelar {name}",
+      "retry": "Repetir",
+      "retryLabel": "Repetir {name}",
+      "progressLabel": "Progresso de {name}",
+      "summary": "{count, plural, one {# transferência} other {# transferências}}",
+      "show": "Ver",
+      "hide": "Ocultar"
+    },
+    "unavailable": {
+      "offlineTitle": "Os arquivos voltam quando a sessão reconectar",
+      "offlineBody": "O painel usa a conexão desta sessão. Transferências que estavam em andamento podem ser repetidas.",
+      "tabOfflineTitle": "Os arquivos voltam quando o Termdock reconectar",
+      "tabOfflineBody": "Esta aba do navegador perdeu a conexão com o Termdock. Ela reconecta sozinha.",
+      "sftpTitle": "Os arquivos precisam de SFTP neste servidor",
+      "sftpBody": "O painel usa o SFTP do próprio SSH, pela conexão desta sessão. O servidor SSH de <data>{target}</data> não ofereceu o SFTP. O Termdock não instala nada no servidor, e o terminal continua funcionando normalmente.",
+      "sftpSteps": "Para ativar, no servidor:",
+      "sftpStep1": "Inclua esta linha em /etc/ssh/sshd_config:",
+      "sftpStep2": "Recarregue o servidor SSH:",
+      "tryAgain": "Tentar de novo",
+      "disabledTitle": "A transferência de arquivos está desativada",
+      "disabledBody": "Um administrador desativou a transferência de arquivos neste Termdock."
+    },
+    "proxy": {
+      "title": "Um proxy recusou o envio de {name}",
+      "body": "O proxy na frente do Termdock limita o tamanho dos envios (resposta 413). Quem administra o Termdock precisa aumentar esse limite: veja “Atrás de um proxy reverso” no guia de instalação."
+    },
+    "dismiss": "Dispensar",
+    "phone": {
+      "open": "Arquivos",
+      "back": "Terminal"
+    },
+    "error": {
+      "sessionNotConnected": "A sessão não está conectada. Os arquivos voltam quando ela reconectar.",
+      "sftpUnavailable": "Este servidor não oferece SFTP.",
+      "filesDisabled": "Um administrador desativou a transferência de arquivos.",
+      "permissionDenied": "O servidor negou a permissão.",
+      "nameInvalid": "Esse nome não pode ser usado.",
+      "fileOpFailed": "O servidor não conseguiu fazer isso.",
+      "fileOpFailedDetail": "O servidor não conseguiu fazer isso: {detail}",
+      "cancelled": "Interrompido.",
+      "transferExpired": "O navegador não iniciou este download a tempo. Se ele pediu para permitir vários downloads, permita e tente de novo.",
+      "notFound": "Isso não está mais lá. Atualize a pasta.",
+      "conflict": "Já existe algo com esse nome aqui.",
+      "rateLimited": "Operações de arquivo demais ao mesmo tempo. Espere um pouco e tente de novo.",
+      "forbidden": "Não permitido. Entre de novo se isso continuar acontecendo.",
+      "badRequest": "O serviço recusou o pedido.",
+      "connectionLost": "A conexão com o Termdock caiu. Tente de novo quando ela voltar.",
+      "timeout": "O servidor demorou demais para responder. Tente de novo.",
+      "proxyTooLarge": "Recusado por um proxy: o arquivo é grande demais para ele.",
+      "transferFailed": "A transferência não terminou.",
+      "generic": "Algo deu errado. Tente de novo."
     }
   }
 }

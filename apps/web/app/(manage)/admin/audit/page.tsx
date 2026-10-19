@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { param } from '../../../../components/manage/done-notice.tsx';
 import { ButtonLink, buttonClasses } from '../../../../components/ui/button.tsx';
 import { DataTable, Td, Th, Tr } from '../../../../components/ui/data-table.tsx';
@@ -11,6 +11,7 @@ import { NativeSelect } from '../../../../components/ui/select.tsx';
 import { auditActorLabel } from '../../../../lib/admin/audit-actor.ts';
 import { requireAdminPage } from '../../../../lib/admin/page-guard.ts';
 import { getAuthRuntime } from '../../../../lib/auth/server.ts';
+import { formatSize } from '../../../../lib/files/format.ts';
 import { listUsersForAdmin } from '../../../../lib/repo/admin-users.ts';
 import {
   type AuditFilter,
@@ -57,6 +58,12 @@ const KNOWN_TYPES = new Set([
   'server.create',
   'server.update',
   'server.delete',
+  // The file panel (plan §5.12), written by the daemon while `file_audit_enabled` is on.
+  'file.upload',
+  'file.download',
+  'file.mkdir',
+  'file.rename',
+  'file.remove',
 ]);
 
 /** Message keys cannot contain dots (next-intl nesting), so `auth.lockout` reads `auth_lockout`. */
@@ -91,7 +98,12 @@ type AuditTypeKey =
   | 'remote_session_adopted'
   | 'server_create'
   | 'server_update'
-  | 'server_delete';
+  | 'server_delete'
+  | 'file_upload'
+  | 'file_download'
+  | 'file_mkdir'
+  | 'file_rename'
+  | 'file_remove';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -126,6 +138,10 @@ const DETAIL_KEYS = [
   'label',
   'hostname',
   'port',
+  'path',
+  'size',
+  'paths',
+  'removed',
 ] as const;
 type DetailKey = (typeof DETAIL_KEYS)[number];
 const isDetailKey = (key: string): key is DetailKey =>
@@ -155,6 +171,8 @@ const SETTING_LABELS = {
   require_totp: 'requireTotp',
   max_running_sessions_per_user: 'max',
   local_shell_visible: 'localShell',
+  file_transfer_enabled: 'fileTransfer',
+  file_audit_enabled: 'fileAudit',
 } as const;
 
 /**
@@ -167,6 +185,15 @@ function detailAddress(row: AuditRow): string | null {
   if (row.targetType !== 'server' || typeof hostname !== 'string' || !hostname) return null;
   return typeof port === 'number' ? formatAddress(hostname, port) : hostname;
 }
+
+/** A remote path for the detail column: its end is what tells paths apart. */
+function shortPath(value: unknown, max = 120): string | null {
+  if (typeof value !== 'string') return null;
+  return value.length > max ? `…${value.slice(-(max - 1))}` : value;
+}
+
+/** How many paths of a `file.remove` the detail column names before "+n more". */
+const PATHS_SHOWN = 3;
 
 /** Detail fields the target column already shows for a server event. */
 const SHOWN_IN_TARGET = new Set(['hostname', 'port', 'name']);
@@ -195,6 +222,7 @@ export default async function AdminAuditPage({
   const { user } = await requireAdminPage();
   const t = await getTranslations('admin.audit');
   const ts = await getTranslations('admin.settings');
+  const locale = await getLocale();
   const tp = await getTranslations('manage.pagination');
   const search = await searchParams;
   const { db } = getAuthRuntime();
@@ -221,6 +249,8 @@ export default async function AdminAuditPage({
     if (key === 'lockedForS' && typeof value === 'number') {
       return t('details.seconds', { count: value });
     }
+    if (key === 'size' && typeof value === 'number') return formatSize(value, locale);
+    if (key === 'path' && typeof value === 'string') return shortPath(value) ?? '';
     const word = valueKey(key, value);
     return word ? t(word) : String(value).slice(0, 80);
   };
@@ -244,6 +274,28 @@ export default async function AdminAuditPage({
         from: settingValue(detail.from),
         to: settingValue(detail.to),
       });
+    }
+    // File operations (plan §5.12): a move reads "from → to"; a delete names its first paths.
+    if (row.type === 'file.rename') {
+      const from = shortPath(detail.from, 80);
+      const to = shortPath(detail.to, 80);
+      if (from !== null && to !== null) return t('details.rename', { from, to });
+    }
+    if (row.type === 'file.remove' && Array.isArray(detail.paths)) {
+      const paths = detail.paths.filter((p): p is string => typeof p === 'string');
+      const shown = paths
+        .slice(0, PATHS_SHOWN)
+        .map((p) => shortPath(p, 80))
+        .join(', ');
+      const more =
+        paths.length > PATHS_SHOWN
+          ? ` ${t('details.more', { count: paths.length - PATHS_SHOWN })}`
+          : '';
+      const parts = [`${t('details.key.paths')}: ${shown}${more}`];
+      if (typeof detail.removed === 'number') {
+        parts.push(`${t('details.key.removed')}: ${detail.removed}`);
+      }
+      return parts.join(' · ');
     }
     // A rename reads as "previous → new" (plan D-28), never as two labelled fields.
     if (row.type === 'session.rename' || row.type === 'credential.rename') {

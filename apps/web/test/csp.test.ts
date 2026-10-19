@@ -18,11 +18,12 @@ describe('content security policy (plan §10.2)', () => {
 
   it("keeps connect-src at 'self' unless a separate WebSocket origin is configured", () => {
     expect(buildCsp('n')).toContain("connect-src 'self';");
+    // The WebSocket's origin, and the HTTP origin of the transfer routes beside it (uploads).
     expect(buildCsp('n', true, 'ws://localhost:3301/ws')).toContain(
-      "connect-src 'self' ws://localhost:3301;",
+      "connect-src 'self' ws://localhost:3301 http://localhost:3301;",
     );
     expect(buildCsp('n', false, 'wss://term.example.com/ws')).toContain(
-      "connect-src 'self' wss://term.example.com;",
+      "connect-src 'self' wss://term.example.com https://term.example.com;",
     );
     expect(buildCsp('n', false, 'javascript:alert(1)')).toContain("connect-src 'self';");
     expect(buildCsp('n', false, 'not a url')).toContain("connect-src 'self';");
