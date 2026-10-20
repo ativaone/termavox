@@ -126,7 +126,7 @@ Three ideas carry the design:
 | 5 | Workspace UI: sidebar, tabs, splits, mobile key bar, Docker Compose deployment | ✅ |
 | 6 | Local modes: the "This Docker host" preset ships; direct mode moved to the roadmap | ✅ |
 | 7 | Compatibility fallback for tmux older than 3.2: moved to the roadmap (such hosts run unprotected and say so) | ⏭️ |
-| 8 | Hardening, two security reviews, docs, CI and a release pipeline with published multi-arch images; release v0.1.0 (release candidate stage) | 🚧 |
+| 8 | Hardening, two security reviews, docs, CI and a release pipeline with published images; release v0.1.0 (release candidate stage) | 🚧 |
 
 The full plan, with architecture, protocol, data model, security model and per-phase exit criteria, lives in [`docs/implementation-plan.md`](docs/implementation-plan.md). Spike results are recorded as ADRs in [`docs/adr/`](docs/adr/README.md).
 
@@ -146,20 +146,33 @@ The full plan, with architecture, protocol, data model, security model and per-p
 
 ### Run it with Docker
 
-Three containers behind a single origin: **Caddy** (TLS), **web** and **session-manager**, from images each release publishes for `linux/amd64` and `linux/arm64`. You need **Docker** with Compose v2 on a Linux host.
+Three containers behind a single origin: **Caddy** (TLS), **web** and **session-manager**. You need **Docker** with Compose v2 on a Linux host.
+
+**A release**, with the images it publishes for `linux/amd64` (`linux/arm64` coming soon):
 
 ```bash
 git clone https://github.com/ativaone/termavox.git && cd termavox
 git checkout v0.1.0                                  # the release to install (see Releases)
 deploy/scripts/init-secrets.sh                       # generate the secrets; back up deploy/secrets/master_key
+cp deploy/.env.example deploy/.env                   # the settings: edit them before starting (below)
 docker compose -f deploy/compose.yaml pull           # the release's images from ghcr.io
 docker compose -f deploy/compose.yaml up -d          # start the stack
-docker compose -f deploy/compose.yaml logs web       # the one-time token to create the first admin at /setup
+docker compose -f deploy/compose.yaml logs web | grep "setup token:" | tail -n 1
 ```
 
-Out of the box it serves `https://localhost` with a certificate from Caddy's local CA. To build the images from the checkout instead, use `up -d --build`. The [installation guide](docs/guides/install.md) covers domains and TLS, running behind your own reverse proxy, verifying the images, backups and restore, upgrades and troubleshooting.
+**The latest source**, with the images built on this host (it needs a couple of GB of memory free; also the way to run it on arm64 for now):
 
-**Upgrading an existing install:** read the version's upgrade notes in [CHANGELOG.md](CHANGELOG.md), back up, check out the new release's tag, then `docker compose -f deploy/compose.yaml pull` and `up -d`. Database migrations run on their own; the full procedure is in [Upgrades](docs/guides/install.md#upgrades).
+```bash
+git clone https://github.com/ativaone/termavox.git && cd termavox
+deploy/scripts/init-secrets.sh                       # generate the secrets; back up deploy/secrets/master_key
+cp deploy/.env.example deploy/.env                   # the settings: edit them before starting (below)
+docker compose -f deploy/compose.yaml up -d --build  # build the three images and start the stack
+docker compose -f deploy/compose.yaml logs web | grep "setup token:" | tail -n 1
+```
+
+**Edit `deploy/.env` before you start.** As copied, it serves `https://localhost` with a certificate from Caddy's local CA, for a trial on this machine. For another name, set `TERMAVOX_DOMAIN` to it, with `TERMAVOX_TLS=auto` for a public domain (a Let's Encrypt certificate) or `internal` for a LAN name or an IP address; the ports are there too. The last command prints the one-time setup token and the address where it creates the first admin. The [installation guide](docs/guides/install.md) covers domains and TLS, running behind your own reverse proxy, verifying the images, backups and restore, upgrades and troubleshooting.
+
+**Upgrading an existing install:** read the version's upgrade notes in [CHANGELOG.md](CHANGELOG.md), back up, check out the new release's tag, then `docker compose -f deploy/compose.yaml pull` and `up -d`. An install from the latest source runs `git pull` and `up -d --build` instead. Database migrations run on their own; the full procedure is in [Upgrades](docs/guides/install.md#upgrades).
 
 ### Development
 
@@ -175,7 +188,7 @@ pnpm test:release                              # pre-release routine: T0, all T1
 
 The test containers listen on `127.0.0.1:2201–2204` and use **test-only** keys from [`test/sshd/keys/`](test/sshd/keys/). Never reuse them anywhere else.
 
-CI runs `pnpm check` on every push and pull request and the whole `pnpm test:release` routine on every push to `main` (its smoke drives the real UI in a headless Chromium over the DevTools protocol). A `vX.Y.Z` tag builds the images on native amd64 and arm64 runners, tests those exact images, publishes them with build provenance and creates the GitHub release; the manual half is the [release checklist](docs/release-checklist.md) (plan §15.4, D-41).
+CI runs `pnpm check` on every push and pull request and the whole `pnpm test:release` routine on every push to `main` (its smoke drives the real UI in a headless Chromium over the DevTools protocol). A `vX.Y.Z` tag builds the images on a native amd64 runner (arm64 coming soon), tests those exact images, publishes them with build provenance and creates the GitHub release; the manual half is the [release checklist](docs/release-checklist.md) (plan §15.4, D-41).
 
 ### Repository layout
 

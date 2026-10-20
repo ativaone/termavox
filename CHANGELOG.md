@@ -18,7 +18,7 @@ upgraded: remove it together with its volumes and install fresh from a new clone
 ### Added
 
 - Published images: each release puts three images on GitHub's container registry, for
-  `linux/amd64` and `linux/arm64` (`ghcr.io/ativaone/termavox-caddy`, `-web` and
+  `linux/amd64`, with `linux/arm64` coming soon (`ghcr.io/ativaone/termavox-caddy`, `-web` and
   `-session-manager`), tagged with the version and built, tested and published by the release
   workflow; installs no longer need to build anything. `deploy/compose.yaml` names them and keeps
   its build sections for installs from source.

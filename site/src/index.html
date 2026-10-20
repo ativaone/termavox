@@ -169,15 +169,29 @@
   <section class="band" aria-labelledby="run">
     <div class="band-head">
       <h2 id="run">Run it</h2>
-      <p>Three containers behind a single origin: Caddy for TLS, the web app and the session manager, from images each release publishes for amd64 and arm64. You need Docker with Compose v2 on a Linux host.</p>
+      <p>Three containers behind a single origin: Caddy for TLS, the web app and the session manager. You need Docker with Compose v2 on a Linux host.</p>
     </div>
-    <pre class="code"><code>git clone https://github.com/ativaone/termavox.git termavox &amp;&amp; cd termavox
+    <div class="run-option">
+      <h3>A release</h3>
+      <p class="run-after">With the images it publishes for amd64 (arm64 coming soon).</p>
+      <pre class="code"><code>git clone https://github.com/ativaone/termavox.git termavox &amp;&amp; cd termavox
 git checkout v0.1.0                            # the release to install (see Releases)
 deploy/scripts/init-secrets.sh                 # generate the secrets; back up deploy/secrets/master_key
+cp deploy/.env.example deploy/.env             # the settings: edit them before starting (below)
 docker compose -f deploy/compose.yaml pull     # the release's images from ghcr.io
 docker compose -f deploy/compose.yaml up -d    # start the stack
-docker compose -f deploy/compose.yaml logs web # the one-time token to create the first admin at /setup</code></pre>
-    <p class="run-after">Out of the box it serves <code>https://localhost</code> with a certificate from Caddy's local CA. The installation guide covers domains and TLS, reverse proxies, verifying the images, building from source, backups, upgrades and troubleshooting.</p>
+docker compose -f deploy/compose.yaml logs web | grep "setup token:" | tail -n 1</code></pre>
+    </div>
+    <div class="run-option">
+      <h3>The latest source</h3>
+      <p class="run-after">With the images built on this host: it needs a couple of GB of memory free, and is also the way to run it on arm64 for now.</p>
+      <pre class="code"><code>git clone https://github.com/ativaone/termavox.git termavox &amp;&amp; cd termavox
+deploy/scripts/init-secrets.sh                 # generate the secrets; back up deploy/secrets/master_key
+cp deploy/.env.example deploy/.env             # the settings: edit them before starting (below)
+docker compose -f deploy/compose.yaml up -d --build
+docker compose -f deploy/compose.yaml logs web | grep "setup token:" | tail -n 1</code></pre>
+    </div>
+    <p class="run-after"><strong>Edit <code>deploy/.env</code> before you start.</strong> As copied, it serves <code>https://localhost</code> with a certificate from Caddy's local CA, for a trial on this machine. For another name, set <code>TERMAVOX_DOMAIN</code> to it, with <code>TERMAVOX_TLS=auto</code> for a public domain (a Let's Encrypt certificate) or <code>internal</code> for a LAN name or an IP address. The last command prints the one-time setup token and the address where it creates the first admin. The installation guide covers domains and TLS, reverse proxies, verifying the images, backups, upgrades and troubleshooting.</p>
     <div class="actions">
       <a class="btn btn-primary" href="docs/install/">Installation guide</a>
       <a class="btn btn-secondary" href="docs/configuration/">Configuration reference</a>

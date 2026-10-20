@@ -30,7 +30,8 @@ env:
   REGISTRY: ghcr.io/ativaone
   # The architectures a release publishes. arm64 is suspended by the owner (2026-10-20) until they
   # have tested the release well: its build is slow and nobody installs on arm64 yet. To bring it
-  # back: `amd64 arm64` here and the arm64 entry of the build matrix below uncommented.
+  # back: `amd64 arm64` here, the arm64 entry of the build matrix below uncommented, and the
+  # "arm64 coming soon" lines of the README, CHANGELOG, install guide and site home pages.
   ARCHES: amd64
 
 jobs:

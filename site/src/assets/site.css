@@ -1604,6 +1604,15 @@ pre.code code {
   max-width: 46rem;
   color: var(--ink-muted);
 }
+.run-option {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.run-option h3 {
+  font-size: 1.125rem;
+}
 @media (max-width: 40rem) {
   .home main {
     gap: 4.5rem;
