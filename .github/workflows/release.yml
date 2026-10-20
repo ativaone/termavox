@@ -64,7 +64,7 @@ jobs:
             echo "::error::CHANGELOG.md has no '## [$version] - YYYY-MM-DD' section"
             exit 1
           fi
-          node scripts/release-notes.ts "$version" >/dev/null
+          if [[ "$publish" == true ]]; then node scripts/release-notes.ts "$version" >/dev/null; fi
           {
             echo "version=$version"
             echo "prerelease=$prerelease"
