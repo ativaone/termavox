@@ -8,7 +8,7 @@ A self-hosted, persistent terminal-session runtime for SSH, accessible from the 
 
 **[Website and documentation](https://ativaone.github.io/termdock)** · [Help](https://ativaone.github.io/termdock/docs/help/) · [Ajuda em português](https://ativaone.github.io/termdock/pt-BR/docs/help/)
 
-[![Status: pre-alpha](https://img.shields.io/badge/status-pre--alpha-orange)](#status-and-roadmap)
+[![Status: v0.1.0 release candidate](https://img.shields.io/badge/status-v0.1.0_release_candidate-yellow)](#status-and-roadmap)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-24_LTS-5FA04E?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
@@ -107,14 +107,14 @@ Three ideas carry the design:
   - Login uses username/password plus optional TOTP, with rate limits.
   - Audit logs record session and security events.
 - 🔑 **SSH authentication** with private keys (with passphrase), passwords, and keyboard-interactive prompts (OTP/2FA) relayed to your browser.
-- 🏠 **Local modes**: the "This Docker host" preset (available) adds the machine running Termdock as an SSH host; direct mode, a local shell without SSH, is planned (Phase 6).
+- 🏠 **Local modes**: the "This Docker host" preset (available) adds the machine running Termdock as an SSH host; direct mode, a local shell without SSH, is on the roadmap.
 - 🌍 **English and Brazilian Portuguese** UI.
 - 🐳 **One-command deployment** with Docker Compose and Caddy (automatic HTTPS).
 
 ## Status and roadmap
 
 > [!WARNING]
-> Termdock is **pre-alpha**. The runtime, the web workspace and the Docker deployment work end to end and have had an internal security review, but there is no release yet. Keep it away from production servers until v0.1.0.
+> **v0.1.0 is the first supported release**: internally reviewed twice, not externally audited. Read the [security model](docs/security.md) before you expose it to the internet or use it with production servers. Release candidates come first, for testing, on the [releases page](https://github.com/ativaone/termdock/releases).
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -124,9 +124,9 @@ Three ideas carry the design:
 | 3 | tmux control-mode protection end to end: restore after daemon restarts and network drops, verified on tmux 3.2a, 3.4 and 3.8 | ✅ |
 | 4 | Resilience: reconnect, host-key trust, keyboard-interactive flows | ✅ |
 | 5 | Workspace UI: sidebar, tabs, splits, mobile key bar, Docker Compose deployment | ✅ |
-| 6 | Local modes: the "This Docker host" preset ships; direct mode is pending | 🚧 |
-| 7 | Compatibility fallback for old tmux versions | ⏳ |
-| 8 | Hardening, security review, docs, release v0.1.0 (review and hardening done) | 🚧 |
+| 6 | Local modes: the "This Docker host" preset ships; direct mode moved to the roadmap | ✅ |
+| 7 | Compatibility fallback for tmux older than 3.2: moved to the roadmap (such hosts run unprotected and say so) | ⏭️ |
+| 8 | Hardening, two security reviews, docs, CI and a release pipeline with published multi-arch images; release v0.1.0 (release candidate stage) | 🚧 |
 
 The full plan, with architecture, protocol, data model, security model and per-phase exit criteria, lives in [`docs/implementation-plan.md`](docs/implementation-plan.md). Spike results are recorded as ADRs in [`docs/adr/`](docs/adr/README.md).
 
@@ -146,17 +146,20 @@ The full plan, with architecture, protocol, data model, security model and per-p
 
 ### Run it with Docker
 
-One command starts the three containers behind a single origin: **Caddy** (TLS), **web** and **session-manager**. You need **Docker** with Compose v2 on a Linux host.
+Three containers behind a single origin: **Caddy** (TLS), **web** and **session-manager**, from images each release publishes for `linux/amd64` and `linux/arm64`. You need **Docker** with Compose v2 on a Linux host.
 
 ```bash
-deploy/scripts/init-secrets.sh                      # generate the secrets; back up deploy/secrets/master_key
-docker compose -f deploy/compose.yaml up -d --build # build both images and start the stack
-docker compose -f deploy/compose.yaml logs web      # the one-time token to create the first admin at /setup
+git clone https://github.com/ativaone/termdock.git && cd termdock
+git checkout v0.1.0                                  # the release to install (see Releases)
+deploy/scripts/init-secrets.sh                       # generate the secrets; back up deploy/secrets/master_key
+docker compose -f deploy/compose.yaml pull           # the release's images from ghcr.io
+docker compose -f deploy/compose.yaml up -d          # start the stack
+docker compose -f deploy/compose.yaml logs web       # the one-time token to create the first admin at /setup
 ```
 
-Out of the box it serves `https://localhost` with a certificate from Caddy's local CA. The [installation guide](docs/guides/install.md) covers domains and TLS, backups and restore, upgrades and troubleshooting. Termdock is still pre-alpha, so keep it away from production servers for now.
+Out of the box it serves `https://localhost` with a certificate from Caddy's local CA. To build the images from the checkout instead, use `up -d --build`. The [installation guide](docs/guides/install.md) covers domains and TLS, running behind your own reverse proxy, verifying the images, backups and restore, upgrades and troubleshooting.
 
-**Upgrading an existing install:** read the version's upgrade notes in [CHANGELOG.md](CHANGELOG.md), back up, `git pull`, then `docker compose -f deploy/compose.yaml up -d --build`. Database migrations run on their own; the full procedure is in [Upgrades](docs/guides/install.md#upgrades).
+**Upgrading an existing install:** read the version's upgrade notes in [CHANGELOG.md](CHANGELOG.md), back up, check out the new release's tag, then `docker compose -f deploy/compose.yaml pull` and `up -d`. Database migrations run on their own; the full procedure is in [Upgrades](docs/guides/install.md#upgrades).
 
 ### Development
 
@@ -167,12 +170,12 @@ pnpm install                                   # dependency build scripts are bl
 docker compose -f test/sshd/compose.yaml up -d # test sshd containers: no tmux, tmux 3.2a, 3.4, newest
 pnpm check                                     # typecheck + lint + fast tests (T0)
 pnpm test:area tmux                            # integration tests for one area (terminal | ssh | tmux)
-pnpm test:release                              # pre-release routine: T0, all T1, OSV, image builds, smoke
+pnpm test:release                              # pre-release routine: T0, all T1, OSV, image builds, smoke (CI runs it on every push to main)
 ```
 
 The test containers listen on `127.0.0.1:2201–2204` and use **test-only** keys from [`test/sshd/keys/`](test/sshd/keys/). Never reuse them anywhere else.
 
-Before a release, `pnpm test:release` runs the automated routine (its smoke drives the real UI in a local headless Chromium over the DevTools protocol), followed by the manual [release checklist](docs/release-checklist.md); see plan §15.4.
+CI runs `pnpm check` on every push and pull request and the whole `pnpm test:release` routine on every push to `main` (its smoke drives the real UI in a headless Chromium over the DevTools protocol). A `vX.Y.Z` tag builds the images on native amd64 and arm64 runners, tests those exact images, publishes them with build provenance and creates the GitHub release; the manual half is the [release checklist](docs/release-checklist.md) (plan §15.4, D-41).
 
 ### Repository layout
 
@@ -218,7 +221,7 @@ Termdock is designed to be deployed as a **privileged bastion**: whoever control
 - Every request is scoped to its owner.
 - Terminal contents are never logged.
 
-The threat model, the controls and what Termdock does *not* protect against are described in the [security model](docs/security.md). An internal pre-release security review has been completed and its findings fixed; please still wait for the first release before using Termdock in production. To report a vulnerability, see [`SECURITY.md`](SECURITY.md).
+The threat model, the controls and what Termdock does *not* protect against are described in the [security model](docs/security.md). Two internal security reviews have been completed and their findings fixed; there has been no external audit. To report a vulnerability privately, see [`SECURITY.md`](SECURITY.md).
 
 ## License
 

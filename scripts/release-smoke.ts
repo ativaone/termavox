@@ -1,9 +1,14 @@
-// End-to-end smoke of the composed stack (pre-release routine, plan §15.4). Step 6 of
-// `pnpm test:release`; also runnable alone once the images are built:
+// End-to-end smoke of the composed stack (pre-release routine, plan §15.4). Steps `smoke` and
+// `smoke-proxy` of `pnpm test:release`; also runnable alone once the images are built:
 //
-//   docker compose -p termdock-smoke -f deploy/compose.yaml build session-manager
-//   docker compose -p termdock-smoke -f deploy/compose.yaml build web
-//   node scripts/release-smoke.ts
+//   pnpm test:release --only build          (termdock-smoke-caddy, -session-manager, -web)
+//   node scripts/release-smoke.ts [--proxy] [--prebuilt]
+//
+// Images: by default the test-only termdock-smoke-* images built from the checkout (the override
+// test/release/compose.smoke-images.yaml names them). `--prebuilt` runs the images
+// deploy/compose.yaml itself names (ghcr.io/ativaone/termdock-*:<version>) instead: the release
+// pipeline's freshly built ones. Either way they must be present locally: `up` runs with
+// `--no-build --pull never`.
 //
 // Isolated from any real install: compose project `termdock-smoke`, throwaway volumes, secrets
 // from init-secrets.sh in a temporary directory, Caddy on loopback ports 18080/18443 and the
@@ -11,14 +16,26 @@
 // already-built test image, authenticated with the test-only keys of test/sshd/keys). Everything
 // is torn down on success, failure and Ctrl-C (`down -v` for that project only).
 //
+// The flow (each check prints a PASS/FAIL line): 1 setup (one-time token, first admin), 2 sign-in,
+// 3 add server (server and pasted key in one form, then "Start a session"), 4 session (host-key
+// trust, Connected and protected), 5 command (echo, read back from xterm's rows), 6 rename,
+// 7 restore (session-manager restart), 8 rotate (master key rotation, a new session with the
+// re-encrypted credential), 9 duplicate (a copy of the server connects with no host-key prompt),
+// 10 files (the file panel of the connected session, through Caddy's /transfer/* route: upload a
+// random file, see it listed, download it back with the same SHA-256, delete it), 11 terminate
+// (all three sessions), 12 reset (reset-password.sh), 13 backup (backup.sh, checked on the host),
+// then the CSP and teardown checks.
+//
 // The real web UI is driven over the Chrome DevTools Protocol (scripts/cdp.ts) in a local
 // headless Chromium: TERMDOCK_SMOKE_CHROME, else the newest
 // ~/.cache/ms-playwright/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell.
 //
 // `--proxy` (plan D-35) runs the same flow with TERMDOCK_TLS=off behind a front proxy that
-// terminates TLS, as nginx would: a second Caddy from the deployment's pinned image, on the host
-// network at 127.0.0.1:TERMDOCK_SMOKE_FRONT_PORT (18543), forwarding to Caddy's plain-HTTP port. It
-// also checks that the stored client addresses are the browser's, not the proxy's.
+// terminates TLS, as nginx would: a second Caddy from the official image the deployment's Caddy
+// image is built on (the digest of deploy/docker/caddy.Dockerfile), on the host network at
+// 127.0.0.1:TERMDOCK_SMOKE_FRONT_PORT (18543), forwarding to Caddy's plain-HTTP port. It also
+// checks that the stored client addresses are the browser's, not the proxy's, and its file panel
+// step sends the uploads and downloads through both proxies.
 //
 // Environment: TERMDOCK_SMOKE_CHROME, TERMDOCK_SMOKE_HTTP_PORT (18080),
 // TERMDOCK_SMOKE_HTTPS_PORT (18443), TERMDOCK_SMOKE_MIN_AVAILABLE_MB (900), TMPDIR, and the
@@ -26,7 +43,15 @@
 // TERMDOCK_SMOKE_EDGE_SUBNET.
 import { spawn } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { createServer } from 'node:net';
@@ -40,7 +65,13 @@ import { type CdpPage, type Chromium, findChromium, launchChromium, sleep } from
 const ROOT = join(import.meta.dirname, '..');
 const PROJECT = 'termdock-smoke';
 const COMPOSE_FILE = join(ROOT, 'deploy', 'compose.yaml');
-const OVERRIDE = join(ROOT, 'test', 'release', 'compose.smoke.yaml');
+const PREBUILT = process.argv.includes('--prebuilt');
+/** The smoke override, plus (from source) the one that gives the images test-only names. */
+const OVERRIDES = [
+  join(ROOT, 'test', 'release', 'compose.smoke.yaml'),
+  ...(PREBUILT ? [] : [join(ROOT, 'test', 'release', 'compose.smoke-images.yaml')]),
+];
+const CADDY_DOCKERFILE = join(ROOT, 'deploy', 'docker', 'caddy.Dockerfile');
 const SCRIPTS = join(ROOT, 'deploy', 'scripts');
 const KEYS = join(ROOT, 'test', 'sshd', 'keys');
 const HTTP_PORT = Number(process.env.TERMDOCK_SMOKE_HTTP_PORT ?? 18080);
@@ -57,7 +88,8 @@ const MIN_AVAILABLE_MB = Number(process.env.TERMDOCK_SMOKE_MIN_AVAILABLE_MB ?? 9
 const SSHD_IMAGE = process.env.TERMDOCK_SMOKE_SSHD_IMAGE ?? 'termdock-test-sshd:tmux-3.4';
 const SSHD_SERVICE = 'smoke-sshd';
 const SERVICES = ['caddy', 'web', 'session-manager', SSHD_SERVICE];
-const APP_IMAGES = [`${PROJECT}-web`, `${PROJECT}-session-manager`];
+/** The file panel step's upload: random bytes, a few MiB. */
+const FILE_BYTES = 4 * 1024 * 1024;
 const PROJECT_LABEL = `label=com.docker.compose.project=${PROJECT}`;
 
 const ADMIN = { username: 'smokeadmin', email: 'smoke-admin@example.test' };
@@ -84,6 +116,7 @@ const LABELS = {
   protected: en.workspace.protection['tmux-control'],
 };
 const ADD_SERVER = en.servers.addServer;
+const FILES = en.files;
 
 // ── output ──────────────────────────────────────────────────────────────────
 
@@ -173,7 +206,8 @@ const smokeEnv: NodeJS.ProcessEnv = {
   ...process.env,
   COMPOSE_PROJECT_NAME: PROJECT,
   TERMDOCK_SMOKE_SSHD_IMAGE: SSHD_IMAGE,
-  TERMDOCK_COMPOSE_OVERRIDE: OVERRIDE,
+  // The deploy scripts add the same overrides (a ':'-separated list).
+  TERMDOCK_COMPOSE_OVERRIDE: OVERRIDES.join(':'),
   TERMDOCK_SECRETS_DIR: secretsDir,
   TERMDOCK_BACKUP_DIR: backupDir,
   TERMDOCK_DOMAIN: 'localhost',
@@ -191,7 +225,8 @@ const smokeEnv: NodeJS.ProcessEnv = {
 };
 
 function compose(args: string[], echo = false, allowWhileStopping = false): Promise<RunResult> {
-  return run('docker', ['compose', '-p', PROJECT, '-f', COMPOSE_FILE, '-f', OVERRIDE, ...args], {
+  const files = [COMPOSE_FILE, ...OVERRIDES].flatMap((file) => ['-f', file]);
+  return run('docker', ['compose', '-p', PROJECT, ...files, ...args], {
     env: smokeEnv,
     echo,
     allowWhileStopping,
@@ -347,12 +382,34 @@ async function preflight(): Promise<string> {
     `${available} MB available (stack + test sshd + one headless Chromium need about ${MIN_AVAILABLE_MB} MB)`,
     'free memory first, or lower TERMDOCK_SMOKE_MIN_AVAILABLE_MB if you know it fits',
   );
-  const images = await run('docker', ['image', 'inspect', '--format', '{{.Id}}', ...APP_IMAGES]);
+  // The images this stack runs, as compose resolves them (the test sshd is checked below).
+  const listed = await compose(['config', '--images']);
+  const images = listed.stdout
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line !== '' && line !== SSHD_IMAGE);
   check(
     'preflight',
-    images.code === 0,
-    `deployment images ${APP_IMAGES.join(', ')} are built`,
-    'build them first (one at a time): docker compose -p termdock-smoke -f deploy/compose.yaml build session-manager && docker compose -p termdock-smoke -f deploy/compose.yaml build web',
+    listed.code === 0 && images.length === 3,
+    'compose names the three images',
+    `exit ${listed.code}: ${listed.stderr.trim() || images.join(', ')}`,
+  );
+  const missing: string[] = [];
+  for (const image of images) {
+    const found = await run('docker', ['image', 'inspect', '--format', '{{.Id}}', image]);
+    if (found.code !== 0) missing.push(image);
+  }
+  check(
+    'preflight',
+    missing.length === 0,
+    PREBUILT
+      ? `--prebuilt: the images deploy/compose.yaml names are present (${images.join(', ')})`
+      : `test-only images built from this checkout are present (${images.join(', ')})`,
+    PREBUILT
+      ? `not present locally: ${missing.join(', ')}. --prebuilt runs exactly these images and ` +
+          'never builds or pulls them: load them first (the release pipeline builds them), or ' +
+          'run without --prebuilt'
+      : `not present locally: ${missing.join(', ')}. Build them first: pnpm test:release --only build`,
   );
   const sshd = await run('docker', ['image', 'inspect', '--format', '{{.Id}}', SSHD_IMAGE]);
   check(
@@ -382,8 +439,11 @@ async function startStack(): Promise<void> {
     `init-secrets.sh wrote the secrets to a temporary directory (${secretsDir})`,
     `exit ${secrets.code}`,
   );
-  info('starting the stack (compose up --wait; images are never built here)');
-  const up = await compose(['up', '-d', '--no-build', '--wait', '--wait-timeout', '300'], true);
+  info('starting the stack (compose up --wait; images are never built or pulled here)');
+  const up = await compose(
+    ['up', '-d', '--no-build', '--pull', 'never', '--wait', '--wait-timeout', '300'],
+    true,
+  );
   check('stack', up.code === 0, `project ${PROJECT} is up and healthy`, `exit ${up.code}`);
   if (PROXY) {
     const status = await plainHttpStatus(HTTP_PORT, '/api/health');
@@ -411,10 +471,16 @@ async function startStack(): Promise<void> {
 
 /** The front proxy of --proxy: TLS for the browser, plain HTTP to Caddy, like nginx (D-35). */
 async function startFrontProxy(): Promise<void> {
-  const image = /image:\s*(caddy@sha256:[0-9a-f]{64})/.exec(
-    readFileSync(COMPOSE_FILE, 'utf8'),
+  // The official image the deployment's Caddy is built on, by its pinned digest.
+  const digest = /^FROM\s+caddy:[^@\s]+@(sha256:[0-9a-f]{64})\s*$/m.exec(
+    readFileSync(CADDY_DOCKERFILE, 'utf8'),
   )?.[1];
-  check('proxy', image !== undefined, "the deployment's pinned Caddy image is the front proxy");
+  const image = digest ? `caddy@${digest}` : undefined;
+  check(
+    'proxy',
+    image !== undefined,
+    `the front proxy is the official Caddy image deploy/docker/caddy.Dockerfile builds on (${image})`,
+  );
   const caddyfile = join(tmpRoot, 'front.Caddyfile');
   writeFileSync(
     caddyfile,
@@ -997,8 +1063,172 @@ async function duplicateServer(page: CdpPage, serverId: string): Promise<string>
   return sessionId;
 }
 
+/** Requests to /transfer/* (the file panel's uploads), by CDP request id. */
+const transferRequests = new Map<string, { method: string; url: string; status: number }>();
+
+async function filePanel(
+  page: CdpPage,
+  chrome: Chromium,
+  sessionId: string,
+  name: string,
+): Promise<void> {
+  // 10. The file panel of the followed session (D-39, plan §5.12), driven like a user: open it,
+  // pick a file of random bytes in its Upload picker, see it listed, download it back through
+  // the browser's own download manager with the same SHA-256, then delete it. The bytes go
+  // through Caddy's /transfer/* route, and with --proxy through the front proxy too.
+  const dir = join(tmpRoot, 'files');
+  const downloads = join(dir, 'downloads');
+  mkdirSync(downloads, { recursive: true, mode: 0o700 });
+  const original = randomBytes(FILE_BYTES);
+  const source = join(dir, name);
+  writeFileSync(source, original);
+  const digest = sha256(original);
+  const size = `${FILE_BYTES / 1024 / 1024} MiB`;
+
+  const panelSelector = `section[aria-label^=${js(FILES.panelLabel.replace('{label}', ''))}]`;
+  const panel = `$(${js(panelSelector)})`;
+  /** `body` with `p` bound to the panel; null while there is no panel. */
+  const inPanel = (body: string) =>
+    `(() => { const p = ${panel}; return p ? (${body}) : null; })()`;
+  const row = inPanel(
+    `$$('[role=option]', p).find((o) => $$('span', o).some((s) => s.children.length === 0 && text(s) === ${js(name)})) ?? null`,
+  );
+
+  await page.click(
+    `$$('button[aria-pressed]').find((b) => visible(b) && text(b) === ${js(FILES.toggle)})`,
+    `the "${FILES.toggle}" toggle on the session's tab`,
+  );
+  const folder = await page.waitFor<string>(
+    inPanel(
+      `(() => { const up = byText('button', ${js(FILES.toolbar.upload)}, p); const list = $('[role=listbox]', p); return up && !up.disabled && list ? list.getAttribute('aria-label') : ''; })()`,
+    ),
+    'the file panel to list a folder',
+    60_000,
+  );
+  pass(
+    '10 files',
+    `the "${FILES.toggle}" toggle opened the file panel of session ${sessionId}: "${folder}"`,
+  );
+
+  // Upload: the panel's hidden multi-file picker, given the file as a user would pick it.
+  await page.send('DOM.enable');
+  const picker = await page.send<{ result: { objectId?: string } }>('Runtime.evaluate', {
+    expression: `document.querySelector(${js(`${panelSelector} [role=toolbar] input[type=file]`)})`,
+  });
+  const objectId = picker.result.objectId;
+  check('10 files', objectId !== undefined, "the panel's Upload picker (a file input) is there");
+  await page.send('DOM.setFileInputFiles', { objectId, files: [source] });
+  const job = (direction: 'upload' | 'download') =>
+    `(() => {
+      const tray = $(${js(`section[aria-label=${js(FILES.transfers.label)}]`)});
+      const li = tray && $$('li', tray).find((r) => text($('.sr-only', r)) === ${js(FILES.transfers[direction])} && $$('span[title]', r).some((s) => s.getAttribute('title') === ${js(name)}));
+      if (!li) return '';
+      const meta = $$('span[title]', li).map((s) => s.getAttribute('title'))[1] ?? '';
+      const retry = $$('button', li).some((b) => b.getAttribute('aria-label') === ${js(FILES.transfers.retryLabel.replace('{name}', name))});
+      return meta === ${js(FILES.transfers.done)} || meta === ${js(FILES.transfers.handedOff)} ? 'done: ' + meta : retry ? 'failed: ' + meta : '';
+    })()`;
+  const uploaded = await page.waitFor<string>(job('upload'), `the upload of ${name}`, 120_000);
+  check(
+    '10 files',
+    uploaded.startsWith('done'),
+    `picked ${name} (${size} of random bytes) in Upload: the transfer tray says "${FILES.transfers.done}"`,
+    uploaded,
+  );
+  const post = await until(
+    () => [...transferRequests.values()].find((r) => r.method === 'POST' && r.status > 0),
+    'the upload request and its answer',
+    15_000,
+  ).catch(() => undefined);
+  check(
+    '10 files',
+    post?.url.startsWith(`${BASE}/transfer/`) === true && post.status >= 200 && post.status < 300,
+    `the bytes went in one POST to ${BASE}/transfer/… (HTTP ${post?.status ?? '?'})`,
+    js([...transferRequests.values()]),
+  );
+  await page.waitFor(`!!${row}`, `${name} in the listing`, 30_000);
+  pass('10 files', `${name} is listed in the panel (the folder refreshed after the upload)`);
+
+  // Download: select its row, then Download on the selection bar; the browser saves the file.
+  const begun: Array<{ guid: string; url: string; suggestedFilename: string }> = [];
+  const states = new Map<string, string>();
+  const offs = [
+    chrome.connection.on('Browser.downloadWillBegin', (params) => {
+      begun.push(params as { guid: string; url: string; suggestedFilename: string });
+    }),
+    chrome.connection.on('Browser.downloadProgress', (params) => {
+      const { guid, state } = params as { guid: string; state: string };
+      states.set(guid, state);
+    }),
+  ];
+  const bar = `$(${js(`[role=toolbar][aria-label=${js(FILES.selection.count.replace('{count}', '1'))}]`)})`;
+  const barButton = (label: string) =>
+    `(() => { const b = ${bar}; return b ? byText('button', ${js(label)}, b) : null; })()`;
+  try {
+    await chrome.connection.send('Browser.setDownloadBehavior', {
+      behavior: 'allow',
+      downloadPath: downloads,
+      eventsEnabled: true,
+    });
+    await page.click(`${row}?.firstElementChild ?? null`, `the check of ${name}`);
+    await page.click(barButton(FILES.selection.download), FILES.selection.download);
+    const download = await until(() => begun[0], 'the browser to start the download', 30_000);
+    const state = await until(
+      () => {
+        const value = states.get(download.guid);
+        return value === 'completed' || value === 'canceled' ? value : '';
+      },
+      `the download of ${name}`,
+      120_000,
+    );
+    check(
+      '10 files',
+      state === 'completed' && download.url.startsWith(`${BASE}/transfer/`),
+      `"${FILES.selection.download}" handed ${BASE}/transfer/… to the browser, which saved it`,
+      `${state}: ${download.url}`,
+    );
+    const file = join(downloads, download.suggestedFilename);
+    const bytes = existsSync(file) ? readFileSync(file) : Buffer.alloc(0);
+    check(
+      '10 files',
+      download.suggestedFilename === name &&
+        bytes.length === FILE_BYTES &&
+        sha256(bytes) === digest,
+      `downloaded ${name} back: ${bytes.length} bytes, SHA-256 ${digest.slice(0, 16)}… equal to the original`,
+      `${download.suggestedFilename}: ${existsSync(file) ? statSync(file).size : 0} bytes, ` +
+        `SHA-256 ${sha256(bytes)}, expected ${digest}`,
+    );
+  } finally {
+    for (const off of offs) off();
+  }
+
+  // Delete: still selected; Delete on the selection bar, confirmed in the dialog.
+  await page.click(barButton(FILES.selection.delete), FILES.selection.delete);
+  const dialog = `$('dialog[open]')`;
+  const title = await page.waitFor<string>(
+    `(() => { const d = ${dialog}; return d && visible(d) ? text($('h2', d)) : ''; })()`,
+    'the delete confirmation',
+  );
+  await page.click(
+    `(() => { const d = ${dialog}; return d ? byText('button', ${js(FILES.delete.confirm)}, d) : null; })()`,
+    `${FILES.delete.confirm} in "${title}"`,
+  );
+  await page.waitFor(`!${dialog} && !${row}`, `${name} to leave the listing`, 60_000);
+  // A fresh listing from the server, to be sure it is gone there.
+  const refresh = inPanel(`$(${js(`button[aria-label=${js(FILES.toolbar.refresh)}]`)}, p)`);
+  await page.click(refresh, FILES.toolbar.refresh);
+  await page.waitFor(
+    `(() => { const r = ${refresh}; return !!r && !r.hasAttribute('aria-busy') && !${row}; })()`,
+    'the refreshed listing',
+    30_000,
+  );
+  pass('10 files', `deleted ${name} ("${title}" confirmed): gone from the refreshed listing`);
+
+  await page.click(`$(${js(`button[aria-label=${js(FILES.close)}]`)})`, FILES.close);
+  await page.waitFor(`!${panel}`, 'the file panel to close');
+}
+
 async function terminate(page: CdpPage, ids: string[]): Promise<void> {
-  // 10. Terminate every session through its strip menu.
+  // 11. Terminate every session through its strip menu.
   for (const id of ids) {
     const strip = stripOf(id);
     await page.click(
@@ -1011,36 +1241,36 @@ async function terminate(page: CdpPage, ids: string[]): Promise<void> {
     );
     await page.click(`byText('button', ${js(LABELS.terminateConfirm)})`, 'End session');
     await page.waitFor(`${strip}?.dataset.status === 'ended'`, `session ${id} to end`, 60_000);
-    pass('10 terminate', `session ${id} terminated (Ended)`);
+    pass('11 terminate', `session ${id} terminated (Ended)`);
   }
 }
 
 async function resetPassword(page: CdpPage, nextPassword: string): Promise<void> {
-  // 11. deploy/scripts/reset-password.sh (D-36): it ends the browser's sign-in, its temporary
+  // 12. deploy/scripts/reset-password.sh (D-36): it ends the browser's sign-in, its temporary
   // password signs in, and the forced change leads back to the workspace.
   const result = await deployScript('reset-password.sh', ['--reset-totp', ADMIN.username]);
   const temporary = /^temporary password: ([a-z2-7]{20})$/m.exec(result.stdout)?.[1] ?? '';
   check(
-    '11 reset',
+    '12 reset',
     result.code === 0 && temporary !== '',
     `reset-password.sh --reset-totp ${ADMIN.username} printed a temporary password`,
     `exit ${result.code}: ${result.stderr.trim()}`,
   );
   check(
-    '11 reset',
+    '12 reset',
     result.stdout.includes('TOTP was not on for this user: nothing to reset.'),
     'the admin had no TOTP, and the script says there was nothing to reset',
     result.stdout.trim(),
   );
   check(
-    '11 reset',
+    '12 reset',
     result.stdout.includes('open terminals were disconnected'),
     "session-manager closed the admin's WebSockets (internal API /auth-sessions/revoke)",
     result.stdout.trim(),
   );
   await page.navigate(`${BASE}/workspace`);
   await page.waitFor(`location.pathname === '/login'`, 'the redirect to /login after the reset');
-  pass('11 reset', "the reset ended the browser's sign-in (the workspace redirects to /login)");
+  pass('12 reset', "the reset ended the browser's sign-in (the workspace redirects to /login)");
   await page.waitHydrated(`$('input[name=username]')?.closest('form')`, 'the login form');
   await page.fill(`$('input[name=username]')`, ADMIN.username, 'username');
   await page.fill(`$('input[name=password]')`, temporary, 'password');
@@ -1066,27 +1296,27 @@ async function resetPassword(page: CdpPage, nextPassword: string): Promise<void>
     'the workspace after the change',
     60_000,
   );
-  pass('11 reset', 'signed in with the temporary password; the forced change led to the workspace');
+  pass('12 reset', 'signed in with the temporary password; the forced change led to the workspace');
 }
 
 async function backup(ids: string[], renamedId: string): Promise<void> {
-  // 12. An online backup through backup.sh, checked independently.
+  // 13. An online backup through backup.sh, checked independently.
   const dest = join(backupDir, 'smoke');
   const result = await deployScript('backup.sh', [dest]);
   const file = result.stdout.trim().split('\n').at(-1) ?? '';
   check(
-    '12 backup',
+    '13 backup',
     result.code === 0 && existsSync(file),
     `backup.sh wrote ${file}`,
     `exit ${result.code}`,
   );
   check(
-    '12 backup',
+    '13 backup',
     result.stderr.includes('integrity_check: ok'),
     "backup.sh's own integrity check passed inside the container",
   );
   check(
-    '12 backup',
+    '13 backup',
     readFileSync(file).subarray(0, 15).toString() === 'SQLite format 3',
     'the file is a SQLite database',
   );
@@ -1101,7 +1331,7 @@ async function backup(ids: string[], renamedId: string): Promise<void> {
       label: string;
     }>;
     check(
-      '12 backup',
+      '13 backup',
       Object.values(integrity)[0] === 'ok',
       'PRAGMA integrity_check on the host copy: ok',
     );
@@ -1112,7 +1342,7 @@ async function backup(ids: string[], renamedId: string): Promise<void> {
     }>;
     const counts = `users ${count('user')}, servers ${servers.length}, credentials ${count('credentials')}, sessions ${sessions.length}`;
     check(
-      '12 backup',
+      '13 backup',
       count('user') === 1 &&
         servers.length === 2 &&
         servers.every(
@@ -1140,7 +1370,7 @@ async function backup(ids: string[], renamedId: string): Promise<void> {
     }>;
     const atAddress = keys.filter((k) => k.hostname === SSHD_SERVICE && k.port === 22);
     check(
-      '12 backup',
+      '13 backup',
       atAddress.length === 1 &&
         atAddress[0]?.status === 'trusted' &&
         atAddress[0]?.fingerprint_sha256 === hostFp,
@@ -1149,7 +1379,7 @@ async function backup(ids: string[], renamedId: string): Promise<void> {
     );
     const stored = sessions.find((s) => s.id === renamedId)?.label;
     check(
-      '12 backup',
+      '13 backup',
       stored === NAMES.renamed,
       `the rename is stored: session ${renamedId} is labelled "${NAMES.renamed}"`,
       `label: "${stored}"`,
@@ -1166,7 +1396,7 @@ async function backup(ids: string[], renamedId: string): Promise<void> {
       detail_json: string;
     }>;
     check(
-      '12 backup',
+      '13 backup',
       resets.map((r) => r.type).join() === 'auth.password_reset,auth.totp_reset' &&
         resets.every(
           (r) =>
@@ -1187,7 +1417,7 @@ async function backup(ids: string[], renamedId: string): Promise<void> {
         ...ips('SELECT DISTINCT ip FROM audit_events WHERE ip IS NOT NULL'),
       ];
       check(
-        '12 backup',
+        '13 backup',
         recorded.length > 0 && recorded.every((ip) => ip === '127.0.0.1'),
         "session and audit events carry the browser's address (127.0.0.1), never the proxy's",
         js(recorded),
@@ -1266,6 +1496,7 @@ async function main(): Promise<number> {
   const nextPassword = `Smoke-${randomBytes(12).toString('base64url')}`;
   const nonce = randomBytes(4).toString('hex');
   const markers = [`termdock-smoke-${nonce}`, `termdock-smoke-${nonce}-2`];
+  const fileName = `termdock-smoke-${nonce}.bin`;
   let failed = false;
   try {
     const chrome = await preflight();
@@ -1287,12 +1518,23 @@ async function main(): Promise<number> {
     await page.send('Network.enable');
     await page.send('Log.enable');
     page.on('Network.requestWillBeSent', (params) => {
-      const { requestId, request } = params as { requestId: string; request: { url: string } };
+      const { requestId, request } = params as {
+        requestId: string;
+        request: { url: string; method: string };
+      };
       requestUrls.set(requestId, request.url);
+      if (URL.parse(request.url)?.pathname.startsWith('/transfer/')) {
+        transferRequests.set(requestId, { method: request.method, url: request.url, status: 0 });
+      }
     });
     page.on('Network.responseReceived', (params) => {
-      const { response } = params as { response: { url: string; status: number } };
+      const { requestId, response } = params as {
+        requestId: string;
+        response: { url: string; status: number };
+      };
       if (response.status >= 400) networkProblems.push(`HTTP ${response.status} ${response.url}`);
+      const transfer = transferRequests.get(requestId);
+      if (transfer) transfer.status = response.status;
     });
     page.on('Network.loadingFailed', (params) => {
       const p = params as { requestId: string; errorText: string; blockedReason?: string };
@@ -1330,6 +1572,7 @@ async function main(): Promise<number> {
     await restartAndRestore(page, firstId, markers[0] ?? '');
     const secondId = await rotateAndReconnect(page, firstId, markers[1] ?? '');
     const thirdId = await duplicateServer(page, serverId);
+    await filePanel(page, browser, thirdId, fileName);
     await terminate(page, [thirdId, secondId, firstId]);
     await resetPassword(page, nextPassword);
     check(

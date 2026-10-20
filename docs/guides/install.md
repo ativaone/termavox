@@ -3,7 +3,7 @@
 This guide runs the whole system on one Linux host with a single command: **Caddy** (TLS and the only public listener), **web** (the Next.js control plane) and **session-manager** (the daemon that holds your SSH sessions). The architecture behind it is described in [`docs/implementation-plan.md`](../implementation-plan.md) (§4.3 network, §10.2 hardening, §13 operations).
 
 > [!WARNING]
-> Termdock is pre-alpha. Do not expose it to the internet or use it with production servers before the first release and its security review.
+> Termdock 0.1.0 is the first supported release: internally reviewed twice, not externally audited. Read the [security model](../security.md) before you expose it to the internet or use it with production servers.
 
 ## What you get
 
@@ -17,25 +17,26 @@ This guide runs the whole system on one Linux host with a single command: **Cadd
 - One origin: the browser only talks to Caddy. `/ws` goes to session-manager, everything else to web.
 - Two networks. `edge` connects Caddy to web and session-manager. `internal` connects only web and session-manager. Caddy is not on `internal`, and the daemon's internal API listens only on its `internal` address.
 - One shared volume, `termdock-data`, holds the SQLite database (`/data/app.db`). session-manager applies migrations at boot, and web waits for it to be healthy.
-- Hardened containers: web and session-manager run as UID/GID `10001`, with a read-only root filesystem, a `/tmp` tmpfs, every Linux capability dropped and `no-new-privileges`. Caddy has the same read-only root filesystem, tmpfs and `no-new-privileges`, and drops every capability but `NET_BIND_SERVICE`; it runs as root inside its container, the official image's default.
+- Hardened containers: every service has a read-only root filesystem, a `/tmp` tmpfs, every Linux capability dropped and `no-new-privileges`, and none runs as root. web and session-manager run as UID/GID `10001`, Caddy as `10002`. Caddy binds ports 80 and 443 through a setting of its own container's network namespace (`net.ipv4.ip_unprivileged_port_start=0`), not a capability.
+- Published images: each release puts three images on GitHub's container registry, for `linux/amd64` and `linux/arm64`: `ghcr.io/ativaone/termdock-caddy`, `ghcr.io/ativaone/termdock-web` and `ghcr.io/ativaone/termdock-session-manager`, tagged with the version and published with a signed build provenance attestation ([Verifying the images](#verifying-the-images)). `deploy/compose.yaml` at a release tag names that release's images. It can also build them from the checkout instead ([Building from source](#building-from-source)).
 
 ## Prerequisites
 
 - A Linux host (x86_64 or arm64) with **Docker Engine 25 or newer** and the **Compose v2 plugin**. Tested with Engine 27.2 and Compose 2.29. Rootful Docker is assumed: with rootless Docker, container UIDs map to subordinate IDs and the secret permissions below don't apply as written.
 - `bash`, `git` and `openssl` on the host.
 - Free host ports: 80 and 443 by default (configurable).
-- Network access while building: Docker Hub (the two base images `node:24-bookworm-slim` and `caddy:2`, pinned by digest) and the npm registry (pnpm 11.14.0 and the packages in `pnpm-lock.yaml`, including the two fonts, which the app serves itself — browsers never contact a font CDN).
-- Memory for the build: the web image runs a Next.js production build, the heaviest step. Build when the host has a couple of GB free. At runtime, the two Node processes need far less.
+- Network access to `ghcr.io` for the images, and to Docker Hub if `init-secrets.sh` needs its throwaway container ([step 2](#2-create-the-secrets)). Browsers never contact a CDN: the app serves its fonts itself.
 - For a public domain: a DNS record that points to the host, and ports 80 and 443 reachable from the internet so Caddy can obtain a certificate.
 
-## 1. Get the code
+## 1. Get the release
 
 ```bash
 git clone https://github.com/ativaone/termdock.git termdock
 cd termdock
+git checkout v0.1.0
 ```
 
-Run every command below from the repository root.
+Check out the release you install: its tag, `vX.Y.Z`, from the [releases page](https://github.com/ativaone/termdock/releases). The checkout holds `deploy/compose.yaml`, which names that release's images, and the scripts below. Run every command from the repository root.
 
 ## 2. Create the secrets
 
@@ -102,11 +103,32 @@ Set `TERMDOCK_SSH_ALLOW_LOCAL_TARGETS=true` to allow those addresses too, for ex
 ## 4. Start
 
 ```bash
-docker compose -f deploy/compose.yaml up -d --build
+docker compose -f deploy/compose.yaml pull
+docker compose -f deploy/compose.yaml up -d
 docker compose -f deploy/compose.yaml ps
 ```
 
-The first run builds both images, which takes a while. When all three services show `healthy` (Caddy shows `running`), open `https://localhost` (or your domain).
+`pull` downloads the release's three images. When all three services show `healthy` (Caddy shows `running`), open `https://localhost` (or your domain).
+
+### Verifying the images
+
+Every image of a release is built by the release workflow of this repository, from the tagged commit, and published with a signed build provenance attestation. To check one before you run it, with the [GitHub CLI](https://cli.github.com/):
+
+```bash
+gh attestation verify oci://ghcr.io/ativaone/termdock-web:0.1.0 --repo ativaone/termdock
+```
+
+Do the same for `termdock-session-manager` and `termdock-caddy`. The command fails unless the image's digest was attested by a workflow of `ativaone/termdock`, and prints the workflow and commit it came from.
+
+### Building from source
+
+To build the images yourself from the checkout instead of pulling them, for example to run a commit between releases:
+
+```bash
+docker compose -f deploy/compose.yaml up -d --build
+```
+
+This builds the three images (the web image runs a Next.js production build: build when the host has a couple of GB of memory free) and tags them with the names in `deploy/compose.yaml`, in place of the published ones. It needs Docker Hub (the base images `node:24-bookworm-slim` and `caddy:2`, pinned by digest) and the npm registry (pnpm 11.14.0 and the packages in `pnpm-lock.yaml`). Only a release tag's `deploy/compose.yaml` names images built from that same source: on any other commit, build from source. Upgrades then use `up -d --build` in place of `pull` and `up -d`.
 
 ## 5. Create the first admin
 
@@ -118,7 +140,7 @@ docker compose -f deploy/compose.yaml logs web | grep "setup token:" | tail -n 1
 
 Open `/setup` (the log line contains the full URL), enter the token, and choose the admin's username, email and password. Setup closes as soon as the first admin exists, and no token is generated after that.
 
-The token lives only in web's memory (and in that log line), so every start of web logs a new one and the earlier one stops working: after an `up -d --build` or a restart, copy the token again. If you lose it, `docker compose -f deploy/compose.yaml restart web` logs a new one. Treat the logs as sensitive until setup is done.
+The token lives only in web's memory (and in that log line), so every start of web logs a new one and the earlier one stops working: after an upgrade or a restart, copy the token again. If you lose it, `docker compose -f deploy/compose.yaml restart web` logs a new one. Treat the logs as sensitive until setup is done.
 
 ## 6. Add your first server
 
@@ -340,24 +362,25 @@ Anyone who can run Docker commands on the host can do this. That is no new power
 
 ## Upgrades
 
-Termdock is built from the source you check out, so an upgrade is: new source, new images, restart. Run every command from the repository root.
+An upgrade is: the new release's tag, its images, restart. Run every command from the repository root.
 
-1. **Read the release notes.** `CHANGELOG.md` lists each version's changes; an **Upgrade notes** entry there names anything you must do by hand. Do this before pulling.
+1. **Read the release notes.** `CHANGELOG.md` (and the release on GitHub) lists each version's changes; an **Upgrade notes** entry there names anything you must do by hand. Do this before pulling.
 2. **Back up.** `deploy/scripts/backup.sh` (see [Backups](#backups)).
-3. **Get the new source.** `git pull`, or `git fetch --tags && git checkout vX.Y.Z` for a specific release.
-4. **Rebuild and restart.**
+3. **Check out the new release.** `git fetch --tags && git checkout vX.Y.Z`.
+4. **Pull and restart.**
 
    ```bash
-   docker compose -f deploy/compose.yaml up -d --build
+   docker compose -f deploy/compose.yaml pull
+   docker compose -f deploy/compose.yaml up -d
    ```
 
-   This rebuilds the images from the new source and recreates the containers that changed. Database migrations apply on their own when session-manager starts; there is no separate migration command. Your secrets in `deploy/secrets/` and `deploy/.env` are kept. When the new source changed `deploy/Caddyfile`, also run `docker compose -f deploy/compose.yaml restart caddy`: Caddy reads its Caddyfile only when it starts, and its container is not recreated for that.
+   `pull` downloads the new version's images, and `up -d` recreates the containers whose image or settings changed. Caddy's configuration is part of its image, so a new Caddyfile comes with it. Database migrations apply on their own when session-manager starts; there is no separate migration command. Your secrets in `deploy/secrets/` and `deploy/.env` are kept. An install [built from source](#building-from-source) runs `docker compose -f deploy/compose.yaml up -d --build` instead of these two commands.
 5. **Check it.** `docker compose -f deploy/compose.yaml ps` shows every service `healthy` after a minute; `docker compose -f deploy/compose.yaml logs session-manager` shows the migrations it applied, if any.
 6. **Optionally reclaim disk.** `docker image prune` removes the previous images.
 
 What users notice: web restarts freely. Protected (tmux) sessions keep running on their servers across the upgrade, and session-manager reattaches them when it starts again: browsers show "Restoring…", and the sessions come back as they were. Unprotected sessions end.
 
-**Going back.** Check out the previous version, rebuild (step 4), and restore the backup from step 2 with `deploy/scripts/restore.sh` if the new version already migrated the database.
+**Going back.** Check out the previous version's tag, pull and restart (step 4), and restore the backup from step 2 with `deploy/scripts/restore.sh` if the new version already migrated the database.
 
 **When the notes say the data cannot be migrated.** This happens only before v1.0, when the data model changes without a migration path. The notes say so explicitly. Then start from an empty database instead of step 4:
 
@@ -367,7 +390,8 @@ What users notice: web restarts freely. Protected (tmux) sessions keep running o
    ```bash
    docker compose -f deploy/compose.yaml down
    docker volume rm termdock_termdock-data
-   docker compose -f deploy/compose.yaml up -d --build
+   docker compose -f deploy/compose.yaml pull
+   docker compose -f deploy/compose.yaml up -d
    ```
 
    `docker volume rm termdock_termdock-data` deletes only the database volume (users, servers, credentials, session history). The certificate volumes (with Caddy's local CA) and the secret files stay, so browsers and phones that already trust that CA keep working.
@@ -394,3 +418,11 @@ The health endpoints are `GET /api/health` on web and `GET /internal/v1/health` 
 - **Login or setup fails with an origin error, or the terminal never connects.** The URL in the browser's address bar must match `TERMDOCK_PUBLIC_URL` (scheme, host and port). Set it explicitly when the default `https://<domain>:<https port>` is not what browsers use.
 - **Nobody can sign in as an admin, or a password you are sure of is refused.** Sign-in is by username, not email. Set a temporary password from the host with `deploy/scripts/reset-password.sh <username>` (see [Resetting a password](#resetting-a-password)).
 - **`bind: address already in use` on start.** Another service holds port 80 or 443. Pick other ports with `TERMDOCK_HTTP_PORT` and `TERMDOCK_HTTPS_PORT`, or stop that service.
+- **Caddy keeps restarting and logs `permission denied` under `/data/caddy` or `/config/caddy`.** Its volumes were created by a development build from before 0.1.0, when Caddy ran as root, and their files still belong to root. Caddy now runs as UID/GID 10002: give the two volumes to it once, then `docker compose -f deploy/compose.yaml restart caddy`. Certificates and the local CA are kept.
+
+  ```bash
+  docker run --rm --network none \
+    -v termdock_caddy-data:/data -v termdock_caddy-config:/config \
+    --entrypoint chown caddy:2@sha256:685ae3d7c34d9b5f8caeddc5d14051db7bbd88ff1f5a2fa0c16bd8ca328fb7af \
+    -R 10002:10002 /data /config
+  ```

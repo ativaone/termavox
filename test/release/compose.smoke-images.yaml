@@ -1,0 +1,21 @@
+# TEST-ONLY override for the release routine's from-source mode (scripts/test-release.ts,
+# scripts/release-smoke.ts, plan §15.4). Never use it for a real install.
+#
+# deploy/compose.yaml names the published images (ghcr.io/ativaone/termdock-*:<version>), and a
+# build tags its result with that name. A smoke built from the checkout must never retag or
+# replace an image a real install on the same host runs, so in that mode every build and every
+# compose call of the smoke adds this file, which gives the three images test-only names:
+#
+#   docker compose -p termdock-smoke -f deploy/compose.yaml -f test/release/compose.smoke.yaml \
+#     -f test/release/compose.smoke-images.yaml ...
+#
+# `pnpm test:release --prebuilt` leaves it out: the smoke then runs the images deploy/compose.yaml
+# names, already present locally (the release pipeline's freshly built ones).
+
+services:
+  caddy:
+    image: termdock-smoke-caddy
+  web:
+    image: termdock-smoke-web
+  session-manager:
+    image: termdock-smoke-session-manager

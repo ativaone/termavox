@@ -15,6 +15,9 @@ The sources of truth are `apps/session-manager/src/config/config.ts`, `apps/web/
   in `deploy/.env` (copy it from `deploy/.env.example`; compose reads it automatically) or in
   your shell, which takes precedence. `deploy/compose.yaml` turns them into each container's
   environment and fixes everything else. To change a fixed value, edit `deploy/compose.yaml`.
+  The Caddyfile is part of the Caddy image: to change it, edit `deploy/Caddyfile` and build the
+  images from source (`docker compose -f deploy/compose.yaml up -d --build`, see
+  [Building from source](install.md#building-from-source)).
 - **Outside Compose** (development, or running a service by hand) each service reads its
   variables directly from its environment; see the per-service tables.
 - **Secrets are always files.** The services take the *path* of each secret file
@@ -124,9 +127,28 @@ non-interactive pnpm install; it does not reach the runtime images.
 ## Caddy environment
 
 Set by `deploy/compose.yaml` from the compose settings and read by `deploy/Caddyfile`:
-`TERMDOCK_DOMAIN`, `TERMDOCK_HTTP_PORT`, `TERMDOCK_HTTPS_PORT` and `TERMDOCK_TLS`, with the same
-defaults as above. The upstreams `web:3000` and `session-manager:3001` are fixed in the
-Caddyfile.
+`TERMDOCK_DOMAIN`, `TERMDOCK_HTTP_PORT`, `TERMDOCK_HTTPS_PORT`, `TERMDOCK_TLS` and
+`TERMDOCK_REVERSE_PROXY`, with the same defaults as above. The upstreams `web:3000` and
+`session-manager:3001` are fixed in the Caddyfile.
+
+The Caddy image (`deploy/docker/caddy.Dockerfile`) is the official `caddy:2` image, pinned by
+digest, with `deploy/Caddyfile` baked in at `/etc/caddy/Caddyfile`; it runs as UID/GID `10002`
+with no capabilities. compose sets `net.ipv4.ip_unprivileged_port_start=0` for its container
+(a namespaced sysctl: the host is unchanged), so it binds ports below 1024 without
+`NET_BIND_SERVICE`.
+
+## Images
+
+`deploy/compose.yaml` names one image per service, tagged with the repository version
+(`node scripts/set-version.ts` moves the three tags and every `package.json` version together),
+and keeps each image's `build:` section. Release installs pull them; `up -d --build` builds them
+from the checkout under the same names.
+
+| Image | Dockerfile | Runs as |
+|---|---|---|
+| `ghcr.io/ativaone/termdock-caddy:<version>` | `deploy/docker/caddy.Dockerfile` | `10002:10002` |
+| `ghcr.io/ativaone/termdock-web:<version>` | `deploy/docker/web.Dockerfile` | `10001:10001` |
+| `ghcr.io/ativaone/termdock-session-manager:<version>` | `deploy/docker/session-manager.Dockerfile` | `10001:10001` |
 
 ## Secret files
 
@@ -182,11 +204,11 @@ session-manager also maps `host.docker.internal` to the Docker host gateway, for
 | Volume | Mounted at | Service | Content |
 |---|---|---|---|
 | `termdock-data` | `/data` | web, session-manager | `app.db` and its `-wal`/`-shm` files. Back it up with `deploy/scripts/backup.sh`. Also `session-manager.lock`, the data directory lock that session-manager and `vault rotate` hold while they run (released when the holder exits, even after a crash; do not delete it while either runs). |
-| `caddy-data` | `/data` | caddy | Certificates and Caddy's local CA. |
-| `caddy-config` | `/config` | caddy | Caddy's autosaved configuration. |
+| `caddy-data` | `/data` | caddy | Certificates and Caddy's local CA. Owned by Caddy's UID/GID `10002`. |
+| `caddy-config` | `/config` | caddy | Caddy's autosaved configuration. Owned by `10002` too. |
 
-Bind mounts: `deploy/Caddyfile` (read-only) and the four secret files. Every root filesystem is
-read-only; `/tmp` is a tmpfs in every container, and web also gets a tmpfs at
+Bind mounts: the four secret files only (the Caddyfile is part of the Caddy image). Every root
+filesystem is read-only; `/tmp` is a tmpfs in every container, and web also gets a tmpfs at
 `/app/apps/web/.next/cache`. SQLite's WAL mode needs a local volume shared on one kernel:
 network filesystems are not supported.
 

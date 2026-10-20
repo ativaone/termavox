@@ -30,9 +30,11 @@ data
 **/.env
 **/.env.*
 
-# Deployment files other than the Dockerfiles (backups, local env, compose, scripts)
+# Deployment files other than the Dockerfiles and the Caddyfile (baked into the Caddy image):
+# backups, local env, compose, scripts
 deploy/*
 !deploy/docker
+!deploy/Caddyfile
 
 # Not needed in the images: docs, tests, test fixtures (incl. test-only SSH keys), review evidence
 docs

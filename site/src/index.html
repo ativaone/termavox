@@ -16,7 +16,7 @@
         <a class="btn btn-primary" href="docs/install/">Install it</a>
         <a class="btn btn-secondary" href="docs/">Read the docs</a>
       </div>
-      <p class="hero-meta"><span class="tag tag-none">Pre-alpha</span><span>Free software under the AGPL-3.0</span><a href="https://github.com/ativaone/termdock">Source on GitHub</a></p>
+      <p class="hero-meta"><span class="tag tag-none">v0.1.0 release candidate</span><span>Free software under the AGPL-3.0</span><a href="https://github.com/ativaone/termdock">Source on GitHub</a></p>
     </div>
     <figure class="shot shot-hero">
       <picture>
@@ -169,20 +169,22 @@
   <section class="band" aria-labelledby="run">
     <div class="band-head">
       <h2 id="run">Run it</h2>
-      <p>One command starts three containers behind a single origin: Caddy for TLS, the web app and the session manager. You need Docker with Compose v2 on a Linux host.</p>
+      <p>Three containers behind a single origin: Caddy for TLS, the web app and the session manager, from images each release publishes for amd64 and arm64. You need Docker with Compose v2 on a Linux host.</p>
     </div>
     <pre class="code"><code>git clone https://github.com/ativaone/termdock.git termdock &amp;&amp; cd termdock
-deploy/scripts/init-secrets.sh                      # generate the secrets; back up deploy/secrets/master_key
-docker compose -f deploy/compose.yaml up -d --build # build both images and start the stack
-docker compose -f deploy/compose.yaml logs web      # the one-time token to create the first admin at /setup</code></pre>
-    <p class="run-after">Out of the box it serves <code>https://localhost</code> with a certificate from Caddy's local CA. The installation guide covers domains and TLS, reverse proxies, backups, upgrades and troubleshooting.</p>
+git checkout v0.1.0                            # the release to install (see Releases)
+deploy/scripts/init-secrets.sh                 # generate the secrets; back up deploy/secrets/master_key
+docker compose -f deploy/compose.yaml pull     # the release's images from ghcr.io
+docker compose -f deploy/compose.yaml up -d    # start the stack
+docker compose -f deploy/compose.yaml logs web # the one-time token to create the first admin at /setup</code></pre>
+    <p class="run-after">Out of the box it serves <code>https://localhost</code> with a certificate from Caddy's local CA. The installation guide covers domains and TLS, reverse proxies, verifying the images, building from source, backups, upgrades and troubleshooting.</p>
     <div class="actions">
       <a class="btn btn-primary" href="docs/install/">Installation guide</a>
       <a class="btn btn-secondary" href="docs/configuration/">Configuration reference</a>
     </div>
     <aside class="note note-warning">
       <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#alert"/></svg>
-      <div class="note-body"><p class="note-title">Termdock is pre-alpha</p><p>The runtime, the web workspace and the Docker deployment work end to end and have had an internal security review, but there is no release yet. Keep it away from production servers until v0.1.0.</p></div>
+      <div class="note-body"><p class="note-title">v0.1.0 is the first supported release</p><p>Internally reviewed twice, not externally audited: read the security model before you expose it to the internet or use it with production servers. Release candidates come first, for testing, on the <a href="https://github.com/ativaone/termdock/releases">releases page</a>.</p></div>
     </aside>
   </section>
 </main>

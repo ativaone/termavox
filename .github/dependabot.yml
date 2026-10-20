@@ -1,0 +1,22 @@
+# Dependabot (plan D-41): proposals only. Every pull request it opens is reviewed like any new
+# dependency (the owner's supply-chain policy) and is never merged automatically. npm packages get
+# security alerts only (repository settings), no version-update pull requests: the lockfile
+# changes on purpose, with the pinned versions recorded in the plan.
+version: 2
+updates:
+  # The digests of the images Termdock is built on: node (web, session-manager) and caddy.
+  - package-ecosystem: docker
+    directory: /deploy/docker
+    schedule:
+      interval: weekly
+    groups:
+      base-images:
+        patterns: ['*']
+  # The SHAs the workflows pin.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']

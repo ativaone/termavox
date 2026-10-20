@@ -12,7 +12,8 @@
 # Prints the path of the new file (mode 0600) on stdout; progress goes to stderr.
 #
 # Environment (optional, for test stacks such as the release smoke; installs leave it unset):
-#   TERMDOCK_COMPOSE_OVERRIDE  a compose file applied on top of deploy/compose.yaml
+#   TERMDOCK_COMPOSE_OVERRIDE  compose files applied on top of deploy/compose.yaml, in order,
+#                              separated by ":" (one file, or e.g. a.yaml:b.yaml)
 #   (the stack's project name comes from COMPOSE_PROJECT_NAME, which docker compose reads itself)
 set -euo pipefail
 umask 077
@@ -36,7 +37,10 @@ dest_dir=${1:-"$deploy_dir/backups"}
 
 compose_files=(-f "$deploy_dir/compose.yaml")
 if [[ -n "${TERMDOCK_COMPOSE_OVERRIDE:-}" ]]; then
-  compose_files+=(-f "$TERMDOCK_COMPOSE_OVERRIDE")
+  IFS=: read -r -a compose_overrides <<<"$TERMDOCK_COMPOSE_OVERRIDE"
+  for override in "${compose_overrides[@]}"; do
+    if [[ -n "$override" ]]; then compose_files+=(-f "$override"); fi
+  done
 fi
 compose() { docker compose "${compose_files[@]}" "$@"; }
 

@@ -9,7 +9,11 @@ export default defineConfig({
       {
         test: {
           name: 't0',
-          include: ['{apps,packages}/*/{src,test}/**/*.test.ts', 'site/test/**/*.test.ts'],
+          include: [
+            '{apps,packages}/*/{src,test}/**/*.test.ts',
+            'site/test/**/*.test.ts',
+            'scripts/test/**/*.test.ts',
+          ],
           exclude: ['**/*.int.test.ts', '**/node_modules/**'],
         },
       },

@@ -6,9 +6,9 @@ design rationale lives in the [implementation plan](implementation-plan.md#10-se
 page links to it instead of repeating it.
 
 > [!WARNING]
-> Termdock is pre-alpha. An internal security review has been completed and its findings fixed
-> (see [`CHANGELOG.md`](../CHANGELOG.md)), but there has been no external review and no release
-> yet. Keep it away from production servers until v0.1.0.
+> Termdock 0.1.0 is the first supported release: internally reviewed twice (the findings are fixed,
+> see [`CHANGELOG.md`](../CHANGELOG.md)), not externally audited. Read this page before you expose
+> it to the internet or use it with production servers.
 
 To report a vulnerability, see [Reporting a vulnerability](#reporting-a-vulnerability).
 
@@ -456,12 +456,25 @@ Remote programs control what they print, so the browser treats terminal output a
 From [`deploy/compose.yaml`](../deploy/compose.yaml) and the Dockerfiles:
 
 - Every service: read-only root filesystem, all Linux capabilities dropped,
-  `no-new-privileges`, a `/tmp` tmpfs. Caddy keeps only `NET_BIND_SERVICE`.
+  `no-new-privileges`, a `/tmp` tmpfs, and a non-root user.
 - web and session-manager run as UID/GID `10001` with an init process. Application files are
   owned by root, so the app user cannot modify them; `npm`, `npx`, `corepack` and `yarn` are
   removed from the runtime images. The only writable paths are `/data`, `/tmp` and (web) the
   `.next/cache` tmpfs.
+- Caddy, the only container clients reach, runs as UID/GID `10002` with no capability
+  at all: its binary carries no file capability (the official image's `cap_net_bind_service` is
+  removed), and it binds ports 80 and 443, TCP and UDP, through
+  `net.ipv4.ip_unprivileged_port_start=0`, a sysctl of its own network namespace that leaves the
+  host unchanged. Its UID differs from the app's on purpose: a process that escaped the Caddy
+  container would hold that UID on the host, which owns the certificate volumes but neither the
+  `termdock-data` volume (the database, `10001`, mode `0700`) nor the secret files (group
+  `10001`, mode `0440`). The Caddyfile is baked into the image, root-owned.
 - Base images are pinned by digest. Dependency build scripts are blocked (pnpm `allowBuilds`).
+- Published images: every release's three images (`ghcr.io/ativaone/termdock-*`) are built by the
+  repository's release workflow from the tagged commit, after the pre-release smoke passed
+  against those exact images, and carry a signed build provenance attestation (SLSA, through
+  GitHub's `attest-build-provenance`). `gh attestation verify oci://<image> --repo
+  ativaone/termdock` checks it ([install guide](guides/install.md#verifying-the-images)).
 - Only Caddy publishes ports. web and session-manager have none; the `internal` network has no
   outside connectivity. No container mounts the Docker socket.
 - Memory limits: Caddy 256 MiB, web `TERMDOCK_WEB_MEM_LIMIT` (768m), session-manager
@@ -544,10 +557,11 @@ From [`deploy/compose.yaml`](../deploy/compose.yaml) and the Dockerfiles:
 - **Keep the defaults** `TERMDOCK_SSH_ALLOW_LOCAL_TARGETS=false` and
   `TERMDOCK_ENABLE_LOCAL_SHELL=false` unless you need otherwise.
 - **Finish setup promptly** and treat logs as sensitive until the first admin exists.
-- **Rebuild regularly** to pick up base-image and dependency fixes, and review the audit log.
+- **Upgrade regularly** to pick up base-image and dependency fixes, verify the images' provenance
+  before you run them, and review the audit log.
 
 ## Reporting a vulnerability
 
-Termdock does not have a dedicated security contact yet; the maintainers will add one to
-[`SECURITY.md`](../SECURITY.md) before the first release. Until it is published, please do not
-post vulnerability details in public issues, pull requests or discussions.
+Report it privately through GitHub's private vulnerability reporting, as
+[`SECURITY.md`](../SECURITY.md) describes, and never in public issues, pull requests or
+discussions. Only the latest release is supported.

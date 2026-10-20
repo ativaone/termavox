@@ -3,6 +3,9 @@
 # everything else to web. Caddy is not on the `internal` network, so it can never reach the
 # daemon's internal API.
 #
+# Baked into the Caddy image at /etc/caddy/Caddyfile (deploy/docker/caddy.Dockerfile): a change
+# takes an image rebuild (docker compose -f deploy/compose.yaml up -d --build).
+#
 # Environment (set by deploy/compose.yaml):
 #   TERMDOCK_DOMAIN         site address, e.g. termdock.example.com (default: localhost)
 #   TERMDOCK_HTTP_PORT      HTTP listener, also the published host port (default: 80)

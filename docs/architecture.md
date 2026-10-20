@@ -284,7 +284,9 @@ packages/
   terminal-config/     shared xterm options, query silencer, mode tracker, UTF-8 aligner
   shared/              ids (UUIDv7), error codes
 deploy/                compose.yaml, Caddyfile, Dockerfiles, init-secrets/backup/restore scripts
-scripts/               dev-session.ts (dev CLI), test-area.ts (integration test runner)
+scripts/               dev-session.ts (dev CLI), test-area.ts (integration test runner),
+                       test-release.ts + release-smoke.ts (pre-release routine), set-version.ts
+                       and release-notes.ts (release version and notes)
 test/sshd/             SSH server images for the integration tests (test-only keys)
 docs/                  plan, ADRs, guides, security model, this overview
 ```

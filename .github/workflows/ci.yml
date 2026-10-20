@@ -1,0 +1,82 @@
+# Tests on GitHub's runners (plan D-41): T0 (`pnpm check`) on every push and pull request, and the
+# whole pre-release routine (`pnpm test:release`: T0, every T1 file against the test sshd
+# containers, OSV scan, image builds, the smoke directly and behind a reverse proxy) on every push
+# to main. Actions are official GitHub ones, pinned to full commit SHAs.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: T0 (pnpm check)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - name: Enable pnpm (the version in package.json)
+        run: corepack enable
+      - name: Install dependencies (build scripts stay blocked by allowBuilds)
+        run: pnpm install --frozen-lockfile
+      - name: pnpm check
+        run: pnpm check
+
+  release-routine:
+    name: Pre-release routine (pnpm test:release)
+    if: github.event_name != 'pull_request'
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      # The smoke saves a screenshot and the services' logs here when it fails.
+      TMPDIR: ${{ runner.temp }}/tmp
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - name: Enable pnpm (the version in package.json)
+        run: corepack enable
+      - name: Install dependencies (build scripts stay blocked by allowBuilds)
+        run: pnpm install --frozen-lockfile
+      - name: Headless Chrome for the smoke
+        # The runner image ships Google Chrome; the smoke expects a browser that is headless by
+        # itself (chrome-headless-shell), so a wrapper adds the flags.
+        run: |
+          mkdir -p "$TMPDIR"
+          wrapper="$RUNNER_TEMP/chrome-headless"
+          printf '#!/bin/sh\nexec %s --headless=new --no-sandbox "$@"\n' "$(command -v google-chrome)" >"$wrapper"
+          chmod +x "$wrapper"
+          echo "TERMDOCK_SMOKE_CHROME=$wrapper" >>"$GITHUB_ENV"
+      - name: Test sshd containers
+        run: docker compose -f test/sshd/compose.yaml up -d --build
+      - name: pnpm test:release
+        run: pnpm test:release
+      - name: Keep the smoke's failure output
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: smoke-failure
+          path: ${{ runner.temp }}/tmp/termdock-smoke-failure-*
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Stop the test sshd containers
+        if: always()
+        run: docker compose -f test/sshd/compose.yaml down

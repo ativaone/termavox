@@ -4,6 +4,10 @@
 #
 #   docker compose -p termdock-smoke -f deploy/compose.yaml -f test/release/compose.smoke.yaml ...
 #
+# It never renames the images: with it alone the stack runs the images deploy/compose.yaml names
+# (`pnpm test:release --prebuilt`, the release pipeline). From source, the smoke adds
+# test/release/compose.smoke-images.yaml after it, for the test-only termdock-smoke-* images.
+#
 # Set by the smoke (required): TERMDOCK_SECRETS_DIR (a temporary directory filled by
 # deploy/scripts/init-secrets.sh), TERMDOCK_HTTP_PORT and TERMDOCK_HTTPS_PORT (high ports).
 # Optional: TERMDOCK_SMOKE_EDGE_SUBNET (default 172.30.111.0/24) and TERMDOCK_SMOKE_SSHD_IMAGE

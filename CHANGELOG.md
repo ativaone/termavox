@@ -6,14 +6,30 @@ All notable changes to Termdock are recorded here. The format follows
 
 ## [Unreleased]
 
-The first release, v0.1.0, is being prepared.
+The first release, v0.1.0: the first supported release, internally reviewed twice, not
+externally audited. Read the [security model](docs/security.md) before you expose it.
 
 ### Upgrade notes
 
-- `deploy/Caddyfile` gained the file panel's `/transfer/*` route. After `docker compose -f
-  deploy/compose.yaml up -d --build`, run `docker compose -f deploy/compose.yaml restart caddy`:
-  Caddy reads its Caddyfile only when it starts, and an unchanged Caddy container is not
-  recreated. Without it, uploads and downloads fail while browsing still works.
+A new install needs nothing from this list. It is for development builds of `main` from before
+v0.1.0:
+
+- Installs now run the published images. Check out the release tag, then `docker compose -f
+  deploy/compose.yaml pull` and `docker compose -f deploy/compose.yaml up -d`; installs built from
+  source keep `up -d --build`. The Caddyfile is part of the Caddy image: `deploy/Caddyfile` is no
+  longer mounted, and a change to it reaches Caddy with a new image.
+- Caddy now runs as UID/GID 10002 instead of root. The caddy volumes of a development build belong
+  to root, and Caddy cannot read them. Once, before `up -d`, give them to the new user;
+  certificates and the local CA are kept:
+
+  ```bash
+  docker run --rm --network none \
+    -v termdock_caddy-data:/data -v termdock_caddy-config:/config \
+    --entrypoint chown caddy:2@sha256:685ae3d7c34d9b5f8caeddc5d14051db7bbd88ff1f5a2fa0c16bd8ca328fb7af \
+    -R 10002:10002 /data /config
+  ```
+
+  Without it, Caddy keeps restarting with `permission denied` under `/data/caddy`.
 - Behind your own reverse proxy, file panel uploads need it to pass request bodies of any size
   without buffering them: for nginx, add `client_max_body_size 0;`, `proxy_request_buffering off;`
   and `proxy_send_timeout 1h;` to the Termdock `location` (install guide, "Behind a reverse
@@ -33,6 +49,11 @@ The first release, v0.1.0, is being prepared.
 
 ### Added
 
+- Published images: each release puts three images on GitHub's container registry, for
+  `linux/amd64` and `linux/arm64` (`ghcr.io/ativaone/termdock-caddy`, `-web` and
+  `-session-manager`), tagged with the version and built, tested and published by the release
+  workflow; installs no longer need to build anything. `deploy/compose.yaml` names them and keeps
+  its build sections for installs from source.
 - A project site at https://ativaone.github.io/termdock, in English and Brazilian Portuguese: a
   home page with screenshots, and a documentation area with the installation guide, the
   configuration reference, the architecture, the security model and this changelog, rendered
@@ -117,6 +138,15 @@ The first release, v0.1.0, is being prepared.
 - Ended sessions can be removed from the list, one by one or all at once, with their history.
 
 ### Security
+
+- Caddy runs as a non-root user (UID/GID 10002, apart from web and session-manager's 10001) with
+  every capability dropped. Its binary no longer carries the `cap_net_bind_service` file
+  capability; it binds ports 80 and 443 (TCP and UDP) through its own container's
+  `net.ipv4.ip_unprivileged_port_start=0` sysctl. The Caddyfile is baked into its image.
+- Release images carry a signed build provenance attestation: `gh attestation verify
+  oci://ghcr.io/ativaone/termdock-web:<version> --repo ativaone/termdock`.
+- Vulnerabilities are reported privately through GitHub (`SECURITY.md`); only the latest release
+  is supported.
 
 Hardening from the internal pre-release security review:
 

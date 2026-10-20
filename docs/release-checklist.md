@@ -1,36 +1,72 @@
 # Release checklist
 
-The manual half of the pre-release routine ([plan §15.4](implementation-plan.md#154-pre-release-routine-d-25)).
-Run it after `pnpm test:release` has passed on the release commit, and record the result in the
-release notes or the delivery report.
+How a release is cut ([plan §15.4](implementation-plan.md#154-pre-release-routine-d-25), D-41).
+The images people install are built, tested and published by
+[`.github/workflows/release.yml`](../.github/workflows/release.yml) when a `vX.Y.Z` or
+`vX.Y.Z-rc.N` tag is pushed; this list is the manual half around it. Record the results in the
+delivery report.
 
-1. **Automated routine.** `pnpm test:release` passed on this exact commit (T0, every T1 file,
-   OSV scan, image builds, the smoke directly and behind a reverse proxy). Keep its summary table.
-2. **Real phone.** On an actual phone (not emulation), sign in, open a session, type with the
-   on-screen keyboard and the extra-key bar (Esc, Tab, Ctrl, Alt, arrows, paste), rotate the
-   screen, lock the phone for a minute and come back: the session is still there.
-3. **Both locales.** Switch en ↔ pt-BR (the corner control on the sign-in page; account menu →
-   Language… once signed in); walk sign-in, the workspace, servers and admin pages in each; no
-   untranslated or truncated text; the choice persists after signing out and in.
-4. **Host-key mismatch.** Change the host key of a trusted test server (or point a server at
-   another sshd): the session fails with the red mismatch alert and offers no in-flow accept;
-   replacing the trusted key on the server page asks for the address and then connects.
-5. **Keyboard-interactive / OTP host.** Against a host with keyboard-interactive or OTP
-   sign-in: the prompt appears in the browser (secret answers masked), a correct answer
-   connects, and after letting a prompt expire the next attempt prompts again.
-6. **Backup → restore on a scratch install.** On a throwaway install (never a real one):
-   `deploy/scripts/backup.sh`, change something (add a server), then
-   `deploy/scripts/restore.sh --yes <backup>`: the change is gone, users, servers and sessions
-   metadata are back, and a protected session resumes.
-7. **Screenshots, when the UI changed significantly.** Refresh `docs/screenshots/` (the images
-   its README and the project README show) from a real run (`scripts/ui-capture.ts`): desktop
-   1440×900 at 1x, phone 390×844 at 2x, default font hinting. Otherwise optional: worth doing only when a capture run
-   happens anyway.
-8. **Project site.** Read the user help (both languages) against `[Unreleased]` in the
+Every release starts as a release candidate. The manual checks run against the candidate's
+published images; when nothing but the version and the CHANGELOG changed after the candidate,
+the final release needs only step 11.
+
+## Before the candidate
+
+1. **Automated routine.** CI is green on the commit to tag: its "Pre-release routine" job ran
+   `pnpm test:release` there (T0, every T1 file, OSV scan, image builds, the smoke directly and
+   behind a reverse proxy, file transfers included). The release workflow runs the routine again
+   against the exact images it publishes. A local `pnpm test:release` is optional.
+2. **Project site.** Read the user help (both languages) against `[Unreleased]` in the
    changelog: every user-visible change is explained, nothing unshipped is described. The home
    pages still match the README. After the push, the Pages workflow passed and
    https://ativaone.github.io/termdock shows the new help and guides (the `site` skill).
-9. **CHANGELOG and version.** `CHANGELOG.md` moves the release out of `[Unreleased]` with the
-   date; the `version` fields match the tag; the upgrade notes mention anything operators must
-   do.
-10. **Tag.** Create the annotated tag `vX.Y.Z` on the tested commit and push it.
+3. **Screenshots, when the UI changed significantly.** Refresh `docs/screenshots/` (the images
+   its README and the project README show) from a real run (`scripts/ui-capture.ts`): desktop
+   1440×900 at 1x, phone 390×844 at 2x, default font hinting. Otherwise optional: worth doing
+   only when a capture run happens anyway.
+
+## The candidate
+
+4. **Version and tag.** `node scripts/set-version.ts X.Y.Z-rc.N` (every `package.json` and the
+   image tags in `deploy/compose.yaml`), commit, push, then create the annotated tag
+   `vX.Y.Z-rc.N` on that commit and push it. Watch the Release workflow (`gh run watch`): both
+   architectures build and pass their tests, the images are pushed, attested, and a GitHub
+   prerelease appears with the image digests. A failed run publishes nothing; fix, and tag the
+   next `-rc.N` (release tags cannot be moved or deleted).
+5. **The published images.** The three packages under https://github.com/orgs/ativaone/packages
+   are public (a package's first push can land private: Package settings → Change visibility);
+   `gh attestation verify oci://ghcr.io/ativaone/termdock-web:X.Y.Z-rc.N --repo ativaone/termdock`
+   passes, and the same for `termdock-session-manager` and `termdock-caddy`.
+
+## On an install of the candidate's images
+
+Install it as the installation guide says (check out the tag, `docker compose pull`, `up -d`)
+on a throwaway install, or upgrade the trial install to it. Then:
+
+6. **Real phone.** On an actual phone (not emulation), sign in, open a session, type with the
+   on-screen keyboard and the extra-key bar (Esc, Tab, Ctrl, Alt, arrows, paste), rotate the
+   screen, lock the phone for a minute and come back: the session is still there. Open the
+   Files panel, upload a photo and download it back.
+7. **Both locales.** Switch en ↔ pt-BR (the corner control on the sign-in page; account menu →
+   Language… once signed in); walk sign-in, the workspace, servers and admin pages in each; no
+   untranslated or truncated text; the choice persists after signing out and in. The account
+   menu shows the candidate's version.
+8. **Host-key mismatch.** Change the host key of a trusted test server (or point a server at
+   another sshd): the session fails with the red mismatch alert and offers no in-flow accept;
+   replacing the trusted key on the server page asks for the address and then connects.
+9. **Keyboard-interactive / OTP host.** Against a host with keyboard-interactive or OTP
+   sign-in: the prompt appears in the browser (secret answers masked), a correct answer
+   connects, and after letting a prompt expire the next attempt prompts again.
+10. **Backup → restore on a scratch install.** On a throwaway install (never a real one):
+    `deploy/scripts/backup.sh`, change something (add a server), then
+    `deploy/scripts/restore.sh --yes <backup>`: the change is gone, users, servers and sessions
+    metadata are back, and a protected session resumes.
+
+## The release
+
+11. **CHANGELOG, version and tag.** `CHANGELOG.md` moves `[Unreleased]` to
+    `## [X.Y.Z] - YYYY-MM-DD` (the workflow refuses a final release without it) and updates the
+    compare links at the bottom; the upgrade notes mention anything operators must do.
+    `node scripts/set-version.ts X.Y.Z`, commit, push, wait for CI, then tag `vX.Y.Z` and push
+    it. The workflow publishes `X.Y.Z`, `X.Y` and `latest` and the GitHub release; repeat step 5
+    for `X.Y.Z`.

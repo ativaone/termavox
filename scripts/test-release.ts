@@ -1,6 +1,6 @@
 // Pre-release routine T2 (plan §15.4, D-25): `pnpm test:release`.
 //
-//   pnpm test:release [--only <step>[,<step>...]] [--from <step>]
+//   pnpm test:release [--prebuilt] [--only <step>[,<step>...]] [--from <step>]
 //
 // Steps, strictly one after another, stopping at the first failure:
 //   guard  supply-chain guard: no plain-crypto-js, no axios 1.14.1 / 0.30.4 (lockfile, node_modules)
@@ -8,9 +8,15 @@
 //   t1     every T1 file (*.int.test.ts) exactly once, one file at a time, by area; needs the test
 //          sshd containers (docker compose -f test/sshd/compose.yaml up -d --build)
 //   osv    OSV scan of pnpm-lock.yaml against scripts/osv-allowlist.json (scripts/osv-scan.ts)
-//   build  docker compose build of the deployment images, project termdock-smoke
+//   build  docker compose build of the three deployment images (caddy, session-manager, web) under
+//          the test-only names termdock-smoke-* (test/release/compose.smoke-images.yaml), so a
+//          smoke never retags or replaces the ghcr.io/ativaone/... images an install here runs
 //   smoke  scripts/release-smoke.ts against the composed stack
 //   smoke-proxy  the same smoke behind a front proxy that terminates TLS (TERMDOCK_TLS=off)
+//
+// --prebuilt (the release pipeline): nothing is built. The `build` step only checks that the
+// images deploy/compose.yaml names (ghcr.io/ativaone/termdock-*:<version>) are present locally,
+// and both smokes run exactly those images (`--prebuilt`: never pulled, never built).
 //
 // Heavy steps run under `systemd-run --user --scope -p MemoryMax=… -p MemorySwapMax=0` when a
 // user systemd is available (TERMDOCK_RELEASE_MEMORY_MAX, default 1500M), plain otherwise.
@@ -26,6 +32,9 @@ const ROOT = join(import.meta.dirname, '..');
 const MEMORY_MAX = process.env.TERMDOCK_RELEASE_MEMORY_MAX ?? '1500M';
 const TMUX_IMAGES = process.env.TERMDOCK_RELEASE_TMUX_IMAGES ?? 'tmux-3.2a,tmux-3.4,tmux-edge';
 const SMOKE_PROJECT = 'termdock-smoke';
+const COMPOSE_FILE = join(ROOT, 'deploy', 'compose.yaml');
+const SMOKE_IMAGES = join(ROOT, 'test', 'release', 'compose.smoke-images.yaml');
+const PREBUILT = process.argv.includes('--prebuilt');
 const SSHD = [
   { name: 'no-tmux', port: 2201 },
   { name: 'tmux-3.2a', port: 2202 },
@@ -269,17 +278,22 @@ async function t1(): Promise<boolean> {
 
 // ── build ───────────────────────────────────────────────────────────────────
 
+/** From source: caddy first (seconds), then the two Node images. */
+const BUILD_ORDER = ['caddy', 'session-manager', 'web'];
+
 function build(): boolean {
   say('build: Docker builds run inside dockerd, so the memory cap cannot apply to them;');
-  say('build: they run alone, one image at a time.');
-  for (const service of ['session-manager', 'web']) {
+  say('build: they run alone, one image at a time, tagged termdock-smoke-<service>.');
+  for (const service of BUILD_ORDER) {
     const started = Date.now();
     const ok = exec('docker', [
       'compose',
       '-p',
       SMOKE_PROJECT,
       '-f',
-      join(ROOT, 'deploy', 'compose.yaml'),
+      COMPOSE_FILE,
+      '-f',
+      SMOKE_IMAGES,
       'build',
       service,
     ]);
@@ -289,7 +303,40 @@ function build(): boolean {
   return true;
 }
 
+/** --prebuilt: the images deploy/compose.yaml names must already be here (never built or pulled). */
+function prebuiltImages(): boolean {
+  const config = spawnSync(
+    'docker',
+    ['compose', '-p', SMOKE_PROJECT, '-f', COMPOSE_FILE, 'config', '--images'],
+    { cwd: ROOT, encoding: 'utf8' },
+  );
+  const images = (config.stdout ?? '').split('\n').filter((line) => line.trim() !== '');
+  if (config.status !== 0 || images.length === 0) {
+    say(`build: cannot list the images of deploy/compose.yaml:\n${config.stderr ?? ''}`);
+    return false;
+  }
+  const missing: string[] = [];
+  for (const image of images) {
+    const found =
+      spawnSync('docker', ['image', 'inspect', '--format', '{{.Id}}', image], {
+        stdio: 'ignore',
+      }).status === 0;
+    say(`build: ${found ? 'present' : 'MISSING'} ${image}`);
+    if (!found) missing.push(image);
+  }
+  if (missing.length > 0) {
+    say(`build: --prebuilt runs the images deploy/compose.yaml names and never builds or pulls`);
+    say(`build: them; not present locally: ${missing.join(', ')}.`);
+    say('build: load them first (the release pipeline builds them before this routine), or run');
+    say('build: without --prebuilt to build test-only images from this checkout.');
+    return false;
+  }
+  return true;
+}
+
 // ── the routine ─────────────────────────────────────────────────────────────
+
+const SMOKE_MODE = PREBUILT ? ['--prebuilt'] : [];
 
 const STEPS: Step[] = [
   { id: 'guard', title: 'Supply-chain guard', run: guard },
@@ -300,16 +347,22 @@ const STEPS: Step[] = [
     title: 'OSV scan of pnpm-lock.yaml',
     run: () => exec('node', [join(ROOT, 'scripts', 'osv-scan.ts')]),
   },
-  { id: 'build', title: 'Docker image build (termdock-smoke)', run: build },
+  PREBUILT
+    ? { id: 'build', title: 'Prebuilt images present (no build)', run: prebuiltImages }
+    : { id: 'build', title: 'Docker image build (termdock-smoke-*)', run: build },
   {
     id: 'smoke',
     title: 'Smoke against the composed stack',
-    run: () => exec('node', [join(ROOT, 'scripts', 'release-smoke.ts')], { cap: true }),
+    run: () =>
+      exec('node', [join(ROOT, 'scripts', 'release-smoke.ts'), ...SMOKE_MODE], { cap: true }),
   },
   {
     id: 'smoke-proxy',
     title: 'Smoke behind a reverse proxy (TLS off)',
-    run: () => exec('node', [join(ROOT, 'scripts', 'release-smoke.ts'), '--proxy'], { cap: true }),
+    run: () =>
+      exec('node', [join(ROOT, 'scripts', 'release-smoke.ts'), '--proxy', ...SMOKE_MODE], {
+        cap: true,
+      }),
   },
 ];
 
@@ -326,9 +379,11 @@ function selection(args: string[]): Set<string> {
   );
   if (
     unknown.length > 0 ||
-    args.some((a) => a.startsWith('--') && a !== '--only' && a !== '--from')
+    args.some((a) => a.startsWith('--') && !['--only', '--from', '--prebuilt'].includes(a))
   ) {
-    console.error(`usage: pnpm test:release [--only <${ids.join('|')}>[,...]] [--from <step>]`);
+    console.error(
+      `usage: pnpm test:release [--prebuilt] [--only <${ids.join('|')}>[,...]] [--from <step>]`,
+    );
     process.exit(2);
   }
   if (only) return new Set(only.split(','));
@@ -340,6 +395,11 @@ async function main(): Promise<number> {
   const selected = selection(process.argv.slice(2));
   const started = Date.now();
   say(`pre-release routine (plan §15.4): ${[...selected].join(' → ')}`);
+  say(
+    PREBUILT
+      ? '--prebuilt: no image build; the smokes run the images deploy/compose.yaml names'
+      : 'from source: the build step builds test-only termdock-smoke-* images',
+  );
   const free = spawnSync('free', ['-m'], { encoding: 'utf8' });
   for (const line of (free.stdout ?? '').trimEnd().split('\n')) say(`free -m | ${line}`);
   say(
@@ -349,6 +409,11 @@ async function main(): Promise<number> {
   );
   const rows: Array<{ step: Step; result: Result; ms: number }> = [];
   let failed = false;
+  // --prebuilt: a missing image fails at once, not after the long steps before `build`.
+  if (PREBUILT && ['guard', 't0', 't1', 'osv'].some((id) => selected.has(id))) {
+    say('--prebuilt: checking the images before the first step');
+    if (!prebuiltImages()) failed = true;
+  }
   for (const step of STEPS) {
     if (!selected.has(step.id)) {
       rows.push({ step, result: 'SKIP', ms: 0 });

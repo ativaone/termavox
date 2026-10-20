@@ -25,7 +25,8 @@
 # Environment (optional, for test stacks such as the release smoke; installs leave it unset):
 #   TERMDOCK_SECRETS_DIR       the secrets directory instead of deploy/secrets/
 #   TERMDOCK_BACKUP_DIR        where the pre-rotate backup is copied instead of deploy/backups/
-#   TERMDOCK_COMPOSE_OVERRIDE  a compose file applied on top of deploy/compose.yaml
+#   TERMDOCK_COMPOSE_OVERRIDE  compose files applied on top of deploy/compose.yaml, in order,
+#                              separated by ":" (one file, or e.g. a.yaml:b.yaml)
 #   (the stack's project name comes from COMPOSE_PROJECT_NAME, which docker compose reads itself)
 set -euo pipefail
 umask 077
@@ -69,7 +70,10 @@ command -v docker >/dev/null 2>&1 || die "docker is required"
 
 compose_files=(-f "$compose_file")
 if [[ -n "${TERMDOCK_COMPOSE_OVERRIDE:-}" ]]; then
-  compose_files+=(-f "$TERMDOCK_COMPOSE_OVERRIDE")
+  IFS=: read -r -a compose_overrides <<<"$TERMDOCK_COMPOSE_OVERRIDE"
+  for override in "${compose_overrides[@]}"; do
+    if [[ -n "$override" ]]; then compose_files+=(-f "$override"); fi
+  done
 fi
 compose() { docker compose "${compose_files[@]}" "$@"; }
 

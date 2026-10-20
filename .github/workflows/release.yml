@@ -1,0 +1,289 @@
+# Builds, tests and publishes a release (plan D-41). A `vX.Y.Z` or `vX.Y.Z-rc.N` tag publishes;
+# a manual run is a dry run that builds and tests the repository's current version and publishes
+# nothing.
+#
+# The images people pull are the images this run tested: each architecture is built on a native
+# runner with plain `docker buildx` (no QEMU), loaded into the runner's Docker, tested there, and
+# only then pushed under per-architecture tags, which the publish job joins into the multi-arch
+# tags and attests (build provenance, verifiable with `gh attestation verify`).
+#   amd64: the whole pre-release routine, `pnpm test:release --prebuilt`, against these images.
+#   arm64: the stack starts healthy from these images behind Caddy and serves the sign-in page
+#          (no browser smoke: the arm64 runner has no Chrome).
+#
+# Actions are official GitHub ones, pinned to full commit SHAs. Untrusted values reach scripts
+# only through environment variables, never through `${{ }}` inside `run:`.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io/ativaone
+
+jobs:
+  prepare:
+    name: Version and release notes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+      publish: ${{ steps.version.outputs.publish }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - name: Version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            version="${GITHUB_REF_NAME#v}"
+            publish=true
+          else
+            version="$(node -p "require('./package.json').version")"
+            publish=false
+          fi
+          # The tag, every package.json and the image tags in deploy/compose.yaml must agree.
+          node scripts/set-version.ts --check "$version"
+          if [[ "$version" == *-rc.* ]]; then prerelease=true; else prerelease=false; fi
+          # A final release needs its own CHANGELOG section with a date.
+          if [[ "$publish" == true && "$prerelease" == false ]] &&
+            ! grep -Eq "^## \[${version//./\\.}\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [$version] - YYYY-MM-DD' section"
+            exit 1
+          fi
+          node scripts/release-notes.ts "$version" >/dev/null
+          {
+            echo "version=$version"
+            echo "prerelease=$prerelease"
+            echo "publish=$publish"
+          } >>"$GITHUB_OUTPUT"
+          echo "Version $version, prerelease $prerelease, publish $publish" >>"$GITHUB_STEP_SUMMARY"
+
+  build:
+    name: Build and test (${{ matrix.arch }})
+    needs: prepare
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      PUBLISH: ${{ needs.prepare.outputs.publish }}
+      ARCH: ${{ matrix.arch }}
+      TMPDIR: ${{ runner.temp }}/tmp
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the images
+        run: |
+          mkdir -p "$TMPDIR"
+          created="$(git log -1 --format=%cI)"
+          for service in session-manager web caddy; do
+            docker buildx build --load --platform "linux/$ARCH" \
+              --file "deploy/docker/$service.Dockerfile" \
+              --tag "$REGISTRY/termdock-$service:$VERSION" \
+              --label "org.opencontainers.image.source=https://github.com/ativaone/termdock" \
+              --label "org.opencontainers.image.version=$VERSION" \
+              --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+              --label "org.opencontainers.image.created=$created" \
+              --label "org.opencontainers.image.licenses=AGPL-3.0-only" \
+              --label "org.opencontainers.image.title=termdock-$service" \
+              --label "org.opencontainers.image.description=Termdock $service: persistent SSH sessions in the browser" \
+              .
+          done
+
+      # amd64: the whole pre-release routine against the images just built.
+      - if: matrix.arch == 'amd64'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - name: Install dependencies (build scripts stay blocked by allowBuilds)
+        if: matrix.arch == 'amd64'
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+      - name: Headless Chrome for the smoke
+        if: matrix.arch == 'amd64'
+        run: |
+          wrapper="$RUNNER_TEMP/chrome-headless"
+          printf '#!/bin/sh\nexec %s --headless=new --no-sandbox "$@"\n' "$(command -v google-chrome)" >"$wrapper"
+          chmod +x "$wrapper"
+          echo "TERMDOCK_SMOKE_CHROME=$wrapper" >>"$GITHUB_ENV"
+      - name: Test sshd containers
+        if: matrix.arch == 'amd64'
+        run: docker compose -f test/sshd/compose.yaml up -d --build
+      - name: pnpm test:release --prebuilt
+        if: matrix.arch == 'amd64'
+        run: pnpm test:release --prebuilt
+      - name: Keep the smoke's failure output
+        if: failure() && matrix.arch == 'amd64'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: smoke-failure
+          path: ${{ runner.temp }}/tmp/termdock-smoke-failure-*
+          if-no-files-found: ignore
+          retention-days: 14
+
+      # arm64: the stack starts healthy from these images and serves the sign-in page through
+      # Caddy. The smoke's override keeps it on loopback, on its own project and volumes.
+      - name: Start the stack from the images (arm64)
+        if: matrix.arch == 'arm64'
+        run: |
+          secrets="$(mktemp -d)"
+          TERMDOCK_SECRETS_DIR="$secrets" deploy/scripts/init-secrets.sh
+          {
+            echo "TERMDOCK_SECRETS_DIR=$secrets"
+            echo "TERMDOCK_DOMAIN=localhost"
+            echo "TERMDOCK_TLS=internal"
+            echo "TERMDOCK_HTTP_PORT=18080"
+            echo "TERMDOCK_HTTPS_PORT=18443"
+          } >>"$GITHUB_ENV"
+          export TERMDOCK_SECRETS_DIR="$secrets" TERMDOCK_DOMAIN=localhost TERMDOCK_TLS=internal \
+            TERMDOCK_HTTP_PORT=18080 TERMDOCK_HTTPS_PORT=18443
+          docker compose -p termdock-smoke -f deploy/compose.yaml -f test/release/compose.smoke.yaml \
+            up -d --pull never --wait --wait-timeout 300 caddy web session-manager
+          # A fresh install sends /login on to /setup (no admin yet); both are web's pages.
+          result="$(curl -skL -o /dev/null -w '%{http_code} %{url_effective}' --retry 5 \
+            --retry-all-errors https://localhost:18443/login)"
+          echo "GET /login through Caddy, redirects followed: $result"
+          test "${result%% *}" = 200
+          docker compose -p termdock-smoke -f deploy/compose.yaml -f test/release/compose.smoke.yaml ps
+      - name: Service logs (arm64)
+        if: always() && matrix.arch == 'arm64'
+        run: |
+          docker compose -p termdock-smoke -f deploy/compose.yaml -f test/release/compose.smoke.yaml \
+            logs --no-color --tail 100 caddy web session-manager || true
+          docker compose -p termdock-smoke -f deploy/compose.yaml -f test/release/compose.smoke.yaml \
+            down -v || true
+
+      - name: Push the tested images under per-architecture tags
+        if: env.PUBLISH == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          echo "$GITHUB_TOKEN" | docker login ghcr.io --username "$ACTOR" --password-stdin
+          for service in session-manager web caddy; do
+            image="$REGISTRY/termdock-$service"
+            docker tag "$image:$VERSION" "$image:$VERSION-$ARCH"
+            docker push "$image:$VERSION-$ARCH"
+          done
+          docker logout ghcr.io
+
+  publish:
+    name: Publish multi-arch images and the GitHub release
+    needs: [prepare, build]
+    if: needs.prepare.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - name: Multi-arch tags
+        id: manifests
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          echo "$GITHUB_TOKEN" | docker login ghcr.io --username "$ACTOR" --password-stdin
+          minor="$(echo "$VERSION" | cut -d. -f1,2)"
+          for service in session-manager web caddy; do
+            image="$REGISTRY/termdock-$service"
+            tags=(--tag "$image:$VERSION")
+            if [[ "$PRERELEASE" == false ]]; then
+              tags+=(--tag "$image:$minor" --tag "$image:latest")
+            fi
+            docker buildx imagetools create "${tags[@]}" "$image:$VERSION-amd64" "$image:$VERSION-arm64"
+            digest="$(docker buildx imagetools inspect "$image:$VERSION" --format '{{json .Manifest}}' | jq -r .digest)"
+            echo "${service//-/_}=$digest" >>"$GITHUB_OUTPUT"
+            echo "$image:$VERSION $digest" | tee -a "$RUNNER_TEMP/digests.txt"
+          done
+          docker logout ghcr.io
+      - name: Attest web
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ghcr.io/ativaone/termdock-web
+          subject-digest: ${{ steps.manifests.outputs.web }}
+          push-to-registry: true
+          create-storage-record: false
+      - name: Attest session-manager
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ghcr.io/ativaone/termdock-session-manager
+          subject-digest: ${{ steps.manifests.outputs.session_manager }}
+          push-to-registry: true
+          create-storage-record: false
+      - name: Attest caddy
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ghcr.io/ativaone/termdock-caddy
+          subject-digest: ${{ steps.manifests.outputs.caddy }}
+          push-to-registry: true
+          create-storage-record: false
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          notes="$RUNNER_TEMP/notes.md"
+          {
+            if [[ "$PRERELEASE" == true ]]; then
+              echo "Release candidate for v${VERSION%-rc.*}: for testing, not for production servers."
+              echo
+            fi
+            node scripts/release-notes.ts "$VERSION"
+            echo
+            echo "## Images"
+            echo
+            echo "Multi-arch (linux/amd64, linux/arm64), built and tested by this release's workflow run:"
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/digests.txt"
+            echo '```'
+            echo
+            echo "Verify an image's build provenance:"
+            echo
+            echo '```'
+            echo "gh attestation verify oci://ghcr.io/ativaone/termdock-web:$VERSION --repo ativaone/termdock"
+            echo '```'
+            echo
+            echo "Install and upgrade: https://github.com/ativaone/termdock/blob/$GITHUB_REF_NAME/docs/guides/install.md"
+          } >"$notes"
+          flags=(--verify-tag --title "Termdock $VERSION" --notes-file "$notes")
+          if [[ "$PRERELEASE" == true ]]; then flags+=(--prerelease); else flags+=(--latest); fi
+          gh release create "$GITHUB_REF_NAME" "${flags[@]}"
