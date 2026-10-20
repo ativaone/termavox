@@ -28,6 +28,10 @@ concurrency:
 
 env:
   REGISTRY: ghcr.io/ativaone
+  # The architectures a release publishes. arm64 is suspended by the owner (2026-10-20) until the
+  # project's rename is done. To bring it back: `amd64 arm64` here and the arm64 entry of the
+  # build matrix below uncommented.
+  ARCHES: amd64
 
 jobs:
   prepare:
@@ -81,8 +85,9 @@ jobs:
         include:
           - arch: amd64
             runner: ubuntu-24.04
-          - arch: arm64
-            runner: ubuntu-24.04-arm
+          # Suspended with ARCHES above (owner, 2026-10-20):
+          # - arch: arm64
+          #   runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     permissions:
@@ -230,7 +235,9 @@ jobs:
             if [[ "$PRERELEASE" == false ]]; then
               tags+=(--tag "$image:$minor" --tag "$image:latest")
             fi
-            docker buildx imagetools create "${tags[@]}" "$image:$VERSION-amd64" "$image:$VERSION-arm64"
+            sources=()
+            for arch in $ARCHES; do sources+=("$image:$VERSION-$arch"); done
+            docker buildx imagetools create "${tags[@]}" "${sources[@]}"
             digest="$(docker buildx imagetools inspect "$image:$VERSION" --format '{{json .Manifest}}' | jq -r .digest)"
             echo "${service//-/_}=$digest" >>"$GITHUB_OUTPUT"
             echo "$image:$VERSION $digest" | tee -a "$RUNNER_TEMP/digests.txt"
@@ -272,7 +279,7 @@ jobs:
             echo
             echo "## Images"
             echo
-            echo "Multi-arch (linux/amd64, linux/arm64), built and tested by this release's workflow run:"
+            echo "For linux/${ARCHES// /, linux\/}, built and tested by this release's workflow run:"
             echo
             echo '```'
             cat "$RUNNER_TEMP/digests.txt"
