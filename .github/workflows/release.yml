@@ -92,14 +92,16 @@ jobs:
       VERSION: ${{ needs.prepare.outputs.version }}
       PUBLISH: ${{ needs.prepare.outputs.publish }}
       ARCH: ${{ matrix.arch }}
-      TMPDIR: ${{ runner.temp }}/tmp
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Temporary directory (the smoke saves a screenshot and the logs there on failure)
+        run: |
+          mkdir -p "$RUNNER_TEMP/tmp"
+          echo "TMPDIR=$RUNNER_TEMP/tmp" >>"$GITHUB_ENV"
       - name: Build the images
         run: |
-          mkdir -p "$TMPDIR"
           created="$(git log -1 --format=%cI)"
           for service in session-manager web caddy; do
             docker buildx build --load --platform "linux/$ARCH" \

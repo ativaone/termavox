@@ -42,13 +42,14 @@ jobs:
     needs: check
     runs-on: ubuntu-24.04
     timeout-minutes: 60
-    env:
-      # The smoke saves a screenshot and the services' logs here when it fails.
-      TMPDIR: ${{ runner.temp }}/tmp
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Temporary directory (the smoke saves a screenshot and the logs there on failure)
+        run: |
+          mkdir -p "$RUNNER_TEMP/tmp"
+          echo "TMPDIR=$RUNNER_TEMP/tmp" >>"$GITHUB_ENV"
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
@@ -60,7 +61,6 @@ jobs:
         # The runner image ships Google Chrome; the smoke expects a browser that is headless by
         # itself (chrome-headless-shell), so a wrapper adds the flags.
         run: |
-          mkdir -p "$TMPDIR"
           wrapper="$RUNNER_TEMP/chrome-headless"
           printf '#!/bin/sh\nexec %s --headless=new --no-sandbox "$@"\n' "$(command -v google-chrome)" >"$wrapper"
           chmod +x "$wrapper"
