@@ -243,7 +243,8 @@ jobs:
             echo "${service//-/_}=$digest" >>"$GITHUB_OUTPUT"
             echo "$image:$VERSION $digest" | tee -a "$RUNNER_TEMP/digests.txt"
           done
-          docker logout ghcr.io
+          # No logout: the attest steps push to the registry with the credentials of this login
+          # (~/.docker/config.json), and the runner is discarded after the job.
       - name: Attest web
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:

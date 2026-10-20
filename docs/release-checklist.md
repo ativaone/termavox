@@ -29,10 +29,12 @@ the final release needs only step 11.
 
 4. **Version and tag.** `node scripts/set-version.ts X.Y.Z-rc.N` (every `package.json` and the
    image tags in `deploy/compose.yaml`), commit, push, then create the annotated tag
-   `vX.Y.Z-rc.N` on that commit and push it. Watch the Release workflow (`gh run watch`): both
-   architectures build and pass their tests, the images are pushed, attested, and a GitHub
-   prerelease appears with the image digests. A failed run publishes nothing; fix, and tag the
-   next `-rc.N` (release tags cannot be moved or deleted).
+   `vX.Y.Z-rc.N` on that commit and push it. Watch the Release workflow (`gh run watch`): every
+   architecture in its `ARCHES` (amd64 only while arm64 is suspended, D-41) builds and passes its
+   tests, the images are pushed, attested, and a GitHub prerelease appears with the image
+   digests. Images reach the registry only after their tests pass, but a run that fails in its
+   publish job can leave them there without a release. Either way, fix, and tag the next
+   `-rc.N` (release tags cannot be moved or deleted).
 5. **The published images.** The three packages under https://github.com/orgs/ativaone/packages
    are public (a package's first push can land private: Package settings → Change visibility);
    `gh attestation verify oci://ghcr.io/ativaone/termavox-web:X.Y.Z-rc.N --repo ativaone/termavox`
