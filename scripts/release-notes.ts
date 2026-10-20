@@ -5,13 +5,15 @@
 // The body of the `## [<version>]` section of CHANGELOG.md. A release candidate (X.Y.Z-rc.N) without
 // a section of its own gets the `## [Unreleased]` section instead; a final release must have its
 // section. Exits non-zero, with the reason on stderr, when there is no such section or it is
-// empty. The heading itself and the link references at the end of the file are left out.
+// empty. The heading itself and the link references at the end of the file are left out, and
+// relative links point at the release's tag on GitHub.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isReleaseCandidate, isValidVersion } from './set-version.ts';
 
 const ROOT = join(import.meta.dirname, '..');
 export const UNRELEASED = 'Unreleased';
+const REPOSITORY = 'https://github.com/ativaone/termavox';
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const LINK_REFERENCE = /^\[[^\]]+\]:\s*\S/;
@@ -42,6 +44,18 @@ export function changelogSection(changelog: string, name: string): string | null
     .trim();
 }
 
+/**
+ * Relative links made absolute at the release's tag: a GitHub release page does not resolve
+ * `[security model](docs/security.md)` against the repository, so the link would not open there.
+ * Links with a scheme, anchors and root-relative paths stay as they are.
+ */
+export function absoluteLinks(body: string, version: string): string {
+  return body.replace(
+    /\]\((?![a-z][a-z\d+.-]*:|#|\/)(?:\.\/)?([^)\s]+)\)/gi,
+    (_, path: string) => `](${REPOSITORY}/blob/v${version}/${path})`,
+  );
+}
+
 export type ReleaseNotes =
   | { ok: true; section: string; body: string }
   | { ok: false; error: string };
@@ -56,7 +70,7 @@ export function releaseNotes(changelog: string, version: string): ReleaseNotes {
     const body = changelogSection(changelog, section);
     if (body === null) continue;
     if (body === '') return { ok: false, error: `the ## [${section}] section is empty` };
-    return { ok: true, section, body };
+    return { ok: true, section, body: absoluteLinks(body, version) };
   }
   return {
     ok: false,

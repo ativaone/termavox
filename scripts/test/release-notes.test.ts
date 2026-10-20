@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { changelogSection, releaseNotes } from '../release-notes.ts';
+import { absoluteLinks, changelogSection, releaseNotes } from '../release-notes.ts';
 
 const CHANGELOG = `# Changelog
 
@@ -73,5 +73,31 @@ describe('release notes', () => {
       error: 'the ## [Unreleased] section is empty',
     });
     expect(releaseNotes(CHANGELOG, 'v0.1.0')).toMatchObject({ ok: false });
+  });
+});
+
+describe('links in the notes', () => {
+  it('points relative links at the release’s tag', () => {
+    expect(
+      absoluteLinks(
+        'Read the [security model](docs/security.md) and ![mark](./docs/mark.png).',
+        '0.1.0-rc.1',
+      ),
+    ).toBe(
+      'Read the [security model](https://github.com/ativaone/termavox/blob/v0.1.0-rc.1/docs/security.md)' +
+        ' and ![mark](https://github.com/ativaone/termavox/blob/v0.1.0-rc.1/docs/mark.png).',
+    );
+  });
+  it('keeps absolute, root-relative and anchor links', () => {
+    const body =
+      '[site](https://ativaone.github.io/termavox) [mail](mailto:a@b.c) [root](/LICENSE) [top](#added)';
+    expect(absoluteLinks(body, '0.1.0')).toBe(body);
+  });
+  it('applies to the notes of a version', () => {
+    const changelog = '## [Unreleased]\n\nSee the [guide](docs/guides/install.md).\n';
+    expect(releaseNotes(changelog, '0.2.0-rc.1')).toMatchObject({
+      ok: true,
+      body: 'See the [guide](https://github.com/ativaone/termavox/blob/v0.2.0-rc.1/docs/guides/install.md).',
+    });
   });
 });
