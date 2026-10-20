@@ -225,6 +225,11 @@
         <li>Se um arquivo já existe: <strong>Substituir</strong> (mantém as permissões do atual), <strong>Manter os dois</strong> ou <strong>Pular estes</strong>.</li>
         <li><strong>Ir para a pasta do terminal</strong> só existe em sessões protegidas.</li>
         <li>Pastas inteiras ainda não podem ser enviadas nem baixadas: selecione os arquivos dentro delas.</li>
+        <li>Uma pasta com mais de 10.000 itens (menos, quando os nomes ou os destinos dos links são longos) é listada só em parte, e o painel avisa.</li>
+        <li><strong>Apagar</strong> para depois de ler mais de 100.000 itens, ou com mais de 64 níveis de pastas aninhadas: “Esta pasta é grande demais para apagar pelo painel. Apague-a pelo terminal (por exemplo, com <code>rm -r</code>).” O que já foi apagado continua apagado.</li>
+        <li>Um download que o navegador deixa pausado por mais de dois minutos é interrompido: baixe o arquivo de novo.</li>
+        <li>Um envio interrompido porque a conexão com o servidor caiu, ou porque o servidor parou de responder, pode deixar naquela pasta um arquivo oculto chamado <code>.&lt;nome&gt;.td-&lt;id&gt;.part</code>. Dá para apagá-lo pelo painel.</li>
+        <li>Um nome com caracteres invisíveis ou de controle (uma inversão de direção, um espaço de largura zero, uma quebra de linha, um espaço no começo ou no fim, um espaço incomum em qualquer posição, como o espaço sem quebra, o estreito da tipografia francesa ou o largo do japonês) mostra <code>&#xFFFD;</code> no lugar de cada um; passe o mouse sobre o nome para ver a forma exata, como <code>report\u202Efdp.exe</code>. O painel continua agindo sobre o nome real.</li>
         <li>Teclado: as setas movem, <kbd>Espaço</kbd> seleciona, <kbd>Enter</kbd> abre uma pasta, <kbd>F2</kbd> renomeia, <kbd>Delete</kbd> apaga.</li>
       </ul>
       <aside class="note note-caution">

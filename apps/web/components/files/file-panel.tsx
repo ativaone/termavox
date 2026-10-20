@@ -37,6 +37,7 @@ import { ConflictDialog } from './conflict-dialog.tsx';
 import { DeleteDialog } from './delete-dialog.tsx';
 import { DropOverlay, useFileDrop } from './drop-zone.tsx';
 import { FileList } from './file-list.tsx';
+import { withNames } from './file-name.tsx';
 import { FilePathBar } from './file-path-bar.tsx';
 import { FileToolbar } from './file-toolbar.tsx';
 import { usePaneFilesField } from './files-toggle.tsx';
@@ -54,7 +55,8 @@ const REFRESH_DELAY_MS = 400;
 interface PanelNotice {
   id: number;
   tone: NoticeTone;
-  title?: string;
+  /** A remote name in it is drawn as the rows draw one (`withNames`). */
+  title?: ReactNode;
   text: string;
 }
 
@@ -302,7 +304,7 @@ export const FilePanel = memo(function FilePanel({
       if (job.state === 'failed' && job.error?.code === ClientFileCode.ProxyTooLarge) {
         notify({
           tone: 'danger',
-          title: t('proxy.title', { name: job.name }),
+          title: withNames([job.name], (name) => t('proxy.title', { name })),
           text: t('proxy.body'),
         });
       }
@@ -523,12 +525,12 @@ export const FilePanel = memo(function FilePanel({
         <p className="shrink-0 border-line border-t px-4 py-1.5 text-ink-muted text-xs tabular-nums">
           {t('list.count', { count: visible.length })}
           {hidden > 0 && !showHidden ? ` · ${t('list.hiddenCount', { count: hidden })}` : ''}
-          {state.truncated ? ` · ${t('list.truncated', { count: FILES_LIMITS.listEntries })}` : ''}
+          {state.truncated ? ` · ${t('list.truncated', { count: state.entries.length })}` : ''}
         </p>
       ) : null}
       {listing && phone && state.truncated ? (
         <p className="shrink-0 px-4 py-1.5 text-ink-muted text-xs">
-          {t('list.truncated', { count: FILES_LIMITS.listEntries })}
+          {t('list.truncated', { count: state.entries.length })}
         </p>
       ) : null}
 

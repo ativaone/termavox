@@ -7,6 +7,7 @@ import { formatFullTime, formatModified, formatSize } from '../../lib/files/form
 import { isDangling, isFolderLike, isHidden } from '../../lib/files/listing.ts';
 import { CheckIcon, FileIcon, FileLinkIcon, FolderIcon, FolderLinkIcon } from '../icons/index.tsx';
 import { cx } from '../ui/cx.ts';
+import { FileName, withNames } from './file-name.tsx';
 
 /** Desktop columns: check, name, size, then modified once the panel is wide enough. */
 export const ROW_COLUMNS =
@@ -85,7 +86,7 @@ export const FileRow = memo(function FileRow({
       ) : entry.linkTo ? (
         // The link's target gives way first: the name is what the row is read by.
         <span className="min-w-0 flex-1 truncate text-ink-muted text-xs">
-          {t('linkTo', { target: entry.linkTo })}
+          {withNames([entry.linkTo], (target) => t('linkTo', { target }))}
         </span>
       ) : null
     ) : null;
@@ -109,14 +110,22 @@ export const FileRow = memo(function FileRow({
             }
       }
     >
-      {entry.name}
+      <FileName name={entry.name} />
     </span>
   );
 
-  let phoneMeta: string;
+  let phoneMeta: ReactNode;
   if (entry.type === 'link') {
-    phoneMeta = t('linkMeta', { target: entry.linkTo ?? '?' });
-    if (dangling) phoneMeta = `${phoneMeta} · ${t('dangling')}`;
+    phoneMeta = entry.linkTo
+      ? withNames([entry.linkTo], (target) => t('linkMeta', { target }))
+      : t('linkMeta', { target: '?' });
+    if (dangling) {
+      phoneMeta = (
+        <>
+          {phoneMeta} · {t('dangling')}
+        </>
+      );
+    }
   } else if (folder) {
     phoneMeta = t('folderMeta', { modified });
   } else {

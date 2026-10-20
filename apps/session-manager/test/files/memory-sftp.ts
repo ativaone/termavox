@@ -2,8 +2,9 @@
  * An in-memory SftpSession with POSIX semantics where the file panel depends on them: links are
  * resolved in intermediate path segments, followed by stat/opendir/realpath/open and never by
  * lstat/unlink/rmdir; mkdir and rename refuse an existing target with a generic FAILURE (like
- * OpenSSH); an open file handle keeps its file across renames and unlinks, like an inode. Every
- * request is recorded, and a test can slow requests down, reorder them or count concurrency.
+ * OpenSSH); an open file handle keeps its file across renames and unlinks, like an inode; a write
+ * clears setuid (and setgid on a group-executable file), like Linux for an unprivileged writer.
+ * Every request is recorded, and a test can slow requests down, reorder them or count concurrency.
  */
 import { posix } from 'node:path';
 import {
@@ -46,8 +47,10 @@ export class MemorySftp implements SftpSession {
   delay: ((op: string, path: string) => Promise<void> | void) | null = null;
   /** Bytes one read answers at most: a server answering short. */
   readAnswerMax = Number.POSITIVE_INFINITY;
-  /** Permission bits a new file gets (the server's default with its umask). */
+  /** Permission bits of a new file whose open names none (the server's default, umask applied). */
   newFileMode = 0o644;
+  /** The server's umask, applied to the permission bits an open names. */
+  umask = 0o022;
   inFlight = 0;
   maxInFlight = 0;
   #closed = false;
@@ -173,7 +176,7 @@ export class MemorySftp implements SftpSession {
     return this.#handles.size;
   }
 
-  open(path: string, flags: SftpOpenFlags): Promise<SftpHandle> {
+  open(path: string, flags: SftpOpenFlags, mode?: number): Promise<SftpHandle> {
     return this.#op('open', path, () => {
       if (flags === 'r') {
         const node = this.#existing(this.#resolve(path, true));
@@ -185,7 +188,7 @@ export class MemorySftp implements SftpSession {
       this.#parentDir(target);
       const node: FileNode = {
         kind: 'file',
-        mode: this.newFileMode,
+        mode: mode === undefined ? this.newFileMode : mode & 0o7777 & ~this.umask,
         mtime: 1_700_000_000,
         data: Buffer.alloc(0),
       };
@@ -220,6 +223,7 @@ export class MemorySftp implements SftpSession {
         node.data = grown;
       }
       bytes.copy(node.data, position);
+      node.mode &= ~(0o4000 | (node.mode & 0o010 ? 0o2000 : 0));
     });
   }
 
@@ -231,10 +235,13 @@ export class MemorySftp implements SftpSession {
     });
   }
 
-  chmod(path: string, mode: number): Promise<void> {
-    return this.#op('chmod', path, () => {
-      const node = this.#existing(this.#resolve(path, true));
-      if (node.kind !== 'link') node.mode = mode & 0o7777;
+  fchmod(handle: SftpHandle, mode: number): Promise<void> {
+    const open = this.#handles.get(handleId(handle));
+    return this.#op('fchmod', open?.path ?? '?', () => {
+      if (open?.kind !== 'file' || !this.#handles.has(handleId(handle))) {
+        throw failure('bad handle');
+      }
+      open.node.mode = mode & 0o7777;
     });
   }
 

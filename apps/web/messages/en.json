@@ -1359,6 +1359,8 @@
           "port": "Port",
           "path": "Path",
           "size": "Size",
+          "bytes": "Transferred",
+          "completed": "Completed",
           "paths": "Paths",
           "removed": "Items deleted"
         },
@@ -1564,6 +1566,7 @@
       "nameInvalid": "That name can't be used.",
       "fileOpFailed": "The server couldn't do that.",
       "fileOpFailedDetail": "The server couldn't do that: {detail}",
+      "removeTooLarge": "This folder is too large for the panel to delete. Delete it from the terminal (for example with rm -r).",
       "cancelled": "Stopped.",
       "transferExpired": "The browser didn't start this download in time. If it asked to allow several downloads, allow them and try again.",
       "notFound": "It isn't there any more. Refresh the folder.",

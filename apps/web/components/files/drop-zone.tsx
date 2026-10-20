@@ -2,6 +2,7 @@
 
 import { useTranslations } from 'next-intl';
 import { type DragEvent, useRef, useState } from 'react';
+import { displayName } from '../../lib/files/display-name.ts';
 import { UploadIcon } from '../icons/index.tsx';
 
 function carriesFiles(event: DragEvent): boolean {
@@ -73,8 +74,12 @@ export function DropOverlay({ folder }: { folder: string }) {
         <p className="font-semibold text-ink text-md">{t('title')}</p>
         <p className="max-w-full break-all text-ink-muted text-sm">
           {t.rich('target', {
-            folder,
-            path: (chunks) => <span className="font-mono text-ink text-xs">{chunks}</span>,
+            folder: displayName(folder).text,
+            path: (chunks) => (
+              <bdi dir="ltr" className="font-mono text-ink text-xs">
+                {chunks}
+              </bdi>
+            ),
           })}
         </p>
       </div>

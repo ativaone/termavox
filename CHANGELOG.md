@@ -192,4 +192,27 @@ From the second internal review (2026-10-19):
 - Caddy answers `400` to WebSocket upgrades outside `/ws` and removes its `Server` header from
   redirects and error responses too. Backups write their partial file exclusively.
 
+From the review of the file panel (2026-10-19), against a hostile or broken SFTP server and other
+users of that server:
+
+- Replacing a file keeps its permissions from the first byte: the temporary upload file is never
+  readable more widely than the file it replaces, and no permission is changed by path.
+- The session-manager's memory is bounded whatever the server answers: a listing stops at 10 000
+  entries or 2 MiB of names and link texts; a download holds at most 16 chunks ahead of what the
+  browser received, in whatever order the server answers; Delete reads each folder once and
+  closes it before deleting in it, and stops past 64 nested levels or 100 000 entries per request
+  (what it deleted stays deleted; the panel then says, in the user's language, to delete such a
+  tree from the terminal).
+- An SFTP server that leaves its oldest request unanswered for 60 s loses the channel, so it can
+  no longer hold transfers or file requests; a download the browser takes nothing from for 2
+  minutes stops; at most 64 transfers run at once per session-manager.
+- Running transfers check their sign-in again every 60 s, so a sign-out session-manager missed
+  still stops them.
+- Remote names with control, invisible or unusual space characters show those characters as
+  U+FFFD, with the exact name in the tooltip, in the panel and the admin audit log; every name is
+  drawn in its own left-to-right isolate. Downloads drop invisible characters from the saved name
+  and send `Cross-Origin-Resource-Policy: same-origin`.
+- A download's audit row is written when it ends, with the bytes transferred and whether it
+  completed. SFTP server messages are cleaned before they reach error answers and logs.
+
 [Unreleased]: https://github.com/ativaone/termdock/commits/main

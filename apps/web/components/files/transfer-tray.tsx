@@ -2,12 +2,14 @@
 
 import { useLocale, useTranslations } from 'next-intl';
 import { useState, useSyncExternalStore } from 'react';
+import { displayName } from '../../lib/files/display-name.ts';
 import { formatSize, formatSpeed, percentOf } from '../../lib/files/format.ts';
 import { isFinished, type TransferJob } from '../../lib/files/transfer-queue.ts';
 import { ChevronDownIcon, CloseIcon, DownloadIcon, UploadIcon } from '../icons/index.tsx';
 import { Button } from '../ui/button.tsx';
 import { cx } from '../ui/cx.ts';
 import { useWorkspace } from '../workspace/workspace-context.tsx';
+import { FileName } from './file-name.tsx';
 import { useFileErrorText } from './use-file-text.ts';
 
 const BAR: Record<TransferJob['state'], string> = {
@@ -45,6 +47,7 @@ function JobRow({ job }: { job: TransferJob }) {
   const errorText = useFileErrorText();
   const { transfers } = useWorkspace();
   const percent = job.state === 'done' ? 100 : percentOf(job.bytes, job.size);
+  const name = displayName(job.name).text;
 
   let meta: string;
   if (job.state === 'queued') meta = t('queued');
@@ -75,8 +78,8 @@ function JobRow({ job }: { job: TransferJob }) {
       </span>
       <span className="flex min-w-0 flex-col gap-1">
         <span className="flex min-w-0 items-baseline gap-2">
-          <span className="min-w-0 truncate font-semibold text-sm" title={job.name}>
-            {job.name}
+          <span className="min-w-0 truncate font-semibold text-sm">
+            <FileName name={job.name} tooltip />
           </span>
           <span
             className={cx(
@@ -88,7 +91,7 @@ function JobRow({ job }: { job: TransferJob }) {
             {meta}
           </span>
         </span>
-        <Bar value={percent} tone={BAR[job.state]} label={t('progressLabel', { name: job.name })} />
+        <Bar value={percent} tone={BAR[job.state]} label={t('progressLabel', { name })} />
       </span>
       {job.state === 'queued' || job.state === 'running' ? (
         <Button
@@ -96,8 +99,8 @@ function JobRow({ job }: { job: TransferJob }) {
           size="sm"
           iconOnly
           onClick={() => transfers.cancel(job.id)}
-          aria-label={t('cancel', { name: job.name })}
-          title={t('cancel', { name: job.name })}
+          aria-label={t('cancel', { name })}
+          title={t('cancel', { name })}
           icon={<CloseIcon size={14} />}
           className="size-7"
         />
@@ -106,7 +109,7 @@ function JobRow({ job }: { job: TransferJob }) {
           variant="quiet"
           size="sm"
           onClick={() => transfers.retry(job.id)}
-          aria-label={t('retryLabel', { name: job.name })}
+          aria-label={t('retryLabel', { name })}
           className="h-7 px-2"
         >
           {t('retry')}

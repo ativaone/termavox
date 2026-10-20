@@ -3,7 +3,11 @@ import { ErrorCode, type TermdockError } from '@termdock/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { contentDisposition } from '../../src/files/content-disposition.ts';
 import { TOKEN_PATTERN, type TransferGrantInput } from '../../src/files/transfer-tokens.ts';
-import { PROGRESS_INTERVAL_MS, Transfers } from '../../src/files/transfers.ts';
+import {
+  MAX_RUNNING_TRANSFERS,
+  PROGRESS_INTERVAL_MS,
+  Transfers,
+} from '../../src/files/transfers.ts';
 
 type Progress = Extract<ServerMessage, { type: 'transfer.progress' }>;
 
@@ -137,6 +141,21 @@ describe('running transfers', () => {
     expect(() => transfers.begin(transfers.mint(grantInput()).grant)).not.toThrow();
   });
 
+  it('allow 64 in the whole process at once (RATE_LIMITED beyond)', () => {
+    // Regression: only the per-user cap existed.
+    expect(MAX_RUNNING_TRANSFERS).toBe(64);
+    const transfers = new Transfers();
+    const begin = (userId: string) => transfers.begin(transfers.mint(grantInput({ userId })).grant);
+    const running = Array.from({ length: 64 }, (_, i) =>
+      begin(`user-${Math.floor(i / FILES_LIMITS.transfersPerUser)}`),
+    );
+    expect(() => begin('someone-else')).toThrow(
+      expect.objectContaining({ code: ErrorCode.RateLimited }),
+    );
+    running[0]!.finish({ state: 'done' });
+    expect(() => begin('someone-else')).not.toThrow();
+  });
+
   it('send progress at the start, at most four times a second, and once at the end', () => {
     let now = 0;
     const told: Progress[] = [];
@@ -198,7 +217,7 @@ describe('Content-Disposition of a download', () => {
     expect(header("it's (1)*!.txt")).toContain(`filename*=UTF-8''it%27s%20%281%29%2A%21.txt`);
   });
 
-  it('replaces non-ASCII and control characters in the fallback only', () => {
+  it('replaces non-ASCII and control characters in the fallback', () => {
     expect(header('relatório.pdf')).toBe(
       `attachment; filename="relat_rio.pdf"; filename*=UTF-8''relat%C3%B3rio.pdf`,
     );
@@ -208,10 +227,42 @@ describe('Content-Disposition of a download', () => {
     expect(header('😀.png')).toBe(
       `attachment; filename="_.png"; filename*=UTF-8''%F0%9F%98%80.png`,
     );
-    const control = header('a\tb\x7fc\r\n.txt');
-    expect(control).toBe(
-      `attachment; filename="a_b_c__.txt"; filename*=UTF-8''a%09b%7Fc%0D%0A.txt`,
+    const control = header('a\tb\x7fc\r\n\x85.txt');
+    // Controls are dropped from the exact name (regression: they were percent-encoded in it).
+    expect(control).toBe(`attachment; filename="a_b_c___.txt"; filename*=UTF-8''abc.txt`);
+    expect(control).not.toMatch(/[\r\n\t\x7f\x85]/);
+  });
+
+  it('drops invisible formatting from both forms: the name reads as what it is', () => {
+    // Regression: `report<U+202E>fdp.exe` kept its override in filename* (shown as
+    // "reportexe.pdf"), and zero-width characters made two names look alike.
+    expect(header('report\u202efdp.exe')).toBe(
+      `attachment; filename="reportfdp.exe"; filename*=UTF-8''reportfdp.exe`,
     );
-    expect(control).not.toMatch(/[\r\n\t\x7f]/);
+    const invisible = [
+      '\u200b', // zero-width space
+      '\u200d', // zero-width joiner
+      '\u200f', // right-to-left mark
+      '\u2066', // left-to-right isolate
+      '\u2060', // word joiner
+      '\u00ad', // soft hyphen
+      '\u061c', // Arabic letter mark
+      '\u034f', // combining grapheme joiner
+      '\u3164', // Hangul filler
+      '\ufeff', // zero-width no-break space
+      '\ufff9', // interlinear annotation anchor (a format character, not default-ignorable)
+      '\ufffa', // interlinear annotation separator
+      '\ufffb', // interlinear annotation terminator
+    ];
+    for (const ch of invisible) {
+      expect(header(`con${ch}fig`)).toBe(`attachment; filename="config"; filename*=UTF-8''config`);
+    }
+    // The line and paragraph separators break a line like `\n` does: dropped from the exact name
+    // as controls are (regression: kept in filename*), `_` in the fallback.
+    expect(header('a\u2028b\u2029c.txt')).toBe(
+      `attachment; filename="a_b_c.txt"; filename*=UTF-8''abc.txt`,
+    );
+    // Nothing visible left: a placeholder rather than an empty name.
+    expect(header('\u202e\u200b\n')).toBe(`attachment; filename="_"; filename*=UTF-8''_`);
   });
 });

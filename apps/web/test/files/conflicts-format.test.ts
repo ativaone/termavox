@@ -1,5 +1,6 @@
 import { TRANSFER_PATH } from '@termdock/protocol';
 import { ErrorCode } from '@termdock/shared';
+import { createTranslator } from 'next-intl';
 import { describe, expect, it } from 'vitest';
 import { transferUrl } from '../../lib/files/client.ts';
 import {
@@ -17,6 +18,8 @@ import {
   panelGeometry,
   TERMINAL_MIN_WIDTH,
 } from '../../lib/files/pane-state.ts';
+import en from '../../messages/en.json' with { type: 'json' };
+import ptBR from '../../messages/pt-BR.json' with { type: 'json' };
 
 describe('upload name conflicts (plan §5.12)', () => {
   it('splits stems and extensions: dot-files, no extension, archives', () => {
@@ -114,9 +117,32 @@ describe('file panel errors', () => {
 
   it('words every code, unknown ones generically', () => {
     expect(fileErrorKey(FileCode.SftpUnavailable)).toBe('sftpUnavailable');
+    expect(fileErrorKey(FileCode.RemoveTooLarge)).toBe('removeTooLarge');
     expect(fileErrorKey(ClientFileCode.ProxyTooLarge)).toBe('proxyTooLarge');
     expect(fileErrorKey('SOMETHING_NEW')).toBe('generic');
     expect(fileErrorKey('toString')).toBe('generic');
+  });
+
+  it('has a sentence for every code in both languages', () => {
+    for (const messages of [en, ptBR]) {
+      const sentences: Record<string, string> = messages.files.error;
+      for (const code of [...Object.values(FileCode), ...Object.values(ClientFileCode)]) {
+        expect(sentences[fileErrorKey(code)], code).toBeTruthy();
+      }
+    }
+  });
+
+  it("words Delete's own bound as Termdock's, never the server's, pointing at the terminal", () => {
+    const sentence = (messages: typeof en, locale: 'en' | 'pt-BR') =>
+      createTranslator({ locale, messages, namespace: 'files.error' })(
+        fileErrorKey(ErrorCode.RemoveTooLarge),
+      );
+    expect(sentence(en, 'en')).toBe(
+      'This folder is too large for the panel to delete. Delete it from the terminal (for example with rm -r).',
+    );
+    expect(sentence(ptBR, 'pt-BR')).toBe(
+      'Esta pasta é grande demais para apagar pelo painel. Apague-a pelo terminal (por exemplo, com rm -r).',
+    );
   });
 });
 

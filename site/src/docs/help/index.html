@@ -225,6 +225,11 @@
         <li>When a file already exists: <strong>Replace</strong> (keeps the current file's permissions), <strong>Keep both</strong> or <strong>Skip these</strong>.</li>
         <li><strong>Go to the terminal's folder</strong> exists in protected sessions only.</li>
         <li>Whole folders can't be uploaded or downloaded yet: select the files inside them.</li>
+        <li>A folder with more than 10,000 entries (fewer when the names or link targets are long) is listed only in part, and the panel says so.</li>
+        <li><strong>Delete</strong> stops once it has read more than 100,000 entries, or past 64 levels of nested folders: “This folder is too large for the panel to delete. Delete it from the terminal (for example with <code>rm -r</code>).” What it deleted by then stays deleted.</li>
+        <li>A download the browser leaves paused for more than two minutes stops: download the file again.</li>
+        <li>An upload cut off because the connection to the server dropped, or because the server stopped answering, can leave a hidden file named <code>.&lt;name&gt;.td-&lt;id&gt;.part</code> in that folder. You can delete it from the panel.</li>
+        <li>A name with invisible or control characters (a right-to-left override, a zero-width space, a line break, a space at either end, an unusual space anywhere in it, such as a no-break space, the narrow one of French typography or the wide one of Japanese) shows <code>&#xFFFD;</code> in place of each one; hover over the name to see it written out, such as <code>report\u202Efdp.exe</code>. The panel still acts on the real name.</li>
         <li>Keyboard: the arrows move, <kbd>Space</kbd> selects, <kbd>Enter</kbd> opens a folder, <kbd>F2</kbd> renames, <kbd>Delete</kbd> deletes.</li>
       </ul>
       <aside class="note note-caution">

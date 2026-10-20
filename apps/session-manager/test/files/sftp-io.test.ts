@@ -3,7 +3,7 @@ import { Readable, Writable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { ErrorCode, type TermdockError } from '@termdock/shared';
 import { describe, expect, it } from 'vitest';
-import { SftpError, SftpStatus } from '../../src/core/types.ts';
+import { SftpError, type SftpHandle, SftpStatus } from '../../src/core/types.ts';
 import {
   IO_CHUNK_BYTES,
   IO_MAX_IN_FLIGHT,
@@ -17,6 +17,19 @@ const pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 /** Answers come back in a shuffled order: each request waits 0–4 ms. */
 function shuffled(sftp: MemorySftp, op: string): void {
   sftp.delay = (name) => (name === op ? pause(Math.floor(Math.random() * 5)) : undefined);
+}
+
+/**
+ * A server that answers every read at once except the one at offset 0, which it holds back until
+ * the test releases it: a hostile server may answer in any order it likes.
+ */
+class FirstChunkLast extends MemorySftp {
+  readonly release = Promise.withResolvers<void>();
+
+  override read(handle: SftpHandle, length: number, position: number): Promise<Uint8Array> {
+    const answer = super.read(handle, length, position);
+    return position === 0 ? this.release.promise.then(() => answer) : answer;
+  }
 }
 
 async function collect(stream: Readable): Promise<Buffer> {
@@ -37,6 +50,24 @@ describe('pipelined SFTP reads', () => {
     expect(sftp.maxInFlight).toBeLessThanOrEqual(IO_MAX_IN_FLIGHT);
     expect(sftp.maxInFlight).toBeGreaterThan(4);
     expect(sftp.ops.filter((op) => op.startsWith('read'))).toHaveLength(41);
+  });
+
+  it('never runs more than the window ahead of what it delivered, whatever order the answers come in', async () => {
+    const chunks = 40;
+    const content = randomBytes(IO_CHUNK_BYTES * chunks);
+    const sftp = new FirstChunkLast().addFile('/f', content);
+    const handle = await sftp.open('/f', 'r');
+    const reader = new SftpFileReader(sftp, handle, content.length);
+    const got = collect(reader);
+    const reads = () => sftp.ops.filter((op) => op.startsWith('read')).length;
+    await pause(30);
+    // Every other answer came back and none of them can be delivered before offset 0: the reader
+    // holds them in its window and asks for nothing more, instead of the whole file.
+    expect(reads()).toBe(IO_MAX_IN_FLIGHT);
+    expect(reader.readableLength).toBe(0);
+    sftp.release.resolve();
+    expect((await got).equals(content)).toBe(true);
+    expect(reads()).toBe(chunks);
   });
 
   it('sends exactly `size` bytes of a file that grew, and asks again after a short answer', async () => {

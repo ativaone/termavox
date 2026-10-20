@@ -148,9 +148,10 @@ export interface SftpSession {
   posixRename(from: string, to: string): Promise<void>;
   /**
    * Opens a file: `r` to read, `wx` to create a new one for writing (fails when the name exists).
-   * The server gives a new file its default permissions.
+   * A new file gets `mode` (the server applies its umask), or without it the server's default
+   * permissions.
    */
-  open(path: string, flags: SftpOpenFlags): Promise<SftpHandle>;
+  open(path: string, flags: SftpOpenFlags, mode?: number): Promise<SftpHandle>;
   /**
    * Up to `length` bytes (> 0) at `position`: fewer when the server answers short (ask again for
    * the rest), none at the end of the file.
@@ -159,8 +160,8 @@ export interface SftpSession {
   /** Writes all of `data` at `position`. */
   write(handle: SftpHandle, data: Uint8Array, position: number): Promise<void>;
   fstat(handle: SftpHandle): Promise<SftpAttrs>;
-  /** Sets the permission bits of an entry (links followed). */
-  chmod(path: string, mode: number): Promise<void>;
+  /** Sets the permission bits of an open file (SSH_FXP_FSETSTAT): no path, no link to follow. */
+  fchmod(handle: SftpHandle, mode: number): Promise<void>;
   /** Closes the channel; requests still pending fail with `ConnectionLost`. */
   end(): void;
   /** Called once when the channel closes (end(), the server, or the connection). */

@@ -226,7 +226,7 @@ effect without a restart, and every change is audited (`admin_setting.change`).
 | Maximum running sessions per user | `max_running_sessions_per_user` | `50` | A whole number from 1 to 1000. Creating or reopening a session is refused (`RATE_LIMITED`) when the user already has this many sessions meant to run. |
 | Show local shells (direct mode) to administrators | `local_shell_visible` | off | Offers the `local` host kind to admins. It has no effect until direct mode ships (Phase 6), and even then only with `TERMDOCK_ENABLE_LOCAL_SHELL=true` on the daemon. See the warning in the [security model](../security.md#admins-are-trusted). |
 | Allow the file panel (upload and download) | `file_transfer_enabled` | on | The Files panel of every session ([plan §5.12](../implementation-plan.md#512-file-panel-d-39)). Off: the panel's button disappears and the daemon refuses every file request (`FILES_DISABLED`); transfers already running finish. |
-| Record file operations in the audit log | `file_audit_enabled` | off | Writes `file.upload`, `file.download`, `file.mkdir`, `file.rename` and `file.remove` audit events (server, paths, sizes, client address; never contents). |
+| Record file operations in the audit log | `file_audit_enabled` | off | Writes `file.upload`, `file.download` (with the bytes sent and whether the download completed), `file.mkdir`, `file.rename` and `file.remove` audit events (server, paths, sizes, client address; never contents). |
 
 session-manager also stores two keys of its own there, which are not settings: `installation_id`
 (used in the names of the remote tmux sockets) and `vault_key_check`.
@@ -258,9 +258,14 @@ These are constants in the code, not settings.
 | Daemon shutdown budget | 25 s (`stop_grace_period: 30s` in compose) |
 | File panel requests in flight per connection | 8 (then `RATE_LIMITED`) |
 | File panel transfers per user, at once | 6 (then `RATE_LIMITED`); a browser tab runs 2 at a time |
+| File panel transfers in the whole daemon, at once | 64 (then `RATE_LIMITED`) |
 | Upload and download URL lifetime | 60 s, single use (at most 64 unused per user) |
-| Upload with no data | cancelled after 60 s |
-| Folder listing | first 10 000 entries |
+| Upload with no data | stopped after 60 s |
+| Download the browser takes nothing from | stopped after 120 s |
+| Auth-session revalidation of running transfers | every 60 s |
+| SFTP request the server does not answer | 60 s for the oldest waiting request, then the channel is given up |
+| Folder listing | first 10 000 entries or 2 MiB of names and link texts |
+| Delete in the file panel | 64 folder levels; 100 000 entries or 32 MiB of names read per request |
 | Idle SFTP channel of a session | closed after 5 min |
 
 The test suites also read `TD_TMUX_IMAGES` and `TD_S4_PAUSE_MS` (under

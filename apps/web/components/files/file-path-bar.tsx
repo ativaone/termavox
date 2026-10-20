@@ -6,6 +6,7 @@ import { breadcrumbs, parentPath, resolvePathInput } from '../../lib/files/paths
 import { ArrowUpIcon, HomeIcon, PencilIcon } from '../icons/index.tsx';
 import { Button } from '../ui/button.tsx';
 import { cx } from '../ui/cx.ts';
+import { FileName } from './file-name.tsx';
 
 const SEGMENT =
   'shrink-0 rounded-xs px-1 text-ink-muted transition-colors duration-(--duration-step) ease-(--ease-out) ' +
@@ -146,7 +147,11 @@ export function FilePathBar({
                         ? t('root')
                         : undefined;
                   const content =
-                    crumb.kind === 'home' ? <HomeIcon size={phone ? 17 : 15} /> : crumb.name;
+                    crumb.kind === 'home' ? (
+                      <HomeIcon size={phone ? 17 : 15} />
+                    ) : (
+                      <FileName name={crumb.name} />
+                    );
                   return (
                     <span key={crumb.path} className="flex shrink-0 items-center gap-0.5">
                       {index > 0 && crumbs[index - 1]?.kind !== 'root' ? (

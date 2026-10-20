@@ -1359,6 +1359,8 @@
           "port": "Porta",
           "path": "Caminho",
           "size": "Tamanho",
+          "bytes": "Transferido",
+          "completed": "Concluído",
           "paths": "Caminhos",
           "removed": "Itens apagados"
         },
@@ -1564,6 +1566,7 @@
       "nameInvalid": "Esse nome não pode ser usado.",
       "fileOpFailed": "O servidor não conseguiu fazer isso.",
       "fileOpFailedDetail": "O servidor não conseguiu fazer isso: {detail}",
+      "removeTooLarge": "Esta pasta é grande demais para apagar pelo painel. Apague-a pelo terminal (por exemplo, com rm -r).",
       "cancelled": "Interrompido.",
       "transferExpired": "O navegador não iniciou este download a tempo. Se ele pediu para permitir vários downloads, permita e tente de novo.",
       "notFound": "Isso não está mais lá. Atualize a pasta.",

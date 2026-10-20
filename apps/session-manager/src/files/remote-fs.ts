@@ -6,12 +6,25 @@ import { isRemotePath, joinPath, type NamedPath, normalizePath } from './paths.t
 
 /**
  * The file panel's operations over an SFTP session (plan §5.12), whatever transport carries it.
- * Errors are the session's (SftpError) or Termdock's own (CONFLICT, CANCELLED, FILE_OP_FAILED);
- * the file service maps them for the browser.
+ * Errors are the session's (SftpError) or Termdock's own (CONFLICT, CANCELLED, FILE_OP_FAILED,
+ * REMOVE_TOO_LARGE); the file service maps them for the browser.
  */
 
 /** SFTP requests a listing (link targets) or a removal keeps in flight at most. */
 export const FS_CONCURRENCY = 8;
+/** Bytes (UTF-8) of names and link texts one listing holds at most; beyond, it is `truncated`. */
+export const LIST_BYTES_MAX = 2 * 1024 * 1024;
+/** The longest link text a listing reports (UTF-16 units); a longer one is left out. */
+export const LINK_TEXT_MAX = 1024;
+/** Folder levels one removal enters at most, the folder it was asked to remove being the first. */
+export const REMOVE_DEPTH_MAX = 64;
+/**
+ * Entries one removal reads at most, over every folder it lists (an answer without a name counting
+ * as one).
+ */
+export const REMOVE_ENTRIES_MAX = 100_000;
+/** Bytes (UTF-8) of names one removal reads at most, over every folder it lists. */
+export const REMOVE_NAME_BYTES_MAX = 32 * 1024 * 1024;
 
 const S_IFMT = 0o170000;
 const S_IFDIR = 0o040000;
@@ -40,8 +53,8 @@ export async function home(sftp: SftpSession): Promise<string> {
 
 /**
  * A folder's entries as lstat sees them (a link is a link), each link with what it resolves to
- * (one `stat`) and its text (one `readlink`). Beyond `limit` entries the listing stops reading and
- * says `truncated`.
+ * (one `stat`) and its text (one `readlink`). Beyond `limit` entries, or LIST_BYTES_MAX bytes of
+ * names and link texts, the listing stops reading and says `truncated`.
  */
 export async function list(
   sftp: SftpSession,
@@ -51,15 +64,28 @@ export async function list(
   const { signal } = options;
   const folder = await canonical(sftp, normalizePath(path));
   const read = await readFolder(sftp, folder, options.limit ?? FILES_LIMITS.listEntries, signal);
-  const raw = read.entries.filter((entry) => usableName(entry.name));
-  const entries = raw.map((entry) => toEntry(entry.name, entry.attrs));
+  const entries = read.entries.map((entry) => toEntry(entry.name, entry.attrs));
   const links = entries.flatMap((entry, index) => (entry.type === 'link' ? [index] : []));
+  // Link texts share the byte budget: a link whose text no longer fits cuts the listing before it.
+  // Links are taken in order, so every link before the cut was resolved, and fitted.
+  let bytes = read.bytes;
+  let cut = entries.length;
   await eachLimit(links, FS_CONCURRENCY, async (index) => {
     throwIfCancelled(signal);
-    const { name, attrs } = raw[index]!;
-    entries[index] = toEntry(name, attrs, await linkInfo(sftp, joinPath(folder, name)));
+    if (index >= cut) return;
+    const { name, attrs } = read.entries[index]!;
+    const entry = toEntry(name, attrs, await linkInfo(sftp, joinPath(folder, name)));
+    const size = Buffer.byteLength(entry.linkTo ?? '', 'utf8');
+    if (bytes + size > LIST_BYTES_MAX) {
+      cut = Math.min(cut, index);
+      return;
+    }
+    bytes += size;
+    entries[index] = entry;
   });
-  return { path: folder, entries, truncated: read.truncated };
+  const truncated = read.truncated || cut < entries.length;
+  entries.splice(cut);
+  return { path: folder, entries, truncated };
 }
 
 /** The entry at `path`, named `name` (lstat; a link with its target and text). */
@@ -104,7 +130,14 @@ export async function rename(
  * Removes entries, folders with everything inside, depth first. Every decision comes from the
  * lstat view: a link is unlinked and never followed, and a folder is only entered after an lstat of
  * its own path says it is one. An entry already gone counts as removed by someone else (skipped).
- * Resolves with the number of entries removed; an abort stops it between requests (CANCELLED).
+ * A folder is listed once, to its end, and closed before anything in it is removed: it is never
+ * read on after its own deletions (a server may skip entries then) nor opened again, and one folder
+ * is open at a time. Of each entry, only its name waits, and whether the listing calls it a folder.
+ * A name that cannot be a child's (the server sends what it likes: `..`, `a/b`, an empty one) is
+ * skipped, never joined to the path. Past REMOVE_DEPTH_MAX folder levels, or REMOVE_ENTRIES_MAX
+ * entries or REMOVE_NAME_BYTES_MAX bytes of names read over the whole removal, it stops
+ * (REMOVE_TOO_LARGE); what it removed stays removed. Resolves with the number of entries removed; an
+ * abort stops it between requests (CANCELLED).
  */
 export async function remove(
   sftp: SftpSession,
@@ -113,12 +146,15 @@ export async function remove(
 ): Promise<number> {
   const { signal, onProgress } = options;
   let removed = 0;
+  // What the removal has read, over every folder of every level and target.
+  let listed = 0;
+  let nameBytes = 0;
   const count = (gone: boolean): void => {
     if (!gone) return;
     removed++;
     onProgress?.(removed);
   };
-  const removeTree = async (path: string): Promise<void> => {
+  const removeTree = async (path: string, level: number): Promise<void> => {
     throwIfCancelled(signal);
     const attrs = await lstatOrNull(sftp, path);
     if (!attrs) return;
@@ -126,21 +162,31 @@ export async function remove(
       count(await done(sftp.unlink(path)));
       return;
     }
-    const { entries } = await readFolder(sftp, path, Number.POSITIVE_INFINITY, signal);
-    const children = entries.filter((entry) => entry.name !== '.' && entry.name !== '..');
-    // Never a folder for its own listing: unlinked at once, a few at a time. A child the listing
-    // calls a folder goes through removeTree, whose lstat decides again.
-    const folders = children.filter((entry) => fileType(entry.attrs.mode) === 'dir');
-    const others = children.filter((entry) => fileType(entry.attrs.mode) !== 'dir');
-    await eachLimit(others, FS_CONCURRENCY, async (entry) => {
-      throwIfCancelled(signal);
-      count(await done(sftp.unlink(joinPath(path, entry.name))));
+    if (level > REMOVE_DEPTH_MAX) throw tooBig('deep');
+    const files: string[] = [];
+    const folders: string[] = [];
+    await eachBatch(sftp, path, signal, (batch) => {
+      listed += Math.max(1, batch.length);
+      for (const entry of batch) nameBytes += Buffer.byteLength(entry.name, 'utf8');
+      if (listed > REMOVE_ENTRIES_MAX || nameBytes > REMOVE_NAME_BYTES_MAX) throw tooBig('large');
+      for (const entry of batch) {
+        if (!usableName(entry.name)) continue;
+        if (fileType(entry.attrs.mode) === 'dir') folders.push(entry.name);
+        else files.push(entry.name);
+      }
+      return true;
     });
-    for (const entry of folders) await removeTree(joinPath(path, entry.name));
+    // Never a folder for its own listing: unlinked, a few at a time. A child the listing calls a
+    // folder goes through removeTree, whose lstat decides again.
+    await eachLimit(files, FS_CONCURRENCY, async (name) => {
+      throwIfCancelled(signal);
+      count(await done(sftp.unlink(joinPath(path, name))));
+    });
+    for (const name of folders) await removeTree(joinPath(path, name), level + 1);
     throwIfCancelled(signal);
     count(await done(sftp.rmdir(path)));
   };
-  for (const target of targets) await removeTree(target.path);
+  for (const target of targets) await removeTree(target.path, 1);
   return removed;
 }
 
@@ -178,7 +224,7 @@ export function toEntry(name: string, attrs: SftpAttrs, link?: LinkInfo): FileEn
   const target = link.target ? fileType(link.target.mode) : null;
   entry.target = target === 'link' ? 'other' : target;
   if (link.target && target === 'file') entry.size = link.target.size;
-  if (link.linkTo !== null && link.linkTo.length <= FILES_LIMITS.path) entry.linkTo = link.linkTo;
+  if (link.linkTo !== null && link.linkTo.length <= LINK_TEXT_MAX) entry.linkTo = link.linkTo;
   return entry;
 }
 
@@ -223,27 +269,65 @@ async function canonical(sftp: SftpSession, path: string): Promise<string> {
 }
 
 /**
- * A folder's entries (`.` and `..` left out), read until its end or until more than `limit` were
- * seen. The handle is always closed.
+ * A folder's entries with usable names, read until its end or until more than `limit` names or
+ * LIST_BYTES_MAX bytes (UTF-8) of names came (`truncated`; `bytes` is what they used). Every name
+ * counts, kept or not: one the protocol cannot carry is dropped as it comes, but still uses its
+ * share, and an answer without a name counts as one, so no server can keep a listing reading.
  */
 async function readFolder(
   sftp: SftpSession,
   path: string,
   limit: number,
   signal: AbortSignal | undefined,
-): Promise<{ entries: SftpDirEntry[]; truncated: boolean }> {
-  const handle = await sftp.opendir(path);
+): Promise<{ entries: SftpDirEntry[]; bytes: number; truncated: boolean }> {
   const entries: SftpDirEntry[] = [];
+  let seen = 0;
+  let bytes = 0;
+  const ended = await eachBatch(sftp, path, signal, (batch) => {
+    if (batch.length === 0) {
+      if (seen === limit) return false;
+      seen++;
+    }
+    for (const entry of batch) {
+      const size = Buffer.byteLength(entry.name, 'utf8');
+      if (seen === limit || bytes + size > LIST_BYTES_MAX) return false;
+      seen++;
+      bytes += size;
+      if (usableName(entry.name)) entries.push(entry);
+    }
+    return true;
+  });
+  return { entries, bytes, truncated: !ended };
+}
+
+/**
+ * Hands a folder's readdir answers to `take` one at a time, until the folder ends (true) or `take`
+ * returns false (false); the handle is always closed, whatever `take` does. The folder's own `.`
+ * and `..` are left out, once each: anything else the server sends, another `.` included, reaches
+ * `take`, which bounds what it reads by counting it. Only the end of the folder ends it: an answer
+ * may reach `take` without a name (ssh2 drops every `.` and `..`, so an answer holding only those
+ * arrives empty), and `take` counts that one too.
+ */
+async function eachBatch(
+  sftp: SftpSession,
+  path: string,
+  signal: AbortSignal | undefined,
+  take: (batch: SftpDirEntry[]) => boolean,
+): Promise<boolean> {
+  throwIfCancelled(signal);
+  const handle = await sftp.opendir(path);
+  const dots = new Set<string>();
+  const ownDot = (name: string): boolean => {
+    if ((name !== '.' && name !== '..') || dots.has(name)) return false;
+    dots.add(name);
+    return true;
+  };
   try {
     for (;;) {
       throwIfCancelled(signal);
-      const batch = await sftp.readdir(handle);
-      if (batch === null) return { entries, truncated: false };
-      for (const entry of batch) {
-        if (entry.name === '.' || entry.name === '..') continue;
-        if (entries.length === limit) return { entries, truncated: true };
-        entries.push(entry);
-      }
+      const answer = await sftp.readdir(handle);
+      if (answer === null) return true;
+      if (!take(answer.filter((entry) => !ownDot(entry.name)))) return false;
     }
   } finally {
     await sftp.close(handle).catch(() => {});
@@ -307,4 +391,14 @@ function throwIfCancelled(signal: AbortSignal | undefined): void {
 
 function conflict(): TermdockError {
   return new TermdockError(ErrorCode.Conflict, 'a file or folder with this name already exists');
+}
+
+/**
+ * A removal past REMOVE_DEPTH_MAX (`deep`), REMOVE_ENTRIES_MAX or REMOVE_NAME_BYTES_MAX (`large`):
+ * one code for the browser, which words it in the user's language; the message says which bound,
+ * for the logs.
+ */
+function tooBig(what: 'deep' | 'large'): TermdockError {
+  const message = `the folder is too ${what} to delete from the panel`;
+  return new TermdockError(ErrorCode.RemoveTooLarge, message);
 }

@@ -10,6 +10,11 @@ import {
 
 /** `files.progress` and `transfer.progress` while something runs: at most four per second. */
 export const PROGRESS_INTERVAL_MS = 250;
+/**
+ * Transfers the process runs at once, all users together (each holds a remote file handle and its
+ * session's SFTP channel); the next one is RATE_LIMITED.
+ */
+export const MAX_RUNNING_TRANSFERS = 64;
 
 /** How a transfer ended: what its last `transfer.progress` says. */
 export type TransferEnd =
@@ -147,8 +152,8 @@ export class ActiveTransfer {
 
 /**
  * The transfers of the process (plan §5.12): their single-use URLs, the ones running (at most
- * FILES_LIMITS.transfersPerUser per user), and stopping them: one by its user, all of a user or
- * auth session when it is revoked, all at shutdown.
+ * FILES_LIMITS.transfersPerUser per user and MAX_RUNNING_TRANSFERS in all), and stopping them: one
+ * by its user, all of a user or auth session when it is revoked, all at shutdown.
  */
 export class Transfers {
   readonly tokens: TransferTokens;
@@ -156,11 +161,15 @@ export class Transfers {
   readonly #drainWaiters: Array<() => void> = [];
   readonly #now: () => number;
   readonly #perUser: number;
+  readonly #maxRunning: number;
   #closed = false;
 
-  constructor(options: { now?: () => number; ttlMs?: number; perUser?: number } = {}) {
+  constructor(
+    options: { now?: () => number; ttlMs?: number; perUser?: number; maxRunning?: number } = {},
+  ) {
     this.#now = options.now ?? Date.now;
     this.#perUser = options.perUser ?? FILES_LIMITS.transfersPerUser;
+    this.#maxRunning = options.maxRunning ?? MAX_RUNNING_TRANSFERS;
     this.tokens = new TransferTokens({
       now: this.#now,
       ...(options.ttlMs !== undefined ? { ttlMs: options.ttlMs } : {}),
@@ -181,11 +190,17 @@ export class Transfers {
     return this.#closed ? null : this.tokens.consume(token, direction);
   }
 
-  /** A used URL's transfer begins; RATE_LIMITED while its user already runs the maximum. */
+  /**
+   * A used URL's transfer begins; RATE_LIMITED while its user, or the whole process, already runs
+   * the maximum.
+   */
   begin(grant: TransferGrant): ActiveTransfer {
     if (this.#closed) throw new TermdockError(ErrorCode.SessionNotConnected, 'shutting down');
     if (this.running(grant.userId).length >= this.#perUser) {
       throw new TermdockError(ErrorCode.RateLimited, 'too many transfers at once');
+    }
+    if (this.#running.size >= this.#maxRunning) {
+      throw new TermdockError(ErrorCode.RateLimited, 'the server runs too many transfers at once');
     }
     const transfer = new ActiveTransfer(grant, this.#now, () => {
       this.#running.delete(transfer);

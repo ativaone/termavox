@@ -65,9 +65,25 @@ export async function uploadTarget(
 }
 
 /**
- * Puts a finished upload in place, checking the target again. Replacing keeps the old file's
- * permission bits and is atomic where the server offers `posix-rename@openssh.com`; elsewhere the
- * old file is removed first. A new name never replaces anything (CONFLICT if one appeared).
+ * The permission bits an upload to `path` keeps: those of the file it replaces when the upload
+ * starts, so that its temporary file never has wider ones (plan §5.12). Null when it replaces
+ * nothing or a dangling link: the new file gets the server's default, like any file creation.
+ * CONFLICT as at the commit (a name that appeared without `overwrite`, a folder).
+ */
+export async function keptMode(
+  sftp: SftpSession,
+  path: string,
+  overwrite: boolean,
+): Promise<number | null> {
+  return (await replaced(sftp, path, overwrite))?.mode ?? null;
+}
+
+/**
+ * Puts a finished upload in place, checking the target again. Replacing is atomic where the server
+ * offers `posix-rename@openssh.com`; elsewhere the old file is removed first. A new name never
+ * replaces anything (CONFLICT if one appeared). The permission bits were set on the open handle
+ * (keptMode): nothing here changes a permission by path, which a link swapped in would redirect.
+ * The rename itself goes by path: what lies under the temporary name then is what gets the name.
  */
 export async function commitUpload(
   sftp: SftpSession,
@@ -77,7 +93,6 @@ export async function commitUpload(
 ): Promise<void> {
   const old = await replaced(sftp, target.path, overwrite);
   if (old) {
-    if (old.mode !== null) await sftp.chmod(tempPath, old.mode);
     if (sftp.supportsPosixRename) {
       await sftp.posixRename(tempPath, target.path);
       return;

@@ -42,6 +42,12 @@ export const ErrorCode = {
   NameInvalid: 'NAME_INVALID',
   /** The server failed a file operation without a more precise status (SFTP FAILURE). */
   FileOpFailed: 'FILE_OP_FAILED',
+  /**
+   * The file panel's Delete stopped at Termdock's own bound (plan §5.12): a folder nested too
+   * deep, or more entries or bytes of names read than one request may hold. What it removed by
+   * then stays removed; the rest is for the terminal (`rm -r`).
+   */
+  RemoveTooLarge: 'REMOVE_TOO_LARGE',
   /** The user cancelled a file request or a transfer. */
   Cancelled: 'CANCELLED',
   /** A transfer URL expired unused: the browser never started that download (or upload). */

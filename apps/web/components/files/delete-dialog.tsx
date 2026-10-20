@@ -3,6 +3,7 @@
 import type { FileEntry } from '@termdock/protocol/client';
 import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useId, useRef } from 'react';
+import { displayName } from '../../lib/files/display-name.ts';
 import { countKinds } from '../../lib/files/listing.ts';
 import { Button } from '../ui/button.tsx';
 import { Notice } from '../ui/notice.tsx';
@@ -45,6 +46,7 @@ export function DeleteDialog({
   ].filter((part): part is string => part !== null);
   const items = new Intl.ListFormat(locale, { type: 'conjunction' }).format(parts);
   const only = entries.length === 1 ? entries[0] : undefined;
+  const folderName = only?.type === 'dir' ? displayName(only.name) : null;
 
   return (
     <dialog
@@ -61,10 +63,18 @@ export function DeleteDialog({
           {t('title', { items })}
         </h2>
         <Notice tone="danger">
-          {only?.type === 'dir'
+          {folderName
             ? t.rich('oneFolder', {
-                name: only.name,
-                path: (chunks) => <span className="font-mono text-sm">{chunks}</span>,
+                name: folderName.text,
+                path: (chunks) => (
+                  <bdi
+                    dir="ltr"
+                    className="font-mono text-sm"
+                    title={folderName.title ?? undefined}
+                  >
+                    {chunks}
+                  </bdi>
+                ),
               })
             : counts.folders > 0
               ? t('foldersWarning')

@@ -181,6 +181,38 @@ secrets, the volumes and the containers' memory.
   (`TERMDOCK_EVENT_RETENTION_DAYS`; `0` keeps them forever). Older rows are deleted for good:
   raise the setting, or keep database backups, if you need a longer trail.
 - Terminal sessions keep running when a user is disabled, unless the admin also terminates them.
+- The file panel's bounds on what a server answers ([File panel transfers](#file-panel-transfers))
+  are per request, and one user's requests together can still hold more memory than
+  session-manager has. Each of a user's WebSocket connections (16) runs up to 8 file requests at
+  once. A delete may hold the names it has read: up to 32 MiB counted in UTF-8, which can take
+  about twice that (roughly 64 MiB) in memory. A listing may hold its 2 MiB of names and link
+  texts plus the entries' other fields, and its answer grows to about 13 MiB when the names are
+  control characters escaped for JSON. 128 such requests are far beyond session-manager's memory
+  limit (`TERMDOCK_DAEMON_MEM_LIMIT`, 1 GiB by default), so a user who points the panel at a
+  server they control, or at many very large folders at once, can still make it run out of memory,
+  which interrupts every user's sessions until it has restarted. A server can also keep one of its
+  user's listings or deletes busy until a limit or a cancel stops it, and file answers to a
+  browser that stops reading are not capped the way terminal output is.
+- SFTP names every entry by path and has no way to open a folder without following a link, so
+  the file panel cannot defend against another local user of the session's server who can rename
+  entries in a folder it works in (write access to a folder without the sticky bit, or a folder
+  of their own). If such a user puts a link in place of a folder being deleted (the folder named
+  in the request, or any folder inside it) at any time during the delete, the remaining requests
+  below that folder go through the link and delete inside its target, as far as the session's
+  user may delete there. What limits it: Delete never follows a link it finds while listing (it
+  removes the link itself), and it lists each folder once, right after the `lstat` that found it
+  to be a folder. Uploads set their permission bits on the open temporary file, never by path, so
+  such a user cannot redirect a permission change or a write; but the final rename goes by path,
+  so in the upload's folder they can swap the temporary file for their own file or link just
+  before the rename, and that is what ends up under the name.
+- The file panel marks hidden characters in names, not look-alikes: letters of other scripts that
+  look like Latin ones are not marked, a run of ordinary spaces inside a name collapses on the
+  page (`a  b` reads as `a b`), and the rename and path fields show the raw text. Names that use
+  hidden characters legitimately show the placeholder too, with the exact form in the tooltip:
+  emoji sequences with a zero-width joiner, a variation selector or tag characters (the England,
+  Scotland and Wales flags), Persian words with a zero-width non-joiner, names with no-break spaces
+  (French typography) or ideographic spaces (Japanese), Mongolian variation selectors, Khmer
+  inherent vowels and the braille blank.
 
 ## Controls
 
@@ -275,18 +307,71 @@ connection: no second sign-in and no other credential use.
 - Uploads and downloads use single-use URLs under `/transfer/` that the daemon mints over the
   authenticated WebSocket: 32 random bytes, valid 60 s, bound to the user, the auth session, the
   session, the direction and the path. The daemon checks the auth session again when a URL is
-  used; a sign-out, password change or ban cancels the user's transfers and voids unused URLs. A
-  download URL may land in the browser's history, which is why it works once and briefly.
+  used, and every 60 s while the transfer runs: a sign-out whose revoke never reached the daemon
+  still stops it at the next check, and so do three failed checks in a row (the database not
+  answering). A sign-out, password change or ban cancels the user's transfers and voids unused
+  URLs. A download URL may land in the browser's history, which is why it works once and briefly.
 - An upload must carry the instance's `Origin`. A download needs nothing but its URL, which no
-  other site can learn, and is always an attachment of type `application/octet-stream` with `nosniff`,
-  `Content-Security-Policy: sandbox` and `no-store`: a downloaded HTML or SVG file never renders
-  as a Termdock page.
+  other site can learn, and is always an attachment of type `application/octet-stream` with
+  `nosniff`, `Content-Security-Policy: sandbox`, `Cross-Origin-Resource-Policy: same-origin`,
+  `Referrer-Policy: no-referrer` and `no-store`: a downloaded HTML or SVG file never renders as a
+  Termdock page. The name it is saved under loses its invisible characters (Unicode's
+  default-ignorable code points, such as bidi overrides, zero-width characters and the soft
+  hyphen, and the interlinear annotation marks), and its UTF-8 form also loses control characters
+  and the line and paragraph separators. A planted `report<U+202E>fdp.exe` is saved as
+  `reportfdp.exe` instead of reading as `reportexe.pdf`.
 - Delete walks folders with `lstat` and removes a symbolic link as a link, never following it.
-  An upload is written to a temporary file in the target folder and renamed into place, so a
-  failed one leaves no partial file; replacing a file keeps its permission bits.
-- At most 6 transfers per user at once; nothing is spooled to the daemon's disk.
+- An upload is written to a hidden temporary file in the target folder (`.<name>.td-<id>.part`,
+  created exclusively) and renamed into place, so a failed or cancelled upload leaves no partial
+  file. The exception: removing that file needs the same SFTP channel, so it stays when the
+  connection to the server drops, when the channel is given up on a server that stopped answering
+  (below), or when the daemon is killed mid-upload (a normal shutdown gives running transfers 3 s
+  to clean up). The user can delete it from the panel.
+- Replacing a file keeps its permission bits from the first byte. They are read when the upload
+  starts, the temporary file is created with them (the server's umask applies), and they are set
+  exactly on its open handle before anything is written; setuid and setgid are set only after the
+  last write, since a write clears them. A 0600 file being replaced is never readable more widely
+  while it uploads, and no permission is ever changed by path. A new file gets the server's
+  default permissions, as `touch` would.
+- The session's server is untrusted, so the daemon bounds what it keeps of its answers. A listing
+  stops at 10,000 entries or 2 MiB (UTF-8) of names and link texts and says it is incomplete; a
+  name the panel cannot carry is dropped as it arrives but still counts towards both limits, an
+  answer with no name counts as one entry, and a link text longer than 1,024 characters is not
+  shown. Delete lists each folder once, to its end, and closes it before it deletes anything in
+  it: it keeps only the entries' names, has one folder open at a time and never reads a folder
+  again. It skips names that cannot be a child's (`.`, `..`, empty, too long, or with a `/` or
+  NUL), and it stops with an error past 64 nested folder levels (the deleted folder is the first)
+  or once one request has read 100,000 entries or 32 MiB (UTF-8) of names, every server answer
+  counting as at least one entry; what it deleted by then stays deleted. A download holds at most
+  16 chunks of 32 KiB beyond what it has passed towards the browser, answers that arrived ahead of
+  an earlier chunk included, whatever order the server answers in.
+- Names and paths come from the server as they are. Wherever the panel draws one, and on the
+  admin audit page's file paths, U+FFFD takes the place of each control character, each
+  invisible character (Unicode's default-ignorable code points, such as zero-width characters,
+  bidi marks, embeddings, overrides and isolates, the word joiner, variation selectors, Hangul
+  fillers and tag characters; the other format characters except the visible prepended number
+  signs; the line and paragraph separators; the braille blank), each space other than U+0020
+  (such as the no-break spaces, the ideographic space, the en to hair spaces), wherever it is, and a
+  U+0020 space at either end. A run of such spaces never collapses on the page, so without this it
+  could push a name's real extension out of view. The tooltip spells the name out with `\uXXXX`
+  escapes (`report\u202Efdp.exe`). The hidden set is a fixed table in the web app, not the
+  browser's Unicode tables. Every drawn name sits in its own `<bdi dir="ltr">`, inside a sentence
+  too, so it is laid out left to right, a right-to-left word in it keeps its order, and two names
+  never trade places around "→" or ","; only attributes (accessible names, tooltips) carry the
+  placeholder text alone. Every operation uses the raw name, and names are rendered as text,
+  never as markup.
+- At most 6 transfers per user and 64 in the whole daemon at once; nothing is spooled to the
+  daemon's disk. An upload that sends nothing for 60 s and a download whose browser takes nothing
+  for 120 s are stopped. The SFTP server has 60 s to answer the oldest request waiting on a
+  channel, counted from when it became the oldest, so a slow link that keeps answering is never
+  cut off. Past that, the channel is given up: every request waiting on it fails as a lost
+  connection, and the next use opens a new channel. A cancel, a revoke or one of these stops frees
+  a download's slot at once, and an upload's as soon as its temporary file, once opened, is closed
+  and removed: promptly, and on a server that stopped answering when those 60 s give the channel
+  up. A browser that stops taking data or a server that stops answering holds no transfer slot,
+  remote file handle or channel beyond these times.
 - Admins can turn file transfer off for the instance and turn on an audit trail of file
-  operations (both in `/admin/settings`).
+  operations, off by default (both in `/admin/settings`).
 
 ### Internal API bearer
 
@@ -500,7 +585,9 @@ From [`deploy/compose.yaml`](../deploy/compose.yaml) and the Dockerfiles:
 - **Host text is cut short.** Where a tmux reply, an exit reason or the control channel's stderr
   ends up in a daemon error (and so in the logs and a session's `desync` event), it is stripped
   of control and invisible formatting characters and the whole message is capped at 300
-  characters.
+  characters. An SFTP server's status messages are cleaned the same way as they arrive, before
+  they reach an error answer or the daemon's logs; a file panel answer quotes at most 200
+  characters of them.
 - As a safety net, both processes censor these keys wherever they appear in structured log
   fields: `ticket`, `answers`, `password`, `passphrase`, `privateKey`, `secret`, `payload`,
   `data`, `input`, `env`, `policies`, `authorization`, `cookie`, `token`. web also censors them
@@ -522,7 +609,11 @@ From [`deploy/compose.yaml`](../deploy/compose.yaml) and the Dockerfiles:
     `remote_session.terminated` and `remote_session.adopted` (the server, the tmux socket name
     and how it was classified), and, only when an admin turned the file log on,
     `file.upload`, `file.download`, `file.mkdir`, `file.rename` and `file.remove` (the session's
-    server and the paths, with the client's address; never file contents).
+    server and the paths, with the client's address; never file contents). An upload's row is
+    written when it completes; a download's when it ends, once its response has started, with the
+    bytes sent and whether it completed; a delete's whenever it removed something, even if it then
+    failed or was cancelled, with the count removed. Other refused or failed file operations leave
+    no row.
 - `session_events`, shown to each user at `/activity`: creation, state changes, attach and
   detach (with client IP and user agent), connection loss, protection selected or degraded,
   restore and reopen, host-key and prompt events, and remote tmux cleanups
@@ -551,7 +642,7 @@ From [`deploy/compose.yaml`](../deploy/compose.yaml) and the Dockerfiles:
 - **Require TOTP** for everyone (`/admin/settings`), and keep the number of admins small.
 - **Decide on file transfer.** Where users must not move files to or from servers through
   Termdock, turn file transfer off in `/admin/settings`; where you must know who moved what, turn
-  on the file operations log there.
+  on the file operations log there (it is off by default).
 - **Prefer key credentials** for high-value hosts, and verify host-key fingerprints out of band
   or pre-trust them.
 - **Keep the defaults** `TERMDOCK_SSH_ALLOW_LOCAL_TARGETS=false` and

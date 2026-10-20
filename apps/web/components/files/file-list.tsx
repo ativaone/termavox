@@ -3,6 +3,7 @@
 import type { FileEntry } from '@termdock/protocol/client';
 import { useTranslations } from 'next-intl';
 import { type KeyboardEvent, useCallback, useEffect, useId, useRef, useState } from 'react';
+import { displayName } from '../../lib/files/display-name.ts';
 import { isFolderLike, type Selection, selectionState } from '../../lib/files/listing.ts';
 import { CheckIcon, FolderPlusIcon, MinusIcon } from '../icons/index.tsx';
 import { cx } from '../ui/cx.ts';
@@ -207,7 +208,7 @@ export function FileList({
           ref={list}
           role="listbox"
           aria-multiselectable="true"
-          aria-label={t('list.label', { folder: folderName })}
+          aria-label={t('list.label', { folder: displayName(folderName).text })}
           aria-describedby={hintId}
           onKeyDown={onKeyDown}
           className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-1.5 py-1"
@@ -228,7 +229,7 @@ export function FileList({
                 renaming === entry.name ? (
                   <NameField
                     initial={entry.name}
-                    label={t('rename.label', { name: entry.name })}
+                    label={t('rename.label', { name: displayName(entry.name).text })}
                     taken={(name) => name !== entry.name && taken(name)}
                     phone={phone}
                     onSubmit={(name) => onRenameSubmit(entry, name)}

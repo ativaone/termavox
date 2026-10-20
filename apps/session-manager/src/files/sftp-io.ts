@@ -11,7 +11,10 @@ import type { SftpHandle, SftpSession } from '../core/types.ts';
 
 /** Bytes per SFTP read or write request. */
 export const IO_CHUNK_BYTES = 32 * 1024;
-/** Requests one transfer keeps in flight at most. */
+/**
+ * Requests one transfer keeps in flight at most; a download counts the answers it holds for an
+ * earlier chunk among them.
+ */
 export const IO_MAX_IN_FLIGHT = 16;
 
 export interface SftpIoOptions {
@@ -44,11 +47,13 @@ class InFlight {
 }
 
 /**
- * Exactly `size` bytes of an open file, from offset 0: `chunkBytes` requests, at most
- * `maxInFlight` at once, delivered in file order whatever order the answers come in. No new
- * request starts while the consumer is behind (backpressure). A file that turns out shorter than
- * `size` (it shrank since its size was read) fails the stream: the response is cut, never padded.
- * The handle stays the caller's: close it after `settled()`.
+ * Exactly `size` bytes of an open file, from offset 0: `chunkBytes` requests, delivered in file
+ * order whatever order the answers come in. At most `maxInFlight` chunks are ever ahead of what
+ * was delivered, requests in flight and answers waiting for an earlier chunk together: a server
+ * that holds back one answer cannot make the reader ask for (and hold) the rest of the file. No
+ * new request starts while the consumer is behind (backpressure). A file that turns out shorter
+ * than `size` (it shrank since its size was read) fails the stream: the response is cut, never
+ * padded. The handle stays the caller's: close it after `settled()`.
  */
 export class SftpFileReader extends Readable {
   readonly #sftp: SftpSession;
@@ -57,7 +62,7 @@ export class SftpFileReader extends Readable {
   readonly #chunk: number;
   readonly #window: number;
   readonly #requests = new InFlight();
-  /** Answers not delivered yet, by offset. */
+  /** Answers waiting for an earlier chunk, by offset: they count against the window. */
   readonly #ready = new Map<number, Uint8Array>();
   #requested = 0;
   #delivered = 0;
@@ -94,7 +99,7 @@ export class SftpFileReader extends Readable {
     while (
       this.#wanted &&
       !this.destroyed &&
-      this.#requests.count < this.#window &&
+      this.#requests.count + this.#ready.size < this.#window &&
       this.#requested < this.#size
     ) {
       const offset = this.#requested;

@@ -13,6 +13,13 @@ import {
 
 /** A server that accepts the channel but never starts SFTP must not hold the panel forever. */
 export const SFTP_OPEN_TIMEOUT_MS = 20_000;
+/**
+ * The time the server has to answer the oldest request still waiting, counted from when it became
+ * the oldest; after it, the channel is given up: every pending request fails as a lost connection
+ * and the channel ends. Nothing (a transfer's slot, a file request) waits on a server that stopped
+ * answering, while requests queued behind others on a slow link wait their turn.
+ */
+export const SFTP_REQUEST_TIMEOUT_MS = 60_000;
 /** Server text quoted in an open error. */
 const OPEN_ERROR_TEXT_MAX = 200;
 const POSIX_RENAME = 'posix-rename@openssh.com';
@@ -26,6 +33,8 @@ export interface OpenSftpOptions {
   /** The SSH connection is still up: an open failing after it dropped is not the server's refusal. */
   connected: () => boolean;
   timeoutMs?: number;
+  /** Default SFTP_REQUEST_TIMEOUT_MS (tests). */
+  requestTimeoutMs?: number;
 }
 
 /**
@@ -49,7 +58,16 @@ export function openSshSftp(client: SftpClient, options: OpenSftpOptions): Promi
       settled = true;
       clearTimeout(timer);
       if (err || !wrapper) reject(openError(err, options.connected()));
-      else resolve(new SshSftpSession(wrapper));
+      else {
+        resolve(
+          new SshSftpSession(
+            wrapper,
+            options.requestTimeoutMs !== undefined
+              ? { requestTimeoutMs: options.requestTimeoutMs }
+              : {},
+          ),
+        );
+      }
     };
     try {
       client.sftp(done);
@@ -77,15 +95,29 @@ function openError(err: Error | undefined, connected: boolean): TermdockError {
 
 type Callback<T> = (err: Error | null | undefined, value?: T) => void;
 
-/** ssh2's SFTPWrapper behind the promise-based SftpSession. */
+/** A request sent and not answered yet. */
+interface Pending {
+  fail(err: Error): void;
+}
+
+/**
+ * ssh2's SFTPWrapper behind the promise-based SftpSession. The server's status messages are host
+ * text: cleaned and capped (hostText) before anything, an error answer or a log line, sees them.
+ */
 export class SshSftpSession implements SftpSession {
   readonly supportsPosixRename: boolean;
   readonly #wrapper: SFTPWrapper;
+  readonly #requestTimeoutMs: number;
   readonly #closeCallbacks: Array<() => void> = [];
+  /** Requests waiting for their answer, oldest first. */
+  readonly #pending = new Set<Pending>();
+  /** Runs while requests wait: the oldest one's time (SFTP_REQUEST_TIMEOUT_MS). */
+  #stall: ReturnType<typeof setTimeout> | null = null;
   #closed = false;
 
-  constructor(wrapper: SFTPWrapper) {
+  constructor(wrapper: SFTPWrapper, options: { requestTimeoutMs?: number } = {}) {
     this.#wrapper = wrapper;
+    this.#requestTimeoutMs = options.requestTimeoutMs ?? SFTP_REQUEST_TIMEOUT_MS;
     const extensions = (wrapper as unknown as { _extensions?: Record<string, string> })._extensions;
     this.supportsPosixRename = extensions?.[POSIX_RENAME] === '1';
     // ssh2 removed its own listeners once the session was ready: an unhandled 'error' (a fatal
@@ -135,9 +167,13 @@ export class SshSftpSession implements SftpSession {
     return this.#call<void>((cb) => this.#wrapper.close(asBuffer(handle), cb));
   }
 
-  open(path: string, flags: SftpOpenFlags): Promise<SftpHandle> {
-    // No attributes: a new file gets the server's default permissions, like any file creation.
-    return this.#call<Buffer>((cb) => this.#wrapper.open(path, flags, cb));
+  open(path: string, flags: SftpOpenFlags, mode?: number): Promise<SftpHandle> {
+    // Without a mode, a new file gets the server's default permissions, like any file creation.
+    return this.#call<Buffer>((cb) =>
+      mode === undefined
+        ? this.#wrapper.open(path, flags, cb)
+        : this.#wrapper.open(path, flags, { mode }, cb),
+    );
   }
 
   async read(handle: SftpHandle, length: number, position: number): Promise<Uint8Array> {
@@ -160,8 +196,9 @@ export class SshSftpSession implements SftpSession {
     return toAttrs(await this.#call<Attributes>((cb) => this.#wrapper.fstat(asBuffer(handle), cb)));
   }
 
-  chmod(path: string, mode: number): Promise<void> {
-    return this.#call<void>((cb) => this.#wrapper.chmod(path, mode, cb));
+  fchmod(handle: SftpHandle, mode: number): Promise<void> {
+    // SSH_FXP_FSETSTAT with the permission bits only.
+    return this.#call<void>((cb) => this.#wrapper.fchmod(asBuffer(handle), mode, cb));
   }
 
   mkdir(path: string): Promise<void> {
@@ -202,27 +239,68 @@ export class SshSftpSession implements SftpSession {
 
   /**
    * One request. ssh2 neither sends nor answers a request made once the channel is closing: it
-   * would wait forever, so it fails at once instead.
+   * would wait forever, so it fails at once instead. The oldest request waiting is timed from when
+   * it became the oldest, not from when it was queued: on a slow link the requests behind it wait
+   * their turn, and a server that answers each in time is never cut off however long they queue.
    */
   #call<T>(request: (cb: Callback<T>) => void): Promise<T> {
     if (this.closed) return Promise.reject(channelClosed());
     return new Promise<T>((resolve, reject) => {
+      const pending: Pending = { fail: reject };
       const cb: Callback<T> = (err, value) => {
+        // Failed already (the channel was given up): a late answer changes nothing.
+        if (!this.#answered(pending)) return;
         if (err) reject(this.#error(err));
         else resolve(value as T);
       };
+      this.#pending.add(pending);
+      if (!this.#stall) {
+        this.#stall = setTimeout(() => this.#stalled(), this.#requestTimeoutMs);
+        this.#stall.unref();
+      }
       try {
         request(cb);
       } catch (err) {
-        reject(this.#error(err as Error));
+        if (this.#answered(pending)) reject(this.#error(err as Error));
       }
     });
   }
 
-  /** The server's status is kept; a request cut by the channel's close is `ConnectionLost`. */
+  /** Takes a request off the waiting list (false when it was not on it any more). */
+  #answered(pending: Pending): boolean {
+    const oldest = this.#pending.values().next().value === pending;
+    if (!this.#pending.delete(pending)) return false;
+    if (this.#pending.size === 0) {
+      if (this.#stall) clearTimeout(this.#stall);
+      this.#stall = null;
+    } else if (oldest) {
+      this.#stall?.refresh(); // the next one is the oldest now: its time starts
+    }
+    return true;
+  }
+
+  /**
+   * The oldest request went unanswered for the whole time: the channel is given up. Every request
+   * waiting fails as a lost connection (sftp-server answers in order, so none of them would come),
+   * and the channel ends: the session opens a new one on its next use.
+   */
+  #stalled(): void {
+    this.#stall = null;
+    const failed = [...this.#pending];
+    this.#pending.clear();
+    for (const pending of failed) {
+      pending.fail(new SftpError(SftpStatus.ConnectionLost, 'the server did not answer in time'));
+    }
+    this.end();
+  }
+
+  /**
+   * The server's status is kept, with its message cleaned (host text, untrusted); a request cut by
+   * the channel's close is `ConnectionLost`.
+   */
   #error(err: Error): Error {
     const status = (err as { code?: unknown }).code;
-    if (typeof status === 'number') return new SftpError(status, err.message);
+    if (typeof status === 'number') return new SftpError(status, hostText(err.message));
     // ssh2 fails requests pending at the close with 'No response from server' (no status).
     if (this.closed) return channelClosed();
     return err;

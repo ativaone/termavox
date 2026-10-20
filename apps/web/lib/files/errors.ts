@@ -13,6 +13,7 @@ export const FileCode = {
   PermissionDenied: 'PERMISSION_DENIED',
   NameInvalid: 'NAME_INVALID',
   FileOpFailed: 'FILE_OP_FAILED',
+  RemoveTooLarge: 'REMOVE_TOO_LARGE',
   Cancelled: 'CANCELLED',
   TransferExpired: 'TRANSFER_EXPIRED',
   NotFound: 'NOT_FOUND',
@@ -69,6 +70,7 @@ export type FileErrorKey =
   | 'permissionDenied'
   | 'nameInvalid'
   | 'fileOpFailed'
+  | 'removeTooLarge'
   | 'cancelled'
   | 'transferExpired'
   | 'notFound'
@@ -89,6 +91,7 @@ const KEYS: Readonly<Record<string, FileErrorKey>> = {
   [FileCode.PermissionDenied]: 'permissionDenied',
   [FileCode.NameInvalid]: 'nameInvalid',
   [FileCode.FileOpFailed]: 'fileOpFailed',
+  [FileCode.RemoveTooLarge]: 'removeTooLarge',
   [FileCode.Cancelled]: 'cancelled',
   [FileCode.TransferExpired]: 'transferExpired',
   [FileCode.NotFound]: 'notFound',

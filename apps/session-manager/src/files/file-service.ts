@@ -9,7 +9,7 @@ import { checkName, type NamedPath, namedPath, normalizePath } from './paths.ts'
 import * as remote from './remote-fs.ts';
 import { DEFAULT_FILE_SETTINGS, type FileSettings } from './settings.ts';
 import { downloadable, uploadTarget } from './transfer-fs.ts';
-import type { TransferBackend } from './transfer-routes.ts';
+import type { TransferAuditDetail, TransferBackend } from './transfer-routes.ts';
 import { PROGRESS_INTERVAL_MS, Transfers } from './transfers.ts';
 
 export { PROGRESS_INTERVAL_MS } from './transfers.ts';
@@ -102,7 +102,7 @@ export class FileService implements FileGateway, TransferBackend {
     host: FileHost,
     actor: Actor,
     type: 'file.upload' | 'file.download',
-    detail: { path: string; size: number },
+    detail: TransferAuditDetail,
   ): void {
     this.#audit(host, actor, type, detail);
   }

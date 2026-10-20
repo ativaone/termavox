@@ -1,11 +1,12 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { useEffect, useId, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import type { ConflictChoice } from '../../lib/files/conflicts.ts';
 import { Button } from '../ui/button.tsx';
 import { cx } from '../ui/cx.ts';
 import { choiceCardClasses, radioClasses } from '../ui/radio.ts';
+import { FileName, withNames } from './file-name.tsx';
 
 const SHOWN = 5;
 
@@ -43,9 +44,13 @@ export function ConflictDialog({
     };
   }, []);
 
-  const options: Array<{ value: ConflictChoice; label: string; help: string | null }> = [
+  const options: Array<{ value: ConflictChoice; label: string; help: ReactNode }> = [
     { value: 'replace', label: t('replace'), help: t('replaceHelp') },
-    { value: 'keepBoth', label: t('keepBoth'), help: t('keepBothHelp', { name: example }) },
+    {
+      value: 'keepBoth',
+      label: t('keepBoth'),
+      help: withNames([example], (name) => t('keepBothHelp', { name })),
+    },
     { value: 'skip', label: t('skip'), help: null },
   ];
 
@@ -68,12 +73,12 @@ export function ConflictDialog({
         }}
       >
         <h2 id={titleId} className="font-semibold text-ink text-md">
-          {t('title', { count: names.length, folder })}
+          {withNames([folder], (mark) => t('title', { count: names.length, folder: mark }))}
         </h2>
         <ul className="flex flex-col gap-1 rounded-control bg-field px-3 py-2.5 font-mono text-ink-muted text-sm">
           {names.slice(0, SHOWN).map((name) => (
-            <li key={name} className="truncate" title={name}>
-              {name}
+            <li key={name} className="truncate">
+              <FileName name={name} tooltip />
             </li>
           ))}
           {names.length > SHOWN ? (

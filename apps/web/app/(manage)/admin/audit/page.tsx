@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import { getLocale, getTranslations } from 'next-intl/server';
+import type { ReactNode } from 'react';
+import { FileName, withNames } from '../../../../components/files/file-name.tsx';
 import { param } from '../../../../components/manage/done-notice.tsx';
 import { ButtonLink, buttonClasses } from '../../../../components/ui/button.tsx';
 import { DataTable, Td, Th, Tr } from '../../../../components/ui/data-table.tsx';
@@ -9,9 +11,9 @@ import { Pagination, paginate } from '../../../../components/ui/pagination.tsx';
 import { Panel, PanelSection } from '../../../../components/ui/panel.tsx';
 import { NativeSelect } from '../../../../components/ui/select.tsx';
 import { auditActorLabel } from '../../../../lib/admin/audit-actor.ts';
+import { auditDetailValue, isDetailKey } from '../../../../lib/admin/audit-detail.ts';
 import { requireAdminPage } from '../../../../lib/admin/page-guard.ts';
 import { getAuthRuntime } from '../../../../lib/auth/server.ts';
-import { formatSize } from '../../../../lib/files/format.ts';
 import { listUsersForAdmin } from '../../../../lib/repo/admin-users.ts';
 import {
   type AuditFilter,
@@ -114,58 +116,6 @@ function dayStart(value: string | undefined): number | undefined {
   return Number.isFinite(ms) ? ms : undefined;
 }
 
-/** Detail fields with a label in `admin.audit.details.key`. */
-const DETAIL_KEYS = [
-  'stage',
-  'reason',
-  'method',
-  'otherSessionsRevoked',
-  'role',
-  'scope',
-  'terminated',
-  'lockedForS',
-  'unknownUser',
-  'username',
-  'totpRequired',
-  'temporaryPassword',
-  'name',
-  'kind',
-  'keyType',
-  'fingerprint',
-  'previousFingerprint',
-  'source',
-  'previousLabel',
-  'label',
-  'hostname',
-  'port',
-  'path',
-  'size',
-  'paths',
-  'removed',
-] as const;
-type DetailKey = (typeof DETAIL_KEYS)[number];
-const isDetailKey = (key: string): key is DetailKey =>
-  (DETAIL_KEYS as readonly string[]).includes(key);
-
-/** Enumerated detail values with a word in `admin.audit.details.value.<key>`. */
-const DETAIL_VALUES = {
-  stage: ['password', 'totp', 'backup_code'],
-  method: ['password', 'totp', 'backup_code', 'trusted_device'],
-  reason: ['invalid', 'disabled', 'ban'],
-  scope: ['auth_sessions', 'websockets'],
-  source: ['pending', 'pasted', 'host_test'],
-  role: ['user', 'admin'],
-  kind: ['password', 'private_key', 'generate', 'ssh', 'local'],
-} as const;
-type DetailValueKey = {
-  [K in keyof typeof DETAIL_VALUES]: `details.value.${K}.${(typeof DETAIL_VALUES)[K][number]}`;
-}[keyof typeof DETAIL_VALUES];
-const valueKey = (key: string, value: unknown): DetailValueKey | null => {
-  if (!Object.hasOwn(DETAIL_VALUES, key)) return null;
-  const known = DETAIL_VALUES[key as keyof typeof DETAIL_VALUES] as readonly unknown[];
-  return known.includes(value) ? (`details.value.${key}.${value}` as DetailValueKey) : null;
-};
-
 /** Instance setting keys (`admin_setting.change`), mapped to their label in `admin.settings`. */
 const SETTING_LABELS = {
   require_totp: 'requireTotp',
@@ -243,17 +193,6 @@ export default async function AdminAuditPage({
   const label = (value: string) =>
     KNOWN_TYPES.has(value) ? t(`type.${value.replaceAll('.', '_') as AuditTypeKey}`) : value;
 
-  /** A detail value in words: yes/no, on/off, known enum words, seconds; machine values as-is. */
-  const detailValue = (key: string, value: string | number | boolean): string => {
-    if (typeof value === 'boolean') return value ? t('details.yes') : t('details.no');
-    if (key === 'lockedForS' && typeof value === 'number') {
-      return t('details.seconds', { count: value });
-    }
-    if (key === 'size' && typeof value === 'number') return formatSize(value, locale);
-    if (key === 'path' && typeof value === 'string') return shortPath(value) ?? '';
-    const word = valueKey(key, value);
-    return word ? t(word) : String(value).slice(0, 80);
-  };
   const settingLabel = (key: string): string =>
     Object.hasOwn(SETTING_LABELS, key)
       ? ts(SETTING_LABELS[key as keyof typeof SETTING_LABELS])
@@ -264,7 +203,10 @@ export default async function AdminAuditPage({
         ? t('details.on')
         : t('details.off')
       : String(value ?? '—').slice(0, 40);
-  /** The event's details as labelled words; ids are left out (the target column names them). */
+  /**
+   * The event's details as labelled words; ids are left out (the target column names them), and
+   * so are remote paths, which `detailCell` draws.
+   */
   const detailSummary = (row: AuditRow): string => {
     const detail = row.detail;
     if (!detail) return '';
@@ -274,28 +216,6 @@ export default async function AdminAuditPage({
         from: settingValue(detail.from),
         to: settingValue(detail.to),
       });
-    }
-    // File operations (plan §5.12): a move reads "from → to"; a delete names its first paths.
-    if (row.type === 'file.rename') {
-      const from = shortPath(detail.from, 80);
-      const to = shortPath(detail.to, 80);
-      if (from !== null && to !== null) return t('details.rename', { from, to });
-    }
-    if (row.type === 'file.remove' && Array.isArray(detail.paths)) {
-      const paths = detail.paths.filter((p): p is string => typeof p === 'string');
-      const shown = paths
-        .slice(0, PATHS_SHOWN)
-        .map((p) => shortPath(p, 80))
-        .join(', ');
-      const more =
-        paths.length > PATHS_SHOWN
-          ? ` ${t('details.more', { count: paths.length - PATHS_SHOWN })}`
-          : '';
-      const parts = [`${t('details.key.paths')}: ${shown}${more}`];
-      if (typeof detail.removed === 'number') {
-        parts.push(`${t('details.key.removed')}: ${detail.removed}`);
-      }
-      return parts.join(' · ');
     }
     // A rename reads as "previous → new" (plan D-28), never as two labelled fields.
     if (row.type === 'session.rename' || row.type === 'credential.rename') {
@@ -313,13 +233,57 @@ export default async function AdminAuditPage({
       if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') {
         continue;
       }
+      if (key === 'path' && typeof value === 'string') continue;
       const name = isDetailKey(key) ? t(`details.key.${key}`) : key;
       // A flag that is only present when true reads as its label alone ("Unknown username").
       if (key === 'unknownUser' && value === true) parts.push(name);
-      else parts.push(`${name}: ${detailValue(key, value)}`);
+      else parts.push(`${name}: ${auditDetailValue(key, value, t, locale)}`);
     }
     const text = parts.join(' · ');
     return text.length > 240 ? `${text.slice(0, 239)}…` : text;
+  };
+  /**
+   * The detail column. Remote paths are drawn as the file panel draws names (plan §5.12), each on
+   * its own (`FileName`): two right-to-left paths never trade places around "→" or ",", hidden
+   * characters show as U+FFFD and the escaped path is the tooltip.
+   */
+  const detailCell = (row: AuditRow): ReactNode => {
+    const detail = row.detail;
+    // File operations: a move reads "from → to"; a delete names its first paths.
+    if (row.type === 'file.rename' && detail) {
+      const from = shortPath(detail.from, 80);
+      const to = shortPath(detail.to, 80);
+      if (from !== null && to !== null) {
+        return withNames([from, to], (fromMark, toMark) =>
+          t('details.rename', { from: fromMark, to: toMark }),
+        );
+      }
+    }
+    if (row.type === 'file.remove' && detail && Array.isArray(detail.paths)) {
+      const paths = detail.paths.filter((p): p is string => typeof p === 'string');
+      const more =
+        paths.length > PATHS_SHOWN
+          ? ` ${t('details.more', { count: paths.length - PATHS_SHOWN })}`
+          : '';
+      const removed =
+        typeof detail.removed === 'number'
+          ? ` · ${t('details.key.removed')}: ${detail.removed}`
+          : '';
+      return withNames(
+        paths.slice(0, PATHS_SHOWN).map((p) => shortPath(p, 80) ?? ''),
+        (...marks) => `${t('details.key.paths')}: ${marks.join(', ')}${more}${removed}`,
+      );
+    }
+    // The other values are free text, which may hold a `withNames` mark: the path goes beside them.
+    const path = typeof detail?.path === 'string' ? shortPath(detail.path) : null;
+    const text = detailSummary(row);
+    if (path === null) return text || '—';
+    return (
+      <>
+        {t('details.key.path')}: <FileName name={path} />
+        {text ? ` · ${text}` : null}
+      </>
+    );
   };
   const query = (page: number) => {
     const params = new URLSearchParams();
@@ -453,7 +417,7 @@ export default async function AdminAuditPage({
                   </span>
                 </Td>
                 <Td label={t('detail')} className="text-ink-muted text-sm [overflow-wrap:anywhere]">
-                  {detailSummary(row) || '—'}
+                  {detailCell(row)}
                 </Td>
               </Tr>
             ))}
