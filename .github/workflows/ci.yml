@@ -1,7 +1,8 @@
-# Tests on GitHub's runners (plan D-41): T0 (`pnpm check`) on every push and pull request, and the
+# Tests on GitHub's runners (plan D-41): T0 (`pnpm check`) on every pull request, and with it the
 # whole pre-release routine (`pnpm test:release`: T0, every T1 file against the test sshd
 # containers, OSV scan, image builds, the smoke directly and behind a reverse proxy) on every push
-# to main. Actions are official GitHub ones, pinned to full commit SHAs.
+# to main, which happens at each final release (D-47), and on a manual run (on develop before a
+# release candidate). Actions are official GitHub ones, pinned to full commit SHAs.
 name: CI
 
 on:

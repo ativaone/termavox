@@ -160,7 +160,7 @@ docker compose -f deploy/compose.yaml up -d          # start the stack
 docker compose -f deploy/compose.yaml logs web | grep "setup token:" | tail -n 1
 ```
 
-**The latest source**, with the images built on this host (it needs a couple of GB of memory free; also the way to run it on arm64 for now):
+**Built on this host**, from the latest release's source (it needs a couple of GB of memory free; also the way to run it on arm64 for now):
 
 ```bash
 git clone https://github.com/ativaone/termavox.git && cd termavox
@@ -172,7 +172,7 @@ docker compose -f deploy/compose.yaml logs web | grep "setup token:" | tail -n 1
 
 **Edit `deploy/.env` before you start.** As copied, it serves `https://localhost` with a certificate from Caddy's local CA, for a trial on this machine. For another name, set `TERMAVOX_DOMAIN` to it, with `TERMAVOX_TLS=auto` for a public domain (a Let's Encrypt certificate) or `internal` for a LAN name or an IP address; the ports are there too. The last command prints the one-time setup token and the address where it creates the first admin. The [installation guide](docs/guides/install.md) covers domains and TLS, running behind your own reverse proxy, verifying the images, backups and restore, upgrades and troubleshooting.
 
-**Upgrading an existing install:** read the version's upgrade notes in [CHANGELOG.md](CHANGELOG.md), back up, check out the new release's tag, then `docker compose -f deploy/compose.yaml pull` and `up -d`. An install from the latest source runs `git pull` and `up -d --build` instead. Database migrations run on their own; the full procedure is in [Upgrades](docs/guides/install.md#upgrades).
+**Upgrading an existing install:** read the version's upgrade notes in [CHANGELOG.md](CHANGELOG.md), back up, check out the new release's tag, then `docker compose -f deploy/compose.yaml pull` and `up -d`. An install built on this host runs `git pull` and `up -d --build` instead. Database migrations run on their own; the full procedure is in [Upgrades](docs/guides/install.md#upgrades).
 
 ### Development
 
@@ -188,7 +188,7 @@ pnpm test:release                              # pre-release routine: T0, all T1
 
 The test containers listen on `127.0.0.1:2201–2204` and use **test-only** keys from [`test/sshd/keys/`](test/sshd/keys/). Never reuse them anywhere else.
 
-CI runs `pnpm check` on every push and pull request and the whole `pnpm test:release` routine on every push to `main` (its smoke drives the real UI in a headless Chromium over the DevTools protocol). A `vX.Y.Z` tag builds the images on a native amd64 runner (arm64 coming soon), tests those exact images, publishes them with build provenance and creates the GitHub release; the manual half is the [release checklist](docs/release-checklist.md) (plan §15.4, D-41).
+Work happens on the `develop` branch; `main` receives it at each final release, so a clone is the latest release (plan D-47). CI runs `pnpm check` on pull requests and, with the whole `pnpm test:release` routine (its smoke drives the real UI in a headless Chromium over the DevTools protocol), on every push to `main` and on demand. A `vX.Y.Z` tag builds the images on a native amd64 runner (arm64 coming soon), tests those exact images, publishes them with build provenance and creates the GitHub release; the manual half is the [release checklist](docs/release-checklist.md) (plan §15.4, D-41).
 
 ### Repository layout
 

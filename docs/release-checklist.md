@@ -4,7 +4,9 @@ How a release is cut ([plan §15.4](implementation-plan.md#154-pre-release-routi
 The images people install are built, tested and published by
 [`.github/workflows/release.yml`](../.github/workflows/release.yml) when a `vX.Y.Z` or
 `vX.Y.Z-rc.N` tag is pushed; this list is the manual half around it. Record the results in the
-delivery report.
+delivery report. A release is the owner's call (D-47): work happens on `develop`, a release
+candidate is tagged there, and a final release fast-forwards `main` to `develop` and is tagged on
+`main`, so `main` and the project site always show the latest final release.
 
 Every release starts as a release candidate. The manual checks run against the candidate's
 published images; when nothing but the version and the CHANGELOG changed after the candidate,
@@ -12,14 +14,17 @@ the final release needs only step 11.
 
 ## Before the candidate
 
-1. **Automated routine.** CI is green on the commit to tag: its "Pre-release routine" job ran
-   `pnpm test:release` there (T0, every T1 file, OSV scan, image builds, the smoke directly and
-   behind a reverse proxy, file transfers included). The release workflow runs the routine again
-   against the exact images it publishes. A local `pnpm test:release` is optional.
+1. **Automated routine.** The release workflow runs the whole `pnpm test:release` routine (T0,
+   every T1 file, OSV scan, the smoke directly and behind a reverse proxy, file transfers
+   included) against the exact images it is about to publish, before it pushes anything. Nothing
+   runs on a push to `develop`, so a failure there costs a candidate number: when the candidate
+   carries many changes, run CI on it first (`gh workflow run ci.yml --ref develop`, then
+   `gh run watch`; its "Pre-release routine" job is the same routine). A local
+   `pnpm test:release` is optional.
 2. **Project site.** Read the user help (both languages) against `[Unreleased]` in the
    changelog: every user-visible change is explained, nothing unshipped is described. The home
-   pages still match the README. After the push, the Pages workflow passed and
-   https://ativaone.github.io/termavox shows the new help and guides (the `site` skill).
+   pages still match the README. Build it and look at the changed pages (the `site` skill); it
+   goes live with the final release (step 11).
 3. **Screenshots, when the UI changed significantly.** Refresh `docs/screenshots/` (the images
    its README and the project README show) from a real run (`scripts/ui-capture.ts`): desktop
    1440×900 at 1x, phone 390×844 at 2x, default font hinting. Otherwise optional: worth doing
@@ -28,7 +33,7 @@ the final release needs only step 11.
 ## The candidate
 
 4. **Version and tag.** `node scripts/set-version.ts X.Y.Z-rc.N` (every `package.json` and the
-   image tags in `deploy/compose.yaml`), commit, push, then create the annotated tag
+   image tags in `deploy/compose.yaml`), commit, push to `develop`, then create the annotated tag
    `vX.Y.Z-rc.N` on that commit and push it. Watch the Release workflow (`gh run watch`): every
    architecture in its `ARCHES` (amd64 only while arm64 is suspended, D-41) builds and passes its
    tests, the images are pushed, attested, and a GitHub prerelease appears with the image
@@ -66,9 +71,11 @@ on a throwaway install, or upgrade the trial install to it. Then:
 
 ## The release
 
-11. **CHANGELOG, version and tag.** `CHANGELOG.md` moves `[Unreleased]` to
+11. **CHANGELOG, version and tag.** On `develop`, `CHANGELOG.md` moves `[Unreleased]` to
     `## [X.Y.Z] - YYYY-MM-DD` (the workflow refuses a final release without it) and updates the
     compare links at the bottom; the upgrade notes mention anything operators must do.
-    `node scripts/set-version.ts X.Y.Z`, commit, push, wait for CI, then tag `vX.Y.Z` and push
-    it. The workflow publishes `X.Y.Z`, `X.Y` and `latest` and the GitHub release; repeat step 5
-    for `X.Y.Z`.
+    `node scripts/set-version.ts X.Y.Z`, commit and push. Then fast-forward `main` to it
+    (`git push origin develop:main`; anything but a fast-forward is refused), wait for CI on
+    `main` and for the Pages workflow (https://ativaone.github.io/termavox shows the new help and
+    guides), then tag `vX.Y.Z` on that commit and push it. The workflow publishes `X.Y.Z`, `X.Y`
+    and `latest` and the GitHub release; repeat step 5 for `X.Y.Z`.

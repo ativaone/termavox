@@ -6,8 +6,10 @@ description: How the Termavox project site works (site/, GitHub Pages, plan D-40
 # The project site
 
 Published by `.github/workflows/pages.yml` on every push to `main` that touches `site/`, `docs/`
-or `CHANGELOG.md`, at https://ativaone.github.io/termavox. Its look is the app's
-(`apps/web/DESIGN.md`); the page-level direction is `site/.impeccable/surfaces/site-help.md`.
+or `CHANGELOG.md`, at https://ativaone.github.io/termavox. `main` moves only at a final release
+(D-47), so the live site describes the latest release; what is done on `develop` goes live with
+the next one. Its look is the app's (`apps/web/DESIGN.md`); the page-level direction is
+`site/.impeccable/surfaces/site-help.md`.
 
 ## What lives where
 

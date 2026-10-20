@@ -183,8 +183,8 @@ docker compose -f deploy/compose.yaml up -d    # start the stack
 docker compose -f deploy/compose.yaml logs web | grep "setup token:" | tail -n 1</code></pre>
     </div>
     <div class="run-option">
-      <h3>The latest source</h3>
-      <p class="run-after">With the images built on this host: it needs a couple of GB of memory free, and is also the way to run it on arm64 for now.</p>
+      <h3>Built on this host</h3>
+      <p class="run-after">From the latest release's source, with the images built here: it needs a couple of GB of memory free, and is also the way to run it on arm64 for now.</p>
       <pre class="code"><code>git clone https://github.com/ativaone/termavox.git termavox &amp;&amp; cd termavox
 deploy/scripts/init-secrets.sh                 # generate the secrets; back up deploy/secrets/master_key
 cp deploy/.env.example deploy/.env             # the settings: edit them before starting (below)

@@ -1,12 +1,14 @@
 # Dependabot (plan D-41): proposals only. Every pull request it opens is reviewed like any new
 # dependency (the owner's supply-chain policy) and is never merged automatically. npm packages get
 # security alerts only (repository settings), no version-update pull requests: the lockfile
-# changes on purpose, with the pinned versions recorded in the plan.
+# changes on purpose, with the pinned versions recorded in the plan. Pull requests go to develop,
+# where work happens; main moves only at a final release (D-47).
 version: 2
 updates:
   # The digests of the images Termavox is built on: node (web, session-manager) and caddy.
   - package-ecosystem: docker
     directory: /deploy/docker
+    target-branch: develop
     schedule:
       interval: weekly
     # Digest updates within the pinned major only: moving Node.js (24 LTS, plan T-01) or Caddy to
@@ -20,6 +22,7 @@ updates:
   # The SHAs the workflows pin.
   - package-ecosystem: github-actions
     directory: /
+    target-branch: develop
     schedule:
       interval: weekly
     groups:

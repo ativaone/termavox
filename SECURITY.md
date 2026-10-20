@@ -2,9 +2,9 @@
 
 ## Supported versions
 
-Security fixes land on `main` and ship in the next release. Until v1.0, only the latest release
-is supported: upgrade to it to get a fix. Release candidates (`-rc` tags) are for testing and
-are never supported.
+Security fixes land on `develop` and ship in the next release (`main` holds the final
+releases). Until v1.0, only the latest release is supported: upgrade to it to get a fix. Release
+candidates (`-rc` tags) are for testing and are never supported.
 
 | Version | Supported |
 | --- | --- |
