@@ -1091,7 +1091,8 @@ async function filePanel(
   const inPanel = (body: string) =>
     `(() => { const p = ${panel}; return p ? (${body}) : null; })()`;
   const row = inPanel(
-    `$$('[role=option]', p).find((o) => $$('span', o).some((s) => s.children.length === 0 && text(s) === ${js(name)})) ?? null`,
+    // Remote names are drawn in their own <bdi> (apps/web/components/files/file-name.tsx).
+    `$$('[role=option]', p).find((o) => $$('bdi, span', o).some((s) => s.children.length === 0 && text(s) === ${js(name)})) ?? null`,
   );
 
   await page.click(
@@ -1121,9 +1122,11 @@ async function filePanel(
   const job = (direction: 'upload' | 'download') =>
     `(() => {
       const tray = $(${js(`section[aria-label=${js(FILES.transfers.label)}]`)});
-      const li = tray && $$('li', tray).find((r) => text($('.sr-only', r)) === ${js(FILES.transfers[direction])} && $$('span[title]', r).some((s) => s.getAttribute('title') === ${js(name)}));
+      const titles = (r) => $$('[title]', r).map((s) => s.getAttribute('title'));
+      const li = tray && $$('li', tray).find((r) => text($('.sr-only', r)) === ${js(FILES.transfers[direction])} && titles(r).includes(${js(name)}));
       if (!li) return '';
-      const meta = $$('span[title]', li).map((s) => s.getAttribute('title'))[1] ?? '';
+      // The name's tooltip comes first, then the state line's (a running job adds Cancel's).
+      const meta = titles(li).find((title) => title !== ${js(name)}) ?? '';
       const retry = $$('button', li).some((b) => b.getAttribute('aria-label') === ${js(FILES.transfers.retryLabel.replace('{name}', name))});
       return meta === ${js(FILES.transfers.done)} || meta === ${js(FILES.transfers.handedOff)} ? 'done: ' + meta : retry ? 'failed: ' + meta : '';
     })()`;
