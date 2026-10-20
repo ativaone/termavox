@@ -9,6 +9,11 @@ updates:
     directory: /deploy/docker
     schedule:
       interval: weekly
+    # Digest updates within the pinned major only: moving Node.js (24 LTS, plan T-01) or Caddy to
+    # a new major is a decision of its own, not a bot proposal.
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
     groups:
       base-images:
         patterns: ['*']
