@@ -13,8 +13,8 @@ import {
   type SessionStatus,
   type TerminalHint,
   toSessionStatus,
-} from '@termdock/protocol';
-import { ErrorCode, TermdockError } from '@termdock/shared';
+} from '@termavox/protocol';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 import { Attachment } from '../attachments/attachment.ts';
 import { RESIZE_DEBOUNCE_MS, SizePolicy, sameSize } from '../attachments/size-policy.ts';
 import {
@@ -435,7 +435,7 @@ export class SessionRuntime implements SessionHost, FileHost {
         this.#firstAttempt.resolve();
         return;
       }
-      this.#bannerBeforeStart = 'Termdock restarted';
+      this.#bannerBeforeStart = 'Termavox restarted';
     }
     this.#kick();
     return this.#firstAttempt.promise;
@@ -587,7 +587,7 @@ export class SessionRuntime implements SessionHost, FileHost {
     }
     // Like every connect (plan D-29): nothing connects through a deleted server's snapshot.
     if (this.#record.serverId === null) {
-      throw new TermdockError(ErrorCode.NotFound, 'server was deleted');
+      throw new TermavoxError(ErrorCode.NotFound, 'server was deleted');
     }
     const timer = setTimeout(
       () =>
@@ -742,7 +742,7 @@ export class SessionRuntime implements SessionHost, FileHost {
     const transport = this.#transport;
     if (this.#state !== 'ready' || !transport) {
       return Promise.reject(
-        new TermdockError(ErrorCode.SessionNotConnected, 'the session is not connected'),
+        new TermavoxError(ErrorCode.SessionNotConnected, 'the session is not connected'),
       );
     }
     const current = this.#sftp;
@@ -752,7 +752,7 @@ export class SessionRuntime implements SessionHost, FileHost {
     this.closeSftp();
     if (!transport.openSftp) {
       return Promise.reject(
-        new TermdockError(ErrorCode.SftpUnavailable, 'this session has no file access'),
+        new TermavoxError(ErrorCode.SftpUnavailable, 'this session has no file access'),
       );
     }
     const channel: SftpChannel = {
@@ -764,7 +764,7 @@ export class SessionRuntime implements SessionHost, FileHost {
           if (this.#sftp !== channel) {
             // The connection was torn down while the channel opened.
             session.end();
-            throw new TermdockError(ErrorCode.SessionNotConnected, 'the session is not connected');
+            throw new TermavoxError(ErrorCode.SessionNotConnected, 'the session is not connected');
           }
           channel.session = session;
           session.onClose(() => {
@@ -995,7 +995,7 @@ export class SessionRuntime implements SessionHost, FileHost {
   }
 
   async #connectFailed(err: unknown): Promise<Outcome> {
-    if (err instanceof TermdockError) {
+    if (err instanceof TermavoxError) {
       switch (err.code) {
         case ErrorCode.HostKeyRejected: {
           const pending = err.details?.pending as PresentedHostKey | undefined;
@@ -1251,7 +1251,7 @@ export class SessionRuntime implements SessionHost, FileHost {
         if (live()) this.#banner(text);
       },
       foreground: (command) => {
-        // Termdock already protects the session: its own tmux inside is not needed (D-33).
+        // Termavox already protects the session: its own tmux inside is not needed (D-33).
         if (live()) this.#setHint(command === 'tmux' ? 'nested_tmux' : null);
       },
       onShellExit: () => {
@@ -1681,9 +1681,9 @@ function cleanupFailureCode(err: unknown): string {
   return typeof code === 'string' ? code : ErrorCode.Internal;
 }
 
-/** The code a failed attempt leaves on the session (plan D-31): Termdock's own codes only. */
+/** The code a failed attempt leaves on the session (plan D-31): Termavox's own codes only. */
 function errorCode(err: unknown): string | null {
-  return err instanceof TermdockError || err instanceof TransportError ? err.code : null;
+  return err instanceof TermavoxError || err instanceof TransportError ? err.code : null;
 }
 
 /** A path the file panel can open: absolute, one line, NUL-free, within the protocol's bound. */

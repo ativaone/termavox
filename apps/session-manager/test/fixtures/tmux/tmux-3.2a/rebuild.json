@@ -45,7 +45,7 @@
     },
     {
       "atByte": 10040,
-      "line": "capture-pane -p -e -J -N -t %0 -S - -E -1 ; capture-pane -p -e -J -N -t %0 ; capture-pane -p -e -N -t %0 ; capture-pane -p -e -J -N -a -q -t %0 ; capture-pane -p -J -t %0 -S -1 -E 0 ; display-message -p -t %0 '#{pane_id}\t#{pane_width}\t#{pane_height}\t#{history_size}\t#{cursor_x}\t#{cursor_y}\t#{alternate_on}\t#{alternate_saved_x}\t#{alternate_saved_y}\t#{scroll_region_upper}\t#{scroll_region_lower}\t#{cursor_flag}\t#{insert_flag}\t#{keypad_cursor_flag}\t#{keypad_flag}\t#{wrap_flag}\t#{origin_flag}\t#{mouse_standard_flag}\t#{mouse_button_flag}\t#{mouse_all_flag}\t#{mouse_sgr_flag}\t#{mouse_utf8_flag}\t#{pane_in_mode}\t#{pane_tabs}\t#{bracket_paste_flag}\t#{cursor_shape}\t#{cursor_blinking}\t#{pane_private_modes}\t#{host}\t#{host_short}\t#{q:pane_title}' ; capture-pane -p -P -C -t %0 ; display-message -p 'td-kss6ff3z6ils'"
+      "line": "capture-pane -p -e -J -N -t %0 -S - -E -1 ; capture-pane -p -e -J -N -t %0 ; capture-pane -p -e -N -t %0 ; capture-pane -p -e -J -N -a -q -t %0 ; capture-pane -p -J -t %0 -S -1 -E 0 ; display-message -p -t %0 '#{pane_id}\t#{pane_width}\t#{pane_height}\t#{history_size}\t#{cursor_x}\t#{cursor_y}\t#{alternate_on}\t#{alternate_saved_x}\t#{alternate_saved_y}\t#{scroll_region_upper}\t#{scroll_region_lower}\t#{cursor_flag}\t#{insert_flag}\t#{keypad_cursor_flag}\t#{keypad_flag}\t#{wrap_flag}\t#{origin_flag}\t#{mouse_standard_flag}\t#{mouse_button_flag}\t#{mouse_all_flag}\t#{mouse_sgr_flag}\t#{mouse_utf8_flag}\t#{pane_in_mode}\t#{pane_tabs}\t#{bracket_paste_flag}\t#{cursor_shape}\t#{cursor_blinking}\t#{pane_private_modes}\t#{host}\t#{host_short}\t#{q:pane_title}' ; capture-pane -p -P -C -t %0 ; display-message -p 'tv-kss6ff3z6ils'"
     },
     {
       "atByte": 26141,
@@ -53,7 +53,7 @@
     },
     {
       "atByte": 26713,
-      "line": "capture-pane -p -e -J -N -t %0 -S - -E -1 ; capture-pane -p -e -J -N -t %0 ; capture-pane -p -e -N -t %0 ; capture-pane -p -e -J -N -a -q -t %0 ; capture-pane -p -J -t %0 -S -1 -E 0 ; display-message -p -t %0 '#{pane_id}\t#{pane_width}\t#{pane_height}\t#{history_size}\t#{cursor_x}\t#{cursor_y}\t#{alternate_on}\t#{alternate_saved_x}\t#{alternate_saved_y}\t#{scroll_region_upper}\t#{scroll_region_lower}\t#{cursor_flag}\t#{insert_flag}\t#{keypad_cursor_flag}\t#{keypad_flag}\t#{wrap_flag}\t#{origin_flag}\t#{mouse_standard_flag}\t#{mouse_button_flag}\t#{mouse_all_flag}\t#{mouse_sgr_flag}\t#{mouse_utf8_flag}\t#{pane_in_mode}\t#{pane_tabs}\t#{bracket_paste_flag}\t#{cursor_shape}\t#{cursor_blinking}\t#{pane_private_modes}\t#{host}\t#{host_short}\t#{q:pane_title}' ; capture-pane -p -P -C -t %0 ; display-message -p 'td-vkazktvjjhzy'"
+      "line": "capture-pane -p -e -J -N -t %0 -S - -E -1 ; capture-pane -p -e -J -N -t %0 ; capture-pane -p -e -N -t %0 ; capture-pane -p -e -J -N -a -q -t %0 ; capture-pane -p -J -t %0 -S -1 -E 0 ; display-message -p -t %0 '#{pane_id}\t#{pane_width}\t#{pane_height}\t#{history_size}\t#{cursor_x}\t#{cursor_y}\t#{alternate_on}\t#{alternate_saved_x}\t#{alternate_saved_y}\t#{scroll_region_upper}\t#{scroll_region_lower}\t#{cursor_flag}\t#{insert_flag}\t#{keypad_cursor_flag}\t#{keypad_flag}\t#{wrap_flag}\t#{origin_flag}\t#{mouse_standard_flag}\t#{mouse_button_flag}\t#{mouse_all_flag}\t#{mouse_sgr_flag}\t#{mouse_utf8_flag}\t#{pane_in_mode}\t#{pane_tabs}\t#{bracket_paste_flag}\t#{cursor_shape}\t#{cursor_blinking}\t#{pane_private_modes}\t#{host}\t#{host_short}\t#{q:pane_title}' ; capture-pane -p -P -C -t %0 ; display-message -p 'tv-vkazktvjjhzy'"
     },
     {
       "atByte": 37346,
@@ -65,7 +65,7 @@
     },
     {
       "atByte": 38008,
-      "line": "capture-pane -p -e -J -N -t %0 -S - -E -1 ; capture-pane -p -e -J -N -t %0 ; capture-pane -p -e -N -t %0 ; capture-pane -p -e -J -N -a -q -t %0 ; capture-pane -p -J -t %0 -S -1 -E 0 ; display-message -p -t %0 '#{pane_id}\t#{pane_width}\t#{pane_height}\t#{history_size}\t#{cursor_x}\t#{cursor_y}\t#{alternate_on}\t#{alternate_saved_x}\t#{alternate_saved_y}\t#{scroll_region_upper}\t#{scroll_region_lower}\t#{cursor_flag}\t#{insert_flag}\t#{keypad_cursor_flag}\t#{keypad_flag}\t#{wrap_flag}\t#{origin_flag}\t#{mouse_standard_flag}\t#{mouse_button_flag}\t#{mouse_all_flag}\t#{mouse_sgr_flag}\t#{mouse_utf8_flag}\t#{pane_in_mode}\t#{pane_tabs}\t#{bracket_paste_flag}\t#{cursor_shape}\t#{cursor_blinking}\t#{pane_private_modes}\t#{host}\t#{host_short}\t#{q:pane_title}' ; capture-pane -p -P -C -t %0 ; display-message -p 'td-bt7amuwnnnit'"
+      "line": "capture-pane -p -e -J -N -t %0 -S - -E -1 ; capture-pane -p -e -J -N -t %0 ; capture-pane -p -e -N -t %0 ; capture-pane -p -e -J -N -a -q -t %0 ; capture-pane -p -J -t %0 -S -1 -E 0 ; display-message -p -t %0 '#{pane_id}\t#{pane_width}\t#{pane_height}\t#{history_size}\t#{cursor_x}\t#{cursor_y}\t#{alternate_on}\t#{alternate_saved_x}\t#{alternate_saved_y}\t#{scroll_region_upper}\t#{scroll_region_lower}\t#{cursor_flag}\t#{insert_flag}\t#{keypad_cursor_flag}\t#{keypad_flag}\t#{wrap_flag}\t#{origin_flag}\t#{mouse_standard_flag}\t#{mouse_button_flag}\t#{mouse_all_flag}\t#{mouse_sgr_flag}\t#{mouse_utf8_flag}\t#{pane_in_mode}\t#{pane_tabs}\t#{bracket_paste_flag}\t#{cursor_shape}\t#{cursor_blinking}\t#{pane_private_modes}\t#{host}\t#{host_short}\t#{q:pane_title}' ; capture-pane -p -P -C -t %0 ; display-message -p 'tv-bt7amuwnnnit'"
     },
     {
       "atByte": 52324,
@@ -77,7 +77,7 @@
     },
     {
       "atByte": 53717,
-      "line": "capture-pane -p -e -J -N -t %0 -S - -E -1 ; capture-pane -p -e -J -N -t %0 ; capture-pane -p -e -N -t %0 ; capture-pane -p -e -J -N -a -q -t %0 ; capture-pane -p -J -t %0 -S -1 -E 0 ; display-message -p -t %0 '#{pane_id}\t#{pane_width}\t#{pane_height}\t#{history_size}\t#{cursor_x}\t#{cursor_y}\t#{alternate_on}\t#{alternate_saved_x}\t#{alternate_saved_y}\t#{scroll_region_upper}\t#{scroll_region_lower}\t#{cursor_flag}\t#{insert_flag}\t#{keypad_cursor_flag}\t#{keypad_flag}\t#{wrap_flag}\t#{origin_flag}\t#{mouse_standard_flag}\t#{mouse_button_flag}\t#{mouse_all_flag}\t#{mouse_sgr_flag}\t#{mouse_utf8_flag}\t#{pane_in_mode}\t#{pane_tabs}\t#{bracket_paste_flag}\t#{cursor_shape}\t#{cursor_blinking}\t#{pane_private_modes}\t#{host}\t#{host_short}\t#{q:pane_title}' ; capture-pane -p -P -C -t %0 ; display-message -p 'td-dwsi7y6w274s'"
+      "line": "capture-pane -p -e -J -N -t %0 -S - -E -1 ; capture-pane -p -e -J -N -t %0 ; capture-pane -p -e -N -t %0 ; capture-pane -p -e -J -N -a -q -t %0 ; capture-pane -p -J -t %0 -S -1 -E 0 ; display-message -p -t %0 '#{pane_id}\t#{pane_width}\t#{pane_height}\t#{history_size}\t#{cursor_x}\t#{cursor_y}\t#{alternate_on}\t#{alternate_saved_x}\t#{alternate_saved_y}\t#{scroll_region_upper}\t#{scroll_region_lower}\t#{cursor_flag}\t#{insert_flag}\t#{keypad_cursor_flag}\t#{keypad_flag}\t#{wrap_flag}\t#{origin_flag}\t#{mouse_standard_flag}\t#{mouse_button_flag}\t#{mouse_all_flag}\t#{mouse_sgr_flag}\t#{mouse_utf8_flag}\t#{pane_in_mode}\t#{pane_tabs}\t#{bracket_paste_flag}\t#{cursor_shape}\t#{cursor_blinking}\t#{pane_private_modes}\t#{host}\t#{host_short}\t#{q:pane_title}' ; capture-pane -p -P -C -t %0 ; display-message -p 'tv-dwsi7y6w274s'"
     },
     {
       "atByte": 67373,
@@ -85,7 +85,7 @@
     },
     {
       "atByte": 67590,
-      "line": "capture-pane -p -e -J -N -t %0 -S - -E -1 ; capture-pane -p -e -J -N -t %0 ; capture-pane -p -e -N -t %0 ; capture-pane -p -e -J -N -a -q -t %0 ; capture-pane -p -J -t %0 -S -1 -E 0 ; display-message -p -t %0 '#{pane_id}\t#{pane_width}\t#{pane_height}\t#{history_size}\t#{cursor_x}\t#{cursor_y}\t#{alternate_on}\t#{alternate_saved_x}\t#{alternate_saved_y}\t#{scroll_region_upper}\t#{scroll_region_lower}\t#{cursor_flag}\t#{insert_flag}\t#{keypad_cursor_flag}\t#{keypad_flag}\t#{wrap_flag}\t#{origin_flag}\t#{mouse_standard_flag}\t#{mouse_button_flag}\t#{mouse_all_flag}\t#{mouse_sgr_flag}\t#{mouse_utf8_flag}\t#{pane_in_mode}\t#{pane_tabs}\t#{bracket_paste_flag}\t#{cursor_shape}\t#{cursor_blinking}\t#{pane_private_modes}\t#{host}\t#{host_short}\t#{q:pane_title}' ; capture-pane -p -P -C -t %0 ; display-message -p 'td-45aeovz4rur5'"
+      "line": "capture-pane -p -e -J -N -t %0 -S - -E -1 ; capture-pane -p -e -J -N -t %0 ; capture-pane -p -e -N -t %0 ; capture-pane -p -e -J -N -a -q -t %0 ; capture-pane -p -J -t %0 -S -1 -E 0 ; display-message -p -t %0 '#{pane_id}\t#{pane_width}\t#{pane_height}\t#{history_size}\t#{cursor_x}\t#{cursor_y}\t#{alternate_on}\t#{alternate_saved_x}\t#{alternate_saved_y}\t#{scroll_region_upper}\t#{scroll_region_lower}\t#{cursor_flag}\t#{insert_flag}\t#{keypad_cursor_flag}\t#{keypad_flag}\t#{wrap_flag}\t#{origin_flag}\t#{mouse_standard_flag}\t#{mouse_button_flag}\t#{mouse_all_flag}\t#{mouse_sgr_flag}\t#{mouse_utf8_flag}\t#{pane_in_mode}\t#{pane_tabs}\t#{bracket_paste_flag}\t#{cursor_shape}\t#{cursor_blinking}\t#{pane_private_modes}\t#{host}\t#{host_short}\t#{q:pane_title}' ; capture-pane -p -P -C -t %0 ; display-message -p 'tv-45aeovz4rur5'"
     },
     {
       "atByte": 80647,
@@ -93,7 +93,7 @@
     },
     {
       "atByte": 89653,
-      "line": "capture-pane -p -e -J -N -t %0 -S - -E -1 ; capture-pane -p -e -J -N -t %0 ; capture-pane -p -e -N -t %0 ; capture-pane -p -e -J -N -a -q -t %0 ; capture-pane -p -J -t %0 -S -1 -E 0 ; display-message -p -t %0 '#{pane_id}\t#{pane_width}\t#{pane_height}\t#{history_size}\t#{cursor_x}\t#{cursor_y}\t#{alternate_on}\t#{alternate_saved_x}\t#{alternate_saved_y}\t#{scroll_region_upper}\t#{scroll_region_lower}\t#{cursor_flag}\t#{insert_flag}\t#{keypad_cursor_flag}\t#{keypad_flag}\t#{wrap_flag}\t#{origin_flag}\t#{mouse_standard_flag}\t#{mouse_button_flag}\t#{mouse_all_flag}\t#{mouse_sgr_flag}\t#{mouse_utf8_flag}\t#{pane_in_mode}\t#{pane_tabs}\t#{bracket_paste_flag}\t#{cursor_shape}\t#{cursor_blinking}\t#{pane_private_modes}\t#{host}\t#{host_short}\t#{q:pane_title}' ; capture-pane -p -P -C -t %0 ; display-message -p 'td-kqen4nhanykb'"
+      "line": "capture-pane -p -e -J -N -t %0 -S - -E -1 ; capture-pane -p -e -J -N -t %0 ; capture-pane -p -e -N -t %0 ; capture-pane -p -e -J -N -a -q -t %0 ; capture-pane -p -J -t %0 -S -1 -E 0 ; display-message -p -t %0 '#{pane_id}\t#{pane_width}\t#{pane_height}\t#{history_size}\t#{cursor_x}\t#{cursor_y}\t#{alternate_on}\t#{alternate_saved_x}\t#{alternate_saved_y}\t#{scroll_region_upper}\t#{scroll_region_lower}\t#{cursor_flag}\t#{insert_flag}\t#{keypad_cursor_flag}\t#{keypad_flag}\t#{wrap_flag}\t#{origin_flag}\t#{mouse_standard_flag}\t#{mouse_button_flag}\t#{mouse_all_flag}\t#{mouse_sgr_flag}\t#{mouse_utf8_flag}\t#{pane_in_mode}\t#{pane_tabs}\t#{bracket_paste_flag}\t#{cursor_shape}\t#{cursor_blinking}\t#{pane_private_modes}\t#{host}\t#{host_short}\t#{q:pane_title}' ; capture-pane -p -P -C -t %0 ; display-message -p 'tv-kqen4nhanykb'"
     }
   ]
 }

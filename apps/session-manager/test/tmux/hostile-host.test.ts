@@ -3,7 +3,7 @@
 // block that never ends drops the control client instead of growing until the daemon runs out of
 // memory. The real TmuxControlDriver runs inside a SessionRuntime against a scripted tmux.
 import { Writable } from 'node:stream';
-import { isControlChar, isInvisibleFormatChar } from '@termdock/protocol';
+import { isControlChar, isInvisibleFormatChar } from '@termavox/protocol';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 import { createDriverFactory } from '../../src/core/driver-factory.ts';
@@ -50,7 +50,7 @@ const LAUNCH_BLOCKS = 9;
 
 /** The reply lines of a command the scripted tmux knows. */
 function reply(command: string): string[] {
-  const sentinel = /^display-message -p '(td-[A-Za-z0-9_-]+)'$/.exec(command);
+  const sentinel = /^display-message -p '(tv-[A-Za-z0-9_-]+)'$/.exec(command);
   if (sentinel) return [sentinel[1]!];
   const snapshot = SNAPSHOT.indexOf(command);
   if (snapshot !== -1) return [[], ROWS, ROWS, [], [], [STATE], []][snapshot]!;

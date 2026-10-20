@@ -1,6 +1,6 @@
 'use client';
 
-import type { FileNameProblem } from '@termdock/protocol/client';
+import type { FileNameProblem } from '@termavox/protocol/client';
 import { useLocale, useTranslations } from 'next-intl';
 import { useCallback } from 'react';
 import { FileCode, fileErrorKey } from '../../lib/files/errors.ts';

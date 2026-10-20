@@ -1,4 +1,4 @@
-import { uuidv7 } from '@termdock/shared';
+import { uuidv7 } from '@termavox/shared';
 import { execute, type Sqlite } from './sqlite.ts';
 
 /**

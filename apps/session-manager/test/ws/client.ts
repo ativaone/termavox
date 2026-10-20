@@ -12,8 +12,8 @@ import {
   encodeFrame,
   FrameType,
   type ServerMessage,
-} from '@termdock/protocol';
-import { DEFAULT_SCROLLBACK } from '@termdock/terminal-config';
+} from '@termavox/protocol';
+import { DEFAULT_SCROLLBACK } from '@termavox/terminal-config';
 import { WebSocket } from 'ws';
 import type { BoundFrame } from '../../src/attachments/wire.ts';
 import { HeadlessEmulator } from '../../src/emulator/headless-emulator.ts';

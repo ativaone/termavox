@@ -1,5 +1,5 @@
 import '../server-guard.ts';
-import type { TermdockDb } from '@termdock/db';
+import type { TermavoxDb } from '@termavox/db';
 
 /**
  * Instance settings web owns (plan §9): `require_totp`, `max_running_sessions_per_user`,
@@ -29,7 +29,7 @@ export const SETTING_KEYS = {
 
 export const DEFAULT_MAX_RUNNING_SESSIONS = 50;
 
-function readJson(db: TermdockDb, key: string): unknown {
+function readJson(db: TermavoxDb, key: string): unknown {
   const row = db.$client
     .prepare('SELECT value_json FROM instance_settings WHERE key = ?')
     .get(key) as { value_json: string } | undefined;
@@ -41,7 +41,7 @@ function readJson(db: TermdockDb, key: string): unknown {
   }
 }
 
-export function getInstanceSettings(db: TermdockDb): InstanceSettings {
+export function getInstanceSettings(db: TermavoxDb): InstanceSettings {
   const max = readJson(db, SETTING_KEYS.maxRunningSessionsPerUser);
   return {
     requireTotp: readJson(db, SETTING_KEYS.requireTotp) === true,
@@ -57,7 +57,7 @@ export function getInstanceSettings(db: TermdockDb): InstanceSettings {
 }
 
 export function setInstanceSetting(
-  db: TermdockDb,
+  db: TermavoxDb,
   key: (typeof SETTING_KEYS)[keyof typeof SETTING_KEYS],
   value: boolean | number,
   now: number = Date.now(),

@@ -12,15 +12,15 @@ Decided by the owner and the implementation plan (`docs/implementation-plan.md`)
 
 ## Users
 
-Open-source, self-hosted from day one. The primary users are developers and operators who keep shells open on several servers for long stretches (deploys, debugging, database consoles, log tails). They install Termdock on a bastion or on one of their own servers and reach it from a laptop browser and, during on-call moments, from a phone. Each installation has an admin who creates the user accounts; every user sees only their own servers, credentials and sessions.
+Open-source, self-hosted from day one. The primary users are developers and operators who keep shells open on several servers for long stretches (deploys, debugging, database consoles, log tails). They install Termavox on a bastion or on one of their own servers and reach it from a laptop browser and, during on-call moments, from a phone. Each installation has an admin who creates the user accounts; every user sees only their own servers, credentials and sessions.
 
 ## Product Purpose
 
-Termdock is a persistent terminal-session runtime accessible from the web. It holds SSH (and local) sessions open on the server side until the user explicitly ends them. Browsers only attach and detach. Success means a user can close the laptop, lose Wi-Fi, or switch to a phone, and on return find every terminal exactly where it was: same screen, cursor, colors, scrollback, with `vim` or `htop` still running. Recovery after a service restart or a network drop should go unnoticed (a brief "Restoring…" at most).
+Termavox is a persistent terminal-session runtime accessible from the web. It holds SSH (and local) sessions open on the server side until the user explicitly ends them. Browsers only attach and detach. Success means a user can close the laptop, lose Wi-Fi, or switch to a phone, and on return find every terminal exactly where it was: same screen, cursor, colors, scrollback, with `vim` or `htop` still running. Recovery after a service restart or a network drop should go unnoticed (a brief "Restoring…" at most).
 
 ## Positioning
 
-The browser lifecycle is not the terminal lifecycle. Unlike web SSH gateways that tie the SSH connection to the browser tab, Termdock keeps an authoritative terminal emulator on the server and treats the browser as a synchronized view. tmux is used automatically and invisibly underneath (control mode) as a second layer of persistence, so the user never sees or operates tmux to get its benefits.
+The browser lifecycle is not the terminal lifecycle. Unlike web SSH gateways that tie the SSH connection to the browser tab, Termavox keeps an authoritative terminal emulator on the server and treats the browser as a synchronized view. tmux is used automatically and invisibly underneath (control mode) as a second layer of persistence, so the user never sees or operates tmux to get its benefits.
 
 ## Operating Context
 
@@ -33,16 +33,16 @@ The browser lifecycle is not the terminal lifecycle. Unlike web SSH gateways tha
 ## Capabilities and Constraints
 
 - Servers (plan D-29): one record per `ssh user@host` target, holding the name, address, port, user name, the credential (or none: the server asks in the terminal) and the session options; the same machine as another user is another server. Credentials (password or private key, stored encrypted) are separate and reusable across servers. Sessions are terminals opened from a server (a server can have many), and attachments are the browsers viewing a session (several can attach to the same session; the most recently active one drives the terminal size). Host-key trust is per user and per address.
-- Workspace: a session sidebar, tabs and split panes. The layout is stored on the server per user and restored in any browser. Closing a pane only detaches; terminating a session is always explicit, one at a time or with "End all sessions". Ending a session also ends its tmux on the server, at the next connection there if the server cannot be reached now; a server's page lists the Termdock sessions left running there that this installation does not run (another installation, or this one before a database reset), to adopt or end (plan D-30).
+- Workspace: a session sidebar, tabs and split panes. The layout is stored on the server per user and restored in any browser. Closing a pane only detaches; terminating a session is always explicit, one at a time or with "End all sessions". Ending a session also ends its tmux on the server, at the next connection there if the server cannot be reached now; a server's page lists the Termavox sessions left running there that this installation does not run (another installation, or this one before a database reset), to adopt or end (plan D-30).
 - Files (plan D-39): a session's pane can open a file panel beside its terminal that browses the session's server as the session's user, over that session's own SSH connection (SFTP): upload and download several files at once, rename, delete, new folder. Nothing is installed on the server; an admin can turn the panel off and record file operations in the audit log.
 - Login with username + password and optional TOTP (an admin can require it). Admin pages: users, instance settings, audit log.
 - UI language: English by default, pt-BR selectable; both ship in the first release. All strings are externalized.
 - Terminal rendering inside panes is xterm.js; the app chrome around it is ours to design.
-- License: AGPL-3.0-only (plan D-24). Public repository `github.com/ativaone/termdock`; the project site with the documentation and the user help is on GitHub Pages, and the app's help button and "Learn more" links open it (plan D-40).
+- License: AGPL-3.0-only (plan D-24). Public repository `github.com/ativaone/termavox`; the project site with the documentation and the user help is on GitHub Pages, and the app's help button and "Learn more" links open it (plan D-40).
 
 ## Brand Commitments
 
-The name is Termdock. No other binding brand assets, colors, typography or references exist; the visual identity comes from the design pass.
+The name is Termavox. No other binding brand assets, colors, typography or references exist; the visual identity comes from the design pass.
 
 ## Evidence on Hand
 

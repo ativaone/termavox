@@ -1,6 +1,6 @@
 import '../server-guard.ts';
-import type { TermdockDb } from '@termdock/db';
-import { ErrorCode, TermdockError, uuidv7 } from '@termdock/shared';
+import type { TermavoxDb } from '@termavox/db';
+import { ErrorCode, TermavoxError, uuidv7 } from '@termavox/shared';
 
 /**
  * `audit_events` rows written by web (plan §9 write ownership, §10.2): sign-in, lockout, TOTP,
@@ -42,7 +42,7 @@ export interface AuditInput {
 
 const MAX_USER_AGENT = 256;
 
-export function insertAuditEvent(db: TermdockDb, input: AuditInput): void {
+export function insertAuditEvent(db: TermavoxDb, input: AuditInput): void {
   const at = input.at ?? Date.now();
   db.$client
     .prepare(
@@ -71,7 +71,7 @@ export interface AuditViewer {
 
 function assertAdmin(viewer: AuditViewer): void {
   const roles = (viewer.role ?? '').split(',').map((r) => r.trim());
-  if (!roles.includes('admin')) throw new TermdockError(ErrorCode.Forbidden, 'admin only');
+  if (!roles.includes('admin')) throw new TermavoxError(ErrorCode.Forbidden, 'admin only');
 }
 
 export interface AuditFilter {
@@ -132,7 +132,7 @@ export function parseDetail(json: string | null): Record<string, unknown> | null
 
 /** Newest first, filtered and paginated. Admins only (FORBIDDEN otherwise). */
 export function listAuditEvents(
-  db: TermdockDb,
+  db: TermavoxDb,
   viewer: AuditViewer,
   filter: AuditFilter,
   page: { limit: number; offset: number },
@@ -190,7 +190,7 @@ export function listAuditEvents(
 }
 
 /** Distinct event types present in the log (for the type filter). Admins only. */
-export function listAuditTypes(db: TermdockDb, viewer: AuditViewer): string[] {
+export function listAuditTypes(db: TermavoxDb, viewer: AuditViewer): string[] {
   assertAdmin(viewer);
   const rows = db.$client
     .prepare('SELECT DISTINCT type FROM audit_events ORDER BY type')

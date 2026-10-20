@@ -1,16 +1,16 @@
 /**
- * Remote tmux leftovers (plan D-30, §6.12): the scan of a host's Termdock tmux servers and its
+ * Remote tmux leftovers (plan D-30, §6.12): the scan of a host's Termavox tmux servers and its
  * strict parser, the classification of what it found against the session records, ending the
  * leftovers of sessions the user already ended, and the background sweep a session runs on its
  * own connection once it is ready.
  *
  * Everything read from the host is untrusted (§10.2): the scan reports numbers only (no pane
  * command, title or session name), lines are capped, and a socket name that is not exactly
- * `td-<prefix>-<token>` is dropped. A session that runs in Termdock (any user), and every ended
+ * `tv-<prefix>-<token>` is dropped. A session that runs in Termavox (any user), and every ended
  * session of another user, is never listed, ended or adopted.
  */
-import { REMOTE_SOCKET_PATTERN } from '@termdock/protocol';
-import { ErrorCode, normalizeHostname } from '@termdock/shared';
+import { REMOTE_SOCKET_PATTERN } from '@termavox/protocol';
+import { ErrorCode, normalizeHostname } from '@termavox/shared';
 import { type Logger, silentLogger } from '../config/logger.ts';
 import {
   killServerCommand,
@@ -191,7 +191,7 @@ function closeChannel(channel: ExecChannel): void {
   }
 }
 
-/** Lists this user's Termdock tmux servers on the host (plan D-30). */
+/** Lists this user's Termavox tmux servers on the host (plan D-30). */
 export async function runRemoteScan(
   transport: Transport,
   tmuxPath: string,
@@ -268,7 +268,7 @@ export function classifySocket(
     null,
   );
   if (owner) return { kind: 'ended', owner };
-  return socket.startsWith(`td-${ownPrefix}-`) ? { kind: 'unknown' } : { kind: 'other' };
+  return socket.startsWith(`tv-${ownPrefix}-`) ? { kind: 'unknown' } : { kind: 'other' };
 }
 
 /** A leftover the scan found: the tmux server of an ended session of the acting user. */
@@ -364,7 +364,7 @@ export interface RemoteSweeperOptions {
 
 /**
  * The background sweep (plan D-30): once a session is ready, its own connection lists the user's
- * Termdock tmux servers on the host, ends the leftovers of sessions the user already ended, and
+ * Termavox tmux servers on the host, ends the leftovers of sessions the user already ended, and
  * tells the user (`server.remote_sessions`) about servers no session record knows. At most once
  * per (user, address, user name) every SWEEP_INTERVAL_MS per process; the notice at most once per
  * daemon run per server and set of sockets (the last NOTIFIED_MAX remembered). Detached from the

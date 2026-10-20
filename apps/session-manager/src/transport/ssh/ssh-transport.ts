@@ -1,5 +1,5 @@
 import { Socket } from 'node:net';
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 import type { ClientChannel, ConnectConfig, KeyboardInteractiveCallback, Prompt } from 'ssh2';
 import ssh2 from 'ssh2';
 import type {
@@ -267,7 +267,7 @@ export class SshTransport implements Transport {
         // over our socket: close it, or it would stay connected to the host.
         sock?.destroy();
         settle(
-          new TermdockError(
+          new TermavoxError(
             ErrorCode.CredentialInvalid,
             `invalid private key: ${(err as Error).message}`,
           ),
@@ -304,7 +304,7 @@ export class SshTransport implements Transport {
   async openSftp(): Promise<SftpSession> {
     const client = this.#client;
     if (this.#state !== 'ready' || !client) {
-      throw new TermdockError(ErrorCode.SessionNotConnected, 'the session is not connected');
+      throw new TermavoxError(ErrorCode.SessionNotConnected, 'the session is not connected');
     }
     return openSshSftp(client, { connected: () => this.#state === 'ready' });
   }
@@ -355,12 +355,12 @@ function mapConnectError(
   kiPending: boolean,
 ): Error {
   // Refused by the target policy before any connection was made.
-  if (err instanceof TermdockError && err.code === ErrorCode.TargetNotAllowed) return err;
+  if (err instanceof TermavoxError && err.code === ErrorCode.TargetNotAllowed) return err;
   if (failure?.kind === 'host-key') {
     const { key } = failure;
     if (failure.decision === 'mismatch' || failure.decision === 'revoked') {
       const revoked = failure.decision === 'revoked';
-      return new TermdockError(
+      return new TermavoxError(
         ErrorCode.HostKeyMismatch,
         `host key mismatch: presented ${revoked ? 'revoked ' : ''}${key.type} ${key.fingerprint}`,
         {
@@ -369,30 +369,30 @@ function mapConnectError(
         },
       );
     }
-    return new TermdockError(
+    return new TermavoxError(
       ErrorCode.HostKeyRejected,
       `unknown host key ${key.type} ${key.fingerprint}`,
       { pending: { type: key.type, fingerprint: key.fingerprint, publicKeyB64: key.publicKeyB64 } },
     );
   }
   if (failure?.kind === 'host-key-error') {
-    return new TermdockError(ErrorCode.HostKeyRejected, `host key rejected: ${failure.message}`);
+    return new TermavoxError(ErrorCode.HostKeyRejected, `host key rejected: ${failure.message}`);
   }
   if (failure?.kind === 'ki-timeout') {
-    return new TermdockError(ErrorCode.AuthTimeout, 'keyboard-interactive prompt expired');
+    return new TermavoxError(ErrorCode.AuthTimeout, 'keyboard-interactive prompt expired');
   }
   if (failure?.kind === 'ki-rejected') {
-    return new TermdockError(
+    return new TermavoxError(
       ErrorCode.AuthRejected,
       'keyboard-interactive prompt cannot be answered',
     );
   }
   if (err.level === 'client-authentication') {
-    return new TermdockError(ErrorCode.AuthRejected, 'authentication rejected');
+    return new TermavoxError(ErrorCode.AuthRejected, 'authentication rejected');
   }
   if (err.level === 'client-timeout' && (kiPending || hostVerified)) {
     // Host verified but no 'ready' in time: authentication stalled.
-    return new TermdockError(ErrorCode.AuthTimeout, 'authentication timed out');
+    return new TermavoxError(ErrorCode.AuthTimeout, 'authentication timed out');
   }
   return new TransportError(ErrorCode.HostUnreachable, `SSH connect failed: ${err.message}`, true);
 }

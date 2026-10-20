@@ -1,4 +1,4 @@
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 import { describe, expect, it } from 'vitest';
 import { SftpError, SftpStatus, TransportError } from '../../src/core/types.ts';
 import { fileError, SERVER_MESSAGE_MAX } from '../../src/files/errors.ts';
@@ -9,7 +9,7 @@ const codeOf = (fn: () => unknown): string | null => {
     fn();
     return null;
   } catch (err) {
-    return (err as TermdockError).code;
+    return (err as TermavoxError).code;
   }
 };
 
@@ -22,9 +22,9 @@ describe('remote paths', () => {
   });
 
   it('splits a path that names an entry into its folder and name', () => {
-    expect(namedPath('/home/td/new folder')).toEqual({
-      path: '/home/td/new folder',
-      parent: '/home/td',
+    expect(namedPath('/home/tv/new folder')).toEqual({
+      path: '/home/tv/new folder',
+      parent: '/home/tv',
       name: 'new folder',
     });
     expect(namedPath('/x')).toEqual({ path: '/x', parent: '/', name: 'x' });
@@ -44,8 +44,8 @@ describe('remote paths', () => {
   });
 
   it('accepts only absolute, bounded, NUL-free paths from the server', () => {
-    expect(isRemotePath('/home/td')).toBe(true);
-    expect(isRemotePath('home/td')).toBe(false);
+    expect(isRemotePath('/home/tv')).toBe(true);
+    expect(isRemotePath('home/tv')).toBe(false);
     expect(isRemotePath('/a\0b')).toBe(false);
     expect(isRemotePath(`/${'a'.repeat(4096)}`)).toBe(false);
     expect(isRemotePath(42)).toBe(false);
@@ -90,8 +90,8 @@ describe('file errors', () => {
     });
   });
 
-  it('passes TermdockErrors through and treats transport errors as not connected', () => {
-    const conflict = new TermdockError(ErrorCode.Conflict, 'exists');
+  it('passes TermavoxErrors through and treats transport errors as not connected', () => {
+    const conflict = new TermavoxError(ErrorCode.Conflict, 'exists');
     expect(fileError(conflict)).toBe(conflict);
     expect(mapped(new TransportError(ErrorCode.HostUnreachable, 'down', true)).code).toBe(
       ErrorCode.SessionNotConnected,

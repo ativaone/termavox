@@ -1,6 +1,6 @@
 'use client';
 
-import type { FileEntry } from '@termdock/protocol/client';
+import type { FileEntry } from '@termavox/protocol/client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SessionFiles } from '../../lib/files/client.ts';
 import { FileCode, fileErrorCode } from '../../lib/files/errors.ts';

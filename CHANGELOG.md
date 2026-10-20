@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Termdock are recorded here. The format follows
+All notable changes to Termavox are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
@@ -11,50 +11,18 @@ externally audited. Read the [security model](docs/security.md) before you expos
 
 ### Upgrade notes
 
-A new install needs nothing from this list. It is for development builds of `main` from before
-v0.1.0:
-
-- Installs now run the published images. Check out the release tag, then `docker compose -f
-  deploy/compose.yaml pull` and `docker compose -f deploy/compose.yaml up -d`; installs built from
-  source keep `up -d --build`. The Caddyfile is part of the Caddy image: `deploy/Caddyfile` is no
-  longer mounted, and a change to it reaches Caddy with a new image.
-- Caddy now runs as UID/GID 10002 instead of root. The caddy volumes of a development build belong
-  to root, and Caddy cannot read them. Once, before `up -d`, give them to the new user;
-  certificates and the local CA are kept:
-
-  ```bash
-  docker run --rm --network none \
-    -v termdock_caddy-data:/data -v termdock_caddy-config:/config \
-    --entrypoint chown caddy:2@sha256:685ae3d7c34d9b5f8caeddc5d14051db7bbd88ff1f5a2fa0c16bd8ca328fb7af \
-    -R 10002:10002 /data /config
-  ```
-
-  Without it, Caddy keeps restarting with `permission denied` under `/data/caddy`.
-- Behind your own reverse proxy, file panel uploads need it to pass request bodies of any size
-  without buffering them: for nginx, add `client_max_body_size 0;`, `proxy_request_buffering off;`
-  and `proxy_send_timeout 1h;` to the Termdock `location` (install guide, "Behind a reverse
-  proxy"). Without them nginx refuses files over 1 MB, and the panel says a proxy refused the file.
-- With `TERMDOCK_TLS=off`, Caddy now answers `503` until `TERMDOCK_REVERSE_PROXY` names the reverse
-  proxy (the install guide always required it). Without it every user shared the proxy's address,
-  and with it one sign-in lockout and rate limit.
-- Certificates from Caddy's local CA (`TERMDOCK_TLS=internal`) now last 30 days instead of 12
-  hours. A `localhost` or IP install that never set `TERMDOCK_TLS` uses `auto`, which keeps 12-hour
-  certificates there: add `TERMDOCK_TLS=internal` to `deploy/.env`. Caddy switches within about a
-  week, once it renews its intermediate certificate; nothing else needs to change.
-- Development builds of `main` from before servers replaced hosts and connection profiles
-  (plan D-29) cannot be migrated: start from an empty database as described in the
-  installation guide, [Upgrades](docs/guides/install.md#upgrades), "When the notes say the data
-  cannot be migrated". Protected sessions still running on your servers afterwards are listed
-  on each server's page under "Sessions on this server", where you can adopt or end them.
+A new install needs nothing here. A development build of `main` from before v0.1.0 cannot be
+upgraded: remove it together with its volumes and install fresh from a new clone, as the
+[installation guide](docs/guides/install.md) describes.
 
 ### Added
 
 - Published images: each release puts three images on GitHub's container registry, for
-  `linux/amd64` and `linux/arm64` (`ghcr.io/ativaone/termdock-caddy`, `-web` and
+  `linux/amd64` and `linux/arm64` (`ghcr.io/ativaone/termavox-caddy`, `-web` and
   `-session-manager`), tagged with the version and built, tested and published by the release
   workflow; installs no longer need to build anything. `deploy/compose.yaml` names them and keeps
   its build sections for installs from source.
-- A project site at https://ativaone.github.io/termdock, in English and Brazilian Portuguese: a
+- A project site at https://ativaone.github.io/termavox, in English and Brazilian Portuguese: a
   home page with screenshots, and a documentation area with the installation guide, the
   configuration reference, the architecture, the security model and this changelog, rendered
   from the repository's docs at every change. Every page carries search and link-preview
@@ -79,11 +47,11 @@ v0.1.0:
   a new password at the next sign-in. `--reset-totp` also resets TOTP, for a lost authenticator
   whose backup codes are gone too. The audit log now labels every reset "Password reset" or
   "Two-step reset", and its actor column says who did it.
-- Running behind your own reverse proxy (nginx, Traefik…) that terminates TLS: `TERMDOCK_TLS=off`
-  serves plain HTTP, `TERMDOCK_BIND_ADDRESS` keeps the port on loopback, and
-  `TERMDOCK_REVERSE_PROXY` names the proxy so each user's own address is still seen. The install
+- Running behind your own reverse proxy (nginx, Traefik…) that terminates TLS: `TERMAVOX_TLS=off`
+  serves plain HTTP, `TERMAVOX_BIND_ADDRESS` keeps the port on loopback, and
+  `TERMAVOX_REVERSE_PROXY` names the proxy so each user's own address is still seen. The install
   guide has a section for it, with an nginx example.
-- A tip in the pane when you start tmux inside a protected session: Termdock already keeps the
+- A tip in the pane when you start tmux inside a protected session: Termavox already keeps the
   session running, and without a tmux inside it scrolling, selection and copy work in the
   browser. "Don't show again" turns it off; terminal settings turn it back on.
 - Persistent SSH sessions owned by the server: closing the browser, losing the network or
@@ -104,7 +72,7 @@ v0.1.0:
   password, a saved credential or none), then shows the public key with the command that
   installs it and starts a session in one click.
 - Phone support: responsive layout and an extra-key bar (Esc, Tab, Ctrl, Alt, arrows, paste).
-- The Termdock mark as the browser icon, and a web app manifest, so a pinned tab, a taskbar
+- The Termavox mark as the browser icon, and a web app manifest, so a pinned tab, a taskbar
   shortcut or an installed app shows it too.
 - Multi-user with strict per-user isolation of servers, credentials, host keys and sessions.
 - SSH authentication with private keys (with passphrase), passwords and keyboard-interactive
@@ -119,12 +87,12 @@ v0.1.0:
 - Docker Compose deployment behind Caddy (automatic HTTPS), hardened containers, backup and
   restore scripts.
 - Master key rotation, all or nothing and after a backup: `deploy/scripts/rotate-master-key.sh`.
-- Audit and session-event retention: rows older than `TERMDOCK_EVENT_RETENTION_DAYS` (default
+- Audit and session-event retention: rows older than `TERMAVOX_EVENT_RETENTION_DAYS` (default
   180, `0` keeps them forever) are purged in small chunks every 6 hours.
-- Ending a session reaches its server: when the session is not connected, Termdock connects
+- Ending a session reaches its server: when the session is not connected, Termavox connects
   just to end its tmux there. If it cannot, the session ends anyway, its pane says so, and the
   next connection to that server ends the leftover.
-- Leftover sessions are found: when a session connects, Termdock looks for Termdock tmux
+- Leftover sessions are found: when a session connects, Termavox looks for Termavox tmux
   sessions on that server it does not run (another installation, or this one before a database
   reset) and points to them from the workspace. The server's page lists them under "Sessions on
   this server" with Adopt (open it as a session of that server) and End. Leftovers of sessions
@@ -144,7 +112,7 @@ v0.1.0:
   capability; it binds ports 80 and 443 (TCP and UDP) through its own container's
   `net.ipv4.ip_unprivileged_port_start=0` sysctl. The Caddyfile is baked into its image.
 - Release images carry a signed build provenance attestation: `gh attestation verify
-  oci://ghcr.io/ativaone/termdock-web:<version> --repo ativaone/termdock`.
+  oci://ghcr.io/ativaone/termavox-web:<version> --repo ativaone/termavox`.
 - Vulnerabilities are reported privately through GitHub (`SECURITY.md`); only the latest release
   is supported.
 
@@ -153,7 +121,7 @@ Hardening from the internal pre-release security review:
 - A host key the owner revoked now fails closed like any mismatch; it can only be trusted again
   through the explicit replace flow.
 - SSH targets on loopback, link-local, multicast or the daemon's own addresses are refused by
-  default (`TERMDOCK_SSH_ALLOW_LOCAL_TARGETS=true` allows them); host tests are rate-limited.
+  default (`TERMAVOX_SSH_ALLOW_LOCAL_TARGETS=true` allows them); host tests are rate-limited.
 - Resource caps: idle runtimes of stopped sessions are evicted, WebSocket connections and
   attachments are capped per user, in-flight messages are bounded per connection, and the
   Compose services have memory and process limits.
@@ -161,7 +129,7 @@ Hardening from the internal pre-release security review:
 - Profile values the launch cannot pass safely are rejected by the form and park the session
   instead of reconnecting in a loop.
 - Terminal hyperlinks (OSC 8) go through the same confirmation and scheme filter as other links.
-- Keyboard-interactive prompts always carry Termdock's own framing; host text is capped and
+- Keyboard-interactive prompts always carry Termavox's own framing; host text is capped and
   stripped of control and invisible formatting characters, as are terminal titles.
 - WebSockets close right away after a password change, sign-out or TOTP reset.
 - SHA-1 `ssh-rsa` host-key signatures are no longer offered.
@@ -176,7 +144,7 @@ From the second internal review (2026-10-19):
   be cleared early by flooding failures for other usernames.
 - `/api/auth/*` serves only the workspace's session keep-alive. Better Auth's other endpoints,
   which the app never used, answer 404: an anonymous check of which usernames exist, users
-  editing the display name admins see, and raw admin endpoints that skipped Termdock's own
+  editing the display name admins see, and raw admin endpoints that skipped Termavox's own
   checks and audit log.
 - Pasting into a terminal removes control characters first, so clipboard text cannot end a
   bracketed paste early and run commands as if typed.
@@ -215,4 +183,4 @@ users of that server:
 - A download's audit row is written when it ends, with the bytes transferred and whether it
   completed. SFTP server messages are cleaned before they reach error answers and logs.
 
-[Unreleased]: https://github.com/ativaone/termdock/commits/main
+[Unreleased]: https://github.com/ativaone/termavox/commits/main

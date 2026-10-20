@@ -12,7 +12,7 @@ type MatcherConfig = Parameters<typeof unstable_doesMiddlewareMatch>[0]['config'
 const runsProxy = (path: string, headers: Record<string, string> = {}): boolean =>
   unstable_doesMiddlewareMatch({
     config: config as MatcherConfig,
-    url: `http://termdock.test${path}`,
+    url: `http://termavox.test${path}`,
     headers,
   });
 

@@ -48,7 +48,7 @@ describe('web logger redaction (I3)', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     consoleLogger.warn('failed {"cookie":"session=1"}', { token: 't', status: 401 });
     expect(warn).toHaveBeenCalledWith(
-      '[termdock] WARN failed {"cookie":"[redacted]"} {"token":"[redacted]","status":401}',
+      '[termavox] WARN failed {"cookie":"[redacted]"} {"token":"[redacted]","status":401}',
     );
   });
 });

@@ -1,4 +1,4 @@
-// T1, spike S5: lifecycle of the protected session (core tmux images; TD_TMUX_IMAGES to
+// T1, spike S5: lifecycle of the protected session (core tmux images; TV_TMUX_IMAGES to
 // override). systemd/logind (KillUserProcesses, linger, systemd-run) cannot be exercised: the
 // approved images have no systemd (ADR-0003, untested).
 // Precondition: docker compose -f test/sshd/compose.yaml up -d --build

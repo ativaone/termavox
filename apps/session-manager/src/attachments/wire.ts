@@ -1,4 +1,4 @@
-import { encodeFrame, FrameFlag, FrameType, type ServerMessage } from '@termdock/protocol';
+import { encodeFrame, FrameFlag, FrameType, type ServerMessage } from '@termavox/protocol';
 
 /**
  * Runtime → attachment wire format (the bytes passed to `AttachmentHandle.send`).

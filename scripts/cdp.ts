@@ -368,15 +368,15 @@ function devtoolsUrl(child: ChildProcess): Promise<string> {
 }
 
 /**
- * The local headless Chromium: `TERMDOCK_SMOKE_CHROME`, else the newest
+ * The local headless Chromium: `TERMAVOX_SMOKE_CHROME`, else the newest
  * `~/.cache/ms-playwright/chromium_headless_shell-<rev>/chrome-headless-shell-linux64/chrome-headless-shell`.
  * It is a machine prerequisite like Docker, not a project dependency.
  */
 export function findChromium(): string {
-  const configured = process.env.TERMDOCK_SMOKE_CHROME;
+  const configured = process.env.TERMAVOX_SMOKE_CHROME;
   if (configured) {
     if (!existsSync(configured))
-      throw new Error(`TERMDOCK_SMOKE_CHROME=${configured} does not exist`);
+      throw new Error(`TERMAVOX_SMOKE_CHROME=${configured} does not exist`);
     return configured;
   }
   const cache = join(homedir(), '.cache', 'ms-playwright');
@@ -392,7 +392,7 @@ export function findChromium(): string {
     throw new Error(
       'no headless Chromium found. The real web UI is driven over the DevTools protocol, which ' +
         'needs a local Chromium binary (it is not a project dependency). Set ' +
-        'TERMDOCK_SMOKE_CHROME to a chrome-headless-shell or chromium executable, or install ' +
+        'TERMAVOX_SMOKE_CHROME to a chrome-headless-shell or chromium executable, or install ' +
         `one under ${cache}/chromium_headless_shell-<rev>/chrome-headless-shell-linux64/.`,
     );
   }

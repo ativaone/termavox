@@ -34,13 +34,13 @@ export async function fetchWsTicket(): Promise<WsTicket> {
 function envWsUrl(): string | undefined {
   try {
     // Inlined by Next.js at build time; must stay a literal `process.env.NEXT_PUBLIC_*` access.
-    return process.env.NEXT_PUBLIC_TERMDOCK_WS_URL || undefined;
+    return process.env.NEXT_PUBLIC_TERMAVOX_WS_URL || undefined;
   } catch {
     return undefined;
   }
 }
 
-/** The WebSocket URL: the explicit override, else NEXT_PUBLIC_TERMDOCK_WS_URL, else same-origin `/ws`. */
+/** The WebSocket URL: the explicit override, else NEXT_PUBLIC_TERMAVOX_WS_URL, else same-origin `/ws`. */
 export function resolveWsUrl(
   override?: string,
   location: Pick<Location, 'protocol' | 'host'> | undefined = globalThis.location,

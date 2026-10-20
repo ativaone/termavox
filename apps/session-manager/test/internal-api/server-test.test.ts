@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
 import { fileURLToPath } from 'node:url';
-import type { TermdockDb } from '@termdock/db';
-import { ServerTestResponse } from '@termdock/protocol';
+import type { TermavoxDb } from '@termavox/db';
+import { ServerTestResponse } from '@termavox/protocol';
 import ssh2 from 'ssh2';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { CredentialProvider, HostKeyTarget } from '../../src/core/types.ts';
@@ -65,7 +65,7 @@ afterEach(async () => {
 });
 
 /** A credentials row for the FK; the fake provider below hands out the secret. */
-function insertCredential(db: TermdockDb, userId: string): string {
+function insertCredential(db: TermavoxDb, userId: string): string {
   const id = `cred-${userId}`;
   db.$client
     .prepare(

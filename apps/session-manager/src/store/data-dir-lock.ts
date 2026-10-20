@@ -1,5 +1,5 @@
 import { dirname, join } from 'node:path';
-import { type FileLock, tryFileLock } from '@termdock/db';
+import { type FileLock, tryFileLock } from '@termavox/db';
 
 /** The lock file, next to the database (`<data dir>/session-manager.lock`). */
 export const DATA_DIR_LOCK_NAME = 'session-manager.lock';

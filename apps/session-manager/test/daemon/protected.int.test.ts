@@ -1,5 +1,5 @@
 // T1: Phase 3 exit criteria through the real daemon (SQLite stores, vault, internal API, WS with
-// tickets) on the core tmux images (TD_TMUX_IMAGES to override, e.g. tmux-3.4). The daemon
+// tickets) on the core tmux images (TV_TMUX_IMAGES to override, e.g. tmux-3.4). The daemon
 // reaches sshd through a local TCP proxy, so a test can drop its SSH connection (network drop)
 // or abandon it while sshd keeps its side open (daemon death the remote does not notice).
 // Precondition: docker compose -f test/sshd/compose.yaml up -d --build
@@ -145,7 +145,7 @@ describe.each(IMAGES)('protected session through the daemon (%s)', (image) => {
 
     await daemon.shutdown();
     expect(client.messages.some((m) => m.type === 'server.shutting_down')).toBe(true);
-    // Phase 4 E: no Termdock control client is left and the tmux session lives on.
+    // Phase 4 E: no Termavox control client is left and the tmux session lives on.
     expect(await clients()).toEqual([]);
     expect((await tmuxExec(env, socket, 'has-session -t main')).code).toBe(0);
 

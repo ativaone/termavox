@@ -17,13 +17,13 @@
 %sessions-changed
 %session-changed $0 main
 %window-renamed @0 bash
-%output %0 \033[?2004htd-tmux-edge:~$ 
+%output %0 \033[?2004htv-tmux-edge:~$ 
 %begin 1792095356 322 1
 %end 1792095356 322 1
-%output %0 printf 'caf\134303\134251 \134344\134270\134255\134346\134226\134207 \134360\134237\134230\134200 \134033[1mB\134033[0m \134\134 \134a|\134t|\134n'\015\012\033[?2004l\015café 中文 😀 \033[1mB\033[0m \134 \007|\011|\015\012\033[?2004htd-tmux-edge:~$ 
+%output %0 printf 'caf\134303\134251 \134344\134270\134255\134346\134226\134207 \134360\134237\134230\134200 \134033[1mB\134033[0m \134\134 \134a|\134t|\134n'\015\012\033[?2004l\015café 中文 😀 \033[1mB\033[0m \134 \007|\011|\015\012\033[?2004htv-tmux-edge:~$ 
 %begin 1792095357 323 1
 %end 1792095357 323 1
-%output %0 echo é中😀\015\012\033[?2004l\015é中😀\015\012\033[?2004htd-tmux-edge:~$ 
+%output %0 echo é中😀\015\012\033[?2004l\015é中😀\015\012\033[?2004htv-tmux-edge:~$ 
 %begin 1792095357 324 1
 ok %0 80x24
 %end 1792095357 324 1
@@ -48,13 +48,13 @@ three
 %begin 1792095357 331 1
 %end 1792095357 331 1
 %layout-change @0 a87d,100x30,0,0,0 a87d,100x30,0,0,0 *
-%output %0 \015\033[K\015td-tmux-edge:~$ 
+%output %0 \015\033[K\015tv-tmux-edge:~$ 
 %begin 1792095358 332 1
-td-tmux-edge:~$ printf 'caf\303\251 \344\270\255\346\226\207 \360\237\230\200 \033[1mB\033[0m \\ \a|\t|\n'
+tv-tmux-edge:~$ printf 'caf\303\251 \344\270\255\346\226\207 \360\237\230\200 \033[1mB\033[0m \\ \a|\t|\n'
 café 中文 😀 [1mB[0m \ |	|
-td-tmux-edge:~$ echo é中😀
+tv-tmux-edge:~$ echo é中😀
 é中😀
-td-tmux-edge:~$ 
+tv-tmux-edge:~$ 
 
 
 
@@ -90,7 +90,7 @@ td-tmux-edge:~$
 
 %end 1792095358 335 1
 %begin 1792095358 336 1
-td-mrvjwt5h2dzq
+tv-mrvjwt5h2dzq
 %end 1792095358 336 1
 %begin 1792095358 337 1
 before
@@ -110,7 +110,7 @@ can't find pane: %99
 %continue %0
 %begin 1792095359 343 1
 %end 1792095359 343 1
-%extended-output %0 0 : echo after\015\012\033[?2004l\015after\015\012\033[?2004htd-tmux-edge:~$ 
+%extended-output %0 0 : echo after\015\012\033[?2004l\015after\015\012\033[?2004htv-tmux-edge:~$ 
 %begin 1792095359 344 1
 %message msg-text
 %end 1792095359 344 1

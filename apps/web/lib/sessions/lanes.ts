@@ -1,4 +1,4 @@
-import type { SessionStatus } from '@termdock/protocol/client';
+import type { SessionStatus } from '@termavox/protocol/client';
 import type { BaySession } from './types.ts';
 
 /** The bay lists at most this many ended sessions (plan §11.1). */

@@ -19,7 +19,7 @@ the final release needs only step 11.
 2. **Project site.** Read the user help (both languages) against `[Unreleased]` in the
    changelog: every user-visible change is explained, nothing unshipped is described. The home
    pages still match the README. After the push, the Pages workflow passed and
-   https://ativaone.github.io/termdock shows the new help and guides (the `site` skill).
+   https://ativaone.github.io/termavox shows the new help and guides (the `site` skill).
 3. **Screenshots, when the UI changed significantly.** Refresh `docs/screenshots/` (the images
    its README and the project README show) from a real run (`scripts/ui-capture.ts`): desktop
    1440×900 at 1x, phone 390×844 at 2x, default font hinting. Otherwise optional: worth doing
@@ -35,8 +35,8 @@ the final release needs only step 11.
    next `-rc.N` (release tags cannot be moved or deleted).
 5. **The published images.** The three packages under https://github.com/orgs/ativaone/packages
    are public (a package's first push can land private: Package settings → Change visibility);
-   `gh attestation verify oci://ghcr.io/ativaone/termdock-web:X.Y.Z-rc.N --repo ativaone/termdock`
-   passes, and the same for `termdock-session-manager` and `termdock-caddy`.
+   `gh attestation verify oci://ghcr.io/ativaone/termavox-web:X.Y.Z-rc.N --repo ativaone/termavox`
+   passes, and the same for `termavox-session-manager` and `termavox-caddy`.
 
 ## On an install of the candidate's images
 

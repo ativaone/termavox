@@ -11,8 +11,8 @@ import {
   type ServerMessage,
   signTicket,
   TRANSFER_PATH,
-} from '@termdock/protocol';
-import { ErrorCode, TermdockError } from '@termdock/shared';
+} from '@termavox/protocol';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 import { pino } from 'pino';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { type FileHost, SftpError, SftpStatus } from '../../src/core/types.ts';
@@ -28,7 +28,7 @@ import { until } from '../runtime/fakes.ts';
 import { TestClient } from '../ws/client.ts';
 import { MemorySftp } from './memory-sftp.ts';
 
-const ORIGIN = 'https://termdock.test';
+const ORIGIN = 'https://termavox.test';
 const SECRET = new TextEncoder().encode('test-secret-test-secret-test-secret!');
 const UPLOAD_IDLE_MS = 1_000;
 type Progress = Extract<ServerMessage, { type: 'transfer.progress' }>;
@@ -43,7 +43,7 @@ class FakeFileHost implements FileHost {
 
   async sftp(): Promise<MemorySftp> {
     if (!this.ready) {
-      throw new TermdockError(ErrorCode.SessionNotConnected, 'the session is not connected');
+      throw new TermavoxError(ErrorCode.SessionNotConnected, 'the session is not connected');
     }
     return this.fs;
   }
@@ -251,7 +251,7 @@ describe('uploads', () => {
     expect(host.fs.openHandles).toBe(0);
     // Written to a hidden temporary name first, then renamed into place.
     expect(host.fs.ops.find((op) => op.startsWith('open'))).toMatch(
-      /^open \/data\/\.report\.pdf\.td-[0-9a-f]{8}\.part$/,
+      /^open \/data\/\.report\.pdf\.tv-[0-9a-f]{8}\.part$/,
     );
     const progress = await finalOf(transferId).then(() => progressOf(transferId));
     expect(progress[0]).toMatchObject({ state: 'running', bytes: 0, size: content.length });
@@ -381,7 +381,7 @@ describe('uploads', () => {
     expect(host.fs.modeOf('/data/conf')).toBe(0o600);
     const commit = host.fs.ops.filter((op) => /^(unlink|rename|posixRename) /.test(op));
     expect(commit[0]).toBe('unlink /data/conf');
-    expect(commit[1]).toMatch(/^rename \/data\/\.conf\.td-[0-9a-f]{8}\.part \/data\/conf$/);
+    expect(commit[1]).toMatch(/^rename \/data\/\.conf\.tv-[0-9a-f]{8}\.part \/data\/conf$/);
     expect(commit).toHaveLength(2);
   });
 
@@ -416,7 +416,7 @@ describe('uploads', () => {
         body: { code: ErrorCode.Conflict },
       });
       expect(fs.content('/data/race.txt')!.toString()).toBe('other');
-      expect(fs.ops.some((op) => /^rename \/data\/\.race\.txt\.td-/.test(op))).toBe(
+      expect(fs.ops.some((op) => /^rename \/data\/\.race\.txt\.tv-/.test(op))).toBe(
         appearsOn === 'rename',
       );
       expect(tempFiles()).toEqual([]);
@@ -695,7 +695,7 @@ describe('every transfer', () => {
     gate.resolve();
     await until(
       () =>
-        host.fs.ops.some((op) => /^unlink \/data\/\.late\.bin\.td-/.test(op)) &&
+        host.fs.ops.some((op) => /^unlink \/data\/\.late\.bin\.tv-/.test(op)) &&
         tempFiles().length === 0 &&
         host.fs.openHandles === 0,
     );

@@ -1,12 +1,12 @@
 ---
 name: site
-description: How the Termdock project site works (site/, GitHub Pages, plan D-40) and what to change there when the product changes. Use when editing the user help, the home pages or the documentation index, when a user-visible behaviour, status, message or setting changes, when the README, a guide in docs/ or the screenshots change, when adding a guide, or when building, previewing or publishing the site. Triggers: site, project site, GitHub Pages, help page, user guide, documentation area, Learn more link, help anchor, site/build.ts, pages.yml.
+description: How the Termavox project site works (site/, GitHub Pages, plan D-40) and what to change there when the product changes. Use when editing the user help, the home pages or the documentation index, when a user-visible behaviour, status, message or setting changes, when the README, a guide in docs/ or the screenshots change, when adding a guide, or when building, previewing or publishing the site. Triggers: site, project site, GitHub Pages, help page, user guide, documentation area, Learn more link, help anchor, site/build.ts, pages.yml.
 ---
 
 # The project site
 
 Published by `.github/workflows/pages.yml` on every push to `main` that touches `site/`, `docs/`
-or `CHANGELOG.md`, at https://ativaone.github.io/termdock. Its look is the app's
+or `CHANGELOG.md`, at https://ativaone.github.io/termavox. Its look is the app's
 (`apps/web/DESIGN.md`); the page-level direction is `site/.impeccable/surfaces/site-help.md`.
 
 ## What lives where
@@ -44,11 +44,11 @@ type (persistent SSH in the browser, tmux, web SSH client, VPS or development se
 alternative to Apache Guacamole for terminals), never as a keyword list. The build adds the
 canonical URL, the hreflang pairs, Open Graph and Twitter cards and schema.org data
 (`site/lib/seo.ts`), and writes `sitemap.xml`; `site/test/build.test.ts` checks all of it.
-Named tools appear only where they help someone find Termdock, never in a comparison table.
+Named tools appear only where they help someone find Termavox, never in a comparison table.
 
 ## Build, test, preview
 
-- `pnpm --filter @termdock/site build` writes `site/dist/` (gitignored).
+- `pnpm --filter @termavox/site build` writes `site/dist/` (gitignored).
 - `site/test` runs in `pnpm check`: help parity and coverage, guide coverage, and a link checker
   over the built site (every relative link, asset and anchor must resolve).
 - Preview: serve `site/dist` with any static server (`python3 -m http.server -d site/dist`);

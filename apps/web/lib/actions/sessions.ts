@@ -1,6 +1,6 @@
 'use server';
 
-import { SessionLabelInput, Viewport } from '@termdock/protocol';
+import { SessionLabelInput, Viewport } from '@termavox/protocol';
 import { getTranslations } from 'next-intl/server';
 import { z } from 'zod';
 import { requireSession } from '../auth/server.ts';
@@ -140,7 +140,7 @@ export async function terminateSession(sessionId: string): Promise<SessionAction
 
 /**
  * "End all sessions" (plan D-30): every session of the signed-in user that has not ended starts
- * ending, on its server too (a protected session's tmux is ended there, or as soon as Termdock can
+ * ending, on its server too (a protected session's tmux is ended there, or as soon as Termavox can
  * reach the server again). Resolves once each one is ending; the ends arrive on the WebSocket as
  * `session.status`.
  *

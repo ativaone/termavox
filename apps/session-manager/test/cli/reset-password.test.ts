@@ -3,8 +3,8 @@ import { createServer, type IncomingMessage } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { RevokeAuthSessionsRequest } from '@termdock/protocol';
-import { hashPassword, uuidv7, verifyPassword } from '@termdock/shared';
+import { RevokeAuthSessionsRequest } from '@termavox/protocol';
+import { hashPassword, uuidv7, verifyPassword } from '@termavox/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   closeConnectionsViaInternalApi,
@@ -319,7 +319,7 @@ describe('reset-password (plan D-36)', () => {
 
   it('never creates a database at a wrong path', async () => {
     fixture = tempDb();
-    const empty = mkdtempSync(join(tmpdir(), 'termdock-reset-'));
+    const empty = mkdtempSync(join(tmpdir(), 'termavox-reset-'));
     cleanups.push(() => rmSync(empty, { recursive: true, force: true }));
     const run = io();
     const code = await runResetPassword(['--data-dir', empty, 'alice'], run.io, fakeDeps().deps);
@@ -368,15 +368,15 @@ describe('closing the WebSockets through the internal API', () => {
     });
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     cleanups.push(() => server.close());
-    const dir = mkdtempSync(join(tmpdir(), 'termdock-reset-token-'));
+    const dir = mkdtempSync(join(tmpdir(), 'termavox-reset-token-'));
     cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
     const token = 'f'.repeat(64);
     const tokenFile = join(dir, 'internal_token');
     writeFileSync(tokenFile, `${token}\n`);
     const env = {
-      TERMDOCK_INTERNAL_TOKEN_FILE: tokenFile,
-      TERMDOCK_INTERNAL_HOST: '127.0.0.1',
-      TERMDOCK_INTERNAL_PORT: String((server.address() as AddressInfo).port),
+      TERMAVOX_INTERNAL_TOKEN_FILE: tokenFile,
+      TERMAVOX_INTERNAL_HOST: '127.0.0.1',
+      TERMAVOX_INTERNAL_PORT: String((server.address() as AddressInfo).port),
     };
     return { requests, env, token };
   }
@@ -396,7 +396,7 @@ describe('closing the WebSockets through the internal API', () => {
     const daemon = await fakeDaemon(401);
     expect(await closeConnectionsViaInternalApi(daemon.env, 'user-1')).toBe(false);
     expect(
-      await closeConnectionsViaInternalApi({ ...daemon.env, TERMDOCK_INTERNAL_PORT: '1' }, 'u'),
+      await closeConnectionsViaInternalApi({ ...daemon.env, TERMAVOX_INTERNAL_PORT: '1' }, 'u'),
     ).toBe(false);
     expect(await closeConnectionsViaInternalApi({}, 'user-1')).toBe(false);
   });

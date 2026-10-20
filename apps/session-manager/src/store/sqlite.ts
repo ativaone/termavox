@@ -1,12 +1,12 @@
-import type { TermdockDb } from '@termdock/db';
+import type { TermavoxDb } from '@termavox/db';
 
 /**
- * The raw better-sqlite3 connection behind a `TermdockDb`. Daemon stores use prepared SQL over
- * it (session-manager depends on `@termdock/db` only, not on drizzle-orm's query operators);
+ * The raw better-sqlite3 connection behind a `TermavoxDb`. Daemon stores use prepared SQL over
+ * it (session-manager depends on `@termavox/db` only, not on drizzle-orm's query operators);
  * the column names are the migration's (`packages/db/drizzle`). Timestamps are epoch ms
  * integers and booleans 0/1, as in the schema.
  */
-export type Sqlite = TermdockDb['$client'];
+export type Sqlite = TermavoxDb['$client'];
 const prepare = (sqlite: Sqlite, sql: string) => sqlite.prepare<unknown[], unknown>(sql);
 export type Statement = ReturnType<typeof prepare>;
 

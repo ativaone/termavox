@@ -32,19 +32,19 @@ describe('server form launch values (M1)', () => {
       expect(issues(serverForm({ startupCommand: `echo ${bad} done` }))).toEqual({
         startupCommand: 'startupControl',
       });
-      expect(issues(serverForm({ env: [['TD_X', bad]] }))).toEqual({ env: 'envValueControl' });
+      expect(issues(serverForm({ env: [['TV_X', bad]] }))).toEqual({ env: 'envValueControl' });
     }
   });
 
   it('accepts one plain line, tabs included, and trailing semicolons', () => {
     const form = serverForm({
       startupCommand: 'cd /srv;\texec tmux attach;',
-      env: [['TD_X', 'a\tb;']],
+      env: [['TV_X', 'a\tb;']],
     });
     const { parsed } = readServerForm(form);
     expect(parsed.success).toBe(true);
     expect(parsed.data?.startupCommand).toBe('cd /srv;\texec tmux attach;');
-    expect(parsed.data?.env).toEqual([{ key: 'TD_X', value: 'a\tb;' }]);
+    expect(parsed.data?.env).toEqual([{ key: 'TV_X', value: 'a\tb;' }]);
   });
 });
 

@@ -1,4 +1,4 @@
-import type { SessionStatus } from '@termdock/protocol/client';
+import type { SessionStatus } from '@termavox/protocol/client';
 import { cx } from './cx.ts';
 import { STATE_FILL } from './state.ts';
 

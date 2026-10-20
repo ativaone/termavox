@@ -1,6 +1,6 @@
 'use client';
 
-import type { Tab, WorkspaceLayout } from '@termdock/protocol/client';
+import type { Tab, WorkspaceLayout } from '@termavox/protocol/client';
 import { useTranslations } from 'next-intl';
 import {
   type MouseEvent,

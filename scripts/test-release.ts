@@ -9,19 +9,19 @@
 //          sshd containers (docker compose -f test/sshd/compose.yaml up -d --build)
 //   osv    OSV scan of pnpm-lock.yaml against scripts/osv-allowlist.json (scripts/osv-scan.ts)
 //   build  docker compose build of the three deployment images (caddy, session-manager, web) under
-//          the test-only names termdock-smoke-* (test/release/compose.smoke-images.yaml), so a
+//          the test-only names termavox-smoke-* (test/release/compose.smoke-images.yaml), so a
 //          smoke never retags or replaces the ghcr.io/ativaone/... images an install here runs
 //   smoke  scripts/release-smoke.ts against the composed stack
-//   smoke-proxy  the same smoke behind a front proxy that terminates TLS (TERMDOCK_TLS=off)
+//   smoke-proxy  the same smoke behind a front proxy that terminates TLS (TERMAVOX_TLS=off)
 //
 // --prebuilt (the release pipeline): nothing is built. The `build` step only checks that the
-// images deploy/compose.yaml names (ghcr.io/ativaone/termdock-*:<version>) are present locally,
+// images deploy/compose.yaml names (ghcr.io/ativaone/termavox-*:<version>) are present locally,
 // and both smokes run exactly those images (`--prebuilt`: never pulled, never built).
 //
 // Heavy steps run under `systemd-run --user --scope -p MemoryMax=… -p MemorySwapMax=0` when a
-// user systemd is available (TERMDOCK_RELEASE_MEMORY_MAX, default 1500M), plain otherwise.
+// user systemd is available (TERMAVOX_RELEASE_MEMORY_MAX, default 1500M), plain otherwise.
 // Docker builds run inside dockerd, outside that cap. T1 runs the tmux suites against the whole
-// D-22 matrix (TD_TMUX_IMAGES, default tmux-3.2a,tmux-3.4,tmux-edge; TERMDOCK_RELEASE_TMUX_IMAGES).
+// D-22 matrix (TV_TMUX_IMAGES, default tmux-3.2a,tmux-3.4,tmux-edge; TERMAVOX_RELEASE_TMUX_IMAGES).
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { connect } from 'node:net';
@@ -29,9 +29,9 @@ import { join } from 'node:path';
 import { AREAS } from './test-area.ts';
 
 const ROOT = join(import.meta.dirname, '..');
-const MEMORY_MAX = process.env.TERMDOCK_RELEASE_MEMORY_MAX ?? '1500M';
-const TMUX_IMAGES = process.env.TERMDOCK_RELEASE_TMUX_IMAGES ?? 'tmux-3.2a,tmux-3.4,tmux-edge';
-const SMOKE_PROJECT = 'termdock-smoke';
+const MEMORY_MAX = process.env.TERMAVOX_RELEASE_MEMORY_MAX ?? '1500M';
+const TMUX_IMAGES = process.env.TERMAVOX_RELEASE_TMUX_IMAGES ?? 'tmux-3.2a,tmux-3.4,tmux-edge';
+const SMOKE_PROJECT = 'termavox-smoke';
 const COMPOSE_FILE = join(ROOT, 'deploy', 'compose.yaml');
 const SMOKE_IMAGES = join(ROOT, 'test', 'release', 'compose.smoke-images.yaml');
 const PREBUILT = process.argv.includes('--prebuilt');
@@ -261,9 +261,9 @@ async function t1(): Promise<boolean> {
     return false;
   }
   say(`t1: run plan covers all ${files.length} files exactly once (union of areas + other)`);
-  say(`t1: tmux suites run against TD_TMUX_IMAGES=${TMUX_IMAGES}`);
+  say(`t1: tmux suites run against TV_TMUX_IMAGES=${TMUX_IMAGES}`);
 
-  const env = { ...process.env, TD_TMUX_IMAGES: TMUX_IMAGES };
+  const env = { ...process.env, TV_TMUX_IMAGES: TMUX_IMAGES };
   for (const [index, { area, file }] of order.entries()) {
     const started = Date.now();
     say(`t1: [${index + 1}/${order.length}] ${area}: ${file}`);
@@ -283,7 +283,7 @@ const BUILD_ORDER = ['caddy', 'session-manager', 'web'];
 
 function build(): boolean {
   say('build: Docker builds run inside dockerd, so the memory cap cannot apply to them;');
-  say('build: they run alone, one image at a time, tagged termdock-smoke-<service>.');
+  say('build: they run alone, one image at a time, tagged termavox-smoke-<service>.');
   for (const service of BUILD_ORDER) {
     const started = Date.now();
     const ok = exec('docker', [
@@ -349,7 +349,7 @@ const STEPS: Step[] = [
   },
   PREBUILT
     ? { id: 'build', title: 'Prebuilt images present (no build)', run: prebuiltImages }
-    : { id: 'build', title: 'Docker image build (termdock-smoke-*)', run: build },
+    : { id: 'build', title: 'Docker image build (termavox-smoke-*)', run: build },
   {
     id: 'smoke',
     title: 'Smoke against the composed stack',
@@ -398,7 +398,7 @@ async function main(): Promise<number> {
   say(
     PREBUILT
       ? '--prebuilt: no image build; the smokes run the images deploy/compose.yaml names'
-      : 'from source: the build step builds test-only termdock-smoke-* images',
+      : 'from source: the build step builds test-only termavox-smoke-* images',
   );
   const free = spawnSync('free', ['-m'], { encoding: 'utf8' });
   for (const line of (free.stdout ?? '').trimEnd().split('\n')) say(`free -m | ${line}`);

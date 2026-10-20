@@ -13,12 +13,12 @@ import { loadMasterKey, VaultError } from './master-key.ts';
  * - Plaintext: the JSON envelope `{ v: 1, kind, password? | privateKey?, passphrase? }`.
  * - Storage: `credentials.nonce` = the 12-byte nonce; `credentials.ciphertext` = GCM ciphertext
  *   followed by the 16-byte tag; `credentials.key_version` = the KEK version used.
- * - AAD (binds the ciphertext to its row): `lp("termdock.credential.v1") ‖ lp(credential_id) ‖
+ * - AAD (binds the ciphertext to its row): `lp("termavox.credential.v1") ‖ lp(credential_id) ‖
  *   lp(user_id) ‖ lp(kind) ‖ u32be(key_version)`, where `lp(s)` = u32be(byte length of the UTF-8
  *   string) followed by those bytes. Moving a ciphertext to another row, user, kind or key
  *   version makes authentication fail.
  * - Key check (`instance_settings.vault_key_check`): GCM encryption of a constant under the KEK
- *   with its own AAD (`lp("termdock.vault-key-check.v1") ‖ u32be(key_version)`), created on the
+ *   with its own AAD (`lp("termavox.vault-key-check.v1") ‖ u32be(key_version)`), created on the
  *   first boot and verified on every boot, so a wrong KEK fails fast instead of failing every
  *   connect later. Its `keyVersion` is the version of the current KEK: 1 from the first boot,
  *   one more after each `vault rotate` (src/vault/rotate.ts), which re-encrypts every record and
@@ -43,9 +43,9 @@ export interface SealedSecret {
 const ALGORITHM = 'aes-256-gcm';
 export const NONCE_BYTES = 12;
 export const TAG_BYTES = 16;
-const CREDENTIAL_AAD_DOMAIN = 'termdock.credential.v1';
-const KEY_CHECK_AAD_DOMAIN = 'termdock.vault-key-check.v1';
-const KEY_CHECK_PLAINTEXT = 'termdock vault key check v1';
+const CREDENTIAL_AAD_DOMAIN = 'termavox.credential.v1';
+const KEY_CHECK_AAD_DOMAIN = 'termavox.vault-key-check.v1';
+const KEY_CHECK_PLAINTEXT = 'termavox vault key check v1';
 
 const Envelope = z.discriminatedUnion('kind', [
   z.object({ v: z.literal(1), kind: z.literal('password'), password: z.string() }).strict(),
@@ -248,7 +248,7 @@ export class Vault {
       );
     } catch {
       throw new KeyCheckMismatchError(
-        'TERMDOCK_MASTER_KEY_FILE does not match this database (vault_key_check failed): ' +
+        'TERMAVOX_MASTER_KEY_FILE does not match this database (vault_key_check failed): ' +
           'wrong master key, or the database belongs to another installation',
       );
     }

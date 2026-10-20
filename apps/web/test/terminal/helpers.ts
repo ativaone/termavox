@@ -15,12 +15,12 @@ import {
   FrameType,
   type ServerMessage,
   type SessionSummary,
-} from '@termdock/protocol';
+} from '@termavox/protocol';
 import {
   installQuerySilencer,
   sharedTerminalOptions,
   UNICODE_VERSION,
-} from '@termdock/terminal-config';
+} from '@termavox/terminal-config';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
 import type { Terminal } from '@xterm/headless';
 import { HeadlessEmulator } from '../../../session-manager/src/emulator/headless-emulator.ts';
@@ -190,7 +190,7 @@ export function summary(id: string, extra: Partial<SessionSummary> = {}): Sessio
     kind: 'ssh',
     hostname: 'host.test',
     port: 22,
-    username: 'td',
+    username: 'tv',
     state: 'ready',
     status: 'connected',
     protection: 'none',

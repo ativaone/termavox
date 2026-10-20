@@ -1,4 +1,4 @@
-import { SessionState, type SessionStatus, toSessionStatus } from '@termdock/protocol/client';
+import { SessionState, type SessionStatus, toSessionStatus } from '@termavox/protocol/client';
 
 /**
  * How the activity log words a session's internal states (plan §8.1 /activity). Several

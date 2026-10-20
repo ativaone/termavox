@@ -18,14 +18,14 @@ ADR-0002 confirmed the control-mode protocol. S3–S5 had to prove what plan §6
 
 ## Versions tested
 
-The same images as ADR-0002: `tmux-3.2a` (ubuntu:22.04), `tmux-3.4` (ubuntu:24.04) and `tmux-edge` (alpine:edge, tmux 3.8). T1 runs on 3.2a and 3.8 (core images); the T1 suites also ran once against 3.4 (`TD_TMUX_IMAGES=tmux-3.4`). The T0 fixtures cover all three. Machine: 2 vCPU, Node 24.16.0, `@xterm/headless` 6.0.0.
+The same images as ADR-0002: `tmux-3.2a` (ubuntu:22.04), `tmux-3.4` (ubuntu:24.04) and `tmux-edge` (alpine:edge, tmux 3.8). T1 runs on 3.2a and 3.8 (core images); the T1 suites also ran once against 3.4 (`TV_TMUX_IMAGES=tmux-3.4`). The T0 fixtures cover all three. Machine: 2 vCPU, Node 24.16.0, `@xterm/headless` 6.0.0.
 
 ## How the driver works
 
 **Start** (`start(ctx, dims)`), in order:
 
 1. `ctx.transport.exec(launchCommand(...))`. `systemd-run --user --scope --quiet` prefix only when `KillUserProcesses=yes`, linger is on and `systemd-run` exists (`logindPolicy`). `default-terminal` comes from `tiTmux256` and `LC_CTYPE` from `utf8Locale`.
-2. Consume the 9 flags-0 launch blocks. The last one (`new-session -A -P -F td-created`) contains `td-created` **only when it created the session**: `-A` returns before printing when it attaches. Verified on 3.2a, 3.4 and 3.8.
+2. Consume the 9 flags-0 launch blocks. The last one (`new-session -A -P -F tv-created`) contains `tv-created` **only when it created the session**: `-A` returns before printing when it attaches. Verified on 3.2a, 3.4 and 3.8.
 3. Detach other control clients (`list-clients`; `detach-client -t` every `client_control_mode=1` client except ours).
 4. Read the identity: `display-message -p '#{session_created} #{pane_pid} #{pane_id} #{window_id}'` (no `%`). Call `onIdentity(identity, rebooted)`. `rebooted` means a previous identity existed and differs. Per the integration contract, the runtime writes the "remote host restarted" banner itself, so the driver never calls `ctx.banner`.
 5. csh/tcsh with a startup command: the pane runs the plain login shell, and the driver types the command (`send-keys -H` + Enter) only when step 2 reported a **new** session.
@@ -219,7 +219,7 @@ All checks pass on 3.2a and 3.8, and ran once on 3.4 (below). `driver-lifecycle.
 
 ## 3.4 run
 
-Ran at delivery: `TD_TMUX_IMAGES=tmux-3.4 pnpm exec vitest run --project t1` on the three driver suites. All 10 checks passed, twice (35 s, then 32 s after the final source changes):
+Ran at delivery: `TV_TMUX_IMAGES=tmux-3.4 pnpm exec vitest run --project t1` on the three driver suites. All 10 checks passed, twice (35 s, then 32 s after the final source changes):
 
 - S3: both floods, 0 diffs;
 - S4: both pause cases, 0 diffs vs tmux, 0 bytes queued while paused;
@@ -245,13 +245,13 @@ minus the documented list above. The boundary rule needs no fallback. Flow contr
 - **Reboot banner.** In tmux-control the emulator mirrors tmux's grid. A banner written into it is lost at the next rebuild and moves the cursor away from tmux's. An out-of-band UI notice is safer.
 - **History paging** by `history_size` ranges for scrollback settings well above 5k lines (3.8's 64 MiB reply cap).
 - **Bracketed paste before 3.7:** the heuristic (on in the normal screen) is an owner decision.
-- **ADR-0002's "Final launch command"** predates two launch additions: `set-option -gqw scroll-on-clear off`, and `-P -F td-created` on `new-session`.
+- **ADR-0002's "Final launch command"** predates two launch additions: `set-option -gqw scroll-on-clear off`, and `-P -F tv-created` on `new-session`.
 
 ## Decisions (integration with the runtime, Phase 3 close)
 
 Taken when the driver was wired into the daemon. Where they differ from the sections above (the `%exit` and channel-EOF bullets, the reboot banner in Start step 4, the socket-deletion and follow-up items), these decisions apply.
 
-- **Reboot notice is out of band.** When `onIdentity(…, rebooted=true)` reports a remote reboot, the runtime writes no banner, because the emulator mirrors tmux's screen. It appends a `remote_rebooted` session event and sends the next `ready` status with `detail: 'remote_rebooted'`. The detail is kept across failed attempts until a start succeeds. The UI shows the notice. Raw-mode banners (`connection lost … new shell started`, `Termdock restarted`) stay in the terminal.
+- **Reboot notice is out of band.** When `onIdentity(…, rebooted=true)` reports a remote reboot, the runtime writes no banner, because the emulator mirrors tmux's screen. It appends a `remote_rebooted` session event and sends the next `ready` status with `detail: 'remote_rebooted'`. The detail is kept across failed attempts until a start succeeds. The UI shows the notice. Raw-mode banners (`connection lost … new shell started`, `Termavox restarted`) stay in the terminal.
 - **One outcome per attempt.** `start()` can reject and `onShellExit` can fire for the same attempt. Once the launch has run (its last block succeeded), a failed `start()` first confirms with `has-session`, the same check `%exit` gets, and rejects only after that check finished. So `onShellExit` is already known when the runtime sees the rejection. The runtime records a confirmed shell exit per attempt, and a confirmed exit wins over a retry: the session ends with `shell_exited`. Example: a startup command that exits at once no longer loops through new sessions that look like reboots.
 - **Control channel closed without `%exit` while running** (the control client was killed, or tmux crashed): the same confirmation as after `%exit` runs on a fresh exec. Session gone → `onShellExit({code: null})`. Alive → `onDesync('control channel closed')`. If the exec fails, the transport is down and the runtime's transport-loss path handles it.
 - **Leftover processes when a session ends.** A tmux server whose session ended still waits for all of its clients to go. A control client whose output can no longer be written (its connection died with output queued, or it was detached while its connection was dead) never goes. This was reproduced on 3.2a, 3.4 and 3.8; on 3.8 such a client is not even shown by `list-clients`. The server then outlives its session forever, and `kill-server` does not help either. Found by the daemon test: a network drop during output leaked a server plus a client on 3.2a.

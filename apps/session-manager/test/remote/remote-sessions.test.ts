@@ -2,7 +2,7 @@
 // against session records, ending leftovers (re-check and 60 s guard) and the background sweep
 // (rate limit, notify once). The scan script itself runs on real tmux in
 // test/tmux/remote-scan.int.test.ts.
-import type { SessionState } from '@termdock/protocol';
+import type { SessionState } from '@termavox/protocol';
 import { describe, expect, it } from 'vitest';
 import {
   classifySocket,
@@ -24,11 +24,11 @@ import {
 import { type FakeExecResult, FakeTransport, RecordingNotifier } from '../runtime/fakes.ts';
 
 const PREFIX = 'aaaa1111';
-const own = (token: string): string => `td-${PREFIX}-${token}`;
+const own = (token: string): string => `tv-${PREFIX}-${token}`;
 const TOKEN_A = 'abcdefghijkl';
 const TOKEN_B = 'mnopqrstuvwx';
 const TOKEN_C = 'yz234567abcd';
-const OTHER = 'td-zzzzzzzz-abcdefghijkl';
+const OTHER = 'tv-zzzzzzzz-abcdefghijkl';
 const TMUX = '/usr/bin/tmux';
 const B32 = 'abcdefghijklmnopqrstuvwxyz234567';
 
@@ -42,7 +42,7 @@ describe('remote scan command (plan D-30)', () => {
     expect(command).not.toMatch(/[\r\n]/);
     expect(command).not.toContain('!'); // csh history expansion
     expect(command).toContain('/tmux-$(id -u)');
-    expect(command).toContain('td-*');
+    expect(command).toContain('tv-*');
     // No session name, pane command or title leaves the host: numbers and a main flag only.
     expect(SCAN_SESSION_FORMAT).not.toMatch(/pane_|title|#\{session_name\}[^,]/);
     expect(SCAN_SESSION_FORMAT.split(' ')).toHaveLength(4);
@@ -56,7 +56,7 @@ describe('remote scan command (plan D-30)', () => {
     expect(serverAnswersCommand({ tmuxPath: TMUX, socket: own(TOKEN_A) })).toContain(
       `-L ${own(TOKEN_A)} list-sessions`,
     );
-    expect(() => serverAnswersCommand({ tmuxPath: TMUX, socket: 'td-x y' })).toThrow(RangeError);
+    expect(() => serverAnswersCommand({ tmuxPath: TMUX, socket: 'tv-x y' })).toThrow(RangeError);
   });
 });
 
@@ -87,11 +87,11 @@ describe('parseRemoteScan (untrusted host output)', () => {
   it('drops invalid names, wrong field counts, overlong lines, duplicates and noise', () => {
     const output = [
       'Welcome to the host!', // rc-file noise
-      line('td-UPPER123-abcdefghijkl'),
-      line('td-aaaa1111-abcdefghijk'), // token too short
-      line('td-aaaa1111-abcdefghijk1'), // `1` is not base32
-      line('td-123456789-abcdefghijkl'), // prefix too long
-      line('xtd-aaaa1111-abcdefghijkl'),
+      line('tv-UPPER123-abcdefghijkl'),
+      line('tv-aaaa1111-abcdefghijk'), // token too short
+      line('tv-aaaa1111-abcdefghijk1'), // `1` is not base32
+      line('tv-123456789-abcdefghijkl'), // prefix too long
+      line('xtv-aaaa1111-abcdefghijkl'),
       `${line(own(TOKEN_A))}\textra`,
       `${own(TOKEN_B)}\t1700000000`,
       `${line(own(TOKEN_C))}${' '.repeat(300)}`, // overlong: not what the script prints
@@ -196,7 +196,7 @@ describe('classifySocket (plan D-30)', () => {
     expect(classifySocket(own(TOKEN_A), [], me, PREFIX)).toEqual({ kind: 'unknown' });
     expect(classifySocket(OTHER, [], me, PREFIX)).toEqual({ kind: 'other' });
     // A prefix that merely starts like ours is another installation's.
-    expect(classifySocket(`td-${PREFIX}x-${TOKEN_A}`, [], me, PREFIX)).toEqual({ kind: 'other' });
+    expect(classifySocket(`tv-${PREFIX}x-${TOKEN_A}`, [], me, PREFIX)).toEqual({ kind: 'other' });
   });
 
   it('an adopted session claims its full socket name (`tmux_socket`), whatever the prefix', () => {
@@ -254,7 +254,7 @@ function hostWith(
     {
       exec: (command) => {
         if (command === scanSocketsCommand({ tmuxPath: TMUX })) return { stdout: scan };
-        const socket = /s=(td-[a-z0-9-]+);/.exec(command)?.[1];
+        const socket = /s=(tv-[a-z0-9-]+);/.exec(command)?.[1];
         if (socket && command === killServerCommand({ tmuxPath: TMUX, socket })) {
           killed.push(socket);
           return kill(socket);

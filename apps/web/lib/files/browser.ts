@@ -1,5 +1,5 @@
 import { resolveWsUrl } from '../terminal/config.ts';
-import type { TermdockConnection } from '../terminal/connection.ts';
+import type { TermavoxConnection } from '../terminal/connection.ts';
 import { transferUrl } from './client.ts';
 import { TransferQueue } from './transfer-queue.ts';
 
@@ -19,7 +19,7 @@ export function startBrowserDownload(url: string, name: string): void {
 }
 
 /** The tab's transfer queue, wired to the browser: XHR uploads, anchor downloads (plan §5.12). */
-export function createBrowserTransferQueue(connection: TermdockConnection): TransferQueue {
+export function createBrowserTransferQueue(connection: TermavoxConnection): TransferQueue {
   return new TransferQueue({
     api: connection,
     resolveUrl: (path) => transferUrl(path, resolveWsUrl()),

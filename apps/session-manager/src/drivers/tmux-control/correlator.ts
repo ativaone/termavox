@@ -1,4 +1,4 @@
-import { randomToken } from '@termdock/shared';
+import { randomToken } from '@termavox/shared';
 import { displayLiteral } from './commands.ts';
 import type { BlockGuard, ControlEvent } from './parser.ts';
 
@@ -68,7 +68,7 @@ export class CommandCorrelator {
   /** `write` receives one command line without the trailing `\n`. */
   constructor(write: (line: string) => void, options: CorrelatorOptions = {}) {
     this.#write = write;
-    this.#nonce = options.nonce ?? (() => `td-${randomToken(12)}`);
+    this.#nonce = options.nonce ?? (() => `tv-${randomToken(12)}`);
   }
 
   /** Lines written and not fully answered yet. */
@@ -84,7 +84,7 @@ export class CommandCorrelator {
 
   /**
    * Sends commands on ONE line (`a ; b ; …`, so tmux runs them back to back) followed by a
-   * `display-message -p 'td-<nonce>'` sentinel. Rejects with TmuxDesyncError when the final
+   * `display-message -p 'tv-<nonce>'` sentinel. Rejects with TmuxDesyncError when the final
    * block is not exactly the sentinel line.
    */
   async sendBatch(commands: readonly string[], hooks?: BatchHooks): Promise<BatchResult> {

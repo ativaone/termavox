@@ -1,4 +1,4 @@
-import { ErrorCode } from '@termdock/shared';
+import { ErrorCode } from '@termavox/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   type AdminDeps,

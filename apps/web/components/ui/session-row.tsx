@@ -1,4 +1,4 @@
-import type { Protection, SessionStatus } from '@termdock/protocol/client';
+import type { Protection, SessionStatus } from '@termavox/protocol/client';
 import Link from 'next/link';
 import type { CSSProperties, MouseEventHandler, ReactNode } from 'react';
 import {

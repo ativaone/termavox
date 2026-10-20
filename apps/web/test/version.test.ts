@@ -31,6 +31,6 @@ describe('running version', () => {
     vi.stubEnv('NEXT_RUNTIME', 'nodejs');
     const { register } = await import('../instrumentation.ts');
     await register();
-    expect(info.mock.calls).toEqual([[`[termdock] web starting {"version":"${VERSION}"}`]]);
+    expect(info.mock.calls).toEqual([[`[termavox] web starting {"version":"${VERSION}"}`]]);
   });
 });

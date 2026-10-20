@@ -1,6 +1,6 @@
 import '../server-guard.ts';
-import type { TermdockDb } from '@termdock/db';
-import { EMPTY_LAYOUT, WorkspaceLayout } from '@termdock/protocol';
+import type { TermavoxDb } from '@termavox/db';
+import { EMPTY_LAYOUT, WorkspaceLayout } from '@termavox/protocol';
 
 /**
  * The user's own `workspace_layouts` row (plan §9: web owns it), keyed by `user_id`: a user can
@@ -17,7 +17,7 @@ export interface StoredLayout {
 export type SaveLayoutResult = { ok: true; version: number } | { ok: false; version: number };
 
 /** The stored layout, or the empty layout at version 0. Unreadable JSON reads as empty. */
-export function getLayout(db: TermdockDb, userId: string): StoredLayout {
+export function getLayout(db: TermavoxDb, userId: string): StoredLayout {
   const row = db.$client
     .prepare('SELECT version, layout_json FROM workspace_layouts WHERE user_id = ?')
     .get(userId) as { version: number; layout_json: string } | undefined;
@@ -37,7 +37,7 @@ export function getLayout(db: TermdockDb, userId: string): StoredLayout {
  * the new version; otherwise returns the current version untouched. Validated with zod.
  */
 export function saveLayout(
-  db: TermdockDb,
+  db: TermavoxDb,
   userId: string,
   layout: WorkspaceLayout,
   expectedVersion: number,

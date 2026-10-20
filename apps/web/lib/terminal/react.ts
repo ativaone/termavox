@@ -4,7 +4,7 @@ import type { SearchAddon } from '@xterm/addon-search';
 import type { Terminal } from '@xterm/xterm';
 import { type RefObject, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { ChannelState, TerminalChannel } from './channel.ts';
-import type { ConnectionState, TermdockConnection } from './connection.ts';
+import type { ConnectionState, TermavoxConnection } from './connection.ts';
 import { computeTerminalLayout, type Size, type TerminalLayout } from './layout.ts';
 import type { Dimensions } from './types.ts';
 import type { BrowserTerminal, LinkConfirm, TerminalAppearance } from './xterm.ts';
@@ -59,7 +59,7 @@ function toError(err: unknown): Error {
 }
 
 /** The connection's observable state (sessions, prompts, status). */
-export function useConnectionState(connection: TermdockConnection): ConnectionState {
+export function useConnectionState(connection: TermavoxConnection): ConnectionState {
   return useSyncExternalStore(connection.subscribe, connection.getSnapshot, connection.getSnapshot);
 }
 
@@ -70,7 +70,7 @@ export function useConnectionState(connection: TermdockConnection): ConnectionSt
  * terminal makes this pane the active attachment. Pass `sessionId = null` to detach.
  */
 export function useTerminalChannel(
-  connection: TermdockConnection | null,
+  connection: TermavoxConnection | null,
   sessionId: string | null,
   containerRef: RefObject<HTMLElement | null>,
   options: UseTerminalChannelOptions = {},

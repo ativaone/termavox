@@ -1,4 +1,4 @@
-import { ProtectionNotice } from '@termdock/protocol/client';
+import { ProtectionNotice } from '@termavox/protocol/client';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';

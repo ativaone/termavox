@@ -12,7 +12,7 @@ let out = '';
 let pages = new Map<string, string>();
 
 beforeAll(async () => {
-  out = mkdtempSync(join(tmpdir(), 'termdock-site-'));
+  out = mkdtempSync(join(tmpdir(), 'termavox-site-'));
   const written = await build(out);
   pages = new Map(
     written
@@ -161,13 +161,13 @@ describe('guide links', () => {
     expect(
       resolveLink('implementation-plan.md#56-state-machine', 'docs/architecture.md', page),
     ).toBe(
-      'https://github.com/ativaone/termdock/blob/main/docs/implementation-plan.md#56-state-machine',
+      'https://github.com/ativaone/termavox/blob/main/docs/implementation-plan.md#56-state-machine',
     );
     expect(resolveLink('../../deploy/compose.yaml', 'docs/guides/configuration.md', page)).toBe(
-      'https://github.com/ativaone/termdock/blob/main/deploy/compose.yaml',
+      'https://github.com/ativaone/termavox/blob/main/deploy/compose.yaml',
     );
     expect(resolveLink('adr/', 'docs/architecture.md', page)).toBe(
-      'https://github.com/ativaone/termdock/tree/main/docs/adr',
+      'https://github.com/ativaone/termavox/tree/main/docs/adr',
     );
   });
 

@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<title>Ajuda: sessões, reconexão e proteção com tmux · Termdock</title>
-<meta name="description" content="Como o Termdock cuida das suas sessões, o que cada status e aviso quer dizer, e onde fica cada coisa.">
+<title>Ajuda: sessões, reconexão e proteção com tmux · Termavox</title>
+<meta name="description" content="Como o Termavox cuida das suas sessões, o que cada status e aviso quer dizer, e onde fica cada coisa.">
 {{head}}
 </head>
 <body>
@@ -11,14 +11,14 @@
   <main id="main" class="doc">
     <header class="head">
       <h1>Ajuda</h1>
-      <p>Como o Termdock cuida das suas sessões, o que cada status e aviso quer dizer, e onde fica cada coisa.</p>
+      <p>Como o Termavox cuida das suas sessões, o que cada status e aviso quer dizer, e onde fica cada coisa.</p>
       {{index-inline}}
     </header>
 
     <section class="sec" id="essentials">
       <h2>O essencial</h2>
-      <p class="lead"><strong>A sessão mora no Termdock, não no navegador.</strong> O Termdock mantém cada sessão aberta no servidor dele. O navegador só mostra a sessão: feche a aba, desligue o notebook ou troque para o celular, e ao voltar o terminal está exatamente como você deixou, com o <code>vim</code> ou o <code>htop</code> ainda rodando.</p>
-      <figure class="map" aria-label="Onde a sessão mora: o seu navegador, o Termdock e o seu servidor, e as duas conexões entre eles">
+      <p class="lead"><strong>A sessão mora no Termavox, não no navegador.</strong> O Termavox mantém cada sessão aberta no servidor dele. O navegador só mostra a sessão: feche a aba, desligue o notebook ou troque para o celular, e ao voltar o terminal está exatamente como você deixou, com o <code>vim</code> ou o <code>htop</code> ainda rodando.</p>
+      <figure class="map" aria-label="Onde a sessão mora: o seu navegador, o Termavox e o seu servidor, e as duas conexões entre eles">
         <div class="node">
           <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#laptop"/></svg>
           <span class="node-name">Seu navegador</span>
@@ -30,7 +30,7 @@
         </div>
         <div class="node node-home">
           <img src="{{root}}assets/icon.svg" alt="" width="30" height="30">
-          <span class="node-name">Termdock</span>
+          <span class="node-name">Termavox</span>
           <span class="node-note">Suas sessões moram aqui</span>
         </div>
         <div class="link">
@@ -45,8 +45,8 @@
       </figure>
       <dl class="rules">
         <div><dt>Fechar não encerra</dt><dd>Fechar uma aba, um painel ou o navegador só desconecta a tela. A sessão continua rodando até você usar <strong>Encerrar</strong>.</dd></div>
-        <div><dt>Protegida aguenta quedas</dt><dd>Com o tmux no servidor, a sessão sobrevive a quedas de rede e a reinícios do Termdock. O escudo ao lado dela diz se é protegida.</dd></div>
-        <div><dt>O tmux fica invisível</dt><dd>O Termdock usa o tmux por baixo, sem barra de status nem tecla de prefixo. A rolagem, a seleção e a cópia são as do navegador.</dd></div>
+        <div><dt>Protegida aguenta quedas</dt><dd>Com o tmux no servidor, a sessão sobrevive a quedas de rede e a reinícios do Termavox. O escudo ao lado dela diz se é protegida.</dd></div>
+        <div><dt>O tmux fica invisível</dt><dd>O Termavox usa o tmux por baixo, sem barra de status nem tecla de prefixo. A rolagem, a seleção e a cópia são as do navegador.</dd></div>
       </dl>
     </section>
 
@@ -58,9 +58,9 @@
           <thead><tr><th scope="col">Situação</th><th scope="col"><svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#shield"/></svg>Protegida</th><th scope="col"><svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#shield-off"/></svg>Sem proteção</th></tr></thead>
           <tbody>
             <tr><th scope="row">Você fecha a aba, o navegador ou o notebook</th><td><span class="cell-label">Protegida</span><span class="tag tag-keeps">Continua</span>A sessão segue rodando. Ao voltar, a mesma tela, na hora.</td><td><span class="cell-label">Sem proteção</span><span class="tag tag-keeps">Continua</span>Igual: fechar o navegador nunca afeta uma sessão.</td></tr>
-            <tr><th scope="row">A sua internet cai</th><td><span class="cell-label">Protegida</span><span class="tag tag-keeps">Continua</span>Uma faixa avisa “Sem conexão, tentando de novo”. Quando a conexão volta, a tela se atualiza.</td><td><span class="cell-label">Sem proteção</span><span class="tag tag-keeps">Continua</span>Igual: a sessão roda no Termdock, não no seu computador.</td></tr>
-            <tr><th scope="row">Cai a conexão entre o Termdock e o servidor</th><td><span class="cell-label">Protegida</span><span class="tag tag-keeps">Continua</span>“Reconectando…”: o Termdock reconecta e reconstrói a mesma tela e o histórico. Os programas não pararam no servidor.</td><td><span class="cell-label">Sem proteção</span><span class="tag tag-fresh">Shell novo</span>O shell e os programas dele se perdem. Um shell novo abre no mesmo terminal, abaixo de uma linha de aviso, com o histórico anterior ainda visível.</td></tr>
-            <tr><th scope="row">O Termdock reinicia ou é atualizado</th><td><span class="cell-label">Protegida</span><span class="tag tag-keeps">Continua</span>“Restaurando…” por alguns segundos, e a mesma tela volta.</td><td><span class="cell-label">Sem proteção</span><span class="tag tag-fresh">Shell novo</span>O shell e a tela anterior se perdem. Um shell novo abre com uma linha de aviso.</td></tr>
+            <tr><th scope="row">A sua internet cai</th><td><span class="cell-label">Protegida</span><span class="tag tag-keeps">Continua</span>Uma faixa avisa “Sem conexão, tentando de novo”. Quando a conexão volta, a tela se atualiza.</td><td><span class="cell-label">Sem proteção</span><span class="tag tag-keeps">Continua</span>Igual: a sessão roda no Termavox, não no seu computador.</td></tr>
+            <tr><th scope="row">Cai a conexão entre o Termavox e o servidor</th><td><span class="cell-label">Protegida</span><span class="tag tag-keeps">Continua</span>“Reconectando…”: o Termavox reconecta e reconstrói a mesma tela e o histórico. Os programas não pararam no servidor.</td><td><span class="cell-label">Sem proteção</span><span class="tag tag-fresh">Shell novo</span>O shell e os programas dele se perdem. Um shell novo abre no mesmo terminal, abaixo de uma linha de aviso, com o histórico anterior ainda visível.</td></tr>
+            <tr><th scope="row">O Termavox reinicia ou é atualizado</th><td><span class="cell-label">Protegida</span><span class="tag tag-keeps">Continua</span>“Restaurando…” por alguns segundos, e a mesma tela volta.</td><td><span class="cell-label">Sem proteção</span><span class="tag tag-fresh">Shell novo</span>O shell e a tela anterior se perdem. Um shell novo abre com uma linha de aviso.</td></tr>
             <tr><th scope="row">O servidor reinicia</th><td><span class="cell-label">Protegida</span><span class="tag tag-fresh">Shell novo</span>O tmux não sobrevive a um reboot. Na reconexão começa um shell novo, e o painel avisa “O servidor reiniciou”.</td><td><span class="cell-label">Sem proteção</span><span class="tag tag-fresh">Shell novo</span>Como uma queda de conexão: um shell novo, com uma linha de aviso.</td></tr>
             <tr><th scope="row">O tmux da sessão morre no servidor (<code>pkill tmux</code>, falta de memória)</th><td><span class="cell-label">Protegida</span><span class="tag tag-ends">Termina</span>Com a sessão conectada, ela vai para Encerradas com “O shell terminou.”; <strong>Reabrir</strong> inicia outro shell. Se ela estava desconectada, a volta traz um shell novo e o aviso “O servidor reiniciou”.</td><td><span class="cell-label">Sem proteção</span><span class="tag tag-none">Não se aplica</span>Sessões sem proteção não usam tmux.</td></tr>
             <tr><th scope="row">Você digita <code>exit</code>, ou o shell termina</th><td><span class="cell-label">Protegida</span><span class="tag tag-ends">Termina</span>A sessão vai para Encerradas. <strong>Reabrir</strong> inicia um shell novo.</td><td><span class="cell-label">Sem proteção</span><span class="tag tag-ends">Termina</span>Igual.</td></tr>
@@ -70,11 +70,11 @@
       </div>
       <aside class="note note-warning" id="server-restarted">
         <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#alert"/></svg>
-        <div class="note-body"><p class="note-title">“O servidor reiniciou” nem sempre é um reboot</p><p>O aviso aparece sempre que o Termdock reconecta e o tmux da sessão não existe mais. Pode ter sido um reboot, mas também um tmux morto à mão ou pelo sistema (por falta de memória, por exemplo) enquanto a sessão estava desconectada.</p></div>
+        <div class="note-body"><p class="note-title">“O servidor reiniciou” nem sempre é um reboot</p><p>O aviso aparece sempre que o Termavox reconecta e o tmux da sessão não existe mais. Pode ter sido um reboot, mas também um tmux morto à mão ou pelo sistema (por falta de memória, por exemplo) enquanto a sessão estava desconectada.</p></div>
       </aside>
       <aside class="note note-tip">
         <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#tip"/></svg>
-        <div class="note-body"><p class="note-title"><code>tmux kill-server</code> dentro da sessão não derruba a sessão</p><p>O tmux do Termdock usa um socket próprio, separado do seu: <code>tmux kill-server</code> só fecha o seu tmux. Já <code>pkill tmux</code> e <code>killall tmux</code> matam todos os tmux do usuário, inclusive o da sessão.</p></div>
+        <div class="note-body"><p class="note-title"><code>tmux kill-server</code> dentro da sessão não derruba a sessão</p><p>O tmux do Termavox usa um socket próprio, separado do seu: <code>tmux kill-server</code> só fecha o seu tmux. Já <code>pkill tmux</code> e <code>killall tmux</code> matam todos os tmux do usuário, inclusive o da sessão.</p></div>
       </aside>
       <aside class="note note-info">
         <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#info"/></svg>
@@ -84,7 +84,7 @@
 
     <section class="sec" id="protection" data-group="Sessões">
       <h2>Sessões protegidas</h2>
-      <p>Uma sessão protegida roda dentro de um tmux no servidor, que o Termdock controla sem mostrar. Se a conexão cair ou o Termdock reiniciar, o tmux segura o shell e os programas, e o Termdock reconstrói a tela a partir dele.</p>
+      <p>Uma sessão protegida roda dentro de um tmux no servidor, que o Termavox controla sem mostrar. Se a conexão cair ou o Termavox reiniciar, o tmux segura o shell e os programas, e o Termavox reconstrói a tela a partir dele.</p>
       <p>O escudo ao lado de cada sessão diz qual é o caso; passe o mouse sobre ele para ler:</p>
       <ul class="shields">
         <li><svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#shield"/></svg><span><strong>Cheio:</strong> “Protegida: sobrevive a reinícios e quedas de rede”.</span></li>
@@ -116,7 +116,7 @@
             <tr><th scope="row"><span class="word"><span class="lamp lamp-restoring" aria-hidden="true"></span>Restaurando…</span></th><td><span class="cell-label">Quer dizer</span>Voltando a uma sessão que já esteve conectada, depois de uma queda, de um reinício ou de <strong>Tentar de novo</strong>.</td></tr>
             <tr><th scope="row"><span class="word"><span class="lamp lamp-connected" aria-hidden="true"></span>Conectada</span></th><td><span class="cell-label">Quer dizer</span>Pronta para usar.</td></tr>
             <tr><th scope="row"><span class="word"><span class="lamp lamp-action" aria-hidden="true"></span>Ação necessária</span></th><td><span class="cell-label">Quer dizer</span>O servidor espera você: confiar numa chave do host ou responder a um pedido de login, como um código de verificação.</td></tr>
-            <tr><th scope="row"><span class="word"><span class="lamp lamp-reconnecting" aria-hidden="true"></span>Reconectando…</span></th><td><span class="cell-label">Quer dizer</span>A conexão com o servidor caiu e o Termdock tenta de novo sozinho. O painel mostra quando será a próxima tentativa.</td></tr>
+            <tr><th scope="row"><span class="word"><span class="lamp lamp-reconnecting" aria-hidden="true"></span>Reconectando…</span></th><td><span class="cell-label">Quer dizer</span>A conexão com o servidor caiu e o Termavox tenta de novo sozinho. O painel mostra quando será a próxima tentativa.</td></tr>
             <tr><th scope="row"><span class="word"><span class="lamp lamp-disconnected" aria-hidden="true"></span>Desconectada</span></th><td><span class="cell-label">Quer dizer</span>As tentativas acabaram, você clicou em <strong>Parar</strong>, ou o problema não se resolve sozinho (credencial recusada, chave do host diferente). Nada tenta de novo até você pedir. O motivo está em <a href="#messages">Mensagens e o que fazer</a>.</td></tr>
             <tr><th scope="row"><span class="word"><span class="lamp lamp-ended" aria-hidden="true"></span>Encerrada</span></th><td><span class="cell-label">Quer dizer</span>A sessão terminou. <strong>Reabrir</strong> inicia um shell novo.</td></tr>
           </tbody>
@@ -124,8 +124,8 @@
       </div>
       <h3 id="reconnecting">Duas conexões diferentes</h3>
       <ul>
-        <li><strong>A sua conexão (navegador ⇄ Termdock).</strong> Quando cai, uma faixa avisa “Sem conexão, tentando de novo”. As sessões não sentem nada; a tela se atualiza na volta.</li>
-        <li><strong>A conexão da sessão (Termdock ⇄ servidor).</strong> Quando cai, o painel mostra “Reconectando…”. É esta que a proteção cobre.</li>
+        <li><strong>A sua conexão (navegador ⇄ Termavox).</strong> Quando cai, uma faixa avisa “Sem conexão, tentando de novo”. As sessões não sentem nada; a tela se atualiza na volta.</li>
+        <li><strong>A conexão da sessão (Termavox ⇄ servidor).</strong> Quando cai, o painel mostra “Reconectando…”. É esta que a proteção cobre.</li>
       </ul>
       <p>Quando a conexão da sessão cai:</p>
       <ul>
@@ -139,7 +139,7 @@
       </aside>
       <aside class="note note-info">
         <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#info"/></svg>
-        <div class="note-body"><p class="note-title">“O Termdock foi atualizado”</p><p>Depois de uma atualização, recarregue a página para carregar a versão nova. As sessões continuam rodando enquanto isso.</p></div>
+        <div class="note-body"><p class="note-title">“O Termavox foi atualizado”</p><p>Depois de uma atualização, recarregue a página para carregar a versão nova. As sessões continuam rodando enquanto isso.</p></div>
       </aside>
     </section>
 
@@ -174,7 +174,7 @@
         <li>A lista à esquerda agrupa as sessões por status. O botão logo abaixo de <strong>Nova sessão</strong> recolhe a lista em uma coluna de ícones.</li>
         <li>Divida uma aba com <strong>Dividir à direita</strong> e <strong>Dividir abaixo</strong>, e arraste a divisória para ajustar. <strong>Abrir em uma nova aba</strong> fica no menu da sessão.</li>
         <li>Renomeie pelo menu da sessão ou com clique duplo na aba. Todos que veem a sessão veem o nome novo.</li>
-        <li>Abas, divisões e tamanhos ficam guardados no Termdock e voltam em qualquer navegador em que você entrar.</li>
+        <li>Abas, divisões e tamanhos ficam guardados no Termavox e voltam em qualquer navegador em que você entrar.</li>
       </ul>
       <div class="table table-stack keys">
         <table>
@@ -188,7 +188,7 @@
       </div>
       <aside class="note note-info">
         <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#info"/></svg>
-        <div class="note-body"><p class="note-title">Com o terminal em foco, as teclas são do terminal</p><p>Fora o atalho da busca, nada do Termdock intercepta o teclado dentro de um terminal.</p></div>
+        <div class="note-body"><p class="note-title">Com o terminal em foco, as teclas são do terminal</p><p>Fora o atalho da busca, nada do Termavox intercepta o teclado dentro de um terminal.</p></div>
       </aside>
     </section>
 
@@ -213,7 +213,7 @@
         <li>A barra de teclas traz <kbd>Esc</kbd> <kbd>Tab</kbd> <kbd>Ctrl</kbd> <kbd>Alt</kbd>, as setas, a barra vertical e <strong>Colar</strong>.</li>
         <li><kbd>Ctrl</kbd> e <kbd>Alt</kbd> ficam armados para a próxima tecla: toque em <kbd>Ctrl</kbd> e depois em <kbd>c</kbd> para mandar Ctrl+C.</li>
         <li>Se o navegador não deixar colar pela barra, toque e segure o terminal.</li>
-        <li>Dá para instalar o Termdock como app pelo menu do navegador (“Adicionar à tela inicial”).</li>
+        <li>Dá para instalar o Termavox como app pelo menu do navegador (“Adicionar à tela inicial”).</li>
       </ul>
     </section>
 
@@ -228,7 +228,7 @@
         <li>Uma pasta com mais de 10.000 itens (menos, quando os nomes ou os destinos dos links são longos) é listada só em parte, e o painel avisa.</li>
         <li><strong>Apagar</strong> para depois de ler mais de 100.000 itens, ou com mais de 64 níveis de pastas aninhadas: “Esta pasta é grande demais para apagar pelo painel. Apague-a pelo terminal (por exemplo, com <code>rm -r</code>).” O que já foi apagado continua apagado.</li>
         <li>Um download que o navegador deixa pausado por mais de dois minutos é interrompido: baixe o arquivo de novo.</li>
-        <li>Um envio interrompido porque a conexão com o servidor caiu, ou porque o servidor parou de responder, pode deixar naquela pasta um arquivo oculto chamado <code>.&lt;nome&gt;.td-&lt;id&gt;.part</code>. Dá para apagá-lo pelo painel.</li>
+        <li>Um envio interrompido porque a conexão com o servidor caiu, ou porque o servidor parou de responder, pode deixar naquela pasta um arquivo oculto chamado <code>.&lt;nome&gt;.tv-&lt;id&gt;.part</code>. Dá para apagá-lo pelo painel.</li>
         <li>Um nome com caracteres invisíveis ou de controle (uma inversão de direção, um espaço de largura zero, uma quebra de linha, um espaço no começo ou no fim, um espaço incomum em qualquer posição, como o espaço sem quebra, o estreito da tipografia francesa ou o largo do japonês) mostra <code>&#xFFFD;</code> no lugar de cada um; passe o mouse sobre o nome para ver a forma exata, como <code>report\u202Efdp.exe</code>. O painel continua agindo sobre o nome real.</li>
         <li>Teclado: as setas movem, <kbd>Espaço</kbd> seleciona, <kbd>Enter</kbd> abre uma pasta, <kbd>F2</kbd> renomeia, <kbd>Delete</kbd> apaga.</li>
       </ul>
@@ -238,7 +238,7 @@
       </aside>
       <aside class="note note-info" id="files-sftp">
         <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#info"/></svg>
-        <div class="note-body"><p class="note-title">O painel diz que o servidor não oferece SFTP?</p><p>Quem administra o servidor precisa habilitar <code>Subsystem sftp internal-sftp</code> no <code>sshd_config</code> e recarregar o sshd. Se o botão <strong>Arquivos</strong> não aparece em lugar nenhum, o administrador do Termdock desligou o painel.</p></div>
+        <div class="note-body"><p class="note-title">O painel diz que o servidor não oferece SFTP?</p><p>Quem administra o servidor precisa habilitar <code>Subsystem sftp internal-sftp</code> no <code>sshd_config</code> e recarregar o sshd. Se o botão <strong>Arquivos</strong> não aparece em lugar nenhum, o administrador do Termavox desligou o painel.</p></div>
       </aside>
     </section>
 
@@ -247,9 +247,9 @@
       <ul>
         <li>Um <strong>servidor</strong> guarda tudo o que um <code>ssh usuário@endereço</code> precisa: endereço, porta, usuário, credencial e as opções da sessão. A mesma máquina com outro usuário é outro servidor; <strong>Duplicar</strong> ajuda.</li>
         <li>Mudanças num servidor valem para as sessões novas. As que estão rodando mantêm o endereço com que começaram.</li>
-        <li>Para entrar, prefira <strong>Gerar uma chave nova</strong>: a chave privada nunca sai do Termdock, e você instala a pública no servidor. Também dá para colar uma chave, usar uma senha, ou <strong>Nenhuma</strong> (o servidor pede a senha no terminal).</li>
+        <li>Para entrar, prefira <strong>Gerar uma chave nova</strong>: a chave privada nunca sai do Termavox, e você instala a pública no servidor. Também dá para colar uma chave, usar uma senha, ou <strong>Nenhuma</strong> (o servidor pede a senha no terminal).</li>
         <li>Em <strong>Avançado</strong>: proteção, comando inicial, variáveis de ambiente, keepalive, linhas de histórico e a reabertura de sessões desprotegidas.</li>
-        <li>O Termdock roda no Docker na mesma máquina que você quer acessar? Use <strong>Adicionar este host Docker</strong>.</li>
+        <li>O Termavox roda no Docker na mesma máquina que você quer acessar? Use <strong>Adicionar este host Docker</strong>.</li>
       </ul>
       <aside class="note note-warning">
         <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#alert"/></svg>
@@ -260,20 +260,20 @@
     <section class="sec" id="host-keys" data-group="Configuração e segurança">
       <h2>Chaves do host e login no servidor</h2>
       <ul>
-        <li>Na primeira conexão o Termdock pergunta <strong>Confiar nesta chave do host?</strong>. Compare a impressão digital com a do servidor (lá, <code>ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</code>) antes de confiar.</li>
+        <li>Na primeira conexão o Termavox pergunta <strong>Confiar nesta chave do host?</strong>. Compare a impressão digital com a do servidor (lá, <code>ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</code>) antes de confiar.</li>
         <li>A decisão vale para o <strong>endereço</strong>: todos os seus servidores naquele endereço, e só para você.</li>
         <li>Para confiar antes da primeira sessão, use <strong>Testar conexão</strong> ou <strong>Colar impressão digital esperada</strong> na página do servidor.</li>
         <li>Servidores que pedem um código (2FA) ou uma senha mostram a pergunta no painel. As respostas vão para o servidor e nunca são guardadas. Se o pedido expirar, use <strong>Tentar de novo</strong>.</li>
       </ul>
       <aside class="note note-caution">
         <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#caution"/></svg>
-        <div class="note-body"><p class="note-title">“A chave do host mudou”</p><p>Alguém pode estar interceptando a conexão, e o Termdock se recusa a conectar; não há como aceitar ali. Se você sabe que o servidor foi reinstalado ou trocou de chave, vá à página do servidor e use <strong>Substituir chave confiada</strong>, digitando o endereço para confirmar. Na dúvida, não conecte.</p></div>
+        <div class="note-body"><p class="note-title">“A chave do host mudou”</p><p>Alguém pode estar interceptando a conexão, e o Termavox se recusa a conectar; não há como aceitar ali. Se você sabe que o servidor foi reinstalado ou trocou de chave, vá à página do servidor e use <strong>Substituir chave confiada</strong>, digitando o endereço para confirmar. Na dúvida, não conecte.</p></div>
       </aside>
     </section>
 
     <section class="sec" id="remote-sessions" data-group="Configuração e segurança">
       <h2>Sessões que ficaram rodando num servidor</h2>
-      <p>O tmux de uma sessão protegida continua rodando no servidor enquanto o Termdock está fora do ar. É de propósito: na volta, o Termdock se reconecta a ele. Ele só fica para trás quando o Termdock o esquece: outra instalação do Termdock, ou esta mesma depois de o banco de dados ser zerado.</p>
+      <p>O tmux de uma sessão protegida continua rodando no servidor enquanto o Termavox está fora do ar. É de propósito: na volta, o Termavox se reconecta a ele. Ele só fica para trás quando o Termavox o esquece: outra instalação do Termavox, ou esta mesma depois de o banco de dados ser zerado.</p>
       <ul>
         <li>A área de trabalho avisa <strong>Sessões encontradas em…</strong> quando vê uma dessas ao conectar.</li>
         <li>Na página do servidor, <strong>Sessões neste servidor → Verificar agora</strong> lista as sessões. <strong>Adotar</strong> traz uma para a área de trabalho, com a mesma tela; <strong>Encerrar…</strong> para os programas dela.</li>
@@ -287,7 +287,7 @@
         <li><strong>Senha</strong> (Configurações → Conta): ao trocar, seus outros navegadores são desconectados. Esqueceu a senha? Peça uma senha temporária a um administrador.</li>
         <li><strong>Verificação em duas etapas</strong>: um código de um app autenticador a cada login. O administrador pode torná-la obrigatória.</li>
         <li><strong>Idioma</strong>: no menu da conta, em <strong>Idioma…</strong>.</li>
-        <li><strong>Versão</strong>: a última linha do menu da conta mostra a versão em execução, como “Termdock 0.1.0”. Informe-a ao relatar um problema nas <a href="https://github.com/ativaone/termdock/issues">issues do projeto no GitHub</a>. Um problema de segurança vai por um canal privado, como explica a <a href="https://github.com/ativaone/termdock/security/policy">política de segurança</a>.</li>
+        <li><strong>Versão</strong>: a última linha do menu da conta mostra a versão em execução, como “Termavox 0.1.0”. Informe-a ao relatar um problema nas <a href="https://github.com/ativaone/termavox/issues">issues do projeto no GitHub</a>. Um problema de segurança vai por um canal privado, como explica a <a href="https://github.com/ativaone/termavox/security/policy">política de segurança</a>.</li>
         <li><strong>Atividade</strong> mostra o que aconteceu com as suas sessões. A entrada e a saída do terminal nunca são gravadas.</li>
         <li>Administradores criam usuários, podem exigir a verificação em duas etapas, limitar as sessões em execução por usuário (padrão: 50), ligar ou desligar o painel de arquivos e consultar o log de auditoria.</li>
       </ul>
@@ -306,11 +306,11 @@
             <tr><td>Não foi possível alcançar o servidor. Tente de novo quando ele voltar.</td><td><span class="cell-label">O que fazer</span>O servidor está desligado ou fora da rede. Numa sessão protegida, o tmux continua lá: use <strong>Tentar de novo</strong> quando ele voltar.</td></tr>
             <tr><td>Não foi possível alcançar o servidor. Confira o endereço e a porta: a correção feita na página do servidor vale quando você tentar de novo.</td><td><span class="cell-label">O que fazer</span>Corrija o endereço ou a porta em <strong>Editar servidor</strong> e use <strong>Tentar de novo</strong>.</td></tr>
             <tr><td>O servidor desta sessão foi excluído, então ela não pode mais se conectar.</td><td><span class="cell-label">O que fazer</span>Encerre a sessão. Para voltar àquela máquina, adicione o servidor de novo.</td></tr>
-            <tr><td>Sua conta não tem permissão para abrir esta sessão.</td><td><span class="cell-label">O que fazer</span>Fale com um administrador do Termdock.</td></tr>
-            <tr><td>Shells locais ainda não estão disponíveis: o modo direto chega em uma versão futura.</td><td><span class="cell-label">O que fazer</span>Use um servidor SSH; para a própria máquina do Termdock, <strong>Adicionar este host Docker</strong>.</td></tr>
+            <tr><td>Sua conta não tem permissão para abrir esta sessão.</td><td><span class="cell-label">O que fazer</span>Fale com um administrador do Termavox.</td></tr>
+            <tr><td>Shells locais ainda não estão disponíveis: o modo direto chega em uma versão futura.</td><td><span class="cell-label">O que fazer</span>Use um servidor SSH; para a própria máquina do Termavox, <strong>Adicionar este host Docker</strong>.</td></tr>
             <tr><td>O servidor apresentou uma chave diferente da confiável.</td><td><span class="cell-label">O que fazer</span>Veja <a href="#host-keys">Chaves do host</a>. Não confie sem confirmar que a chave mudou de verdade.</td></tr>
-            <tr><td>O comando inicial ou o ambiente do servidor contém caracteres que o Termdock não consegue passar a ele com segurança. Edite o servidor e tente de novo.</td><td><span class="cell-label">O que fazer</span>Ajuste o comando inicial ou as variáveis em <strong>Avançado</strong>, na página do servidor.</td></tr>
-            <tr><td>O endereço deste servidor aponta para a máquina que roda o Termdock, ou para um endereço de loopback, link-local ou multicast, o que esta instalação não permite.</td><td><span class="cell-label">O que fazer</span>Para acessar a própria máquina do Termdock, use <strong>Adicionar este host Docker</strong>.</td></tr>
+            <tr><td>O comando inicial ou o ambiente do servidor contém caracteres que o Termavox não consegue passar a ele com segurança. Edite o servidor e tente de novo.</td><td><span class="cell-label">O que fazer</span>Ajuste o comando inicial ou as variáveis em <strong>Avançado</strong>, na página do servidor.</td></tr>
+            <tr><td>O endereço deste servidor aponta para a máquina que roda o Termavox, ou para um endereço de loopback, link-local ou multicast, o que esta instalação não permite.</td><td><span class="cell-label">O que fazer</span>Para acessar a própria máquina do Termavox, use <strong>Adicionar este host Docker</strong>.</td></tr>
             <tr><td>A conexão com o servidor caiu.</td><td><span class="cell-label">O que fazer</span>As tentativas automáticas acabaram. Use <strong>Tentar de novo</strong> quando o servidor estiver de volta.</td></tr>
             <tr><td>O servidor aceitou a conexão, mas não conseguiu iniciar o terminal.</td><td><span class="cell-label">O que fazer</span>O servidor recusou abrir o shell (uma conta sem shell válido, ou um limite do sshd). Teste o mesmo login com <code>ssh</code> e tente de novo.</td></tr>
             <tr><td>O servidor não concluiu o login a tempo.</td><td><span class="cell-label">O que fazer</span>O servidor está lento ou esperou uma resposta que não veio. Use <strong>Tentar de novo</strong>.</td></tr>
@@ -327,7 +327,7 @@
             <tr><td>A sessão foi encerrada.</td><td><span class="cell-label">O que fazer</span>Alguém usou <strong>Encerrar</strong> (você, em outra janela, ou um administrador). <strong>Reabrir</strong> inicia um shell novo.</td></tr>
             <tr><td>O shell terminou.</td><td><span class="cell-label">O que fazer</span>O shell saiu (<code>exit</code>), caiu, ou o tmux da sessão foi morto. <strong>Reabrir</strong> inicia um shell novo.</td></tr>
             <tr><td>A conexão caiu e a sessão não estava protegida.</td><td><span class="cell-label">O que fazer</span><strong>Reabrir</strong>. Para não perder o shell da próxima vez, veja <a href="#protection">Sessões protegidas</a>.</td></tr>
-            <tr><td>O Termdock reiniciou e a sessão não estava protegida.</td><td><span class="cell-label">O que fazer</span><strong>Reabrir</strong>. Para não perder o shell da próxima vez, veja <a href="#protection">Sessões protegidas</a>.</td></tr>
+            <tr><td>O Termavox reiniciou e a sessão não estava protegida.</td><td><span class="cell-label">O que fazer</span><strong>Reabrir</strong>. Para não perder o shell da próxima vez, veja <a href="#protection">Sessões protegidas</a>.</td></tr>
             <tr><td>A sessão parou depois de um erro.</td><td><span class="cell-label">O que fazer</span><strong>Reabrir</strong>. Se repetir, a página <strong>Atividade</strong> mostra os detalhes.</td></tr>
             <tr><td>A sessão terminou.</td><td><span class="cell-label">O que fazer</span><strong>Reabrir</strong> inicia um shell novo.</td></tr>
           </tbody>

@@ -1,5 +1,5 @@
-import { FILES_LIMITS } from '@termdock/protocol';
-import { ErrorCode, type TermdockError } from '@termdock/shared';
+import { FILES_LIMITS } from '@termavox/protocol';
+import { ErrorCode, type TermavoxError } from '@termavox/shared';
 import { describe, expect, it } from 'vitest';
 import { type SftpDirEntry, SftpError, type SftpHandle, SftpStatus } from '../../src/core/types.ts';
 import { namedPath } from '../../src/files/paths.ts';
@@ -31,10 +31,10 @@ const errorOf = async (promise: Promise<unknown>): Promise<unknown> =>
   );
 const codeOf = async (promise: Promise<unknown>): Promise<string | number> => {
   const err = await errorOf(promise);
-  return err instanceof SftpError ? err.status : (err as TermdockError).code;
+  return err instanceof SftpError ? err.status : (err as TermavoxError).code;
 };
 
-/** /data with every entry type, and /home/td/data pointing at it. */
+/** /data with every entry type, and /home/tv/data pointing at it. */
 function fixture(): MemorySftp {
   return new MemorySftp()
     .addDir('/data')
@@ -539,7 +539,7 @@ describe('remote file system: removal', () => {
         },
       }),
     );
-    expect((err as TermdockError).code).toBe(ErrorCode.Cancelled);
+    expect((err as TermavoxError).code).toBe(ErrorCode.Cancelled);
     const opsAtAnswer = sftp.ops.length;
     const left = sftp.under('/many').length;
     // The requests already running when it was cancelled finish; nothing new starts.

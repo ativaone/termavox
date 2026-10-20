@@ -46,7 +46,7 @@ The server keeps one `@xterm/headless` terminal per session. A browser restores 
 
 DECSET 1005 and 1015 are accepted but ignored by xterm 6 (`#2507`), so there is nothing to restore.
 
-**Defects found in SerializeAddon 0.14.0** (each one was reproduced by a golden scenario, then fixed in Termdock code):
+**Defects found in SerializeAddon 0.14.0** (each one was reproduced by a golden scenario, then fixed in Termavox code):
 
 1. **Alternate-buffer attributes:** the normal-buffer part ends by applying the current SGR, but the alternate part is serialized as if it started from default attributes. Live vim (status line drawn last, left in bold + inverse) restored with its whole first row bold + inverse. *Fix:* `SGR 0` before the serialized `CSI ? 1049 h`.
 2. **Overlong alternate-buffer lines:** xterm does not reflow the alternate buffer, so after a shrink its lines keep their old length, with stale cells beyond the right edge. SerializeAddon iterates `line.length`: hidden content would be printed and wrap on the client, and even empty hidden cells break its wrapped-line heuristic (vim after 100→90). *Fix:* SerializeAddon is activated on `clippedTerminalView`, a view whose lines are clipped to `cols`.

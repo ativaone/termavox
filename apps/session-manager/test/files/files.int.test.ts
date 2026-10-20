@@ -9,8 +9,8 @@ import {
   type FileRequest,
   parseServerMessage,
   type ServerMessage,
-} from '@termdock/protocol';
-import { ErrorCode, randomToken } from '@termdock/shared';
+} from '@termavox/protocol';
+import { ErrorCode, randomToken } from '@termavox/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { FILE_SETTINGS_CACHE_MS } from '../../src/files/settings.ts';
 import type { Daemon } from '../../src/main.ts';
@@ -84,7 +84,7 @@ describe.each(IMAGES)('file panel through the daemon (%s)', (image) => {
   let client: TestClient;
   /** A connection of the test's own, to prepare and check the files on the server. */
   let shell: SshTransport;
-  const dir = `/tmp/td-files-${randomToken(8)}`;
+  const dir = `/tmp/tv-files-${randomToken(8)}`;
   let requests = 0;
 
   const setSetting = (key: string, value: boolean): void => {

@@ -1,6 +1,6 @@
 import '../server-guard.ts';
-import type { TermdockDb } from '@termdock/db';
-import { Protection, SessionStatus } from '@termdock/protocol';
+import type { TermavoxDb } from '@termavox/db';
+import { Protection, SessionStatus } from '@termavox/protocol';
 import { ENDED_SHOWN } from '../sessions/lanes.ts';
 import type { BayData, BaySession } from '../sessions/types.ts';
 
@@ -51,7 +51,7 @@ function toBaySession(row: SessionRow): BaySession {
 }
 
 /** The signed-in user's bay: all non-ended sessions (oldest first) and the latest ended ones. */
-export function listBaySessions(db: TermdockDb, userId: string): BayData {
+export function listBaySessions(db: TermavoxDb, userId: string): BayData {
   const sqlite = db.$client;
   const live = sqlite
     .prepare(`${SELECT} WHERE s.user_id = ? AND s.status <> 'ended' ORDER BY s.created_at, s.id`)

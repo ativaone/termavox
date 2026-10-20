@@ -1,13 +1,13 @@
 import '../server-guard.ts';
-import type { TermdockDb } from '@termdock/db';
-import { schema } from '@termdock/db';
+import type { TermavoxDb } from '@termavox/db';
+import { schema } from '@termavox/db';
 import {
   type Argon2Params,
   DEFAULT_ARGON2_PARAMS,
   hashPassword,
   uuidv7,
   verifyPassword,
-} from '@termdock/shared';
+} from '@termavox/shared';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { APIError, createAuthMiddleware, getIP, isAPIError } from 'better-auth/api';
@@ -66,8 +66,8 @@ export const DISABLED_PATHS = [
 ];
 
 export interface CreateAuthOptions {
-  db: TermdockDb;
-  /** TERMDOCK_PUBLIC_URL: Better Auth's base URL; its origin is the only trusted origin. */
+  db: TermavoxDb;
+  /** TERMAVOX_PUBLIC_URL: Better Auth's base URL; its origin is the only trusted origin. */
   publicUrl: string;
   /** Trimmed content of BETTER_AUTH_SECRET_FILE. */
   secret: string;
@@ -82,7 +82,7 @@ interface HookSession {
   user: RequirementUser & BanUser & { id: string };
 }
 
-/** The Better Auth instance for Termdock (plugins, model mapping, cookies, hooks: ADR-0004). */
+/** The Better Auth instance for Termavox (plugins, model mapping, cookies, hooks: ADR-0004). */
 export function createAuth(options: CreateAuthOptions) {
   const { db, lockout, logger } = options;
   const argon2Params = options.argon2 ?? DEFAULT_ARGON2_PARAMS;
@@ -90,7 +90,7 @@ export function createAuth(options: CreateAuthOptions) {
   let lookupSession: ((headers: Headers) => Promise<HookSession | null>) | undefined;
 
   const auth = betterAuth({
-    appName: 'Termdock',
+    appName: 'Termavox',
     baseURL: options.publicUrl,
     secret: options.secret,
     database: drizzleAdapter(db, { provider: 'sqlite', schema }),
@@ -120,7 +120,7 @@ export function createAuth(options: CreateAuthOptions) {
     plugins: [
       // Users cannot rename themselves (audit trails stay readable); admins still can.
       username({ immutableUsername: true }),
-      twoFactor({ issuer: 'Termdock', trustDeviceMaxAge: 30 * DAY_S }),
+      twoFactor({ issuer: 'Termavox', trustDeviceMaxAge: 30 * DAY_S }),
       admin({ defaultRole: 'user', adminRoles: ['admin'] }),
       // After twoFactor: it audits each auth endpoint's final result (lib/auth/audit-plugin.ts).
       auditPlugin({ db, logger }),
@@ -131,7 +131,7 @@ export function createAuth(options: CreateAuthOptions) {
     rateLimit: { enabled: options.rateLimit ?? true, storage: 'memory' },
     advanced: {
       useSecureCookies: true,
-      cookiePrefix: 'termdock',
+      cookiePrefix: 'termavox',
       defaultCookieAttributes: { httpOnly: true, secure: true, sameSite: 'strict' },
       // Caddy is the only proxy and overwrites X-Forwarded-For with the peer address, so the
       // header has exactly one value. Web must not be reachable except through Caddy (§4.3).
@@ -250,8 +250,8 @@ export function createAuth(options: CreateAuthOptions) {
   return auth;
 }
 
-export type TermdockAuth = ReturnType<typeof createAuth>;
-export type AuthSession = TermdockAuth['$Infer']['Session'];
+export type TermavoxAuth = ReturnType<typeof createAuth>;
+export type AuthSession = TermavoxAuth['$Infer']['Session'];
 
 function signInUsername(body: unknown): string | null {
   const value = (body as { username?: unknown } | undefined)?.username;

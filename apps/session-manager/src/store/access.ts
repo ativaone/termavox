@@ -1,5 +1,5 @@
-import type { TermdockDb } from '@termdock/db';
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import type { TermavoxDb } from '@termavox/db';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 import type { OwnershipCheck } from '../core/types.ts';
 import type { AuthSessionValidator } from '../ws/types.ts';
 import { getRow, type Sqlite } from './sqlite.ts';
@@ -45,7 +45,7 @@ export function requireActingUser(sqlite: Sqlite, userId: string, now = Date.now
     userId,
   );
   if (!user || isBanned(user, now)) {
-    throw new TermdockError(ErrorCode.Forbidden, 'acting user is not allowed');
+    throw new TermavoxError(ErrorCode.Forbidden, 'acting user is not allowed');
   }
   return user;
 }
@@ -53,7 +53,7 @@ export function requireActingUser(sqlite: Sqlite, userId: string, now = Date.now
 export class SqliteOwnership implements OwnershipCheck {
   readonly #sqlite: Sqlite;
 
-  constructor(db: TermdockDb) {
+  constructor(db: TermavoxDb) {
     this.#sqlite = db.$client;
   }
 
@@ -75,7 +75,7 @@ export class SqliteAuthSessionValidator implements AuthSessionValidator {
   readonly #sqlite: Sqlite;
   readonly #now: () => number;
 
-  constructor(db: TermdockDb, now: () => number = Date.now) {
+  constructor(db: TermavoxDb, now: () => number = Date.now) {
     this.#sqlite = db.$client;
     this.#now = now;
   }

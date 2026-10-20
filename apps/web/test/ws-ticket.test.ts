@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { NonceCache, TICKET_TTL_MS, verifyTicket } from '@termdock/protocol';
+import { NonceCache, TICKET_TTL_MS, verifyTicket } from '@termavox/protocol';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readSecretFileSync, secretBytes } from '../lib/config.ts';
 import { issueWsTicket } from '../lib/ws-ticket.ts';
@@ -20,7 +20,7 @@ let daemonKey: Uint8Array;
 let secretDir: string;
 
 beforeAll(async () => {
-  secretDir = mkdtempSync(join(tmpdir(), 'termdock-secret-'));
+  secretDir = mkdtempSync(join(tmpdir(), 'termavox-secret-'));
   const secretFile = join(secretDir, 'ws_secret');
   writeFileSync(secretFile, `  ${randomBytes(32).toString('base64url')}\n`);
   t = makeRuntime({ wsSecret: secretBytes(readSecretFileSync(secretFile)) });

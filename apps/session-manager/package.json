@@ -1,5 +1,5 @@
 {
-  "name": "@termdock/session-manager",
+  "name": "@termavox/session-manager",
   "version": "0.0.0",
   "private": true,
   "license": "AGPL-3.0-only",
@@ -11,10 +11,10 @@
     "reset-password": "node src/cli/reset-password.ts"
   },
   "dependencies": {
-    "@termdock/db": "workspace:*",
-    "@termdock/protocol": "workspace:*",
-    "@termdock/shared": "workspace:*",
-    "@termdock/terminal-config": "workspace:*",
+    "@termavox/db": "workspace:*",
+    "@termavox/protocol": "workspace:*",
+    "@termavox/shared": "workspace:*",
+    "@termavox/terminal-config": "workspace:*",
     "@xterm/addon-serialize": "0.14.0",
     "@xterm/addon-unicode11": "0.9.0",
     "@xterm/headless": "6.0.0",

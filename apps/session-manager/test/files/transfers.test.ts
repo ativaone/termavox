@@ -1,5 +1,5 @@
-import { FILES_LIMITS, type ServerMessage, TRANSFER_TOKEN_TTL_MS } from '@termdock/protocol';
-import { ErrorCode, type TermdockError } from '@termdock/shared';
+import { FILES_LIMITS, type ServerMessage, TRANSFER_TOKEN_TTL_MS } from '@termavox/protocol';
+import { ErrorCode, type TermavoxError } from '@termavox/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { contentDisposition } from '../../src/files/content-disposition.ts';
 import { TOKEN_PATTERN, type TransferGrantInput } from '../../src/files/transfer-tokens.ts';
@@ -119,7 +119,7 @@ describe('transfer URLs', () => {
       try {
         transfers.mint(grantInput());
       } catch (e) {
-        return e as TermdockError;
+        return e as TermavoxError;
       }
     })();
     expect(err?.code).toBe(ErrorCode.RateLimited);

@@ -1,7 +1,7 @@
 import type { ReactNode, SVGProps } from 'react';
 
 /**
- * Termdock's icon set: authored inline SVG on a 24-unit grid, 1.75 stroke, round caps and
+ * Termavox's icon set: authored inline SVG on a 24-unit grid, 1.75 stroke, round caps and
  * joins, drawn in currentColor. Icons are decorative (aria-hidden); the control that holds one
  * carries the accessible name.
  */

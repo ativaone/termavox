@@ -5,7 +5,7 @@ import { execute } from './sqlite.ts';
 
 /**
  * Event retention (plan §10.2, §9): `audit_events` and `session_events` rows older than
- * TERMDOCK_EVENT_RETENTION_DAYS are deleted. The purge applies to the tables, whoever wrote the
+ * TERMAVOX_EVENT_RETENTION_DAYS are deleted. The purge applies to the tables, whoever wrote the
  * rows, so web's audit events (sign-ins, admin actions) age out with the daemon's own.
  *
  * - A purge deletes the oldest rows first, `chunkRows` per write, each write one op of the
@@ -72,7 +72,7 @@ export async function purgeEvents(options: PurgeOptions): Promise<PurgeResult> {
 
 export interface RetentionJobOptions {
   writer: BatchedWriter;
-  /** TERMDOCK_EVENT_RETENTION_DAYS; 0 disables the job. */
+  /** TERMAVOX_EVENT_RETENTION_DAYS; 0 disables the job. */
   retentionDays: number;
   logger?: Logger;
   /** Clock for the cutoff (tests). */

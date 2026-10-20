@@ -1,4 +1,4 @@
-import type { ServerMessage } from '@termdock/protocol';
+import type { ServerMessage } from '@termavox/protocol';
 import { describe, expect, it } from 'vitest';
 import type { DriverContext } from '../../src/core/types.ts';
 import { FakeAttachment, fakeTmuxDrivers, harness, TMUX_PROBE, until } from './fakes.ts';

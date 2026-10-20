@@ -1,6 +1,6 @@
 // Building blocks for UI capture sessions: the review screenshots of a delivery and the images in
 // docs/screenshots. Everything runs on private ports, isolated from any real install:
-//   - the test sshd containers (test/sshd/compose.yaml, compose project termdock-sshd, 2201-2204);
+//   - the test sshd containers (test/sshd/compose.yaml, compose project termavox-sshd, 2201-2204);
 //   - session-manager with a throwaway data dir under data/ (gitignored);
 //   - the web app's production build with `next start` (`next dev` runs out of memory beside
 //     Chromium on small machines), its WebSocket URL inlined at build time;
@@ -307,21 +307,21 @@ export class Capture {
     };
     const internalToken = secret('internal_token', () => randomBytes(32).toString('base64url'));
     const wsSecret = secret('ws_secret', () => randomBytes(32).toString('base64url'));
-    const common = { TERMDOCK_PUBLIC_URL: this.base, TERMDOCK_DATA_DIR: this.dataDir };
+    const common = { TERMAVOX_PUBLIC_URL: this.base, TERMAVOX_DATA_DIR: this.dataDir };
     return {
       daemonEnv: {
         ...process.env,
         ...common,
-        TERMDOCK_MASTER_KEY_FILE: secret('master_key', () => randomBytes(32).toString('base64')),
-        TERMDOCK_INTERNAL_TOKEN_FILE: internalToken,
-        TERMDOCK_WS_SECRET_FILE: wsSecret,
-        TERMDOCK_WS_HOST: '127.0.0.1',
-        TERMDOCK_WS_PORT: String(ports.ws),
-        TERMDOCK_INTERNAL_HOST: '127.0.0.1',
-        TERMDOCK_INTERNAL_PORT: String(ports.internal),
-        TERMDOCK_LOG_LEVEL: 'warn',
+        TERMAVOX_MASTER_KEY_FILE: secret('master_key', () => randomBytes(32).toString('base64')),
+        TERMAVOX_INTERNAL_TOKEN_FILE: internalToken,
+        TERMAVOX_WS_SECRET_FILE: wsSecret,
+        TERMAVOX_WS_HOST: '127.0.0.1',
+        TERMAVOX_WS_PORT: String(ports.ws),
+        TERMAVOX_INTERNAL_HOST: '127.0.0.1',
+        TERMAVOX_INTERNAL_PORT: String(ports.internal),
+        TERMAVOX_LOG_LEVEL: 'warn',
         // The test sshd containers listen on loopback.
-        TERMDOCK_SSH_ALLOW_LOCAL_TARGETS: 'true',
+        TERMAVOX_SSH_ALLOW_LOCAL_TARGETS: 'true',
       },
       webEnv: {
         ...process.env,
@@ -330,10 +330,10 @@ export class Capture {
         BETTER_AUTH_SECRET_FILE: secret('better_auth_secret', () =>
           randomBytes(32).toString('base64url'),
         ),
-        TERMDOCK_WS_SECRET_FILE: wsSecret,
-        TERMDOCK_INTERNAL_URL: `http://127.0.0.1:${ports.internal}`,
-        TERMDOCK_INTERNAL_TOKEN_FILE: internalToken,
-        NEXT_PUBLIC_TERMDOCK_WS_URL: `ws://127.0.0.1:${ports.ws}/ws`,
+        TERMAVOX_WS_SECRET_FILE: wsSecret,
+        TERMAVOX_INTERNAL_URL: `http://127.0.0.1:${ports.internal}`,
+        TERMAVOX_INTERNAL_TOKEN_FILE: internalToken,
+        NEXT_PUBLIC_TERMAVOX_WS_URL: `ws://127.0.0.1:${ports.ws}/ws`,
         NEXT_TELEMETRY_DISABLED: '1',
       },
     };
@@ -479,7 +479,7 @@ export class Capture {
           seed.name,
           seed.hostname ?? '127.0.0.1',
           seed.port,
-          seed.username ?? 'td',
+          seed.username ?? 'tv',
           seed.credential === false ? null : credentialId,
           JSON.stringify(seed.env ?? {}),
           seed.keepaliveSeconds ?? 15,

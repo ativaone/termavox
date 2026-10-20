@@ -3,7 +3,7 @@
   "tmuxVersion": "tmux 3.8",
   "recordedAt": "2026-10-15",
   "description": "second control client attaches to an existing session (new-session -A) → list-clients → detach-client of the first client → shell exit → %exit",
-  "launch": "exec sh -c 'export LC_CTYPE=C.UTF-8; exec /usr/bin/tmux -u -L td-fixture-rknsvwpj -f /dev/null -C start-server '\\\\'; set-option -g history-limit 2000 '\\\\'; set-option -g default-terminal tmux-256color '\\\\'; set-option -g aggressive-resize off '\\\\'; set-option -g detach-on-destroy on '\\\\'; set-option -g window-size latest '\\\\'; set-option -g status off '\\\\'; new-session -A -s main -x 80 -y 24 -e TD_FIXTURE=yes '\\''exec env -u TMUX -u TMUX_PANE \"$SHELL\" -l'\\'",
+  "launch": "exec sh -c 'export LC_CTYPE=C.UTF-8; exec /usr/bin/tmux -u -L tv-fixture-rknsvwpj -f /dev/null -C start-server '\\\\'; set-option -g history-limit 2000 '\\\\'; set-option -g default-terminal tmux-256color '\\\\'; set-option -g aggressive-resize off '\\\\'; set-option -g detach-on-destroy on '\\\\'; set-option -g window-size latest '\\\\'; set-option -g status off '\\\\'; new-session -A -s main -x 80 -y 24 -e TV_FIXTURE=yes '\\''exec env -u TMUX -u TMUX_PANE \"$SHELL\" -l'\\'",
   "cols": 80,
   "rows": 24,
   "notes": [

@@ -1,4 +1,4 @@
-import { EMPTY_LAYOUT, type WorkspaceLayout } from '@termdock/protocol/client';
+import { EMPTY_LAYOUT, type WorkspaceLayout } from '@termavox/protocol/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   LayoutSync,

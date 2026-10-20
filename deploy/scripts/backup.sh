@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Online backup of the Termdock database (plan §13.5). Safe while everything is running:
+# Online backup of the Termavox database (plan §13.5). Safe while everything is running:
 # SQLite's `VACUUM INTO` writes a consistent, compacted copy inside the session-manager
 # container (node + better-sqlite3), `PRAGMA integrity_check` verifies it, and the copy is
 # streamed to a timestamped file on the host.
@@ -12,7 +12,7 @@
 # Prints the path of the new file (mode 0600) on stdout; progress goes to stderr.
 #
 # Environment (optional, for test stacks such as the release smoke; installs leave it unset):
-#   TERMDOCK_COMPOSE_OVERRIDE  compose files applied on top of deploy/compose.yaml, in order,
+#   TERMAVOX_COMPOSE_OVERRIDE  compose files applied on top of deploy/compose.yaml, in order,
 #                              separated by ":" (one file, or e.g. a.yaml:b.yaml)
 #   (the stack's project name comes from COMPOSE_PROJECT_NAME, which docker compose reads itself)
 set -euo pipefail
@@ -36,8 +36,8 @@ esac
 dest_dir=${1:-"$deploy_dir/backups"}
 
 compose_files=(-f "$deploy_dir/compose.yaml")
-if [[ -n "${TERMDOCK_COMPOSE_OVERRIDE:-}" ]]; then
-  IFS=: read -r -a compose_overrides <<<"$TERMDOCK_COMPOSE_OVERRIDE"
+if [[ -n "${TERMAVOX_COMPOSE_OVERRIDE:-}" ]]; then
+  IFS=: read -r -a compose_overrides <<<"$TERMAVOX_COMPOSE_OVERRIDE"
   for override in "${compose_overrides[@]}"; do
     if [[ -n "$override" ]]; then compose_files+=(-f "$override"); fi
   done
@@ -48,9 +48,9 @@ compose ps --status running --services 2>/dev/null | grep -qx session-manager ||
   die "session-manager is not running (start the stack first)"
 
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
-remote="/data/.termdock-backup-$stamp.db"
+remote="/data/.termavox-backup-$stamp.db"
 mkdir -p -m 0700 -- "$dest_dir"
-out="$dest_dir/termdock-$stamp.db"
+out="$dest_dir/termavox-$stamp.db"
 [[ ! -e "$out" ]] || die "$out already exists"
 
 cleanup() {
@@ -66,7 +66,7 @@ read -r -d '' backup_js <<'JS' || true
 const path = require('node:path');
 const Database = require('better-sqlite3');
 const out = process.argv[1];
-const src = path.join(process.env.TERMDOCK_DATA_DIR || '/data', 'app.db');
+const src = path.join(process.env.TERMAVOX_DATA_DIR || '/data', 'app.db');
 const db = new Database(src, { fileMustExist: true, timeout: 10000 });
 try {
   db.prepare('VACUUM INTO ?').run(out);

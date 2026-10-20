@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { XTERM_VERSION } from '@termdock/terminal-config';
+import { XTERM_VERSION } from '@termavox/terminal-config';
 import { describe, expect, it } from 'vitest';
 
 interface Manifest {

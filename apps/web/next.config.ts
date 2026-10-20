@@ -14,7 +14,7 @@ const SECURITY_HEADERS = [
     key: 'Permissions-Policy',
     value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
   },
-  // Pages opened from Termdock (terminal links already use noopener) cannot script it back.
+  // Pages opened from Termavox (terminal links already use noopener) cannot script it back.
   { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
 ];
 
@@ -25,10 +25,10 @@ const config: NextConfig = {
   outputFileTracingRoot: fileURLToPath(new URL('../..', import.meta.url)),
   // Workspace packages ship TypeScript sources.
   transpilePackages: [
-    '@termdock/db',
-    '@termdock/protocol',
-    '@termdock/shared',
-    '@termdock/terminal-config',
+    '@termavox/db',
+    '@termavox/protocol',
+    '@termavox/shared',
+    '@termavox/terminal-config',
   ],
   // Native module: load it from node_modules at runtime instead of bundling it.
   serverExternalPackages: ['better-sqlite3'],

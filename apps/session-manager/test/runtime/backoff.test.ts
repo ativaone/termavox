@@ -1,4 +1,4 @@
-import { ErrorCode } from '@termdock/shared';
+import { ErrorCode } from '@termavox/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { nextRetry, RECONNECT_WINDOW_MS } from '../../src/core/backoff.ts';
 import { TransportError } from '../../src/core/types.ts';
@@ -192,7 +192,7 @@ describe("following the server's target until the first connection (plan D-31)",
           kind: 'ssh',
           hostname: '127.0.0.1',
           port: 22,
-          username: 'td',
+          username: 'tv',
           credentialId: null,
         },
       },

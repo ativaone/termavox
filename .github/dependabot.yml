@@ -4,7 +4,7 @@
 # changes on purpose, with the pinned versions recorded in the plan.
 version: 2
 updates:
-  # The digests of the images Termdock is built on: node (web, session-manager) and caddy.
+  # The digests of the images Termavox is built on: node (web, session-manager) and caddy.
   - package-ecosystem: docker
     directory: /deploy/docker
     schedule:

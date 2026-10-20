@@ -1,7 +1,7 @@
 /**
  * Failures of the file panel (plan §5.12): the daemon's error codes from `files.result` and
  * transfer responses, plus the few the browser decides on its own. Framework-free and
- * browser-safe: `@termdock/shared` pulls in `node:crypto`, so the codes the panel reads are
+ * browser-safe: `@termavox/shared` pulls in `node:crypto`, so the codes the panel reads are
  * mirrored here (a T0 test keeps them equal to `ErrorCode`).
  */
 
@@ -30,7 +30,7 @@ export const FileCode = {
 export const ClientFileCode = {
   /** A `files.request` got no answer in time. */
   Timeout: 'TIMEOUT',
-  /** A proxy in front of Termdock refused an upload with 413 and a body that is not ours. */
+  /** A proxy in front of Termavox refused an upload with 413 and a body that is not ours. */
   ProxyTooLarge: 'PROXY_TOO_LARGE',
   /** An upload's HTTP request failed without an answer we can read (network, proxy). */
   TransferFailed: 'TRANSFER_FAILED',

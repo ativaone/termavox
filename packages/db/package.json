@@ -1,5 +1,5 @@
 {
-  "name": "@termdock/db",
+  "name": "@termavox/db",
   "version": "0.0.0",
   "private": true,
   "license": "AGPL-3.0-only",
@@ -12,7 +12,7 @@
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
-    "@termdock/shared": "workspace:*",
+    "@termavox/shared": "workspace:*",
     "better-sqlite3": "13.0.3",
     "drizzle-orm": "0.45.4"
   },

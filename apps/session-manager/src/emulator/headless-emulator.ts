@@ -4,7 +4,7 @@ import {
   sharedTerminalOptions,
   UNICODE_VERSION,
   Utf8Aligner,
-} from '@termdock/terminal-config';
+} from '@termavox/terminal-config';
 import { SerializeAddon } from '@xterm/addon-serialize';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
 import headless, { type Terminal } from '@xterm/headless';

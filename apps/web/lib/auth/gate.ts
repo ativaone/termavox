@@ -1,6 +1,6 @@
 import '../server-guard.ts';
-import type { TermdockDb } from '@termdock/db';
-import type { AuthSession, TermdockAuth } from './auth.ts';
+import type { TermavoxDb } from '@termavox/db';
+import type { AuthSession, TermavoxAuth } from './auth.ts';
 import { hasAnyUser, isTotpRequiredInstanceWide } from './queries.ts';
 import { type AuthRequirement, isBanned, pendingRequirement } from './requirements.ts';
 import { AUTH_ROUTES } from './routes.ts';
@@ -26,8 +26,8 @@ export interface GateOptions {
 }
 
 export interface GateDeps {
-  auth: TermdockAuth;
-  db: TermdockDb;
+  auth: TermavoxAuth;
+  db: TermavoxDb;
 }
 
 /**

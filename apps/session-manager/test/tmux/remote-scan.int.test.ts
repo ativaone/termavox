@@ -1,8 +1,8 @@
-// T1: the remote leftover scan (plan D-30) on real tmux (TD_TMUX_IMAGES to override): the three
+// T1: the remote leftover scan (plan D-30) on real tmux (TV_TMUX_IMAGES to override): the three
 // format variables, `main` or else the first session, a server that does not answer, a name
 // that could break the line format, and that a scan never removes a socket file.
 // Precondition: docker compose -f test/sshd/compose.yaml up -d --build
-import { randomToken } from '@termdock/shared';
+import { randomToken } from '@termavox/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runRemoteScan } from '../../src/core/remote-sessions.ts';
 import type { ExecChannel } from '../../src/core/types.ts';
@@ -24,10 +24,10 @@ describe.each(IMAGES)('remote leftover scan on %s (plan D-30)', (image) => {
   let env: TmuxEnv;
   // A prefix of this run only (1–8 of [a-z0-9]), so other tests' servers never interfere.
   const prefix = `s${randomToken(7)}`;
-  const withMain = `td-${prefix}-${randomToken(12)}`;
-  const withoutMain = `td-${prefix}-${randomToken(12)}`;
-  const dead = `td-${prefix}-${randomToken(12)}`;
-  const spaced = `td-${prefix} x`;
+  const withMain = `tv-${prefix}-${randomToken(12)}`;
+  const withoutMain = `tv-${prefix}-${randomToken(12)}`;
+  const dead = `tv-${prefix}-${randomToken(12)}`;
+  const spaced = `tv-${prefix} x`;
   const controls: ExecChannel[] = [];
   const startedAt = Date.now();
 
@@ -98,9 +98,9 @@ describe.each(IMAGES)('remote leftover scan on %s (plan D-30)', (image) => {
     }
   });
 
-  it('reports each answering td-* server once, with numbers from the main or first session', async () => {
+  it('reports each answering tv-* server once, with numbers from the main or first session', async () => {
     const scan = await runRemoteScan(env.transport, env.probe.tmuxPath!);
-    const mine = scan.entries.filter((e) => e.socket.startsWith(`td-${prefix}-`));
+    const mine = scan.entries.filter((e) => e.socket.startsWith(`tv-${prefix}-`));
     expect(mine.map((e) => e.socket).sort()).toEqual([withMain, withoutMain].sort());
     const now = Date.now();
     for (const entry of mine) {
@@ -124,7 +124,7 @@ describe.each(IMAGES)('remote leftover scan on %s (plan D-30)', (image) => {
     const lines = Buffer.from(raw.stdout).toString('utf8').split('\n');
     expect(lines.some((l) => l.startsWith(spaced))).toBe(false);
     expect(lines.some((l) => l.startsWith(dead))).toBe(false);
-    for (const l of lines.filter((l) => l.startsWith(`td-${prefix}-`))) {
+    for (const l of lines.filter((l) => l.startsWith(`tv-${prefix}-`))) {
       expect(l.split('\t')).toHaveLength(4);
     }
     const files = await execBytes(

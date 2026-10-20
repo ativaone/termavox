@@ -1,5 +1,5 @@
-import type { ServerMessage, SessionSummary } from '@termdock/protocol';
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import type { ServerMessage, SessionSummary } from '@termavox/protocol';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 import { type Logger, silentLogger } from '../config/logger.ts';
 import type { DriverFactory } from './driver-factory.ts';
 import { forEachLimit, Limiter, settleWithin } from './limiter.ts';
@@ -88,7 +88,7 @@ export interface SessionRegistryOptions {
  */
 function requireServer(record: SessionRecord | null): void {
   if (record?.serverId === null) {
-    throw new TermdockError(ErrorCode.NotFound, 'server was deleted');
+    throw new TermavoxError(ErrorCode.NotFound, 'server was deleted');
   }
 }
 
@@ -212,9 +212,9 @@ export class SessionRegistry {
    * the client follows progress through `session.status`.
    */
   create(record: SessionRecord): SessionHost {
-    if (this.#closed) throw new TermdockError(ErrorCode.Internal, 'shutting down');
+    if (this.#closed) throw new TermavoxError(ErrorCode.Internal, 'shutting down');
     if (this.#runtimes.has(record.id)) {
-      throw new TermdockError(ErrorCode.Conflict, 'session already exists');
+      throw new TermavoxError(ErrorCode.Conflict, 'session already exists');
     }
     const runtime = this.#spawn(record, {});
     void runtime.start();
@@ -247,7 +247,7 @@ export class SessionRegistry {
         ending.push((await this.#beginTerminate(session.id, userId)).done);
       } catch (err) {
         // Removed meanwhile (not found): nothing left to terminate.
-        if (!(err instanceof TermdockError && err.code === ErrorCode.NotFound)) {
+        if (!(err instanceof TermavoxError && err.code === ErrorCode.NotFound)) {
           this.#log.warn({ err, sessionId: session.id }, 'terminate failed');
         }
       }
@@ -287,7 +287,7 @@ export class SessionRegistry {
   async remove(sessionId: string, actingUserId: string): Promise<void> {
     const runtime = this.#runtimes.get(sessionId);
     if (runtime && runtime.userId === actingUserId && runtime.state !== 'ended') {
-      throw new TermdockError(ErrorCode.Conflict, 'only ended sessions can be removed');
+      throw new TermavoxError(ErrorCode.Conflict, 'only ended sessions can be removed');
     }
     await this.#options.store.remove(actingUserId, sessionId);
     await this.#forget(sessionId, actingUserId);
@@ -322,7 +322,7 @@ export class SessionRegistry {
     await this.#pinned(sessionId, async () => {
       const runtime = await this.#owned(sessionId, actingUserId);
       if (!(await runtime.stopRetrying(actingUserId))) {
-        throw new TermdockError(ErrorCode.Conflict, 'the session is not retrying');
+        throw new TermavoxError(ErrorCode.Conflict, 'the session is not retrying');
       }
     });
   }
@@ -347,13 +347,13 @@ export class SessionRegistry {
       );
     }
     if (old.state !== 'ended' && old.protection !== 'none') {
-      throw new TermdockError(
+      throw new TermavoxError(
         ErrorCode.Conflict,
         'only ended or unprotected sessions can be reopened',
       );
     }
     const record = await this.#options.store.get(sessionId);
-    if (!record) throw new TermdockError(ErrorCode.NotFound, 'session not found');
+    if (!record) throw new TermavoxError(ErrorCode.NotFound, 'session not found');
     requireServer(record);
     // Same cap as create; checked before anything changes, so a refusal leaves the session as is.
     await this.#options.store.assertRunningCapacity(record.userId, sessionId);
@@ -577,7 +577,7 @@ export class SessionRegistry {
   async #owned(sessionId: string, actingUserId: string): Promise<SessionRuntime> {
     const runtime = await this.#load(sessionId);
     if (!runtime || runtime.userId !== actingUserId) {
-      throw new TermdockError(ErrorCode.NotFound, 'session not found');
+      throw new TermavoxError(ErrorCode.NotFound, 'session not found');
     }
     return runtime;
   }

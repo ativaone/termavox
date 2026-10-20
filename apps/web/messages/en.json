@@ -1,6 +1,6 @@
 {
   "common": {
-    "brand": "Termdock",
+    "brand": "Termavox",
     "skipToContent": "Skip to content",
     "working": "Working…",
     "signOut": "Sign out",
@@ -26,7 +26,7 @@
   "meta": {
     "login": "Sign in",
     "twoFactor": "Two-step verification",
-    "setup": "Set up Termdock",
+    "setup": "Set up Termavox",
     "changePassword": "Choose a new password",
     "enrollTotp": "Set up two-step verification",
     "workspace": "Workspace",
@@ -58,7 +58,7 @@
         "lockedSeconds": "Too many failed attempts. Sign-in is paused for {seconds, plural, one {# second} other {# seconds}}.",
         "lockedMinutes": "Too many failed attempts. Sign-in is paused for {minutes, plural, one {# minute} other {# minutes}}.",
         "rateLimited": "Too many sign-in attempts from this network. Wait a few seconds, then try again.",
-        "disabled": "This account is disabled. Contact your Termdock administrator.",
+        "disabled": "This account is disabled. Contact your Termavox administrator.",
         "generic": "Sign-in failed. Try again."
       }
     },
@@ -86,7 +86,7 @@
       }
     },
     "setup": {
-      "title": "Set up Termdock",
+      "title": "Set up Termavox",
       "intro": "Create the first administrator account. This page works once, with the one-time setup token printed in the web service log.",
       "token": "Setup token",
       "tokenHelp": "Copy it from the web service log line that starts with “No user exists yet”.",
@@ -224,7 +224,7 @@
       "emptyTitle": "Pick a session",
       "emptyBody": "Choose a session in the list to open it here. Closing a tab only detaches; the session keeps running on the server.",
       "firstRunTitle": "Connect your first server",
-      "firstRunBody": "Termdock holds SSH sessions open on the server, so you can close the browser and come back to the same screen. Setting up a server takes one page:",
+      "firstRunBody": "Termavox holds SSH sessions open on the server, so you can close the browser and come back to the same screen. Setting up a server takes one page:",
       "firstRunStep1": "Where the server is and the user name on it.",
       "firstRunStep2": "A key or a password to sign in with.",
       "firstRunStep3": "Start a session. It keeps running until you end it.",
@@ -266,7 +266,7 @@
       "terminalSettings": "Terminal settings",
       "language": "Language…",
       "cancel": "Cancel",
-      "version": "Termdock <data>{version}</data>"
+      "version": "Termavox <data>{version}</data>"
     },
     "rename": {
       "title": "Rename session",
@@ -291,11 +291,11 @@
       "expand": "Expand the session list"
     },
     "overlay": {
-      "offline": "Not connected to Termdock right now. Try again when the connection is back.",
+      "offline": "Not connected to Termavox right now. Try again when the connection is back.",
       "reconnectingIn": "Reconnecting in {seconds, plural, one {# second} other {# seconds}}",
       "reconnectingNow": "Reconnecting…",
-      "reconnectingBody": "The connection to {server} dropped. Termdock keeps trying.",
-      "reconnectingUntil": "The connection to {server} dropped. Termdock keeps trying until {time}.",
+      "reconnectingBody": "The connection to {server} dropped. Termavox keeps trying.",
+      "reconnectingUntil": "The connection to {server} dropped. Termavox keeps trying until {time}.",
       "nextAttemptIn": "Next attempt in {seconds, plural, one {# second} other {# seconds}}",
       "attemptingNow": "Trying to connect…",
       "firstAttemptBody": "Couldn't connect to {server} yet. Attempt {attempt} of {max}.",
@@ -317,14 +317,14 @@
       "rebootBody": "The previous shell was lost; a new one started.",
       "acknowledge": "Got it",
       "nestedTmuxTitle": "tmux isn't needed here",
-      "nestedTmuxBody": "Termdock already keeps this session running on its server. Without a tmux inside it, scrolling, selection and copy work right in the browser.",
+      "nestedTmuxBody": "Termavox already keeps this session running on its server. Without a tmux inside it, scrolling, selection and copy work right in the browser.",
       "nestedTmuxNever": "Don't show again",
       "dismiss": "Dismiss",
       "passive": "Sized by another window. Click to fit."
     },
     "hostKey": {
       "title": "Trust this host key?",
-      "body": "{server} presented a key Termdock hasn't seen before.",
+      "body": "{server} presented a key Termavox hasn't seen before.",
       "target": "Login",
       "keyType": "Key type",
       "fingerprint": "Fingerprint",
@@ -334,8 +334,8 @@
     },
     "mismatch": {
       "title": "Host key changed",
-      "body": "{server} presented a key that doesn't match the trusted one. Someone may be intercepting the connection, so Termdock refused to connect.",
-      "revokedBody": "{server} presented a key you revoked. Termdock refused to connect.",
+      "body": "{server} presented a key that doesn't match the trusted one. Someone may be intercepting the connection, so Termavox refused to connect.",
+      "revokedBody": "{server} presented a key you revoked. Termavox refused to connect.",
       "presented": "Presented",
       "review": "Review the keys on the server page"
     },
@@ -356,8 +356,8 @@
       "forbidden": "Your account isn't allowed to open this session.",
       "localShellDisabled": "Local shells aren't available yet: direct mode arrives in a later version.",
       "hostKeyMismatch": "The server presented a different key than the trusted one.",
-      "badLaunchParams": "The server's startup command or environment contains characters Termdock can't pass to it safely. Edit the server, then retry.",
-      "targetNotAllowed": "This server's address points at the machine running Termdock, or at a loopback, link-local or multicast address, which this installation doesn't allow.",
+      "badLaunchParams": "The server's startup command or environment contains characters Termavox can't pass to it safely. Edit the server, then retry.",
+      "targetNotAllowed": "This server's address points at the machine running Termavox, or at a loopback, link-local or multicast address, which this installation doesn't allow.",
       "connectionLost": "The connection to the server dropped.",
       "channelFailed": "The server accepted the connection but couldn't start the terminal.",
       "authTimeout": "The server didn't finish the sign-in in time.",
@@ -368,14 +368,14 @@
       "userTerminated": "The session was ended.",
       "shellExited": "The shell exited.",
       "connectionLost": "The connection dropped and the session wasn't protected.",
-      "serviceRestarted": "Termdock restarted and the session wasn't protected.",
+      "serviceRestarted": "Termavox restarted and the session wasn't protected.",
       "error": "The session stopped after an error.",
       "unknown": "The session is over."
     },
     "serverError": {
       "conflict": "That prompt is no longer current. Retry the session to get a fresh one.",
       "forbidden": "Your account isn't allowed to do that.",
-      "generic": "Termdock couldn't apply that. Try again."
+      "generic": "Termavox couldn't apply that. Try again."
     },
     "link": {
       "title": "Open this link?",
@@ -423,29 +423,29 @@
       "offline": "Offline, retrying",
       "offlineIn": "Offline, retrying in {seconds, plural, one {# second} other {# seconds}}",
       "retryNow": "Retry now",
-      "restarting": "Termdock is restarting…",
-      "tooManyWindows": "Too many Termdock windows are open. Close some and try again.",
-      "forbiddenTitle": "Termdock refused the connection",
+      "restarting": "Termavox is restarting…",
+      "tooManyWindows": "Too many Termavox windows are open. Close some and try again.",
+      "forbiddenTitle": "Termavox refused the connection",
       "forbiddenBody": "This page can't open terminals right now. Reload it to sign in again.",
-      "outdatedTitle": "Termdock was updated",
+      "outdatedTitle": "Termavox was updated",
       "outdatedBody": "Reload the page to load the new version.",
       "reload": "Reload"
     },
     "notice": {
       "tabLimit": "You have 32 tabs open. Close one to open another.",
       "paneLimit": "This tab can't hold more panes. Open the session in a new tab instead.",
-      "actionFailed": "Couldn't reach Termdock. Reload the page and try again."
+      "actionFailed": "Couldn't reach Termavox. Reload the page and try again."
     },
     "remoteSessions": {
       "title": "Sessions found on {server}",
-      "body": "{count, plural, one {A Termdock session that this Termdock doesn't run is still running there.} other {# Termdock sessions that this Termdock doesn't run are still running there.}}",
+      "body": "{count, plural, one {A Termavox session that this Termavox doesn't run is still running there.} other {# Termavox sessions that this Termavox doesn't run are still running there.}}",
       "review": "Review on the server page"
     },
     "localTarget": "This server (direct mode)"
   },
   "notFound": {
     "title": "Page not found",
-    "body": "This address doesn't lead anywhere in Termdock.",
+    "body": "This address doesn't lead anywhere in Termavox.",
     "home": "Go to the workspace"
   },
   "nav": {
@@ -484,7 +484,7 @@
   },
   "servers": {
     "title": "Servers",
-    "intro": "Where Termdock connects, as which user, and with which key or password. Sessions start from a server.",
+    "intro": "Where Termavox connects, as which user, and with which key or password. Sessions start from a server.",
     "add": "Add server",
     "edit": "Edit",
     "duplicate": "Duplicate",
@@ -507,7 +507,7 @@
     "empty": {
       "title": "No servers yet",
       "body": "A server is everything one terminal needs: where the machine is, the user name on it, and a key or password. Add server asks for all of it on one page.",
-      "dockerHelp": "Running Termdock in Docker on the machine you want to reach? “Add this Docker host” creates the server and a dedicated key for you."
+      "dockerHelp": "Running Termavox in Docker on the machine you want to reach? “Add this Docker host” creates the server and a dedicated key for you."
     },
     "notice": {
       "serverSaved": "Server saved. It applies to new sessions; running ones keep the address they started with.",
@@ -560,17 +560,17 @@
       "optional": "(optional)",
       "fixFields": "{count, plural, one {# field above needs attention.} other {# fields above need attention.}} Nothing was saved.",
       "docker": {
-        "title": "Termdock runs in Docker on this machine?",
+        "title": "Termavox runs in Docker on this machine?",
         "body": "Add the machine that runs Docker in one step, with a key made for it.",
         "cta": "Add this Docker host"
       },
       "server": {
         "title": "Server",
-        "intro": "Where Termdock connects and as which user, like an ssh command line."
+        "intro": "Where Termavox connects and as which user, like an ssh command line."
       },
       "credential": {
         "title": "Credential",
-        "intro": "How Termdock signs in. Secrets go to the session service once and are never shown again.",
+        "intro": "How Termavox signs in. Secrets go to the session service once and are never shown again.",
         "choice": "Sign in with",
         "recommended": "Recommended",
         "choices": {
@@ -583,7 +583,7 @@
         "choiceHelp": {
           "generate": "A new ed25519 key; you add its public key to the server",
           "private_key": "An OpenSSH or PEM key you already have",
-          "password": "Termdock answers the server's password prompt",
+          "password": "Termavox answers the server's password prompt",
           "saved": "A key or password you stored before",
           "none": "The server asks for a password in the terminal"
         },
@@ -593,7 +593,7 @@
         "exampleUser": "user",
         "exampleServer": "server",
         "generateNote": "The private key never leaves the session service. Once the server is added, you get the public key and the command that installs it.",
-        "noneNote": "Termdock stores no secret for this server. Each session shows the server's password prompt in the terminal, and you answer it there.",
+        "noneNote": "Termavox stores no secret for this server. Each session shows the server's password prompt in the terminal, and you answer it there.",
         "reenter": "Secrets are never sent back to the browser, so enter it again."
       },
       "error": {
@@ -612,7 +612,7 @@
       },
       "done": {
         "title": "Server added",
-        "body": "Termdock connects to {server} as {target}.",
+        "body": "Termavox connects to {server} as {target}.",
         "bodyLocal": "{server} opens a local shell.",
         "kind": {
           "generate": "New key",
@@ -639,15 +639,15 @@
       "nameHelp": "Shown in the session list and in session labels, e.g. api-prod or db as root.",
       "kind": "Kind",
       "kindSsh": "SSH server",
-      "kindSshHelp": "Termdock connects over SSH and checks the host key.",
+      "kindSshHelp": "Termavox connects over SSH and checks the host key.",
       "kindLocal": "Local shell (direct mode)",
       "kindLocalHelp": "A shell on the machine running the session service, for administrators. Not available yet: direct mode arrives in a later version.",
       "localNote": "A local shell runs as the session service's own user on its machine, so it has no address, user name or credential.",
       "hostname": "Address",
-      "hostnameHelp": "A hostname or IP address, as reachable from the Termdock server, e.g. 10.0.0.12 or db.internal.",
+      "hostnameHelp": "A hostname or IP address, as reachable from the Termavox server, e.g. 10.0.0.12 or db.internal.",
       "port": "Port",
       "username": "User name on the server",
-      "usernameHelp": "The account Termdock signs in as, e.g. deploy or ubuntu.",
+      "usernameHelp": "The account Termavox signs in as, e.g. deploy or ubuntu.",
       "localReason": {
         "off": "Direct mode isn't available yet; it arrives in a later version.",
         "adminOnly": "Local shells run as the session service's own user, so only administrators can create them."
@@ -657,13 +657,13 @@
       "credential": "Credential",
       "credentialNone": "None (the server asks for a password in the terminal)",
       "credentialEmpty": "You have no saved credentials yet.",
-      "credentialHelp": "The key or password Termdock signs in with.",
+      "credentialHelp": "The key or password Termavox signs in with.",
       "credentialNew": "New credential",
       "protection": "Session protection",
       "protectionAuto": "Auto (recommended)",
-      "protectionAutoHelp": "When the server has tmux 3.2 or newer, Termdock runs the shell inside tmux, invisibly. The session then survives Termdock restarts and network drops, with the same screen when you return. Without tmux the session runs unprotected and says so.",
+      "protectionAutoHelp": "When the server has tmux 3.2 or newer, Termavox runs the shell inside tmux, invisibly. The session then survives Termavox restarts and network drops, with the same screen when you return. Without tmux the session runs unprotected and says so.",
       "protectionOff": "Off",
-      "protectionOffHelp": "A plain shell. If the connection drops or Termdock restarts, the shell is lost.",
+      "protectionOffHelp": "A plain shell. If the connection drops or Termavox restarts, the shell is lost.",
       "startup": "Startup command",
       "startupHelp": "Optional. Runs once when the shell starts, e.g. cd /srv/app.",
       "env": "Environment variables",
@@ -675,7 +675,7 @@
       "envRemove": "Remove variable {n}",
       "envAdd": "Add variable",
       "keepalive": "Keepalive interval (seconds)",
-      "keepaliveHelp": "How often Termdock checks the connection: {min} to {max}.",
+      "keepaliveHelp": "How often Termavox checks the connection: {min} to {max}.",
       "scrollback": "Scrollback lines",
       "scrollbackHelp": "Kept on the server for each session: {min} to {max}.",
       "autoReopen": "Reopen unprotected sessions automatically",
@@ -711,10 +711,10 @@
         "mismatchTitle": "The server presented a different key",
         "mismatchBody": "This is not the key you trusted. If the server was reinstalled or its key rotated, replace the trusted key. Otherwise, do not connect: someone may be intercepting the connection.",
         "revokedTitle": "The server presented a key you revoked",
-        "revokedBody": "You revoked this key for this address, so Termdock refuses it. If you revoked it by mistake, replace the trusted key with it. Otherwise, do not connect: the server may be using an old or stolen key.",
+        "revokedBody": "You revoked this key for this address, so Termavox refuses it. If you revoked it by mistake, replace the trusted key with it. Otherwise, do not connect: the server may be using an old or stolen key.",
         "loginFailed": "The host key is trusted, but the sign-in failed",
         "noProbe": "The host key is trusted. The probe did not run.",
-        "noCredential": "The host key is trusted. This server has no stored credential, so Termdock can't sign in to check tmux and logind; sessions ask for the password in the terminal."
+        "noCredential": "The host key is trusted. This server has no stored credential, so Termavox can't sign in to check tmux and logind; sessions ask for the password in the terminal."
       },
       "status": {
         "trusted": "Trusted",
@@ -723,14 +723,14 @@
         "mismatch": "Mismatch"
       },
       "code": {
-        "HOST_UNREACHABLE": "Check the address and port, and that the Termdock server can reach it.",
-        "TARGET_NOT_ALLOWED": "This installation doesn't allow connecting to this address: it is the Termdock server itself, or a loopback, link-local or multicast address.",
+        "HOST_UNREACHABLE": "Check the address and port, and that the Termavox server can reach it.",
+        "TARGET_NOT_ALLOWED": "This installation doesn't allow connecting to this address: it is the Termavox server itself, or a loopback, link-local or multicast address.",
         "HOST_KEY_MISMATCH": "The presented key does not match the trusted one.",
         "AUTH_REJECTED": "The server rejected the user name or the credential.",
         "AUTH_TIMEOUT": "The sign-in took too long. The server may be waiting for an interactive prompt.",
         "CREDENTIAL_INVALID": "The server's credential could not be used.",
         "PROBE_TIMEOUT": "The capability probe took too long to answer.",
-        "PROBE_TOO_LARGE": "The capability probe printed more output than Termdock reads.",
+        "PROBE_TOO_LARGE": "The capability probe printed more output than Termavox reads.",
         "CONNECTION_LOST": "The connection dropped during the check.",
         "OTHER": "The check failed. Try again."
       },
@@ -773,12 +773,12 @@
         "shell": "Login shell",
         "unknown": "Unknown",
         "protected": "Sessions would be protected",
-        "protectedBody": "tmux control mode: sessions survive Termdock restarts and network drops.",
+        "protectedBody": "tmux control mode: sessions survive Termavox restarts and network drops.",
         "unprotected": "Sessions would not be protected",
         "reason": {
           "off": "Protection is off for this server.",
           "no_tmux": "tmux is not installed on the server. Install tmux 3.2 or newer to protect sessions.",
-          "too_old": "The server's tmux is older than 3.2, which Termdock needs for protection.",
+          "too_old": "The server's tmux is older than 3.2, which Termavox needs for protection.",
           "no_locale": "The server has no UTF-8 locale, which tmux needs."
         },
         "lingerTitle": "The server may kill tmux on disconnect",
@@ -802,17 +802,17 @@
     },
     "remote": {
       "title": "Sessions on this server",
-      "intro": "Termdock sessions running on this server as <mono>{target}</mono> that this Termdock does not run: from another Termdock installation, or from this one before its database was reset.",
+      "intro": "Termavox sessions running on this server as <mono>{target}</mono> that this Termavox does not run: from another Termavox installation, or from this one before its database was reset.",
       "check": "Check now",
-      "help": "Connects to the server as {user} and lists them. Sessions you already ended in Termdock that are still running there are ended right away.",
+      "help": "Connects to the server as {user} and lists them. Sessions you already ended in Termavox that are still running there are ended right away.",
       "checkFailed": "Couldn't check the server",
       "checkedAt": "Checked",
-      "empty": "No other Termdock sessions are running on this server as {user}.",
-      "cleaned": "{count, plural, one {# session you had already ended in Termdock was still running here and is ended now.} other {# sessions you had already ended in Termdock were still running here and are ended now.}}",
-      "truncated": "The server has more Termdock sessions than Termdock reads at once, so some aren't listed. End or adopt some, then check again.",
+      "empty": "No other Termavox sessions are running on this server as {user}.",
+      "cleaned": "{count, plural, one {# session you had already ended in Termavox was still running here and is ended now.} other {# sessions you had already ended in Termavox were still running here and are ended now.}}",
+      "truncated": "The server has more Termavox sessions than Termavox reads at once, so some aren't listed. End or adopt some, then check again.",
       "listLabel": "Sessions found on this server",
       "origin": {
-        "ended": "Ended in Termdock",
+        "ended": "Ended in Termavox",
         "unknown": "This installation, no record",
         "other": "Other or earlier installation"
       },
@@ -821,7 +821,7 @@
       "clients": "Attached clients",
       "notReported": "Not reported",
       "clientsCount": "{count, plural, =0 {None} one {# client} other {# clients}}",
-      "inUse": "{count, plural, one {A client is} other {# clients are}} attached right now: someone may be using this session, from another Termdock or a terminal on the server.",
+      "inUse": "{count, plural, one {A client is} other {# clients are}} attached right now: someone may be using this session, from another Termavox or a terminal on the server.",
       "actionsHelp": "Adopt opens one in the workspace as a session of this server. A session you had ended opens in the workspace, where Reopen brings it back. End stops the programs running in it.",
       "adopt": "Adopt",
       "openEnded": "Open in workspace",
@@ -834,15 +834,15 @@
       "endedNotice": "Session ended on the server.",
       "goneNotice": "That session had already ended.",
       "error": {
-        "running": "This session runs in Termdock now, so it can't be ended or adopted here. Check again to update the list.",
-        "untrusted": "Termdock doesn't trust this server's host key yet and never asks here. Run Test connection, trust the key, then check again.",
-        "noCredential": "This server has no stored credential, so Termdock can't sign in without asking for a password. Give the server a credential to check it here."
+        "running": "This session runs in Termavox now, so it can't be ended or adopted here. Check again to update the list.",
+        "untrusted": "Termavox doesn't trust this server's host key yet and never asks here. Run Test connection, trust the key, then check again.",
+        "noCredential": "This server has no stored credential, so Termavox can't sign in without asking for a password. Give the server a credential to check it here."
       }
     },
     "docker": {
       "cta": "Add this Docker host",
       "title": "Add this Docker host",
-      "intro": "When Termdock runs in Docker, it can reach the machine that runs Docker over SSH at host.docker.internal. Termdock generates a key for it; you add the key to the user on that machine.",
+      "intro": "When Termavox runs in Docker, it can reach the machine that runs Docker over SSH at host.docker.internal. Termavox generates a key for it; you add the key to the user on that machine.",
       "username": "User on the Docker host",
       "usernameHelp": "The account sessions sign in as, e.g. your own user on that machine.",
       "submit": "Create server and key",
@@ -863,7 +863,7 @@
         "fingerprint": "Key fingerprint:",
         "once": "The key is shown here once. Copy it now.",
         "step2": "2. Make sure sshd accepts connections from Docker",
-        "sshd": "The SSH server on the Docker host must listen on an address the containers reach (the Docker bridge, e.g. 172.17.0.1). Termdock's compose file maps host.docker.internal to that gateway.",
+        "sshd": "The SSH server on the Docker host must listen on an address the containers reach (the Docker bridge, e.g. 172.17.0.1). Termavox's compose file maps host.docker.internal to that gateway.",
         "step3": "3. Verify the host key",
         "verify": "On the server page, run Test connection and trust the key the Docker host presents.",
         "open": "Open the server"
@@ -883,7 +883,7 @@
   },
   "credentials": {
     "title": "Credentials",
-    "intro": "Keys and passwords Termdock uses to sign in to your servers. The session service stores them encrypted; after saving, nobody can view a secret again.",
+    "intro": "Keys and passwords Termavox uses to sign in to your servers. The session service stores them encrypted; after saving, nobody can view a secret again.",
     "kind": {
       "password": "Password",
       "private_key": "SSH key"
@@ -923,12 +923,12 @@
       "name": "Name",
       "nameHelp": "So you can tell it apart, e.g. deploy key 2026.",
       "password": "Password",
-      "passwordHelp": "Stored encrypted; Termdock answers the server's password prompt with it.",
+      "passwordHelp": "Stored encrypted; Termavox answers the server's password prompt with it.",
       "privateKey": "Private key",
       "privateKeyHelp": "Paste the whole key, including the BEGIN and END lines.",
       "passphrase": "Passphrase",
       "passphraseHelp": "Only if the key is protected by one.",
-      "generateNote": "Termdock creates an ed25519 key pair. The private key never leaves the session service; you get the public key to install on your servers.",
+      "generateNote": "Termavox creates an ed25519 key pair. The private key never leaves the session service; you get the public key to install on your servers.",
       "submit": {
         "generate": "Generate key",
         "private_key": "Save key",
@@ -1119,7 +1119,7 @@
       "confirmLinksHelp": "Shows the full address before a link from the terminal opens.",
       "tips": "Tips",
       "nestedTmuxTip": "Say so when tmux runs inside a session",
-      "nestedTmuxTipHelp": "Termdock already keeps your sessions running on their servers, so a tmux started inside one is not needed. The pane says so when it sees one.",
+      "nestedTmuxTipHelp": "Termavox already keeps your sessions running on their servers, so a tmux started inside one is not needed. The pane says so when it sees one.",
       "submit": "Save terminal settings",
       "saved": "Terminal settings saved. Open terminals pick them up when they reconnect.",
       "error": {
@@ -1437,7 +1437,7 @@
       "root": "Root folder",
       "edit": "Type a path",
       "field": "Folder path",
-      "invalid": "That isn't a path Termdock can open."
+      "invalid": "That isn't a path Termavox can open."
     },
     "list": {
       "label": "Contents of {folder}",
@@ -1453,7 +1453,7 @@
       "loading": "Loading…",
       "count": "{count, plural, one {# item} other {# items}}",
       "hiddenCount": "{count} hidden",
-      "truncated": "This folder has more entries than Termdock lists: showing the first {count}.",
+      "truncated": "This folder has more entries than Termavox lists: showing the first {count}.",
       "folderMeta": "Folder · {modified}",
       "linkMeta": "Link → {target}",
       "fileMeta": "{size} · {modified}",
@@ -1538,20 +1538,20 @@
     "unavailable": {
       "offlineTitle": "Files come back when the session reconnects",
       "offlineBody": "The panel uses this session's connection. Transfers that were running can be retried.",
-      "tabOfflineTitle": "Files come back when Termdock reconnects",
-      "tabOfflineBody": "This browser tab lost its connection to Termdock. It reconnects on its own.",
+      "tabOfflineTitle": "Files come back when Termavox reconnects",
+      "tabOfflineBody": "This browser tab lost its connection to Termavox. It reconnects on its own.",
       "sftpTitle": "Files need SFTP on this server",
-      "sftpBody": "The panel uses SSH's own SFTP, over this session's connection. The SSH server at <data>{target}</data> didn't offer it. Termdock installs nothing on the server, and the terminal keeps working as usual.",
+      "sftpBody": "The panel uses SSH's own SFTP, over this session's connection. The SSH server at <data>{target}</data> didn't offer it. Termavox installs nothing on the server, and the terminal keeps working as usual.",
       "sftpSteps": "To turn it on, on the server:",
       "sftpStep1": "Add this line to /etc/ssh/sshd_config:",
       "sftpStep2": "Reload the SSH server:",
       "tryAgain": "Try again",
       "disabledTitle": "File transfer is off",
-      "disabledBody": "An administrator turned off file transfer on this Termdock."
+      "disabledBody": "An administrator turned off file transfer on this Termavox."
     },
     "proxy": {
       "title": "A proxy refused the upload of {name}",
-      "body": "The proxy in front of Termdock limits the size of uploads (answer 413). Whoever runs Termdock needs to raise that limit: see “Behind a reverse proxy” in the install guide."
+      "body": "The proxy in front of Termavox limits the size of uploads (answer 413). Whoever runs Termavox needs to raise that limit: see “Behind a reverse proxy” in the install guide."
     },
     "dismiss": "Dismiss",
     "phone": {
@@ -1574,7 +1574,7 @@
       "rateLimited": "Too many file operations at once. Wait a moment and try again.",
       "forbidden": "Not allowed. Sign in again if this keeps happening.",
       "badRequest": "The service refused the request.",
-      "connectionLost": "The connection to Termdock dropped. Try again once it's back.",
+      "connectionLost": "The connection to Termavox dropped. Try again once it's back.",
       "timeout": "The server took too long to answer. Try again.",
       "proxyTooLarge": "Refused by a proxy: the file is too large for it.",
       "transferFailed": "The transfer didn't finish.",

@@ -52,8 +52,8 @@ const SEED_FILE = join(DEV_DIR, 'seed.json');
 const KEYS_DIR = join(ROOT, 'test', 'sshd', 'keys');
 const TARGETS = { 'no-tmux': 2201, 'tmux-3.2a': 2202, 'tmux-3.4': 2203, 'tmux-edge': 2204 };
 type Target = keyof typeof TARGETS;
-const TEST_USER = 'td';
-const TEST_PASSWORD = 'termdock-test-password';
+const TEST_USER = 'tv';
+const TEST_PASSWORD = 'termavox-test-password';
 const DETACH_KEY = 0x1d; // Ctrl-]
 
 interface Seed {
@@ -142,18 +142,18 @@ function init(args: string[]): void {
     writeFileSync(join(DEV_DIR, name), `${generate()}\n`, { mode: 0o600 });
   }
   const env = {
-    TERMDOCK_PUBLIC_URL: 'http://localhost:3000',
-    TERMDOCK_DATA_DIR: DEV_DIR,
-    TERMDOCK_MASTER_KEY_FILE: join(DEV_DIR, 'master_key'),
-    TERMDOCK_INTERNAL_TOKEN_FILE: join(DEV_DIR, 'internal_token'),
-    TERMDOCK_WS_SECRET_FILE: join(DEV_DIR, 'ws_secret'),
-    TERMDOCK_WS_HOST: '127.0.0.1',
-    TERMDOCK_WS_PORT: '3001',
-    TERMDOCK_INTERNAL_HOST: '127.0.0.1',
-    TERMDOCK_INTERNAL_PORT: '3002',
-    TERMDOCK_LOG_LEVEL: 'info',
+    TERMAVOX_PUBLIC_URL: 'http://localhost:3000',
+    TERMAVOX_DATA_DIR: DEV_DIR,
+    TERMAVOX_MASTER_KEY_FILE: join(DEV_DIR, 'master_key'),
+    TERMAVOX_INTERNAL_TOKEN_FILE: join(DEV_DIR, 'internal_token'),
+    TERMAVOX_WS_SECRET_FILE: join(DEV_DIR, 'ws_secret'),
+    TERMAVOX_WS_HOST: '127.0.0.1',
+    TERMAVOX_WS_PORT: '3001',
+    TERMAVOX_INTERNAL_HOST: '127.0.0.1',
+    TERMAVOX_INTERNAL_PORT: '3002',
+    TERMAVOX_LOG_LEVEL: 'info',
     // The test sshd containers listen on 127.0.0.1, a local target refused by default.
-    TERMDOCK_SSH_ALLOW_LOCAL_TARGETS: 'true',
+    TERMAVOX_SSH_ALLOW_LOCAL_TARGETS: 'true',
   };
   const lines = Object.entries(env).map(([k, v]) => `${k}=${v}`);
   writeFileSync(
@@ -202,7 +202,7 @@ async function seed(args: string[]): Promise<void> {
       sqlite
         .prepare(
           `INSERT INTO user (id, name, email, username, display_username, role, created_at, updated_at)
-           VALUES (?, 'Dev', 'dev@termdock.local', 'dev', 'dev', 'admin', ?, ?)`,
+           VALUES (?, 'Dev', 'dev@termavox.local', 'dev', 'dev', 'admin', ?, ?)`,
         )
         .run(user.id, now, now);
     }

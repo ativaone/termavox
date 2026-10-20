@@ -1,5 +1,5 @@
-import { TRANSFER_PATH } from '@termdock/protocol';
-import { ErrorCode } from '@termdock/shared';
+import { TRANSFER_PATH } from '@termavox/protocol';
+import { ErrorCode } from '@termavox/shared';
 import { createTranslator } from 'next-intl';
 import { describe, expect, it } from 'vitest';
 import { transferUrl } from '../../lib/files/client.ts';
@@ -132,7 +132,7 @@ describe('file panel errors', () => {
     }
   });
 
-  it("words Delete's own bound as Termdock's, never the server's, pointing at the terminal", () => {
+  it("words Delete's own bound as Termavox's, never the server's, pointing at the terminal", () => {
     const sentence = (messages: typeof en, locale: 'en' | 'pt-BR') =>
       createTranslator({ locale, messages, namespace: 'files.error' })(
         fileErrorKey(ErrorCode.RemoveTooLarge),

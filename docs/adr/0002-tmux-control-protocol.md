@@ -8,7 +8,7 @@
 
 ## Context
 
-Termdock protects sessions with an invisible per-session tmux server driven in control mode (plan §6.1). Before building `TmuxControlDriver`, S2 had to confirm the byte framing, reply correlation, escaping and launch quoting against real tmux builds, and find the version quirks.
+Termavox protects sessions with an invisible per-session tmux server driven in control mode (plan §6.1). Before building `TmuxControlDriver`, S2 had to confirm the byte framing, reply correlation, escaping and launch quoting against real tmux builds, and find the version quirks.
 
 ## Versions tested
 
@@ -47,7 +47,7 @@ On every tmux image the probe reported `ti_tmux256=yes`, `systemd_run=no`, `kill
 - **Shell exit.** With `detach-on-destroy on`, a shell `exit` ends the session and the client gets `%exit` (no reason). On 3.8 the shell's **last output was cut** (`ex` arrived, then `%exit`, without `it\r\nlogout`). The final bytes of a dying shell are not guaranteed.
 - **Paused panes.** Output produced while a pane is paused is **discarded** by tmux (`echo paused` never arrived). After `continue`, a full resync is mandatory, as plan §6.7 assumes.
 - **`has-session`** as a separate exec exits 0 while the session exists. Otherwise it exits 1 with `no server running on /tmp/tmux-<uid>/<socket>` on stderr.
-- **Sentinel.** The `snapshot`-style batch (4 captures + `display-message -p 'td-<nonce>'` on one line) returned 4 blocks followed by the sentinel on all versions.
+- **Sentinel.** The `snapshot`-style batch (4 captures + `display-message -p 'tv-<nonce>'` on one line) returned 4 blocks followed by the sentinel on all versions.
 
 ## Contradictions with the research and plan
 
@@ -91,18 +91,18 @@ Verification:
 
 ### Final launch command (as executed on tmux-3.2a; values from the probe)
 
-> **Superseded detail (2026-10-15):** the driver (ADR-0003) extended this command with `new-session -A -P -F td-created` (to know whether the session was created) and `set-option -gqw scroll-on-clear off`. `launchCommand()` in `commands.ts` is the source of truth.
+> **Superseded detail (2026-10-15):** the driver (ADR-0003) extended this command with `new-session -A -P -F tv-created` (to know whether the session was created) and `set-option -gqw scroll-on-clear off`. `launchCommand()` in `commands.ts` is the source of truth.
 
 The script, before the outer quoting layer:
 
 ```sh
-export LC_CTYPE=C.utf8; exec /usr/bin/tmux -u -L td-fixture-xcymx6hs -f /dev/null -C start-server \; set-option -g history-limit 2000 \; set-option -g default-terminal tmux-256color \; set-option -g aggressive-resize off \; set-option -g detach-on-destroy on \; set-option -g window-size latest \; set-option -g status off \; new-session -A -s main -x 80 -y 24 -e TD_FIXTURE=yes 'exec env -u TMUX -u TMUX_PANE "$SHELL" -l'
+export LC_CTYPE=C.utf8; exec /usr/bin/tmux -u -L tv-fixture-xcymx6hs -f /dev/null -C start-server \; set-option -g history-limit 2000 \; set-option -g default-terminal tmux-256color \; set-option -g aggressive-resize off \; set-option -g detach-on-destroy on \; set-option -g window-size latest \; set-option -g status off \; new-session -A -s main -x 80 -y 24 -e TV_FIXTURE=yes 'exec env -u TMUX -u TMUX_PANE "$SHELL" -l'
 ```
 
 The remote command sent on the exec channel:
 
 ```sh
-exec sh -c 'export LC_CTYPE=C.utf8; exec /usr/bin/tmux -u -L td-fixture-xcymx6hs -f /dev/null -C start-server '\\'; set-option -g history-limit 2000 '\\'; set-option -g default-terminal tmux-256color '\\'; set-option -g aggressive-resize off '\\'; set-option -g detach-on-destroy on '\\'; set-option -g window-size latest '\\'; set-option -g status off '\\'; new-session -A -s main -x 80 -y 24 -e TD_FIXTURE=yes '\''exec env -u TMUX -u TMUX_PANE "$SHELL" -l'\'
+exec sh -c 'export LC_CTYPE=C.utf8; exec /usr/bin/tmux -u -L tv-fixture-xcymx6hs -f /dev/null -C start-server '\\'; set-option -g history-limit 2000 '\\'; set-option -g default-terminal tmux-256color '\\'; set-option -g aggressive-resize off '\\'; set-option -g detach-on-destroy on '\\'; set-option -g window-size latest '\\'; set-option -g status off '\\'; new-session -A -s main -x 80 -y 24 -e TV_FIXTURE=yes '\''exec env -u TMUX -u TMUX_PANE "$SHELL" -l'\'
 ```
 
 Variants produced by `launchCommand()`:

@@ -314,15 +314,15 @@ describe('RetentionJob', () => {
   });
 });
 
-describe('TERMDOCK_EVENT_RETENTION_DAYS', () => {
+describe('TERMAVOX_EVENT_RETENTION_DAYS', () => {
   const env = {
-    TERMDOCK_PUBLIC_URL: 'https://termdock.test',
-    TERMDOCK_WS_SECRET_FILE: '/run/secrets/ws_secret',
-    TERMDOCK_MASTER_KEY_FILE: '/run/secrets/master_key',
-    TERMDOCK_INTERNAL_TOKEN_FILE: '/run/secrets/internal_token',
+    TERMAVOX_PUBLIC_URL: 'https://termavox.test',
+    TERMAVOX_WS_SECRET_FILE: '/run/secrets/ws_secret',
+    TERMAVOX_MASTER_KEY_FILE: '/run/secrets/master_key',
+    TERMAVOX_INTERNAL_TOKEN_FILE: '/run/secrets/internal_token',
   };
   const days = (value: string | undefined) =>
-    loadDaemonConfig({ ...env, TERMDOCK_EVENT_RETENTION_DAYS: value }).eventRetentionDays;
+    loadDaemonConfig({ ...env, TERMAVOX_EVENT_RETENTION_DAYS: value }).eventRetentionDays;
 
   it('defaults to 180 days when unset or empty', () => {
     expect(DEFAULT_EVENT_RETENTION_DAYS).toBe(180);
@@ -341,7 +341,7 @@ describe('TERMDOCK_EVENT_RETENTION_DAYS', () => {
   it('rejects anything else at boot, naming the variable', () => {
     for (const bad of ['6', '1', '3651', '-1', '1.5', '30d', 'abc', '1e3', '+30', '0x10']) {
       expect(() => days(bad), bad).toThrow(
-        /invalid configuration: .*TERMDOCK_EVENT_RETENTION_DAYS: use 0 \(keep forever\)/,
+        /invalid configuration: .*TERMAVOX_EVENT_RETENTION_DAYS: use 0 \(keep forever\)/,
       );
     }
   });

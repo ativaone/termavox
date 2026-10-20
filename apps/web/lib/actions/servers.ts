@@ -1,7 +1,7 @@
 'use server';
 
-import { Fingerprint } from '@termdock/protocol';
-import { normalizeHostname } from '@termdock/shared';
+import { Fingerprint } from '@termavox/protocol';
+import { normalizeHostname } from '@termavox/shared';
 import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';

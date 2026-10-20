@@ -1,5 +1,5 @@
 import '../server-guard.ts';
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 import { isAPIError } from 'better-auth/api';
 import { z } from 'zod';
 import type { AuthSession } from './auth.ts';
@@ -8,7 +8,7 @@ import { resetTotp } from './queries.ts';
 
 /**
  * Account and admin operations Better Auth does not cover on its own (ADR-0004). Each one goes
- * through the auth gate first; Server Actions call these and map TermdockError to their result.
+ * through the auth gate first; Server Actions call these and map TermavoxError to their result.
  */
 
 /**
@@ -37,15 +37,15 @@ export async function requireAdmin(deps: GateDeps, headers: Headers): Promise<Au
   const gate = await authGate(deps, headers);
   if (!gate.ok) {
     const code = 'user' in gate ? ErrorCode.Forbidden : ErrorCode.Unauthenticated;
-    throw new TermdockError(code, `not allowed: ${gate.reason}`);
+    throw new TermavoxError(code, `not allowed: ${gate.reason}`);
   }
-  if (gate.user.role !== 'admin') throw new TermdockError(ErrorCode.Forbidden, 'admin only');
+  if (gate.user.role !== 'admin') throw new TermavoxError(ErrorCode.Forbidden, 'admin only');
   return { session: gate.session, user: gate.user };
 }
 
 /**
  * The user's own password change, also the way out of a forced change (`mustChangePassword`;
- * Termdock's after-hook on `/change-password` clears the flag). Other sessions are revoked:
+ * Termavox's after-hook on `/change-password` clears the flag). Other sessions are revoked:
  * Better Auth deletes every auth session of the user, the current one included, and signs this
  * browser in again with a new one. So every WebSocket open until now belongs to a deleted
  * session, and all of the user's WebSockets are closed.
@@ -58,7 +58,7 @@ export async function changePassword(
 ): Promise<void> {
   const gate = await authGate(deps, headers, { allow: ['password-change', 'totp-enrollment'] });
   if (!gate.ok && !('user' in gate)) {
-    throw new TermdockError(ErrorCode.Unauthenticated, `not allowed: ${gate.reason}`);
+    throw new TermavoxError(ErrorCode.Unauthenticated, `not allowed: ${gate.reason}`);
   }
   await call(() =>
     deps.auth.api.changePassword({ headers, body: { ...input, revokeOtherSessions: true } }),
@@ -136,13 +136,13 @@ export async function resetUserTotp(
   userId: string,
 ): Promise<void> {
   await requireAdmin(deps, headers);
-  if (!resetTotp(deps.db, userId)) throw new TermdockError(ErrorCode.NotFound, 'user not found');
+  if (!resetTotp(deps.db, userId)) throw new TermavoxError(ErrorCode.NotFound, 'user not found');
 }
 
 function parse<T extends z.ZodType>(schema: T, value: unknown): z.output<T> {
   const parsed = schema.safeParse(value);
   if (!parsed.success) {
-    throw new TermdockError(
+    throw new TermavoxError(
       ErrorCode.BadRequest,
       parsed.error.issues[0]?.message ?? 'invalid input',
     );
@@ -158,13 +158,13 @@ const CODE_BY_STATUS: Record<number, ErrorCode> = {
   429: ErrorCode.RateLimited,
 };
 
-/** Runs a Better Auth API call, translating its APIError into a TermdockError. */
+/** Runs a Better Auth API call, translating its APIError into a TermavoxError. */
 async function call<T>(fn: () => Promise<T>): Promise<T> {
   try {
     return await fn();
   } catch (err) {
     if (!isAPIError(err)) throw err;
     const code = CODE_BY_STATUS[err.statusCode] ?? ErrorCode.Internal;
-    throw new TermdockError(code, err.message, { betterAuthCode: err.body?.code });
+    throw new TermavoxError(code, err.message, { betterAuthCode: err.body?.code });
   }
 }

@@ -6,7 +6,7 @@ import { jakarta, jetbrainsMono } from './fonts.ts';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: { default: 'Termdock', template: '%s · Termdock' },
+  title: { default: 'Termavox', template: '%s · Termavox' },
   referrer: 'no-referrer',
   robots: { index: false, follow: false },
 };

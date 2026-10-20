@@ -48,7 +48,7 @@ import { type PaneCapture, parseCapture, rebuild, snapshotCommands } from './reb
 export interface TmuxControlDriverOptions {
   /** tmuxPath, utf8Locale, tiTmux256, systemdRun, killUserProcesses, linger, shell. */
   probe: ProbeResult;
-  /** e.g. td-<installationId[0:8]>-<tmuxToken>. */
+  /** e.g. tv-<installationId[0:8]>-<tmuxToken>. */
   socket: string;
   /** history-limit and emulator scrollback. */
   scrollbackLines: number;

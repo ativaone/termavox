@@ -13,8 +13,8 @@ import {
   parseClientMessage,
   type ServerMessage,
   verifyTicket,
-} from '@termdock/protocol';
-import { ErrorCode, isTermdockError } from '@termdock/shared';
+} from '@termavox/protocol';
+import { ErrorCode, isTermavoxError } from '@termavox/shared';
 import { type RawData, WebSocket, WebSocketServer } from 'ws';
 import { type Logger, silentLogger } from '../config/logger.ts';
 import type { UserNotifier } from '../core/session-runtime.ts';
@@ -48,11 +48,11 @@ const MAX_USER_AGENT = 256;
 export interface WsServerOptions {
   host: string;
   port: number;
-  /** Expected `Origin` header: the origin of TERMDOCK_PUBLIC_URL. */
+  /** Expected `Origin` header: the origin of TERMAVOX_PUBLIC_URL. */
   publicOrigin: string;
-  /** TERMDOCK_TRUSTED_PROXIES: peers whose `X-Forwarded-For` is believed. Default: none. */
+  /** TERMAVOX_TRUSTED_PROXIES: peers whose `X-Forwarded-For` is believed. Default: none. */
   trustedProxies?: readonly string[];
-  /** TERMDOCK_WS_SECRET: HMAC key shared with the ticket issuer (web). */
+  /** TERMAVOX_WS_SECRET: HMAC key shared with the ticket issuer (web). */
   secret: Uint8Array;
   authSessions: AuthSessionValidator;
   ownership: OwnershipCheck;
@@ -493,7 +493,7 @@ export class WsServer implements UserNotifier {
       );
       return { result };
     } catch (err) {
-      if (isTermdockError(err)) return { error: { code: err.code, message: err.message } };
+      if (isTermavoxError(err)) return { error: { code: err.code, message: err.message } };
       this.#log.error({ err, connectionId: conn.id }, 'file request failed');
       return { error: { code: ErrorCode.Internal, message: 'internal error' } };
     }

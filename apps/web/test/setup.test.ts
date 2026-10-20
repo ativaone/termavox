@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { ErrorCode } from '@termdock/shared';
+import { ErrorCode } from '@termavox/shared';
 import { describe, expect, it } from 'vitest';
 import { authGate } from '../lib/auth/gate.ts';
 import { makeRuntime, signIn } from './helpers.ts';
@@ -11,7 +11,7 @@ describe('first-run setup token', () => {
       const tokenLogs = t.logs.filter((l) => l.startsWith('warn') && l.includes('setup token'));
       expect(tokenLogs).toHaveLength(1);
       const token = /setup token: (\S+)$/.exec(tokenLogs[0]!)![1]!;
-      expect(t.logs[0]).toContain('https://termdock.test/setup');
+      expect(t.logs[0]).toContain('https://termavox.test/setup');
       expect(t.rt.setup.isOpen()).toBe(true);
       expect(await authGate(t.rt, new Headers())).toMatchObject({
         ok: false,

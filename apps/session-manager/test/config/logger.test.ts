@@ -20,7 +20,7 @@ describe('daemon logging', () => {
         env: { API_KEY: 'secret-1' },
         policies: { startupCommand: 'deploy --token secret-2' },
         authorization: 'Bearer secret-3',
-        cookie: 'termdock.session=secret-4',
+        cookie: 'termavox.session=secret-4',
         token: 'secret-5',
         record: { env: { DB_PASSWORD: 'secret-6' }, token: 'secret-7' },
         req: { authorization: 'Bearer secret-8', cookie: 'a=secret-9' },
@@ -38,12 +38,12 @@ describe('daemon logging', () => {
     });
   });
 
-  it('TERMDOCK_SSH_ALLOW_LOCAL_TARGETS defaults to false and parses like the other flags (L4)', () => {
+  it('TERMAVOX_SSH_ALLOW_LOCAL_TARGETS defaults to false and parses like the other flags (L4)', () => {
     const env = {
-      TERMDOCK_PUBLIC_URL: 'https://termdock.test',
-      TERMDOCK_WS_SECRET_FILE: '/run/secrets/ws_secret',
-      TERMDOCK_MASTER_KEY_FILE: '/run/secrets/master_key',
-      TERMDOCK_INTERNAL_TOKEN_FILE: '/run/secrets/internal_token',
+      TERMAVOX_PUBLIC_URL: 'https://termavox.test',
+      TERMAVOX_WS_SECRET_FILE: '/run/secrets/ws_secret',
+      TERMAVOX_MASTER_KEY_FILE: '/run/secrets/master_key',
+      TERMAVOX_INTERNAL_TOKEN_FILE: '/run/secrets/internal_token',
     };
     expect(loadDaemonConfig(env).sshAllowLocalTargets).toBe(false);
     for (const [value, expected] of [
@@ -53,11 +53,11 @@ describe('daemon logging', () => {
       ['0', false],
       ['', false],
     ] as const) {
-      const config = loadDaemonConfig({ ...env, TERMDOCK_SSH_ALLOW_LOCAL_TARGETS: value });
+      const config = loadDaemonConfig({ ...env, TERMAVOX_SSH_ALLOW_LOCAL_TARGETS: value });
       expect(config.sshAllowLocalTargets).toBe(expected);
     }
-    expect(() => loadDaemonConfig({ ...env, TERMDOCK_SSH_ALLOW_LOCAL_TARGETS: 'yes' })).toThrow(
-      /TERMDOCK_SSH_ALLOW_LOCAL_TARGETS/,
+    expect(() => loadDaemonConfig({ ...env, TERMAVOX_SSH_ALLOW_LOCAL_TARGETS: 'yes' })).toThrow(
+      /TERMAVOX_SSH_ALLOW_LOCAL_TARGETS/,
     );
   });
 });

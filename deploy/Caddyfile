@@ -1,4 +1,4 @@
-# Termdock edge proxy (plan §4.3, §13.1). Caddy is the only listener and the only trusted proxy
+# Termavox edge proxy (plan §4.3, §13.1). Caddy is the only listener and the only trusted proxy
 # of web and session-manager: `/ws` and the file panel's `/transfer/*` go to session-manager,
 # everything else to web. Caddy is not on the `internal` network, so it can never reach the
 # daemon's internal API.
@@ -7,17 +7,17 @@
 # takes an image rebuild (docker compose -f deploy/compose.yaml up -d --build).
 #
 # Environment (set by deploy/compose.yaml):
-#   TERMDOCK_DOMAIN         site address, e.g. termdock.example.com (default: localhost)
-#   TERMDOCK_HTTP_PORT      HTTP listener, also the published host port (default: 80)
-#   TERMDOCK_HTTPS_PORT     HTTPS listener, also the published host port (default: 443)
-#   TERMDOCK_TLS            auto (compose default) | internal | off, see the site_* snippets below
-#   TERMDOCK_REVERSE_PROXY  addresses of a reverse proxy in front (TERMDOCK_TLS=off), or empty
+#   TERMAVOX_DOMAIN         site address, e.g. termavox.example.com (default: localhost)
+#   TERMAVOX_HTTP_PORT      HTTP listener, also the published host port (default: 80)
+#   TERMAVOX_HTTPS_PORT     HTTPS listener, also the published host port (default: 443)
+#   TERMAVOX_TLS            auto (compose default) | internal | off, see the site_* snippets below
+#   TERMAVOX_REVERSE_PROXY  addresses of a reverse proxy in front (TERMAVOX_TLS=off), or empty
 #
 # Security headers (CSP, Referrer-Policy, nosniff, Permissions-Policy, Cross-Origin-Opener-Policy)
 # come from web and pass through unchanged; only HSTS is added here.
 {
-	http_port {$TERMDOCK_HTTP_PORT:80}
-	https_port {$TERMDOCK_HTTPS_PORT:443}
+	http_port {$TERMAVOX_HTTP_PORT:80}
+	https_port {$TERMAVOX_HTTPS_PORT:443}
 	# No admin API: configuration changes mean a container restart.
 	admin off
 	# Never try to install Caddy's local CA into the container's trust store.
@@ -34,7 +34,7 @@
 	# Strict: the header is read right to left and the first untrusted address wins, so a value the
 	# client put in front of the proxy's own entry cannot pose as the client.
 	servers {
-		trusted_proxies static {$TERMDOCK_REVERSE_PROXY}
+		trusted_proxies static {$TERMAVOX_REVERSE_PROXY}
 		trusted_proxies_strict
 	}
 }
@@ -85,31 +85,31 @@
 # target reads https://<domain>:443/..., which browsers normalize). ACME HTTP challenges are still
 # answered: Caddy handles them before any route.
 (redirect) {
-	http://{$TERMDOCK_DOMAIN:localhost} {
-		redir https://{host}:{$TERMDOCK_HTTPS_PORT:443}{uri} 308
+	http://{$TERMAVOX_DOMAIN:localhost} {
+		redir https://{host}:{$TERMAVOX_HTTPS_PORT:443}{uri} 308
 		header -Server
 	}
 }
 
-# TERMDOCK_TLS=auto: Caddy's automatic HTTPS. A public domain gets a Let's Encrypt/ZeroSSL
+# TERMAVOX_TLS=auto: Caddy's automatic HTTPS. A public domain gets a Let's Encrypt/ZeroSSL
 # certificate over ACME (ports 80 and 443 must be reachable from the internet). `localhost` and IP
 # addresses get certificates from Caddy's local CA with its default 12-hour lifetime; use
 # internal for those.
 (site_auto) {
 	import redirect
-	{$TERMDOCK_DOMAIN:localhost} {
+	{$TERMAVOX_DOMAIN:localhost} {
 		import routes
 	}
 }
 
-# TERMDOCK_TLS=internal: always use Caddy's local CA, for localhost, IP addresses or a LAN-only name
-# such as termdock.lan. Browsers trust it only after importing the root certificate (see the
+# TERMAVOX_TLS=internal: always use Caddy's local CA, for localhost, IP addresses or a LAN-only name
+# such as termavox.lan. Browsers trust it only after importing the root certificate (see the
 # install guide). A browser that only accepted the warning accepted that one certificate, and a
 # renewed one is refused until the warning is accepted again: certificates last 30 days (plan
 # D-34), so that happens about every 20 days instead of every 8 hours with Caddy's default.
 (site_internal) {
 	import redirect
-	{$TERMDOCK_DOMAIN:localhost} {
+	{$TERMAVOX_DOMAIN:localhost} {
 		tls {
 			issuer internal {
 				lifetime 30d
@@ -119,19 +119,19 @@
 	}
 }
 
-# TERMDOCK_TLS=off: a reverse proxy in front terminates TLS and forwards plain HTTP here (plan
-# D-35). No certificate, no redirect and no HTTPS listener. TERMDOCK_REVERSE_PROXY must name the
+# TERMAVOX_TLS=off: a reverse proxy in front terminates TLS and forwards plain HTTP here (plan
+# D-35). No certificate, no redirect and no HTTPS listener. TERMAVOX_REVERSE_PROXY must name the
 # proxy: without it every client would show up with the proxy's address and share its sign-in
 # lockout and rate limits, so one client could keep everyone from signing in. Until it is set, web
 # answers 503 (this handle sorts before the catch-all one; /ws needs a signed-in user anyway).
 (site_off) {
-	http://{$TERMDOCK_DOMAIN:localhost} {
-		@no_reverse_proxy expression `"{$TERMDOCK_REVERSE_PROXY}" == ""`
+	http://{$TERMAVOX_DOMAIN:localhost} {
+		@no_reverse_proxy expression `"{$TERMAVOX_REVERSE_PROXY}" == ""`
 		handle @no_reverse_proxy {
-			respond "TERMDOCK_REVERSE_PROXY must name the reverse proxy when TERMDOCK_TLS=off (see the install guide)." 503
+			respond "TERMAVOX_REVERSE_PROXY must name the reverse proxy when TERMAVOX_TLS=off (see the install guide)." 503
 		}
 		import routes
 	}
 }
 
-import site_{$TERMDOCK_TLS:auto}
+import site_{$TERMAVOX_TLS:auto}

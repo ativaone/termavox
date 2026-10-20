@@ -6,8 +6,8 @@ import {
   FrameType,
   type ServerMessage,
   type TerminalHint,
-} from '@termdock/protocol/client';
-import { Utf8Aligner } from '@termdock/terminal-config';
+} from '@termavox/protocol/client';
+import { Utf8Aligner } from '@termavox/terminal-config';
 import { gunzip } from './gzip.ts';
 import { Store } from './store.ts';
 import type { Dimensions, Disposable, TerminalLike } from './types.ts';
@@ -291,7 +291,7 @@ export class TerminalChannel {
     this.#host.release(this.id);
   }
 
-  // ── connection events (called by TermdockConnection) ───────────────────────
+  // ── connection events (called by TermavoxConnection) ───────────────────────
 
   /** @internal The connection is (re)authenticated: (re)attach; the server sends a fresh snapshot. */
   handleConnected(): void {

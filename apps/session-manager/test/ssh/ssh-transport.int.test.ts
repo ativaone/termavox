@@ -1,7 +1,7 @@
 // T1: SshTransport against the test sshd containers (core images).
 // Precondition: docker compose -f test/sshd/compose.yaml up -d --build
 import { lookup } from 'node:dns/promises';
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { TransportError } from '../../src/core/types.ts';
 import { type ResolveAll, type SshTransport, TargetPolicy } from '../../src/transport/ssh/index.ts';
@@ -58,19 +58,19 @@ describe.each(CORE)('SshTransport (%s)', (image) => {
   it('authenticates with a password', async () => {
     const t = transport(image, { credential: { kind: 'password', password: TEST_PASSWORD } });
     await t.connect(AbortSignal.timeout(15_000));
-    expect((await runExec(t, 'id -un')).stdout.trim()).toBe('td');
+    expect((await runExec(t, 'id -un')).stdout.trim()).toBe('tv');
   });
 
   it('rejects an unknown host key without authenticating and reports it as pending', async () => {
     const err = await connectError(transport(image, { verifyHostKey: () => 'unknown' }));
-    expect(err).toBeInstanceOf(TermdockError);
-    expect((err as TermdockError).code).toBe(ErrorCode.HostKeyRejected);
-    expect((err as TermdockError).details).toEqual({ pending: HOST_KEY });
+    expect(err).toBeInstanceOf(TermavoxError);
+    expect((err as TermavoxError).code).toBe(ErrorCode.HostKeyRejected);
+    expect((err as TermavoxError).details).toEqual({ pending: HOST_KEY });
   });
 
   it('fails on a host key mismatch', async () => {
     const err = await connectError(transport(image, { verifyHostKey: () => 'mismatch' }));
-    expect((err as TermdockError).code).toBe(ErrorCode.HostKeyMismatch);
+    expect((err as TermavoxError).code).toBe(ErrorCode.HostKeyMismatch);
   });
 });
 
@@ -95,15 +95,15 @@ describe('SshTransport authentication and lifecycle (tmux-3.2a)', () => {
         },
       }),
     );
-    expect((err as TermdockError).code).toBe(ErrorCode.CredentialInvalid);
+    expect((err as TermavoxError).code).toBe(ErrorCode.CredentialInvalid);
   });
 
   it('rejects a wrong password as AUTH_REJECTED', async () => {
     const err = await connectError(
       transport(image, { credential: { kind: 'password', password: 'wrong-password' } }),
     );
-    expect(err).toBeInstanceOf(TermdockError);
-    expect((err as TermdockError).code).toBe(ErrorCode.AuthRejected);
+    expect(err).toBeInstanceOf(TermavoxError);
+    expect((err as TermavoxError).code).toBe(ErrorCode.AuthRejected);
   });
 
   it('reports an unreachable host as a retryable transport error', async () => {

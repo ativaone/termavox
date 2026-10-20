@@ -9,7 +9,7 @@ import { useCallback, useSyncExternalStore } from 'react';
  */
 export type SidebarMode = 'expanded' | 'rail';
 
-const KEY = 'termdock.sidebar';
+const KEY = 'termavox.sidebar';
 const listeners = new Set<() => void>();
 
 function read(): SidebarMode {

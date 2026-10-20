@@ -184,7 +184,7 @@ export const ServerMessage = z.discriminatedUnion('type', [
     prompts: z.array(AuthPrompt).max(AUTH_PROMPT_LIMITS.prompts),
   }),
   z.object({
-    // Plan D-30: a session's connection found Termdock tmux servers on its server that this
+    // Plan D-30: a session's connection found Termavox tmux servers on its server that this
     // installation does not run (`unknown` or `other` origin). At most once per daemon run per
     // server and set of sockets; the server page lists them (remote-sessions scan).
     type: z.literal('server.remote_sessions'),

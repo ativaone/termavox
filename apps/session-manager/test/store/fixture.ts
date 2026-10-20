@@ -3,25 +3,25 @@ import { createSecretKey, randomBytes } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { migrateDb, openDb, type TermdockDb } from '@termdock/db';
-import { uuidv7 } from '@termdock/shared';
+import { migrateDb, openDb, type TermavoxDb } from '@termavox/db';
+import { uuidv7 } from '@termavox/shared';
 import { Vault } from '../../src/vault/vault.ts';
 
 export interface TempDb {
   dir: string;
   file: string;
-  db: TermdockDb;
+  db: TermavoxDb;
   /** Another connection to the same file. */
-  open(busyTimeoutMs?: number): TermdockDb;
+  open(busyTimeoutMs?: number): TermavoxDb;
   cleanup(): void;
 }
 
 export function tempDb(busyTimeoutMs = 250): TempDb {
-  const dir = mkdtempSync(join(tmpdir(), 'termdock-store-'));
+  const dir = mkdtempSync(join(tmpdir(), 'termavox-store-'));
   const file = join(dir, 'app.db');
   const db = openDb(file, { busyTimeoutMs });
   migrateDb(db);
-  const extra: TermdockDb[] = [];
+  const extra: TermavoxDb[] = [];
   return {
     dir,
     file,
@@ -45,7 +45,7 @@ export function testVault(keyVersion = 1): Vault {
 }
 
 export function insertUser(
-  db: TermdockDb,
+  db: TermavoxDb,
   opts: { role?: string; banned?: boolean; banExpires?: number | null } = {},
 ): string {
   const id = uuidv7();
@@ -82,9 +82,9 @@ export interface ServerOptions {
 
 /**
  * A server row (web-owned, plan D-29). Defaults: an ssh server 'test server' at 127.0.0.1:22 as
- * `td`, without a credential. A local server has no address, user name or credential.
+ * `tv`, without a credential. A local server has no address, user name or credential.
  */
-export function insertServer(db: TermdockDb, userId: string, opts: ServerOptions = {}): string {
+export function insertServer(db: TermavoxDb, userId: string, opts: ServerOptions = {}): string {
   const id = uuidv7();
   const now = Date.now();
   const local = opts.kind === 'local';
@@ -101,7 +101,7 @@ export function insertServer(db: TermdockDb, userId: string, opts: ServerOptions
       local ? 'local' : 'ssh',
       local ? null : (opts.hostname ?? '127.0.0.1'),
       local ? null : (opts.port ?? 22),
-      local ? null : (opts.username ?? 'td'),
+      local ? null : (opts.username ?? 'tv'),
       local ? null : (opts.credentialId ?? null),
       opts.protectionMode ?? 'auto',
       opts.autoReopen === false ? 0 : 1,
@@ -111,7 +111,7 @@ export function insertServer(db: TermdockDb, userId: string, opts: ServerOptions
   return id;
 }
 
-export function insertAuthSession(db: TermdockDb, userId: string, expiresAt: number): string {
+export function insertAuthSession(db: TermavoxDb, userId: string, expiresAt: number): string {
   const id = uuidv7();
   const now = Date.now();
   db.$client
@@ -123,7 +123,7 @@ export function insertAuthSession(db: TermdockDb, userId: string, expiresAt: num
   return id;
 }
 
-export function auditTypes(db: TermdockDb): string[] {
+export function auditTypes(db: TermavoxDb): string[] {
   return (
     db.$client.prepare('SELECT type FROM audit_events ORDER BY rowid').all() as Array<{
       type: string;

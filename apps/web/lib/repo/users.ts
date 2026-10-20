@@ -1,5 +1,5 @@
 import '../server-guard.ts';
-import type { TermdockDb } from '@termdock/db';
+import type { TermavoxDb } from '@termavox/db';
 import type { Locale } from '../../i18n/locales.ts';
 
 /**
@@ -8,7 +8,7 @@ import type { Locale } from '../../i18n/locales.ts';
  * switcher writes it here, scoped to the signed-in user's own row.
  */
 export function setUserLocale(
-  db: TermdockDb,
+  db: TermavoxDb,
   userId: string,
   locale: Locale,
   now: number = Date.now(),

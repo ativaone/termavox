@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Generates the Docker secrets Termdock needs (plan §13.2) into deploy/secrets/, the directory
+# Generates the Docker secrets Termavox needs (plan §13.2) into deploy/secrets/, the directory
 # deploy/compose.yaml reads them from:
 #
 #   master_key      vault key: 32 random bytes, base64 (session-manager only)
@@ -12,14 +12,14 @@
 # owned by you, group 10001, mode 0440: the containers read it through the group, other host
 # users cannot read it. Setting group 10001 needs root unless you belong to that group; the
 # script tries, in order: a plain chgrp, a throwaway root container from the pinned Node base
-# image (you need the Docker daemon for Termdock anyway), then sudo.
+# image (you need the Docker daemon for Termavox anyway), then sudo.
 #
 # Usage: deploy/scripts/init-secrets.sh [--force]
 #   --force  replace existing secret files. Replacing master_key makes every stored credential
 #            unreadable (the daemon refuses to start with a different key).
 #
 # Environment (optional, for test stacks such as the release smoke; installs leave it unset):
-#   TERMDOCK_SECRETS_DIR  write the secrets there instead of deploy/secrets/
+#   TERMAVOX_SECRETS_DIR  write the secrets there instead of deploy/secrets/
 set -euo pipefail
 umask 077
 
@@ -28,7 +28,7 @@ readonly NAMES=(master_key internal_token ws_secret auth_secret)
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 deploy_dir=$(dirname -- "$script_dir")
-secrets_dir=${TERMDOCK_SECRETS_DIR:-"$deploy_dir/secrets"}
+secrets_dir=${TERMAVOX_SECRETS_DIR:-"$deploy_dir/secrets"}
 
 die() {
   printf 'init-secrets: %s\n' "$*" >&2

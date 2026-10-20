@@ -1,6 +1,6 @@
-import type { TermdockDb } from '@termdock/db';
-import type { ServerTestResponse } from '@termdock/protocol';
-import { ErrorCode, normalizeHostname, TermdockError } from '@termdock/shared';
+import type { TermavoxDb } from '@termavox/db';
+import type { ServerTestResponse } from '@termavox/protocol';
+import { ErrorCode, normalizeHostname, TermavoxError } from '@termavox/shared';
 import type { z } from 'zod';
 import { decideHostKey } from '../core/transport-factory.ts';
 import { type CredentialProvider, type HostKeyTarget, TransportError } from '../core/types.ts';
@@ -19,7 +19,7 @@ export const SERVER_TEST_READY_TIMEOUT_MS = 10_000;
 export const SERVER_TEST_PROBE_TIMEOUT_MS = 15_000;
 
 export interface ServerTestDeps {
-  db: TermdockDb;
+  db: TermavoxDb;
   hostKeys: SqliteHostKeyStore;
   credentials: CredentialProvider;
   /** The same target policy as sessions: a refused address reports TARGET_NOT_ALLOWED. */
@@ -63,14 +63,14 @@ export async function testServer(
     input.serverId,
     input.actingUserId,
   );
-  if (!server) throw new TermdockError(ErrorCode.NotFound, 'server not found');
+  if (!server) throw new TermavoxError(ErrorCode.NotFound, 'server not found');
   if (
     server.kind !== 'ssh' ||
     server.hostname === null ||
     server.port === null ||
     server.username === null
   ) {
-    throw new TermdockError(ErrorCode.BadRequest, 'only ssh servers can be tested');
+    throw new TermavoxError(ErrorCode.BadRequest, 'only ssh servers can be tested');
   }
   const target: HostKeyTarget = {
     userId: input.actingUserId,
@@ -152,6 +152,6 @@ export async function testServer(
 }
 
 function errorCode(err: unknown): string {
-  if (err instanceof TermdockError || err instanceof TransportError) return err.code;
+  if (err instanceof TermavoxError || err instanceof TransportError) return err.code;
   return ErrorCode.HostUnreachable;
 }

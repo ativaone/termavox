@@ -1,8 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { type FileEntry, TRANSFER_PATH } from '@termdock/protocol';
-import { ErrorCode, isTermdockError, TermdockError } from '@termdock/shared';
+import { type FileEntry, TRANSFER_PATH } from '@termavox/protocol';
+import { ErrorCode, isTermavoxError, TermavoxError } from '@termavox/shared';
 import { type Logger, silentLogger } from '../config/logger.ts';
 import { hostText } from '../core/host-text.ts';
 import {
@@ -156,7 +156,7 @@ export class TransferRoutes {
   handle(req: IncomingMessage, res: ServerResponse): void {
     this.#route(req, res).catch((err: unknown) => {
       this.#log.error({ err }, 'transfer route failed');
-      this.#error(res, new TermdockError(ErrorCode.Internal, 'internal error'), { close: true });
+      this.#error(res, new TermavoxError(ErrorCode.Internal, 'internal error'), { close: true });
     });
   }
 
@@ -164,7 +164,7 @@ export class TransferRoutes {
     const match = ROUTE.exec(new URL(req.url ?? '/', 'http://localhost').pathname);
     const close = req.method === 'POST';
     if (!match) {
-      this.#error(res, new TermdockError(ErrorCode.NotFound, 'not found'), { close });
+      this.#error(res, new TermavoxError(ErrorCode.NotFound, 'not found'), { close });
       return;
     }
     const direction = match[1] as TransferDirection;
@@ -183,7 +183,7 @@ export class TransferRoutes {
   /** The browser's CORS preflight (the web app and the daemon may run on two ports in dev). */
   #preflight(req: IncomingMessage, res: ServerResponse): void {
     if (req.headers.origin !== this.#options.publicOrigin) {
-      this.#error(res, new TermdockError(ErrorCode.Forbidden, 'forbidden origin'));
+      this.#error(res, new TermavoxError(ErrorCode.Forbidden, 'forbidden origin'));
       return;
     }
     res.writeHead(204, {
@@ -199,7 +199,7 @@ export class TransferRoutes {
   async #upload(req: IncomingMessage, res: ServerResponse, token: string): Promise<void> {
     // Checked before the token: a request from elsewhere does not spend it.
     if (req.headers.origin !== this.#options.publicOrigin) {
-      this.#error(res, new TermdockError(ErrorCode.Forbidden, 'forbidden origin'), { close: true });
+      this.#error(res, new TermavoxError(ErrorCode.Forbidden, 'forbidden origin'), { close: true });
       return;
     }
     const cors = { 'access-control-allow-origin': this.#options.publicOrigin, vary: 'Origin' };
@@ -215,7 +215,7 @@ export class TransferRoutes {
     try {
       const declared = req.headers['content-length'];
       if (declared !== undefined && Number(declared) !== grant.size) {
-        throw new TermdockError(ErrorCode.BadRequest, 'the upload is not the announced size');
+        throw new TermavoxError(ErrorCode.BadRequest, 'the upload is not the announced size');
       }
       const entry = await this.#receive(req, host, grant, transfer);
       this.#backend.auditTransfer(host, { userId: grant.userId, client }, 'file.upload', {
@@ -274,7 +274,7 @@ export class TransferRoutes {
         received += chunk.length;
         idle.touch();
         if (received > grant.size) {
-          cb(new TermdockError(ErrorCode.BadRequest, 'the upload is larger than announced'));
+          cb(new TermavoxError(ErrorCode.BadRequest, 'the upload is larger than announced'));
         } else {
           cb(null, chunk);
         }
@@ -293,7 +293,7 @@ export class TransferRoutes {
         throw stopCause(err, [signal, idle.signal], () => !req.complete);
       }
       if (received !== grant.size) {
-        throw new TermdockError(ErrorCode.BadRequest, 'the upload is not the announced size');
+        throw new TermavoxError(ErrorCode.BadRequest, 'the upload is not the announced size');
       }
       transfer.progress(writer.written);
       if (mode !== null && (mode & SET_ID_BITS) !== 0) await sftp.fchmod(handle, mode);
@@ -304,7 +304,7 @@ export class TransferRoutes {
         await commitUpload(sftp, temp, target, grant.overwrite);
       } catch (err) {
         // The old file is already gone: the upload stays under its temporary name, never lost.
-        if (isTermdockError(err) && err.details?.keepTemp === true) placed = true;
+        if (isTermavoxError(err) && err.details?.keepTemp === true) placed = true;
         throw err;
       }
       placed = true;
@@ -353,7 +353,7 @@ export class TransferRoutes {
       });
       const attrs = await abortable(session.fstat(handle), signal);
       if (fileType(attrs.mode) !== 'file') {
-        throw new TermdockError(ErrorCode.NotFound, 'not a file');
+        throw new TermavoxError(ErrorCode.NotFound, 'not a file');
       }
       // Stopped before a byte went out: an answer the browser can read, not a cut.
       signal.throwIfAborted();
@@ -433,16 +433,16 @@ export class TransferRoutes {
   async #use(req: IncomingMessage, token: string, direction: TransferDirection): Promise<Use> {
     const { backend } = this.#options;
     const grant = TOKEN_PATTERN.test(token) ? backend.transfers.consume(token, direction) : null;
-    if (!grant) throw new TermdockError(ErrorCode.Forbidden, 'this transfer link is not valid');
+    if (!grant) throw new TermavoxError(ErrorCode.Forbidden, 'this transfer link is not valid');
     if (!(await this.#validSession(grant))) {
-      throw new TermdockError(ErrorCode.Forbidden, 'the sign-in behind this link ended');
+      throw new TermavoxError(ErrorCode.Forbidden, 'the sign-in behind this link ended');
     }
     if (!backend.settings().transferEnabled) {
-      throw new TermdockError(ErrorCode.FilesDisabled, 'file transfer is turned off');
+      throw new TermavoxError(ErrorCode.FilesDisabled, 'file transfer is turned off');
     }
     const host = backend.fileHost(grant.sessionId);
     if (!host || host.userId !== grant.userId) {
-      throw new TermdockError(ErrorCode.SessionNotConnected, 'the session is not connected');
+      throw new TermavoxError(ErrorCode.SessionNotConnected, 'the session is not connected');
     }
     const transfer = backend.transfers.begin(grant);
     this.#watchAuthSessions();
@@ -559,7 +559,7 @@ export class TransferRoutes {
   }
 
   #methodNotAllowed(res: ServerResponse, allow: string, close: boolean): void {
-    this.#error(res, new TermdockError(ErrorCode.BadRequest, 'method not allowed'), {
+    this.#error(res, new TermavoxError(ErrorCode.BadRequest, 'method not allowed'), {
       status: 405,
       close,
       headers: { allow },
@@ -590,7 +590,7 @@ export class TransferRoutes {
    */
   #error(
     res: ServerResponse,
-    err: TermdockError,
+    err: TermavoxError,
     options: { status?: number; close?: boolean; headers?: Record<string, string> } = {},
   ): void {
     if (res.headersSent) {
@@ -612,7 +612,7 @@ export class TransferRoutes {
  */
 function stopCause(err: unknown, signals: AbortSignal[], browserLeft: () => boolean): unknown {
   for (const signal of signals) if (signal.aborted) return signal.reason;
-  if (isTermdockError(err) || err instanceof SftpError) return err;
+  if (isTermavoxError(err) || err instanceof SftpError) return err;
   if (browserLeft()) return new TransferStop({ state: 'cancelled' }, 'the browser stopped it');
   return err;
 }

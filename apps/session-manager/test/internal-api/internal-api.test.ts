@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import type { SessionSummary } from '@termdock/protocol';
+import type { SessionSummary } from '@termavox/protocol';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type SessionRecord, sessionHostKeyTarget } from '../../src/core/types.ts';
 import {
@@ -216,7 +216,7 @@ describe('internal API ownership (foreign resources are 404, like missing ones)'
         kind: 'ssh',
         hostname: '127.0.0.1',
         port: 22,
-        username: 'td',
+        username: 'tv',
         credentialId: credentialA,
       },
       cols: 100,

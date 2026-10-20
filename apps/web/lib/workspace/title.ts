@@ -1,4 +1,4 @@
-import { isControlChar, isInvisibleFormatChar } from '@termdock/protocol/client';
+import { isControlChar, isInvisibleFormatChar } from '@termavox/protocol/client';
 
 /**
  * Terminal titles come sanitized from the daemon (`sanitizeTitle`, its twin); this also drops

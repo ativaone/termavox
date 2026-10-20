@@ -1,4 +1,4 @@
-import { isControlChar } from '@termdock/protocol';
+import { isControlChar } from '@termavox/protocol';
 
 /**
  * Invisible characters a name loses in the header: Unicode's default-ignorable code points, which

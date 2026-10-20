@@ -13,9 +13,9 @@ import { join } from 'node:path';
 
 const ROOT = join(import.meta.dirname, '..');
 export const COMPOSE_PATH = 'deploy/compose.yaml';
-/** The published images, one per service: `ghcr.io/ativaone/termdock-<service>:<version>`. */
+/** The published images, one per service: `ghcr.io/ativaone/termavox-<service>:<version>`. */
 export const IMAGE_SERVICES = ['caddy', 'web', 'session-manager'] as const;
-export const IMAGE_PREFIX = 'ghcr.io/ativaone/termdock-';
+export const IMAGE_PREFIX = 'ghcr.io/ativaone/termavox-';
 
 const VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-rc\.(0|[1-9]\d*))?$/;
 
@@ -90,7 +90,7 @@ export interface ComposeImage {
   tag: string;
 }
 
-const COMPOSE_IMAGE_LINE = /^(\s*image:\s*)ghcr\.io\/ativaone\/termdock-([a-z0-9-]+):([^\s#]+)/gm;
+const COMPOSE_IMAGE_LINE = /^(\s*image:\s*)ghcr\.io\/ativaone\/termavox-([a-z0-9-]+):([^\s#]+)/gm;
 
 /** The published-image references of deploy/compose.yaml, in file order. */
 export function composeImages(text: string): ComposeImage[] {

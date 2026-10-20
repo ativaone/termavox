@@ -1,4 +1,4 @@
-import { ProtectionNotice } from '@termdock/protocol';
+import { ProtectionNotice } from '@termavox/protocol';
 import { describe, expect, it } from 'vitest';
 import { createDriverFactory } from '../../src/core/driver-factory.ts';
 import { fakeTmuxDrivers, harness, TMUX_PROBE } from './fakes.ts';

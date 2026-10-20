@@ -234,7 +234,7 @@ describe('ControlParser', () => {
 });
 
 describe('CommandCorrelator', () => {
-  function harness(nonce = 'td-n1') {
+  function harness(nonce = 'tv-n1') {
     const written: string[] = [];
     const correlator = new CommandCorrelator((line) => written.push(line), { nonce: () => nonce });
     const parser = new ControlParser();
@@ -264,9 +264,9 @@ describe('CommandCorrelator', () => {
     const { written, correlator, feed } = harness();
     const result = correlator.sendBatch(['capture-pane -p', 'display-message -p x']);
     expect(written).toEqual([
-      "capture-pane -p ; display-message -p x ; display-message -p 'td-n1'",
+      "capture-pane -p ; display-message -p x ; display-message -p 'tv-n1'",
     ]);
-    feed(block(1, 1, ['l1', '%end 9 1 0']) + block(2, 1, ['x']) + block(3, 1, ['td-n1']));
+    feed(block(1, 1, ['l1', '%end 9 1 0']) + block(2, 1, ['x']) + block(3, 1, ['tv-n1']));
     expect(await result).toEqual({
       ok: true,
       blocks: [
@@ -303,7 +303,7 @@ describe('CommandCorrelator', () => {
     const { correlator, feed } = harness();
     const result = correlator.sendBatch(['a']);
     const later = correlator.send('b');
-    expect(() => feed(block(1, 1, ['x']) + block(2, 1, ['td-other']))).toThrow(TmuxDesyncError);
+    expect(() => feed(block(1, 1, ['x']) + block(2, 1, ['tv-other']))).toThrow(TmuxDesyncError);
     await expect(result).rejects.toBeInstanceOf(TmuxDesyncError);
     await expect(later).rejects.toBeInstanceOf(TmuxDesyncError);
     await expect(correlator.send('c')).rejects.toBeInstanceOf(TmuxDesyncError);

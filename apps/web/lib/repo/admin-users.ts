@@ -1,6 +1,6 @@
 import '../server-guard.ts';
-import type { TermdockDb } from '@termdock/db';
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import type { TermavoxDb } from '@termavox/db';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 
 /**
  * The user directory for `/admin/users` (admins only: FORBIDDEN otherwise). Mutations go through
@@ -24,7 +24,7 @@ export interface AdminUserRow {
 
 function assertAdmin(viewer: { role?: string | null }): void {
   const roles = (viewer.role ?? '').split(',').map((r) => r.trim());
-  if (!roles.includes('admin')) throw new TermdockError(ErrorCode.Forbidden, 'admin only');
+  if (!roles.includes('admin')) throw new TermavoxError(ErrorCode.Forbidden, 'admin only');
 }
 
 const SELECT_USER = `
@@ -70,7 +70,7 @@ function toRow(r: UserRow, now: number): AdminUserRow {
 }
 
 export function listUsersForAdmin(
-  db: TermdockDb,
+  db: TermavoxDb,
   viewer: { role?: string | null },
   now: number = Date.now(),
 ): AdminUserRow[] {
@@ -82,7 +82,7 @@ export function listUsersForAdmin(
 }
 
 export function getUserForAdmin(
-  db: TermdockDb,
+  db: TermavoxDb,
   viewer: { role?: string | null },
   userId: string,
   now: number = Date.now(),
@@ -96,7 +96,7 @@ export function getUserForAdmin(
 
 /** Live (not ended) sessions of a user: shown before an admin terminates them. */
 export function countLiveSessionsForAdmin(
-  db: TermdockDb,
+  db: TermavoxDb,
   viewer: { role?: string | null },
   userId: string,
 ): number {
@@ -108,7 +108,7 @@ export function countLiveSessionsForAdmin(
 }
 
 /** Username → id, for audit targets (sign-in failures name only existing accounts). */
-export function findUserIdByUsername(db: TermdockDb, username: string): string | null {
+export function findUserIdByUsername(db: TermavoxDb, username: string): string | null {
   const row = db.$client
     .prepare('SELECT id FROM user WHERE username = ?')
     .get(username.trim().toLowerCase()) as { id: string } | undefined;

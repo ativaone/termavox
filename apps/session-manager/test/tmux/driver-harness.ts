@@ -4,7 +4,7 @@
  * proxy that can drop a connection abruptly.
  */
 import { createServer, connect as netConnect, type Server, type Socket } from 'node:net';
-import { randomToken } from '@termdock/shared';
+import { randomToken } from '@termavox/shared';
 import type {
   Dimensions,
   DriverContext,
@@ -175,7 +175,7 @@ export async function tmuxEnv(
   return { image, transport, probe };
 }
 
-export const newSocket = (): string => `td-t1-${randomToken(10)}`;
+export const newSocket = (): string => `tv-t1-${randomToken(10)}`;
 
 export function driverOptions(
   env: TmuxEnv,
@@ -497,8 +497,8 @@ export function memoryMiB(): { rss: number; heap: number; arrayBuffers: number }
   return { rss: mib(m.rss), heap: mib(m.heapUsed), arrayBuffers: mib(m.arrayBuffers) };
 }
 
-/** Tests honour TD_TMUX_IMAGES (comma-separated) to run against other images, e.g. tmux-3.4. */
+/** Tests honour TV_TMUX_IMAGES (comma-separated) to run against other images, e.g. tmux-3.4. */
 export function selectedImages(defaults: SshdImage[]): SshdImage[] {
-  const raw = process.env.TD_TMUX_IMAGES;
+  const raw = process.env.TV_TMUX_IMAGES;
   return raw ? (raw.split(',').map((s) => s.trim()) as SshdImage[]) : defaults;
 }

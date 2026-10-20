@@ -1,6 +1,6 @@
-import type { TermdockDb } from './client.ts';
+import type { TermavoxDb } from './client.ts';
 
-type Sqlite = TermdockDb['$client'];
+type Sqlite = TermavoxDb['$client'];
 
 /**
  * TOTP reset: removes the user's TOTP secret and backup codes, clears `two_factor_enabled` and

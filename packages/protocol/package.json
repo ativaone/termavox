@@ -1,5 +1,5 @@
 {
-  "name": "@termdock/protocol",
+  "name": "@termavox/protocol",
   "version": "0.0.0",
   "private": true,
   "license": "AGPL-3.0-only",
@@ -12,7 +12,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@termdock/shared": "workspace:*",
+    "@termavox/shared": "workspace:*",
     "zod": "4.6.7"
   }
 }

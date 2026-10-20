@@ -1,4 +1,4 @@
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 import { describe, expect, it } from 'vitest';
 import {
   encode,
@@ -68,7 +68,7 @@ describe('SessionRuntime state machine', () => {
           ? {
               connect: async (hooks) => {
                 hooks.onHostKey({ ...TEST_KEY }, 'unknown');
-                throw new TermdockError(ErrorCode.HostKeyRejected, 'unknown', {
+                throw new TermavoxError(ErrorCode.HostKeyRejected, 'unknown', {
                   pending: { ...TEST_KEY },
                 });
               },
@@ -108,7 +108,7 @@ describe('SessionRuntime state machine', () => {
       const h = harness({
         behavior: () => ({
           connect: async () => {
-            throw new TermdockError(code, 'nope', details);
+            throw new TermavoxError(code, 'nope', details);
           },
         }),
       });
@@ -139,7 +139,7 @@ describe('SessionRuntime state machine', () => {
             prompts: [{ text: 'OTP: ', echo: false }],
           });
           answered.push(answers);
-          if (!answers) throw new TermdockError(ErrorCode.AuthTimeout, 'expired');
+          if (!answers) throw new TermavoxError(ErrorCode.AuthTimeout, 'expired');
         },
       }),
     });
@@ -275,14 +275,14 @@ describe('SessionRuntime integration with the drivers', () => {
       drivers: fakeTmuxDrivers(async (ctx, opts) => {
         expect(opts.previousIdentity).toEqual(protectedRecord.remoteIdentity);
         opts.onIdentity({ sessionCreated: 2, panePid: 20 }, true);
-        await ctx.replaceState((fresh) => fresh.write(encode('td@host:~$ ')));
+        await ctx.replaceState((fresh) => fresh.write(encode('tv@host:~$ ')));
       }),
     });
     const rt = h.runtime();
     await rt.start();
     expect(rt.state).toBe('ready');
     await rt.emulator.flush();
-    expect(screenText(rt).trim()).toBe('td@host:~$');
+    expect(screenText(rt).trim()).toBe('tv@host:~$');
     expect(h.store.events.map((e) => e.type)).toContain('remote_rebooted');
     expect(h.notifier.ofType('session.status').at(-1)).toEqual({
       type: 'session.status',

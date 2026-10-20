@@ -1,6 +1,6 @@
 /** In-memory fakes for the runtime boundaries (stores, transport, attachments). */
-import type { ServerMessage, SessionState, SessionSummary } from '@termdock/protocol';
-import { ErrorCode, normalizeHostname, TermdockError } from '@termdock/shared';
+import type { ServerMessage, SessionState, SessionSummary } from '@termavox/protocol';
+import { ErrorCode, normalizeHostname, TermavoxError } from '@termavox/shared';
 import { bindToChannel } from '../../src/attachments/wire.ts';
 import {
   createDriverFactory,
@@ -50,7 +50,7 @@ export function makeRecord(overrides: Partial<SessionRecord> = {}): SessionRecor
       kind: 'ssh',
       hostname: '127.0.0.1',
       port: 22,
-      username: 'td',
+      username: 'tv',
       credentialId: null,
     },
     term: 'xterm-256color',
@@ -175,10 +175,10 @@ export class MemorySessionStore implements SessionStore {
   async remove(userId: string, sessionId: string): Promise<void> {
     const record = this.records.get(sessionId);
     if (!record || record.userId !== userId) {
-      throw new TermdockError(ErrorCode.NotFound, 'session not found');
+      throw new TermavoxError(ErrorCode.NotFound, 'session not found');
     }
     if (record.state !== 'ended') {
-      throw new TermdockError(ErrorCode.Conflict, 'only ended sessions can be removed');
+      throw new TermavoxError(ErrorCode.Conflict, 'only ended sessions can be removed');
     }
     this.records.delete(sessionId);
   }
@@ -199,7 +199,7 @@ export class MemorySessionStore implements SessionStore {
       (r) => r.userId === userId && r.desiredState === 'running' && r.id !== sessionId,
     ).length;
     if (running >= this.runningCap) {
-      throw new TermdockError(
+      throw new TermavoxError(
         ErrorCode.RateLimited,
         `running session limit reached (${this.runningCap})`,
       );

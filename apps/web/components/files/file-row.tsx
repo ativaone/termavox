@@ -1,6 +1,6 @@
 'use client';
 
-import type { FileEntry } from '@termdock/protocol/client';
+import type { FileEntry } from '@termavox/protocol/client';
 import { useLocale, useTranslations } from 'next-intl';
 import { memo, type ReactNode } from 'react';
 import { formatFullTime, formatModified, formatSize } from '../../lib/files/format.ts';

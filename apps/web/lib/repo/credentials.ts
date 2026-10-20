@@ -1,5 +1,5 @@
 import '../server-guard.ts';
-import type { TermdockDb } from '@termdock/db';
+import type { TermavoxDb } from '@termavox/db';
 
 /**
  * Reads of the user's credentials (public columns only: never ciphertext or nonce). The daemon
@@ -19,7 +19,7 @@ export interface CredentialSummary {
   serverCount: number;
 }
 
-export function listCredentials(db: TermdockDb, userId: string): CredentialSummary[] {
+export function listCredentials(db: TermavoxDb, userId: string): CredentialSummary[] {
   const rows = db.$client
     .prepare(
       `SELECT c.id, c.name, c.kind, c.public_key, c.fingerprint_sha256, c.created_at, c.last_used_at,
@@ -52,7 +52,7 @@ export function listCredentials(db: TermdockDb, userId: string): CredentialSumma
 }
 
 export function getCredentialName(
-  db: TermdockDb,
+  db: TermavoxDb,
   userId: string,
   credentialId: string,
 ): string | null {

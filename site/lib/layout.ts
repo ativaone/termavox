@@ -83,7 +83,7 @@ export function bar(ctx: PageContext): string {
   <div class="bar-inner">
     <a class="brand" href="${link(`${prefix}index.html`)}"${current('home')}>
       <img src="${rootOf(ctx.path)}assets/icon.svg" alt="" width="28" height="28">
-      <span class="brand-name">Termdock</span>
+      <span class="brand-name">Termavox</span>
     </a>
     <nav class="bar-nav" aria-label="${t.siteNav}">
       <a href="${link(`${prefix}docs/index.html`)}"${current('docs')}>${t.docs}</a>
@@ -110,7 +110,7 @@ export function foot(ctx: PageContext): string {
   <div class="site-foot-inner">
     <p class="site-foot-brand">
       <img src="${rootOf(ctx.path)}assets/icon.svg" alt="" width="20" height="20">
-      <span><strong>Termdock</strong> · ${t.license}</span>
+      <span><strong>Termavox</strong> · ${t.license}</span>
     </p>
     <nav aria-label="${t.siteNav}">
       <a href="${link(`${prefix}docs/index.html`)}">${t.docs}</a>

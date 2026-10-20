@@ -1,4 +1,4 @@
-import { ErrorCode, type TermdockError } from '@termdock/shared';
+import { ErrorCode, type TermavoxError } from '@termavox/shared';
 import { describe, expect, it } from 'vitest';
 import { createDriverFactory } from '../../src/core/driver-factory.ts';
 import type { SftpSession } from '../../src/core/types.ts';
@@ -8,7 +8,7 @@ import { MemorySftp } from './memory-sftp.ts';
 const codeOf = (promise: Promise<unknown>): Promise<string> =>
   promise.then(
     () => 'resolved',
-    (err: unknown) => (err as TermdockError).code,
+    (err: unknown) => (err as TermavoxError).code,
   );
 
 /** A tmux-control driver that only answers `currentDirectory()`. */

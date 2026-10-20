@@ -1,6 +1,6 @@
 // T1: unprotected (raw PTY) sessions over the real WebSocket server against the no-tmux sshd.
 // Precondition: docker compose -f test/sshd/compose.yaml up -d --build
-import { signTicket } from '@termdock/protocol';
+import { signTicket } from '@termavox/protocol';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDataPlane, type DataPlane } from '../../src/core/data-plane.ts';
 import type { SessionRuntime } from '../../src/core/session-runtime.ts';
@@ -10,7 +10,7 @@ import { MemoryHostKeyStore, MemorySessionStore, makeRecord, until } from '../ru
 import { HOST_KEY, requireSshd, SSHD_PORTS, TEST_USER, USER_KEY } from '../ssh/sshd.ts';
 import { TestClient } from '../ws/client.ts';
 
-const ORIGIN = 'https://termdock.test';
+const ORIGIN = 'https://termavox.test';
 const SECRET = new TextEncoder().encode('t1-secret-t1-secret-t1-secret-t1!');
 const USER = 'user-1';
 /** Another user at the same address: host-key decisions are never shared (D-29). */
@@ -110,10 +110,10 @@ describe('raw PTY session over WebSocket (no-tmux)', () => {
     // Modes SerializeAddon alone does not restore (SGR mouse, bar cursor, title), then vi.
     first.input(
       1,
-      "printf '\\033[?1000h\\033[?1006h\\033[5 q\\033]2;td-title\\007'; vi /etc/hosts\r",
+      "printf '\\033[?1000h\\033[?1006h\\033[5 q\\033]2;tv-title\\007'; vi /etc/hosts\r",
     );
     await until(() => /localhost/.test(screen(runtime)), 10_000);
-    first.input(1, 'Otermdock reattach line\x1b'); // busybox vi shows non-ASCII as dots
+    first.input(1, 'Otermavox reattach line\x1b'); // busybox vi shows non-ASCII as dots
     await quiet(runtime);
     await first.close();
 
@@ -129,11 +129,11 @@ describe('raw PTY session over WebSocket (no-tmux)', () => {
     expect(server.tracker).toMatchObject({
       mouseEncoding: 'sgr',
       cursorShape: 'bar',
-      title: 'td-title',
+      title: 'tv-title',
     });
     expect(runtime.emulator.terminal.buffer.active.type).toBe('alternate');
     expect(restored.terminal.buffer.active.type).toBe('alternate');
-    expect(screen(runtime)).toContain('termdock reattach line');
+    expect(screen(runtime)).toContain('termavox reattach line');
 
     await runtime.terminate();
   });

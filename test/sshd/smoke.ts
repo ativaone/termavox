@@ -36,7 +36,7 @@ async function smoke(target: {
   const transport = new SshTransport({
     host: '127.0.0.1',
     port: target.port,
-    username: 'td',
+    username: 'tv',
     credential: { kind: 'private_key', privateKey },
     verifyHostKey: (key) => {
       presented = key;

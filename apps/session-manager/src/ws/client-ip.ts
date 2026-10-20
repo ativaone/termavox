@@ -1,7 +1,7 @@
 import { BlockList, isIP } from 'node:net';
 
 /**
- * Trusted proxies (`TERMDOCK_TRUSTED_PROXIES`, plan §4.3): IPs and CIDRs whose connections may
+ * Trusted proxies (`TERMAVOX_TRUSTED_PROXIES`, plan §4.3): IPs and CIDRs whose connections may
  * name the client in `X-Forwarded-For`. Empty trusts nothing.
  */
 export class TrustedProxies {

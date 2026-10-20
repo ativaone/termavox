@@ -1,6 +1,6 @@
 # Architecture overview
 
-A map of Termdock for contributors. The full design is in the
+A map of Termavox for contributors. The full design is in the
 [implementation plan](implementation-plan.md) (§4 architecture, §5 runtime, §6 tmux, §7 protocol,
 §9 data model); spike outcomes are recorded as [ADRs](adr/README.md). The security side is in
 [security.md](security.md), and every setting in the
@@ -124,7 +124,7 @@ degrades to `none` with a banner and an event, never silently.
 
 **`tmux-control`** ([ADR-0002](adr/0002-tmux-control-protocol.md),
 [ADR-0003](adr/0003-tmux-control-driver.md)). The driver runs
-`tmux -u -L td-<installation>-<token> -f /dev/null -C …` over an exec channel without a PTY:
+`tmux -u -L tv-<installation>-<token> -f /dev/null -C …` over an exec channel without a PTY:
 one invisible tmux server per session on its own socket, no status line, no prefix key. It
 parses the control protocol (`%output` → bytes → runtime), sends input with `send-keys -H`,
 resizes with `refresh-client -C` and uses `pause-after` flow control. On every attach (first
@@ -243,7 +243,7 @@ processes read everything; each table has one writer
 SQLite serializes writers globally, so session-manager writes through an async batched writer
 with a 250 ms busy timeout plus retries, and web keeps a 5 s busy timeout: a long web
 transaction never stalls the data plane. session-manager also purges `audit_events` and
-`session_events` rows older than `TERMDOCK_EVENT_RETENTION_DAYS` (default 180) every 6 hours, in
+`session_events` rows older than `TERMAVOX_EVENT_RETENTION_DAYS` (default 180) every 6 hours, in
 500-row chunks through the same writer. A session snapshots its server's target (hostname, port,
 user name, credential, `TERM`, scrollback) at creation, so later server edits only affect new
 sessions; a deleted server leaves its sessions' history (`server_id` NULL) and nothing connects

@@ -5,7 +5,7 @@
 // Requires: docker compose -f test/sshd/compose.yaml up -d --build
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
-import { randomToken } from '@termdock/shared';
+import { randomToken } from '@termavox/shared';
 import {
   type LaunchOptions,
   launchCommand,
@@ -108,7 +108,7 @@ async function record(image: SshdImage): Promise<{ meta: RebuildFixtureMeta; bin
     if (!probe.tmuxPath || !probe.utf8Locale) throw new Error(`${image}: no tmux/locale`);
     const opts: LaunchOptions = {
       tmuxPath: probe.tmuxPath,
-      socket: `td-fixture-${randomToken(8)}`,
+      socket: `tv-fixture-${randomToken(8)}`,
       locale: probe.utf8Locale,
       historyLimit: HISTORY_LIMIT,
       defaultTerminal: probe.tiTmux256 ? 'tmux-256color' : 'screen-256color',

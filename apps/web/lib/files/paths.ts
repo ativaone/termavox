@@ -1,4 +1,4 @@
-import { FILES_LIMITS } from '@termdock/protocol/client';
+import { FILES_LIMITS } from '@termavox/protocol/client';
 
 /**
  * POSIX paths on the session's server, as the file panel shows and edits them (plan §5.12).

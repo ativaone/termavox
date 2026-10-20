@@ -2,12 +2,12 @@ import { createHmac, randomBytes } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { migrateDb, openDb } from '@termdock/db';
+import { migrateDb, openDb } from '@termavox/db';
 import { DEFAULT_LOCKOUT_POLICY, type LockoutPolicy } from '../lib/auth/lockout.ts';
 import { type AuthRuntime, createAuthRuntime } from '../lib/auth/runtime.ts';
 import type { WebLogger } from '../lib/logger.ts';
 
-export const PUBLIC_URL = 'https://termdock.test';
+export const PUBLIC_URL = 'https://termavox.test';
 export const PASSWORD = 'correct horse battery';
 /** Cheap argon2id parameters for tests; production defaults are covered in password.test.ts. */
 export const FAST_ARGON2 = { memoryKiB: 1024, passes: 1, parallelism: 1 };
@@ -35,7 +35,7 @@ export function makeRuntime(
     lockoutNow?: () => number;
   } = {},
 ): TestRuntime {
-  const dir = opts.dir ?? mkdtempSync(join(tmpdir(), 'termdock-web-'));
+  const dir = opts.dir ?? mkdtempSync(join(tmpdir(), 'termavox-web-'));
   const dbFile = join(dir, 'app.db');
   const db = openDb(dbFile);
   if (opts.migrate !== false) migrateDb(db);
@@ -52,7 +52,7 @@ export function makeRuntime(
     wsSecret: opts.wsSecret ?? randomBytes(32),
     logger,
     argon2: FAST_ARGON2,
-    // Isolates Termdock's own lockout from Better Auth's per-IP limiter (3 sign-ins / 10 s).
+    // Isolates Termavox's own lockout from Better Auth's per-IP limiter (3 sign-ins / 10 s).
     rateLimit: false,
     lockoutPolicy: opts.lockoutPolicy ?? TEST_LOCKOUT_POLICY,
     ...(opts.lockoutNow ? { lockoutNow: opts.lockoutNow } : {}),

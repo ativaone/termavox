@@ -1,10 +1,10 @@
-// T1: the browser terminal client (TermdockConnection + TerminalChannel over `ws`, a headless
+// T1: the browser terminal client (TermavoxConnection + TerminalChannel over `ws`, a headless
 // terminal configured like the browser's) against the real daemon booted in-process and the
 // no-tmux sshd. Precondition: docker compose -f test/sshd/compose.yaml up -d --build
-import { signTicket, TICKET_TTL_MS } from '@termdock/protocol';
+import { signTicket, TICKET_TTL_MS } from '@termavox/protocol';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { HeadlessEmulator } from '../../../session-manager/src/emulator/headless-emulator.ts';
-import { TermdockConnection, type TerminalChannel } from '../../lib/terminal/index.ts';
+import { TermavoxConnection, type TerminalChannel } from '../../lib/terminal/index.ts';
 import type { Dimensions, WebSocketLike } from '../../lib/terminal/types.ts';
 import {
   bufferText,
@@ -60,7 +60,7 @@ const PROMPT = /\$ ?$/m;
 let fixture: Fixture;
 let daemon: Daemon;
 let sessionId: string;
-let connection: TermdockConnection;
+let connection: TermavoxConnection;
 let channel: TerminalChannel;
 let term: HeadlessTerminal;
 let second: TestClient;
@@ -152,7 +152,7 @@ beforeAll(async () => {
   await until(() => daemon.plane.registry.host(sessionId)?.state === 'ready', 15_000, 'ready');
 
   const secret = await readSecretFile(fixture.config.wsSecretFile);
-  connection = new TermdockConnection({
+  connection = new TermavoxConnection({
     url: `ws://127.0.0.1:${daemon.wsAddress.port}/ws`,
     fetchTicket: async () => ({
       ticket: signTicket(secret, { uid: userId, asid }),

@@ -6,7 +6,7 @@
 import { setFlagsFromString } from 'node:v8';
 import { runInNewContext } from 'node:vm';
 import { gzipSync } from 'node:zlib';
-import { DEFAULT_SCROLLBACK } from '@termdock/terminal-config';
+import { DEFAULT_SCROLLBACK } from '@termavox/terminal-config';
 import { SerializeAddon } from '@xterm/addon-serialize';
 import { describe, expect, it } from 'vitest';
 import { HeadlessEmulator } from '../../src/emulator/headless-emulator.ts';

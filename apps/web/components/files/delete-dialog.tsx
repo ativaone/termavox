@@ -1,6 +1,6 @@
 'use client';
 
-import type { FileEntry } from '@termdock/protocol/client';
+import type { FileEntry } from '@termavox/protocol/client';
 import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useId, useRef } from 'react';
 import { displayName } from '../../lib/files/display-name.ts';

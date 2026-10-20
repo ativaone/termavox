@@ -1,6 +1,6 @@
 # Screenshots
 
-Real captures of Termdock against test SSH servers: desktop at 1440×900, phone at 390×844 (2x).
+Real captures of Termavox against test SSH servers: desktop at 1440×900, phone at 390×844 (2x).
 They are refreshed when a release changes the UI significantly (`docs/release-checklist.md`).
 
 ## Workspace

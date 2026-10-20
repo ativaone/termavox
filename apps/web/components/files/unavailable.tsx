@@ -1,6 +1,6 @@
 'use client';
 
-import type { SessionStatus } from '@termdock/protocol/client';
+import type { SessionStatus } from '@termavox/protocol/client';
 import { useTranslations } from 'next-intl';
 import type { ReactNode } from 'react';
 import { LearnMore } from '../help-links.tsx';
@@ -61,7 +61,7 @@ function Command({ value }: { value: string }) {
 
 /**
  * The server offers no SFTP: what to enable there (the `Subsystem` line, the reload), with copy
- * buttons, that Termdock installs nothing and the terminal keeps working, and Try again.
+ * buttons, that Termavox installs nothing and the terminal keeps working, and Try again.
  */
 export function SftpCard({ target, onRetry }: { target: string; onRetry(): void }) {
   const t = useTranslations('files.unavailable');

@@ -1,6 +1,6 @@
 'use server';
 
-import { RemoteSocketName, SessionLabelInput } from '@termdock/protocol';
+import { RemoteSocketName, SessionLabelInput } from '@termavox/protocol';
 import { revalidatePath } from 'next/cache';
 import { getTranslations } from 'next-intl/server';
 import { z } from 'zod';
@@ -18,7 +18,7 @@ import type {
 } from '../sessions/action-result.ts';
 
 /**
- * Remote tmux leftovers on a server page (plan D-30): "Check now" lists the Termdock tmux servers
+ * Remote tmux leftovers on a server page (plan D-30): "Check now" lists the Termavox tmux servers
  * on the server that this installation does not run, and each can be ended or adopted. Every call
  * connects to the server as its user through the daemon, which never prompts (the server's stored
  * credential, its address's trusted host key) and re-validates ownership; web checks first that
@@ -83,7 +83,7 @@ async function failure(
   if (!isInternalApiError(err)) throw err;
   const t = await getTranslations('servers.diagnostics.error');
   if (err.kind === 'conflict') {
-    // The tmux server belongs to a session that runs in Termdock (now): never ended or adopted.
+    // The tmux server belongs to a session that runs in Termavox (now): never ended or adopted.
     const tr = await getTranslations('servers.remote.error');
     return { ok: false, code: err.code, message: tr('running') };
   }
@@ -104,7 +104,7 @@ async function failure(
 }
 
 /**
- * "Check now": connects to the server and lists the Termdock tmux servers there that this
+ * "Check now": connects to the server and lists the Termavox tmux servers there that this
  * installation does not run (another installation, this one before a database reset, or one no
  * session record knows). Leftovers of sessions the user already ended are ended first.
  *
@@ -142,9 +142,9 @@ export async function listRemoteSessions(serverId: string): Promise<RemoteScanRe
 /**
  * Ends one listed remote session: the programs running in it stop.
  *
- * @param socket Its tmux server name (`td-<prefix>-<token>`), as the check listed it.
+ * @param socket Its tmux server name (`tv-<prefix>-<token>`), as the check listed it.
  * @returns `{ ok: true, terminated }` (`false` when it was already gone), or a failure: `CONFLICT`
- *   (it runs in Termdock now), the connection code, `NOT_FOUND`, `UNAVAILABLE` / `TIMEOUT`, ….
+ *   (it runs in Termavox now), the connection code, `NOT_FOUND`, `UNAVAILABLE` / `TIMEOUT`, ….
  */
 export async function terminateRemoteSession(
   serverId: string,
@@ -173,7 +173,7 @@ export async function terminateRemoteSession(
  * The page then opens it in the workspace (`/workspace?open=<sessionId>`).
  *
  * @param label Optional name; blank or absent: the server's name (as for New session).
- * @returns `{ ok: true, sessionId }`, or a failure: `CONFLICT` (it runs in Termdock now),
+ * @returns `{ ok: true, sessionId }`, or a failure: `CONFLICT` (it runs in Termavox now),
  *   `RATE_LIMITED` (running-session cap), `LABEL_INVALID`, `NOT_FOUND`, `UNAVAILABLE` / `TIMEOUT`, ….
  */
 export async function adoptRemoteSession(

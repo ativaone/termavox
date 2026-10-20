@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
-import { FILES_LIMITS } from '@termdock/protocol';
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import { FILES_LIMITS } from '@termavox/protocol';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 import { type SftpAttrs, type SftpSession, SftpStatus } from '../core/types.ts';
 import { sftpStatus } from './errors.ts';
 import { joinPath, type NamedPath } from './paths.ts';
@@ -12,9 +12,9 @@ import { fileType, lstatOrNull } from './remote-fs.ts';
  */
 
 const encoder = new TextEncoder();
-/** `.<name>.td-<8 hex>.part` around the name. */
+/** `.<name>.tv-<8 hex>.part` around the name. */
 const TEMP_PREFIX = '.';
-const TEMP_MARK = '.td-';
+const TEMP_MARK = '.tv-';
 const TEMP_SUFFIX = '.part';
 
 /** What an upload replaces: the permission bits to keep (null for a dangling link). */
@@ -57,7 +57,7 @@ export async function uploadTarget(
 ): Promise<NamedPath> {
   const folder = await sftp.stat(dir);
   if (fileType(folder.mode) !== 'dir') {
-    throw new TermdockError(ErrorCode.NotFound, 'no such folder');
+    throw new TermavoxError(ErrorCode.NotFound, 'no such folder');
   }
   const target = { path: joinPath(dir, name), parent: dir, name };
   await replaced(sftp, target.path, overwrite);
@@ -101,7 +101,7 @@ export async function commitUpload(
     try {
       await sftp.rename(tempPath, target.path);
     } catch (err) {
-      throw new TermdockError(
+      throw new TermavoxError(
         ErrorCode.FileOpFailed,
         `the old file was removed but the upload could not take its place; it is kept as ${tempPath.slice(tempPath.lastIndexOf('/') + 1)}`,
         { keepTemp: true, cause: sftpStatus(err) },
@@ -123,7 +123,7 @@ export async function commitUpload(
 /** The attributes of a file that may be downloaded (links followed); NOT_FOUND for anything else. */
 export async function downloadable(sftp: SftpSession, path: string): Promise<SftpAttrs> {
   const attrs = await sftp.stat(path);
-  if (fileType(attrs.mode) !== 'file') throw new TermdockError(ErrorCode.NotFound, 'not a file');
+  if (fileType(attrs.mode) !== 'file') throw new TermavoxError(ErrorCode.NotFound, 'not a file');
   return attrs;
 }
 
@@ -144,11 +144,11 @@ async function replaced(
     });
   }
   if (resolved && fileType(resolved.mode) === 'dir') {
-    throw new TermdockError(ErrorCode.Conflict, 'a folder has this name');
+    throw new TermavoxError(ErrorCode.Conflict, 'a folder has this name');
   }
   return { mode: resolved ? resolved.mode & 0o7777 : null };
 }
 
-function conflict(): TermdockError {
-  return new TermdockError(ErrorCode.Conflict, 'a file or folder with this name already exists');
+function conflict(): TermavoxError {
+  return new TermavoxError(ErrorCode.Conflict, 'a file or folder with this name already exists');
 }

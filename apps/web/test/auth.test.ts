@@ -1,4 +1,4 @@
-import { ErrorCode } from '@termdock/shared';
+import { ErrorCode } from '@termavox/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   type ConnectionRevoker,
@@ -44,7 +44,7 @@ describe('Better Auth core (S6)', () => {
     expect(res.status).toBe(200);
     const cookie = res.headers
       .getSetCookie()
-      .find((c) => c.startsWith('__Secure-termdock.session_token='));
+      .find((c) => c.startsWith('__Secure-termavox.session_token='));
     expect(cookie).toMatch(/; HttpOnly/);
     expect(cookie).toMatch(/; Secure/);
     expect(cookie).toMatch(/; SameSite=Strict/);

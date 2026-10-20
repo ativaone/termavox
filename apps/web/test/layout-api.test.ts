@@ -1,4 +1,4 @@
-import { EMPTY_LAYOUT, type WorkspaceLayout } from '@termdock/protocol';
+import { EMPTY_LAYOUT, type WorkspaceLayout } from '@termavox/protocol';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getLayoutResponse, parseIfMatch, putLayoutResponse } from '../lib/layout-api.ts';
 import { getLayout } from '../lib/repo/layouts.ts';

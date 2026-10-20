@@ -10,7 +10,7 @@ import {
   installQuerySilencer,
   sharedTerminalOptions,
   UNICODE_VERSION,
-} from '@termdock/terminal-config';
+} from '@termavox/terminal-config';
 import { FitAddon } from '@xterm/addon-fit';
 import { SearchAddon } from '@xterm/addon-search';
 import { Unicode11Addon } from '@xterm/addon-unicode11';

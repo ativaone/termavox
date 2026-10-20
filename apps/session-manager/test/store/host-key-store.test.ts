@@ -1,4 +1,4 @@
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import { decideHostKey, type TransportFactory } from '../../src/core/transport-factory.ts';
 import type { HostKeyTarget, PresentedHostKey, Transport } from '../../src/core/types.ts';
@@ -483,7 +483,7 @@ describe('SqliteHostKeyStore: a key the address already trusts', () => {
         );
         hooks.onHostKey({ ...TEST_KEY }, decision);
         if (decision !== 'trusted') {
-          throw new TermdockError(ErrorCode.HostKeyRejected, 'unknown host key', {
+          throw new TermavoxError(ErrorCode.HostKeyRejected, 'unknown host key', {
             pending: { ...TEST_KEY },
           });
         }

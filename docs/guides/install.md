@@ -1,9 +1,9 @@
-# Installing Termdock with Docker Compose
+# Installing Termavox with Docker Compose
 
 This guide runs the whole system on one Linux host with a single command: **Caddy** (TLS and the only public listener), **web** (the Next.js control plane) and **session-manager** (the daemon that holds your SSH sessions). The architecture behind it is described in [`docs/implementation-plan.md`](../implementation-plan.md) (§4.3 network, §10.2 hardening, §13 operations).
 
 > [!WARNING]
-> Termdock 0.1.0 is the first supported release: internally reviewed twice, not externally audited. Read the [security model](../security.md) before you expose it to the internet or use it with production servers.
+> Termavox 0.1.0 is the first supported release: internally reviewed twice, not externally audited. Read the [security model](../security.md) before you expose it to the internet or use it with production servers.
 
 ## What you get
 
@@ -16,9 +16,9 @@ This guide runs the whole system on one Linux host with a single command: **Cadd
 
 - One origin: the browser only talks to Caddy. `/ws` goes to session-manager, everything else to web.
 - Two networks. `edge` connects Caddy to web and session-manager. `internal` connects only web and session-manager. Caddy is not on `internal`, and the daemon's internal API listens only on its `internal` address.
-- One shared volume, `termdock-data`, holds the SQLite database (`/data/app.db`). session-manager applies migrations at boot, and web waits for it to be healthy.
+- One shared volume, `termavox-data`, holds the SQLite database (`/data/app.db`). session-manager applies migrations at boot, and web waits for it to be healthy.
 - Hardened containers: every service has a read-only root filesystem, a `/tmp` tmpfs, every Linux capability dropped and `no-new-privileges`, and none runs as root. web and session-manager run as UID/GID `10001`, Caddy as `10002`. Caddy binds ports 80 and 443 through a setting of its own container's network namespace (`net.ipv4.ip_unprivileged_port_start=0`), not a capability.
-- Published images: each release puts three images on GitHub's container registry, for `linux/amd64` and `linux/arm64`: `ghcr.io/ativaone/termdock-caddy`, `ghcr.io/ativaone/termdock-web` and `ghcr.io/ativaone/termdock-session-manager`, tagged with the version and published with a signed build provenance attestation ([Verifying the images](#verifying-the-images)). `deploy/compose.yaml` at a release tag names that release's images. It can also build them from the checkout instead ([Building from source](#building-from-source)).
+- Published images: each release puts three images on GitHub's container registry, for `linux/amd64` and `linux/arm64`: `ghcr.io/ativaone/termavox-caddy`, `ghcr.io/ativaone/termavox-web` and `ghcr.io/ativaone/termavox-session-manager`, tagged with the version and published with a signed build provenance attestation ([Verifying the images](#verifying-the-images)). `deploy/compose.yaml` at a release tag names that release's images. It can also build them from the checkout instead ([Building from source](#building-from-source)).
 
 ## Prerequisites
 
@@ -31,12 +31,12 @@ This guide runs the whole system on one Linux host with a single command: **Cadd
 ## 1. Get the release
 
 ```bash
-git clone https://github.com/ativaone/termdock.git termdock
-cd termdock
+git clone https://github.com/ativaone/termavox.git termavox
+cd termavox
 git checkout v0.1.0
 ```
 
-Check out the release you install: its tag, `vX.Y.Z`, from the [releases page](https://github.com/ativaone/termdock/releases). The checkout holds `deploy/compose.yaml`, which names that release's images, and the scripts below. Run every command from the repository root.
+Check out the release you install: its tag, `vX.Y.Z`, from the [releases page](https://github.com/ativaone/termavox/releases). The checkout holds `deploy/compose.yaml`, which names that release's images, and the scripts below. Run every command from the repository root.
 
 ## 2. Create the secrets
 
@@ -78,19 +78,19 @@ cp deploy/.env.example deploy/.env
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `TERMDOCK_DOMAIN` | `localhost` | The name browsers use, and Caddy's site address |
-| `TERMDOCK_HTTP_PORT` | `80` | HTTP port, published on the host. It redirects to HTTPS on `TERMDOCK_HTTPS_PORT` |
-| `TERMDOCK_HTTPS_PORT` | `443` | HTTPS port, published on the host (TCP, plus UDP for HTTP/3). Caddy listens on the same ports inside its container |
-| `TERMDOCK_PUBLIC_URL` | `https://<domain>:<https port>` | The browser-facing URL. It is used for Origin checks and cookies, and a `:443` suffix is normalized away. Set it only when browsers reach Termdock under another URL, for example through a port forward |
-| `TERMDOCK_TLS` | `auto` (the env template sets `internal`) | `internal` for localhost, IP addresses and LAN names; `auto` for a public domain; `off` behind a reverse proxy (see [Domain and TLS](#domain-and-tls)) |
-| `TERMDOCK_BIND_ADDRESS` | unset (every interface) | Host address the ports are published on, e.g. `127.0.0.1` behind a reverse proxy on the same host |
-| `TERMDOCK_REVERSE_PROXY` | unset | With `TERMDOCK_TLS=off`: the reverse proxy's address as Caddy sees it, whose `X-Forwarded-For` is believed (see [Behind a reverse proxy](#behind-a-reverse-proxy)) |
-| `TERMDOCK_LOG_LEVEL` | `info` | session-manager log level |
-| `TERMDOCK_DAEMON_MEM_LIMIT` | `1g` | Memory limit of the session-manager container (Compose `mem_limit`). Raise it for many concurrent sessions or long scrollback |
-| `TERMDOCK_WEB_MEM_LIMIT` | `768m` | Memory limit of the web container |
-| `TERMDOCK_SSH_ALLOW_LOCAL_TARGETS` | `false` | `true` lets servers point at loopback, link-local, multicast or session-manager's own addresses (see [SSH targets](#ssh-targets)) |
+| `TERMAVOX_DOMAIN` | `localhost` | The name browsers use, and Caddy's site address |
+| `TERMAVOX_HTTP_PORT` | `80` | HTTP port, published on the host. It redirects to HTTPS on `TERMAVOX_HTTPS_PORT` |
+| `TERMAVOX_HTTPS_PORT` | `443` | HTTPS port, published on the host (TCP, plus UDP for HTTP/3). Caddy listens on the same ports inside its container |
+| `TERMAVOX_PUBLIC_URL` | `https://<domain>:<https port>` | The browser-facing URL. It is used for Origin checks and cookies, and a `:443` suffix is normalized away. Set it only when browsers reach Termavox under another URL, for example through a port forward |
+| `TERMAVOX_TLS` | `auto` (the env template sets `internal`) | `internal` for localhost, IP addresses and LAN names; `auto` for a public domain; `off` behind a reverse proxy (see [Domain and TLS](#domain-and-tls)) |
+| `TERMAVOX_BIND_ADDRESS` | unset (every interface) | Host address the ports are published on, e.g. `127.0.0.1` behind a reverse proxy on the same host |
+| `TERMAVOX_REVERSE_PROXY` | unset | With `TERMAVOX_TLS=off`: the reverse proxy's address as Caddy sees it, whose `X-Forwarded-For` is believed (see [Behind a reverse proxy](#behind-a-reverse-proxy)) |
+| `TERMAVOX_LOG_LEVEL` | `info` | session-manager log level |
+| `TERMAVOX_DAEMON_MEM_LIMIT` | `1g` | Memory limit of the session-manager container (Compose `mem_limit`). Raise it for many concurrent sessions or long scrollback |
+| `TERMAVOX_WEB_MEM_LIMIT` | `768m` | Memory limit of the web container |
+| `TERMAVOX_SSH_ALLOW_LOCAL_TARGETS` | `false` | `true` lets servers point at loopback, link-local, multicast or session-manager's own addresses (see [SSH targets](#ssh-targets)) |
 
-`TERMDOCK_ENABLE_LOCAL_SHELL` is fixed to `false` in the containers. Local direct mode is meant for running session-manager outside Docker (plan §13.3).
+`TERMAVOX_ENABLE_LOCAL_SHELL` is fixed to `false` in the containers. Local direct mode is meant for running session-manager outside Docker (plan §13.3).
 
 Every container also has a process limit (`pids_limit`: session-manager 512, web 256, Caddy 128), and Caddy a fixed 256 MiB memory limit. A container that reaches its memory limit is killed and restarted by Docker. Protected sessions survive a session-manager restart; check `docker compose -f deploy/compose.yaml ps` and the logs if it happens.
 
@@ -98,7 +98,7 @@ Every container also has a process limit (`pids_limit`: session-manager 512, web
 
 session-manager resolves each server's address itself and connects only to an address it allows, both for sessions and for **Test connection**. By default it refuses loopback (`127.0.0.0/8`, `::1`), link-local (`169.254.0.0/16`, where cloud metadata services live, and `fe80::/10`), unspecified (`0.0.0.0`, `::`) and multicast addresses, and the addresses of its own network interfaces, IPv4-mapped IPv6 forms included. Such a server fails with "not allowed" instead of connecting, and is not retried. Private LAN ranges (`10/8`, `172.16/12`, `192.168/16`, `fc00::/7`) stay allowed, and so does the Docker host behind `host.docker.internal`.
 
-Set `TERMDOCK_SSH_ALLOW_LOCAL_TARGETS=true` to allow those addresses too, for example when session-manager runs outside Docker and should reach an SSH server on the same machine. Test connection is also limited to 10 checks per user per minute.
+Set `TERMAVOX_SSH_ALLOW_LOCAL_TARGETS=true` to allow those addresses too, for example when session-manager runs outside Docker and should reach an SSH server on the same machine. Test connection is also limited to 10 checks per user per minute.
 
 ## 4. Start
 
@@ -115,10 +115,10 @@ docker compose -f deploy/compose.yaml ps
 Every image of a release is built by the release workflow of this repository, from the tagged commit, and published with a signed build provenance attestation. To check one before you run it, with the [GitHub CLI](https://cli.github.com/):
 
 ```bash
-gh attestation verify oci://ghcr.io/ativaone/termdock-web:0.1.0 --repo ativaone/termdock
+gh attestation verify oci://ghcr.io/ativaone/termavox-web:0.1.0 --repo ativaone/termavox
 ```
 
-Do the same for `termdock-session-manager` and `termdock-caddy`. The command fails unless the image's digest was attested by a workflow of `ativaone/termdock`, and prints the workflow and commit it came from.
+Do the same for `termavox-session-manager` and `termavox-caddy`. The command fails unless the image's digest was attested by a workflow of `ativaone/termavox`, and prints the workflow and commit it came from.
 
 ### Building from source
 
@@ -148,21 +148,21 @@ Sign in. The empty workspace offers **Add your first server**, which opens one p
 
 ## Domain and TLS
 
-- **`TERMDOCK_TLS=internal`** uses Caddy's own local CA, with certificates valid for 30 days: for `localhost`, IP addresses and LAN-only names such as `termdock.lan` that no public CA can validate. `deploy/.env.example` sets it for the localhost trial.
-- **`TERMDOCK_TLS=off`** serves plain HTTP for a reverse proxy in front that terminates TLS: see [Behind a reverse proxy](#behind-a-reverse-proxy).
-- **`TERMDOCK_TLS=auto`** (the default when the variable is not set) uses Caddy's automatic HTTPS. For a public domain, it obtains a Let's Encrypt or ZeroSSL certificate over ACME, which needs ports 80 and 443 reachable from the internet. For `localhost` and IP addresses it falls back to the local CA, but with Caddy's default 12-hour certificates, so prefer `internal` there.
+- **`TERMAVOX_TLS=internal`** uses Caddy's own local CA, with certificates valid for 30 days: for `localhost`, IP addresses and LAN-only names such as `termavox.lan` that no public CA can validate. `deploy/.env.example` sets it for the localhost trial.
+- **`TERMAVOX_TLS=off`** serves plain HTTP for a reverse proxy in front that terminates TLS: see [Behind a reverse proxy](#behind-a-reverse-proxy).
+- **`TERMAVOX_TLS=auto`** (the default when the variable is not set) uses Caddy's automatic HTTPS. For a public domain, it obtains a Let's Encrypt or ZeroSSL certificate over ACME, which needs ports 80 and 443 reachable from the internet. For `localhost` and IP addresses it falls back to the local CA, but with Caddy's default 12-hour certificates, so prefer `internal` there.
 
-To switch from the localhost trial to a real domain, set `TERMDOCK_DOMAIN=termdock.example.com` and `TERMDOCK_TLS=auto` in `deploy/.env` and run `docker compose -f deploy/compose.yaml up -d`. Compose recreates the containers with the new domain and public URL.
+To switch from the localhost trial to a real domain, set `TERMAVOX_DOMAIN=termavox.example.com` and `TERMAVOX_TLS=auto` in `deploy/.env` and run `docker compose -f deploy/compose.yaml up -d`. Compose recreates the containers with the new domain and public URL.
 
 Browsers do not trust Caddy's local CA by default. To trust it on a machine, export the root certificate and import it into that machine's trust store or browser:
 
 ```bash
-docker compose -f deploy/compose.yaml cp caddy:/data/caddy/pki/authorities/local/root.crt ./termdock-local-ca.crt
+docker compose -f deploy/compose.yaml cp caddy:/data/caddy/pki/authorities/local/root.crt ./termavox-local-ca.crt
 ```
 
 The local root certificate can sign a certificate for any name, and its key lives in the `caddy-data` volume: a machine that trusts it trusts, for every HTTPS site, whoever can read that volume or take over Caddy. Prefer a real domain with ACME where you can (a DNS challenge works for a LAN-only name too); otherwise import it into a dedicated browser profile rather than the system trust store.
 
-If you accept the browser's security warning instead, the browser accepts that one certificate. When Caddy renews it (about every 20 days with `internal`, every 8 hours with `auto` on localhost), new requests are refused until you reload the page and accept the warning again, while terminals already open keep working: an action then says it could not reach Termdock. Importing the root certificate avoids this.
+If you accept the browser's security warning instead, the browser accepts that one certificate. When Caddy renews it (about every 20 days with `internal`, every 8 hours with `auto` on localhost), new requests are refused until you reload the page and accept the warning again, while terminals already open keep working: an action then says it could not reach Termavox. Importing the root certificate avoids this.
 
 The certificates and the local CA live in the `caddy-data` volume, so they survive restarts and upgrades.
 
@@ -170,36 +170,36 @@ HSTS (`max-age=31536000`) is sent for every name except `localhost`. HSTS applie
 
 ## Behind a reverse proxy
 
-When the host already runs a reverse proxy on ports 80 and 443 (nginx, Traefik, a load balancer) with a valid certificate, let it terminate TLS and forward plain HTTP to Termdock. Give Termdock its own name at the root, such as `termdock.example.com`: a sub-path such as `example.com/termdock` is not supported yet.
+When the host already runs a reverse proxy on ports 80 and 443 (nginx, Traefik, a load balancer) with a valid certificate, let it terminate TLS and forward plain HTTP to Termavox. Give Termavox its own name at the root, such as `termavox.example.com`: a sub-path such as `example.com/termavox` is not supported yet.
 
 In `deploy/.env` (the same block, commented, is in `deploy/.env.example`):
 
 ```bash
-TERMDOCK_DOMAIN=termdock.example.com
-TERMDOCK_TLS=off
-TERMDOCK_HTTP_PORT=8080
-TERMDOCK_HTTPS_PORT=8443
-TERMDOCK_BIND_ADDRESS=127.0.0.1
-TERMDOCK_REVERSE_PROXY=172.30.10.1
-TERMDOCK_PUBLIC_URL=https://termdock.example.com
+TERMAVOX_DOMAIN=termavox.example.com
+TERMAVOX_TLS=off
+TERMAVOX_HTTP_PORT=8080
+TERMAVOX_HTTPS_PORT=8443
+TERMAVOX_BIND_ADDRESS=127.0.0.1
+TERMAVOX_REVERSE_PROXY=172.30.10.1
+TERMAVOX_PUBLIC_URL=https://termavox.example.com
 ```
 
-- **`TERMDOCK_TLS=off`**: Caddy serves plain HTTP on `TERMDOCK_HTTP_PORT`, with no certificate and no redirect. `TERMDOCK_HTTPS_PORT` is not used, but Docker still reserves it on the host: pick a free port, never the proxy's 443.
-- **`TERMDOCK_BIND_ADDRESS=127.0.0.1`** publishes the ports on the loopback address only, so nothing reaches Termdock without going through the proxy. Leave it unset when the proxy runs on another machine, and limit access with a firewall instead.
-- **`TERMDOCK_REVERSE_PROXY`** is required: the proxy's address as Caddy sees it. Caddy believes `X-Forwarded-For` only from that address, so login rate limits, lockout and the activity and audit logs see each user's own address; without it, every user would show up with the proxy's address and share one sign-in lockout and rate limit, so Caddy answers every request with `503` and a message naming the setting until it is set. A proxy on the same host reaches Termdock through the gateway of Docker's `edge` network, `172.30.10.1` (the subnet is set in `deploy/compose.yaml`). For a proxy elsewhere, use its address; separate several addresses or CIDR ranges with spaces. If the activity page shows the same address for every user, that address is the proxy's.
-- **`TERMDOCK_PUBLIC_URL`** is the address browsers use, without a port.
+- **`TERMAVOX_TLS=off`**: Caddy serves plain HTTP on `TERMAVOX_HTTP_PORT`, with no certificate and no redirect. `TERMAVOX_HTTPS_PORT` is not used, but Docker still reserves it on the host: pick a free port, never the proxy's 443.
+- **`TERMAVOX_BIND_ADDRESS=127.0.0.1`** publishes the ports on the loopback address only, so nothing reaches Termavox without going through the proxy. Leave it unset when the proxy runs on another machine, and limit access with a firewall instead.
+- **`TERMAVOX_REVERSE_PROXY`** is required: the proxy's address as Caddy sees it. Caddy believes `X-Forwarded-For` only from that address, so login rate limits, lockout and the activity and audit logs see each user's own address; without it, every user would show up with the proxy's address and share one sign-in lockout and rate limit, so Caddy answers every request with `503` and a message naming the setting until it is set. A proxy on the same host reaches Termavox through the gateway of Docker's `edge` network, `172.30.10.1` (the subnet is set in `deploy/compose.yaml`). For a proxy elsewhere, use its address; separate several addresses or CIDR ranges with spaces. If the activity page shows the same address for every user, that address is the proxy's.
+- **`TERMAVOX_PUBLIC_URL`** is the address browsers use, without a port.
 
 Then `docker compose -f deploy/compose.yaml up -d`.
 
 Whatever the proxy, it must:
 
-1. forward the original `Host` header: Termdock compares it with the browser's `Origin`;
+1. forward the original `Host` header: Termavox compares it with the browser's `Origin`;
 2. set `X-Forwarded-For` to the client's address (replacing any value the client sent) and `X-Forwarded-Proto` to `https`;
 3. pass WebSocket upgrades (HTTP/1.1 with the `Upgrade` and `Connection` headers): every terminal runs over a WebSocket on `/ws`;
 4. keep idle connections open longer than a minute: the browser pings every 25 seconds;
 5. not buffer responses, so terminal output and page streams arrive as they are sent;
 6. not limit or buffer request bodies: the file panel's uploads stream through `/transfer/` and can be any size. A proxy that limits them answers `413` and the panel says a proxy refused the file (nginx's default limit is 1 MB; Cloudflare's proxy caps uploads at 100 MB on its free plan);
-7. redirect plain HTTP to HTTPS itself: in this mode Termdock never sees port 80.
+7. redirect plain HTTP to HTTPS itself: in this mode Termavox never sees port 80.
 
 An nginx example, with the certificate already in place (certbot or any other source):
 
@@ -213,10 +213,10 @@ map $http_upgrade $connection_upgrade {
 server {
     listen 443 ssl;
     # HTTP/2 is optional: `http2 on;` needs nginx 1.25.1 or newer (older ones fail on it).
-    server_name termdock.example.com;
+    server_name termavox.example.com;
 
-    ssl_certificate     /etc/letsencrypt/live/termdock.example.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/termdock.example.com/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/termavox.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/termavox.example.com/privkey.pem;
 
     location / {
         proxy_pass http://127.0.0.1:8080;
@@ -228,7 +228,7 @@ server {
         proxy_set_header Connection $connection_upgrade;
         proxy_read_timeout 1h;
         proxy_buffering off;
-        # File panel uploads (/transfer/): any size, streamed to Termdock as they arrive. Without
+        # File panel uploads (/transfer/): any size, streamed to Termavox as they arrive. Without
         # the first two lines nginx refuses files over 1 MB (413) and spools the others to its disk
         # before passing them on; the third keeps a pause on a slow server from cutting an upload.
         client_max_body_size 0;
@@ -239,12 +239,12 @@ server {
 
 server {
     listen 80;
-    server_name termdock.example.com;
+    server_name termavox.example.com;
     return 301 https://$host$request_uri;
 }
 ```
 
-Termdock still sends its own security headers, HSTS included, and the proxy passes them through.
+Termavox still sends its own security headers, HSTS included, and the proxy passes them through.
 
 ## The "This Docker host" preset
 
@@ -253,13 +253,13 @@ session-manager can reach the Docker host itself as `host.docker.internal`. Comp
 On the host, `sshd` must accept connections from the container network. By default it listens on all addresses, which is enough. If a firewall such as `ufw` filters incoming traffic, allow port 22 from the compose `edge` subnet:
 
 ```bash
-docker network inspect termdock_edge --format '{{(index .IPAM.Config 0).Subnet}}'
+docker network inspect termavox_edge --format '{{(index .IPAM.Config 0).Subnet}}'
 ```
 
 ## Backups
 
 ```bash
-deploy/scripts/backup.sh                 # writes deploy/backups/termdock-<UTC timestamp>.db
+deploy/scripts/backup.sh                 # writes deploy/backups/termavox-<UTC timestamp>.db
 deploy/scripts/backup.sh /srv/backups    # or another directory
 ```
 
@@ -268,13 +268,13 @@ The backup is safe while everything runs. Inside the session-manager container, 
 The script needs no TTY, so you can schedule it, for example with this crontab line (daily at 03:15):
 
 ```text
-15 3 * * * cd /path/to/termdock && deploy/scripts/backup.sh /srv/backups/termdock >/dev/null
+15 3 * * * cd /path/to/termavox && deploy/scripts/backup.sh /srv/backups/termavox >/dev/null
 ```
 
 ### Restore
 
 ```bash
-deploy/scripts/restore.sh deploy/backups/termdock-20261015T031500Z.db
+deploy/scripts/restore.sh deploy/backups/termavox-20261015T031500Z.db
 ```
 
 The script asks you to type `restore`, or takes `--yes` for automation, and then:
@@ -320,11 +320,11 @@ mv deploy/secrets/master_key.old deploy/secrets/master_key && chmod 0440 deploy/
 deploy/scripts/restore.sh --yes deploy/backups/pre-rotate-<timestamp>.db
 ```
 
-**Without Compose** (session-manager run by hand, plan §13.3): stop session-manager, create the new key, run the CLI, and start session-manager again with the new key in `TERMDOCK_MASTER_KEY_FILE`.
+**Without Compose** (session-manager run by hand, plan §13.3): stop session-manager, create the new key, run the CLI, and start session-manager again with the new key in `TERMAVOX_MASTER_KEY_FILE`.
 
 ```bash
 (umask 077 && openssl rand -base64 32 > /path/to/master_key.new)
-pnpm --filter @termdock/session-manager vault:rotate \
+pnpm --filter @termavox/session-manager vault:rotate \
   --old-key-file /path/to/master_key --new-key-file /path/to/master_key.new --data-dir /path/to/data
 ```
 
@@ -345,11 +345,11 @@ The script runs `reset-password` inside the running session-manager container an
 reset-password: alice (admin)
 temporary password: k3v7qz2mxa5rtw4ybn6d
 
-Sign in with it: Termdock then asks for a new password.
+Sign in with it: Termavox then asks for a new password.
 2 sign-ins ended; open terminals were disconnected (their sessions keep running).
 ```
 
-- Give the username, not the email: Termdock signs in by username. An unknown username changes nothing, and the message lists the existing usernames.
+- Give the username, not the email: Termavox signs in by username. An unknown username changes nothing, and the message lists the existing usernames.
 - The user signs in with the temporary password and must choose a new one before anything else opens.
 - Every sign-in of the user ends and their open terminals disconnect; their sessions keep running.
 - TOTP stays on: sign-in still asks for a code, or for one of the backup codes shown when TOTP was set up. When the authenticator and the backup codes are both lost, add `--reset-totp`: it removes the authenticator, the backup codes and the trusted devices. The user sets TOTP up again right after the new password when it is required for them, and otherwise whenever they want, in their account settings.
@@ -358,7 +358,7 @@ Sign in with it: Termdock then asks for a new password.
 
 Anyone who can run Docker commands on the host can do this. That is no new power: such access already reaches the database and the master key.
 
-**Without Compose** (session-manager run by hand, plan §13.3): `pnpm --filter @termdock/session-manager reset-password <username> --data-dir /path/to/data`. Without the internal API settings in its environment, it cannot ask session-manager to disconnect open terminals, and says so.
+**Without Compose** (session-manager run by hand, plan §13.3): `pnpm --filter @termavox/session-manager reset-password <username> --data-dir /path/to/data`. Without the internal API settings in its environment, it cannot ask session-manager to disconnect open terminals, and says so.
 
 ## Upgrades
 
@@ -389,12 +389,12 @@ What users notice: web restarts freely. Protected (tmux) sessions keep running o
 
    ```bash
    docker compose -f deploy/compose.yaml down
-   docker volume rm termdock_termdock-data
+   docker volume rm termavox_termavox-data
    docker compose -f deploy/compose.yaml pull
    docker compose -f deploy/compose.yaml up -d
    ```
 
-   `docker volume rm termdock_termdock-data` deletes only the database volume (users, servers, credentials, session history). The certificate volumes (with Caddy's local CA) and the secret files stay, so browsers and phones that already trust that CA keep working.
+   `docker volume rm termavox_termavox-data` deletes only the database volume (users, servers, credentials, session history). The certificate volumes (with Caddy's local CA) and the secret files stay, so browsers and phones that already trust that CA keep working.
 3. **Create the first admin again** with a new setup token ([step 5](#5-create-the-first-admin)), as on a new install.
 
 ## Day-to-day operations
@@ -415,14 +415,6 @@ The health endpoints are `GET /api/health` on web and `GET /internal/v1/health` 
 - **session-manager or web logs `EACCES` on `/run/secrets/...`.** The secret files are not group 10001 with mode `0440`. Re-run `deploy/scripts/init-secrets.sh` (it refuses to overwrite, so delete the files first or fix the group as it suggests), or run `sudo chgrp 10001 deploy/secrets/* && chmod 0440 deploy/secrets/*`.
 - **session-manager exits at boot with a vault key check error.** `master_key` is not the key the database is encrypted with: the original key, or the newest one after a rotation. Put that key back (after a rotation, `master_key.old` holds the previous one).
 - **session-manager exits at boot because the data directory is in use.** Another session-manager or a running `vault rotate` holds `/data/session-manager.lock`. Let the rotation finish, or stop the other process; the lock is released as soon as its holder exits.
-- **Login or setup fails with an origin error, or the terminal never connects.** The URL in the browser's address bar must match `TERMDOCK_PUBLIC_URL` (scheme, host and port). Set it explicitly when the default `https://<domain>:<https port>` is not what browsers use.
+- **Login or setup fails with an origin error, or the terminal never connects.** The URL in the browser's address bar must match `TERMAVOX_PUBLIC_URL` (scheme, host and port). Set it explicitly when the default `https://<domain>:<https port>` is not what browsers use.
 - **Nobody can sign in as an admin, or a password you are sure of is refused.** Sign-in is by username, not email. Set a temporary password from the host with `deploy/scripts/reset-password.sh <username>` (see [Resetting a password](#resetting-a-password)).
-- **`bind: address already in use` on start.** Another service holds port 80 or 443. Pick other ports with `TERMDOCK_HTTP_PORT` and `TERMDOCK_HTTPS_PORT`, or stop that service.
-- **Caddy keeps restarting and logs `permission denied` under `/data/caddy` or `/config/caddy`.** Its volumes were created by a development build from before 0.1.0, when Caddy ran as root, and their files still belong to root. Caddy now runs as UID/GID 10002: give the two volumes to it once, then `docker compose -f deploy/compose.yaml restart caddy`. Certificates and the local CA are kept.
-
-  ```bash
-  docker run --rm --network none \
-    -v termdock_caddy-data:/data -v termdock_caddy-config:/config \
-    --entrypoint chown caddy:2@sha256:685ae3d7c34d9b5f8caeddc5d14051db7bbd88ff1f5a2fa0c16bd8ca328fb7af \
-    -R 10002:10002 /data /config
-  ```
+- **`bind: address already in use` on start.** Another service holds port 80 or 443. Pick other ports with `TERMAVOX_HTTP_PORT` and `TERMAVOX_HTTPS_PORT`, or stop that service.

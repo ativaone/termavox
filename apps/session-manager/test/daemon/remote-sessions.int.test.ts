@@ -1,12 +1,12 @@
-// T1: remote tmux leftovers through the real daemon (plan D-30) on a tmux image (TD_TMUX_IMAGES
+// T1: remote tmux leftovers through the real daemon (plan D-30) on a tmux image (TV_TMUX_IMAGES
 // to override). (a) End while not connected reaches the server; (b) a stray tmux server is listed
 // as `other` and ended, and another one is adopted with its screen; (c) an ended session's
 // surviving tmux is ended by the next connect to that server (sweep). The daemon reaches sshd
 // through a local TCP proxy that can drop connections and hold new ones.
 // Precondition: docker compose -f test/sshd/compose.yaml up -d --build
-import { openDb } from '@termdock/db';
-import { ListRemoteSessionsResponse } from '@termdock/protocol';
-import { randomToken } from '@termdock/shared';
+import { openDb } from '@termavox/db';
+import { ListRemoteSessionsResponse } from '@termavox/protocol';
+import { randomToken } from '@termavox/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { tmuxSocketName } from '../../src/core/driver-factory.ts';
 import type { Daemon } from '../../src/main.ts';
@@ -143,8 +143,8 @@ describe.each(IMAGES)('remote tmux leftovers through the daemon (%s)', (image) =
   });
 
   it('(b) a stray tmux server is listed as other and ended; another is adopted with its screen', async () => {
-    const strayA = `td-zzzzzzzz-${randomToken(12)}`;
-    const strayB = `td-zzzzzzzz-${randomToken(12)}`;
+    const strayA = `tv-zzzzzzzz-${randomToken(12)}`;
+    const strayB = `tv-zzzzzzzz-${randomToken(12)}`;
     sockets.push(strayA, strayB);
     for (const stray of [strayA, strayB]) {
       expect((await tmuxExec(env, stray, 'new-session -d -s main')).code).toBe(0);
@@ -196,7 +196,7 @@ describe.each(IMAGES)('remote tmux leftovers through the daemon (%s)', (image) =
     await daemon.writer.flush();
     expect(events(sessionId).map((e) => e.type)).not.toContain('adopt_target_gone');
 
-    // It runs in Termdock now: never listed, ended or adopted from the server page.
+    // It runs in Termavox now: never listed, ended or adopted from the server page.
     expect((await list()).sessions.map((s) => s.socket)).not.toContain(strayB);
     expect(
       (await api('POST', `/servers/${serverId}/remote-sessions/terminate`, { socket: strayB }))
@@ -217,7 +217,7 @@ describe.each(IMAGES)('remote tmux leftovers through the daemon (%s)', (image) =
     const socket = socketOf(forgotten);
     await daemon.shutdown(); // graceful: the tmux keeps running on the server (§5.8)
     expect(await alive(socket)).toBe(true);
-    // Termdock now thinks it ended long ago (its End could not reach the server, or a reset).
+    // Termavox now thinks it ended long ago (its End could not reach the server, or a reset).
     const offline = openDb(fixture.config.dbFile);
     offline.$client
       .prepare(

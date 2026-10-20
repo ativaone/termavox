@@ -7,7 +7,7 @@ import { Button } from '../ui/button.tsx';
 import { Kbd } from '../ui/kbd.tsx';
 
 /** Window event the session palette listens for. */
-export const NEW_SESSION_EVENT = 'termdock:new-session';
+export const NEW_SESSION_EVENT = 'termavox:new-session';
 
 const noSubscribe = () => () => {};
 const isApplePlatform = () => /Mac|iPhone|iPad/.test(navigator.platform);

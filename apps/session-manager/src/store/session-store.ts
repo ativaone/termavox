@@ -1,4 +1,4 @@
-import type { TermdockDb } from '@termdock/db';
+import type { TermavoxDb } from '@termavox/db';
 import {
   EndReason,
   Protection,
@@ -6,8 +6,8 @@ import {
   SessionState,
   SessionStatus,
   type SessionSummary,
-} from '@termdock/protocol';
-import { ErrorCode, normalizeHostname, randomToken, TermdockError, uuidv7 } from '@termdock/shared';
+} from '@termavox/protocol';
+import { ErrorCode, normalizeHostname, randomToken, TermavoxError, uuidv7 } from '@termavox/shared';
 import { z } from 'zod';
 import { classifySocket, type SocketClass } from '../core/remote-sessions.ts';
 import type {
@@ -136,7 +136,7 @@ export interface CreateSessionInput {
   /** Absent: the server's name. */
   label?: string | undefined;
   viewport: Dimensions;
-  /** `TERMDOCK_ENABLE_LOCAL_SHELL` (direct mode itself arrives in Phase 6). */
+  /** `TERMAVOX_ENABLE_LOCAL_SHELL` (direct mode itself arrives in Phase 6). */
   enableLocalShell: boolean;
   /**
    * Adopt (plan D-30): the session attaches to the remote tmux server of `socket` (a full socket
@@ -149,7 +149,7 @@ export interface CreateSessionInput {
 
 /**
  * The sessions (any user) whose socket is one of `sockets`: by `tmux_socket`, or, without one, by
- * `td-<ownPrefix>-` plus `tmux_token` (plan D-30). Committed rows only.
+ * `tv-<ownPrefix>-` plus `tmux_token` (plan D-30). Committed rows only.
  */
 function socketOwnerRows(
   sqlite: Sqlite,
@@ -157,7 +157,7 @@ function socketOwnerRows(
   ownPrefix: string,
 ): SocketOwner[] {
   if (sockets.length === 0) return [];
-  const own = `td-${ownPrefix}-`;
+  const own = `tv-${ownPrefix}-`;
   const tokens = sockets.filter((s) => s.startsWith(own)).map((s) => s.slice(own.length));
   return allRows<{
     id: string;
@@ -185,7 +185,7 @@ function socketOwnerRows(
 }
 
 /**
- * Adopt refusals (plan D-30), CONFLICT (409): a tmux server of a session that runs in Termdock
+ * Adopt refusals (plan D-30), CONFLICT (409): a tmux server of a session that runs in Termavox
  * or of another user's session is never adopted, and the leftover of one of the user's own ended
  * sessions is reopened with that session (Reopen keeps its tmux token and reattaches), not
  * adopted as a second session on the same tmux server.
@@ -194,10 +194,10 @@ export function assertAdoptable(
   found: SocketClass,
 ): asserts found is { kind: 'unknown' | 'other' } {
   if (found.kind === 'running' || found.kind === 'foreign') {
-    throw new TermdockError(ErrorCode.Conflict, 'this tmux server belongs to a Termdock session');
+    throw new TermavoxError(ErrorCode.Conflict, 'this tmux server belongs to a Termavox session');
   }
   if (found.kind === 'ended') {
-    throw new TermdockError(
+    throw new TermavoxError(
       ErrorCode.Conflict,
       'this tmux server belongs to an ended session of yours: reopen that session instead',
     );
@@ -224,7 +224,7 @@ function assertRunningCapacity(
       exceptSessionId,
     )?.n ?? 0;
   if (running >= cap) {
-    throw new TermdockError(ErrorCode.RateLimited, `running session limit reached (${cap})`);
+    throw new TermavoxError(ErrorCode.RateLimited, `running session limit reached (${cap})`);
   }
 }
 
@@ -245,7 +245,7 @@ export class SqliteSessionStore implements SessionStore, RemoteSessionLookup {
   readonly #writer: BatchedWriter;
   readonly #now: () => number;
 
-  constructor(db: TermdockDb, writer: BatchedWriter, now: () => number = Date.now) {
+  constructor(db: TermavoxDb, writer: BatchedWriter, now: () => number = Date.now) {
     this.#sqlite = db.$client;
     this.#writer = writer;
     this.#now = now;
@@ -316,7 +316,7 @@ export class SqliteSessionStore implements SessionStore, RemoteSessionLookup {
 
   /**
    * Remote leftover scan (plan D-30): the sessions of any user whose tmux socket is one of
-   * `sockets`, by `tmux_socket` (adopted sessions) or, without one, by `td-<ownPrefix>-` plus
+   * `sockets`, by `tmux_socket` (adopted sessions) or, without one, by `tv-<ownPrefix>-` plus
    * `tmux_token`. State and end time include queued updates (read-your-writes): a session just
    * ended, or just reopened, counts as such before its row is committed.
    */
@@ -485,10 +485,10 @@ export class SqliteSessionStore implements SessionStore, RemoteSessionLookup {
         sessionId,
       );
       if (!row || row.user_id !== userId) {
-        throw new TermdockError(ErrorCode.NotFound, 'session not found');
+        throw new TermavoxError(ErrorCode.NotFound, 'session not found');
       }
       if (row.state !== 'ended') {
-        throw new TermdockError(ErrorCode.Conflict, 'only ended sessions can be removed');
+        throw new TermavoxError(ErrorCode.Conflict, 'only ended sessions can be removed');
       }
       deleteSession(sqlite, userId, sessionId, row.label, this.#now());
     });
@@ -542,24 +542,24 @@ export class SqliteSessionStore implements SessionStore, RemoteSessionLookup {
         input.serverId,
         user.id,
       );
-      if (!server) throw new TermdockError(ErrorCode.NotFound, 'server not found');
+      if (!server) throw new TermavoxError(ErrorCode.NotFound, 'server not found');
       const { adopt } = input;
       if (adopt && server.kind !== 'ssh') {
-        throw new TermdockError(ErrorCode.BadRequest, 'a local server has no remote sessions');
+        throw new TermavoxError(ErrorCode.BadRequest, 'a local server has no remote sessions');
       }
       let target: SessionTarget;
       if (server.kind === 'local') {
         if (!input.enableLocalShell) {
-          throw new TermdockError(ErrorCode.LocalShellDisabled, 'local shells are disabled');
+          throw new TermavoxError(ErrorCode.LocalShellDisabled, 'local shells are disabled');
         }
         if (!isAdmin(user)) {
-          throw new TermdockError(ErrorCode.Forbidden, 'local sessions are admin-only');
+          throw new TermavoxError(ErrorCode.Forbidden, 'local sessions are admin-only');
         }
         target = { ...LOCAL_TARGET };
       } else {
         // The CHECK constraint `servers_ssh_target_ck` guarantees all three for ssh rows.
         if (server.hostname === null || server.port === null || server.username === null) {
-          throw new TermdockError(ErrorCode.Internal, 'ssh server without an address');
+          throw new TermavoxError(ErrorCode.Internal, 'ssh server without an address');
         }
         if (server.credential_id) {
           const credential = getRow(
@@ -568,7 +568,7 @@ export class SqliteSessionStore implements SessionStore, RemoteSessionLookup {
             server.credential_id,
             user.id,
           );
-          if (!credential) throw new TermdockError(ErrorCode.NotFound, 'credential not found');
+          if (!credential) throw new TermavoxError(ErrorCode.NotFound, 'credential not found');
         }
         target = {
           kind: 'ssh',
@@ -697,7 +697,7 @@ export class SqliteSessionStore implements SessionStore, RemoteSessionLookup {
         sessionId,
         actingUserId,
       );
-      if (!row) throw new TermdockError(ErrorCode.NotFound, 'session not found');
+      if (!row) throw new TermavoxError(ErrorCode.NotFound, 'session not found');
       if (row.label !== label) {
         execute(sqlite, 'UPDATE sessions SET label = ? WHERE id = ?', label, sessionId);
         insertAudit(sqlite, {

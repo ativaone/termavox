@@ -3,7 +3,7 @@ import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { InternalApiClient, InternalApiError, isInternalApiError } from '../lib/internal-api.ts';
 
-const SOCKET = 'td-a1b2c3d4-abcdefghijk2';
+const SOCKET = 'tv-a1b2c3d4-abcdefghijk2';
 const LISTED = {
   error: null,
   sessions: [
@@ -59,8 +59,8 @@ beforeAll(async () => {
       }
       if (path.endsWith('/remote-sessions')) {
         if (path.includes('/odd/')) {
-          // A name read from the host that is not a Termdock socket: never passed on.
-          const bad = { ...LISTED.sessions[0], socket: 'td-x; rm -rf /' };
+          // A name read from the host that is not a Termavox socket: never passed on.
+          const bad = { ...LISTED.sessions[0], socket: 'tv-x; rm -rf /' };
           return send(200, { ...LISTED, sessions: [bad] });
         }
         return later(() => send(200, LISTED));
@@ -70,7 +70,7 @@ beforeAll(async () => {
       }
       if (path.endsWith('/remote-sessions/adopt')) {
         if (path.includes('/busy/')) {
-          return send(409, { code: 'CONFLICT', message: 'that tmux server runs in Termdock' });
+          return send(409, { code: 'CONFLICT', message: 'that tmux server runs in Termavox' });
         }
         return later(() => send(201, { sessionId: 'adopted-1' }));
       }
@@ -241,7 +241,7 @@ describe('remote tmux leftovers and End all sessions (plan D-30)', () => {
     expect(late).toMatchObject({ kind: 'timeout', status: 0 });
   });
 
-  it('refuses a listing whose socket names are not Termdock sockets', async () => {
+  it('refuses a listing whose socket names are not Termavox sockets', async () => {
     const odd = await failure(client().listRemoteSessions('odd', 'user-1'));
     expect(odd).toMatchObject({ kind: 'bad_response', status: 200 });
   });
@@ -260,7 +260,7 @@ describe('remote tmux leftovers and End all sessions (plan D-30)', () => {
     });
 
     const before = seen.length;
-    const invalid = await failure(client().terminateRemoteSession('srv', 'td-../x', 'user-1'));
+    const invalid = await failure(client().terminateRemoteSession('srv', 'tv-../x', 'user-1'));
     expect(invalid).toMatchObject({ kind: 'bad_request', status: 0, code: 'BAD_REQUEST' });
     expect(seen.length).toBe(before);
   });

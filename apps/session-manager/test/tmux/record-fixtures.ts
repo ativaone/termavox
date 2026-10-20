@@ -4,7 +4,7 @@
 // Requires: docker compose -f test/sshd/compose.yaml up -d --build
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { randomToken } from '@termdock/shared';
+import { randomToken } from '@termavox/shared';
 import {
   detachClient,
   hasSessionCommand,
@@ -258,18 +258,18 @@ for (const image of selected.length > 0 ? selected : IMAGES) {
       defaultTerminal: probe.tiTmux256 ? 'tmux-256color' : 'screen-256color',
       cols: 80,
       rows: 24,
-      env: { TD_FIXTURE: 'yes' },
+      env: { TV_FIXTURE: 'yes' },
     });
     await recordSession(
       image,
       transport,
-      opts(`td-fixture-${randomToken(8)}`),
+      opts(`tv-fixture-${randomToken(8)}`),
       probe.tmuxVersionRaw,
     );
     await recordAttach(
       image,
       transport,
-      opts(`td-fixture-${randomToken(8)}`),
+      opts(`tv-fixture-${randomToken(8)}`),
       probe.tmuxVersionRaw,
     );
   } finally {

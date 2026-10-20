@@ -13,11 +13,11 @@ describe('file panel messages (plan §5.12)', () => {
   it('round-trips the client messages, every request op included', () => {
     const requests = [
       { op: 'open' },
-      { op: 'list', path: '/home/td' },
-      { op: 'mkdir', path: '/home/td/new' },
+      { op: 'list', path: '/home/tv' },
+      { op: 'mkdir', path: '/home/tv/new' },
       { op: 'rename', from: '/a', to: '/b' },
       { op: 'remove', paths: ['/a', '/b/c'] },
-      { op: 'upload', dir: '/home/td', name: 'report.pdf', size: 1024, overwrite: false },
+      { op: 'upload', dir: '/home/tv', name: 'report.pdf', size: 1024, overwrite: false },
       { op: 'download', path: '/var/log/syslog' },
     ];
     for (const request of requests) {
@@ -43,9 +43,9 @@ describe('file panel messages (plan §5.12)', () => {
       mode: 0o777,
     };
     const results = [
-      { op: 'open', home: '/home/td', cwd: null },
-      { op: 'open', home: '/home/td', cwd: '/tmp' },
-      { op: 'list', path: '/home/td', entries: [entry], truncated: true },
+      { op: 'open', home: '/home/tv', cwd: null },
+      { op: 'open', home: '/home/tv', cwd: '/tmp' },
+      { op: 'list', path: '/home/tv', entries: [entry], truncated: true },
       { op: 'mkdir', entry: { name: 'new', type: 'dir', size: 4096, mtime: 0, mode: 0o755 } },
       { op: 'rename', entry },
       { op: 'remove', removed: 12 },

@@ -127,21 +127,21 @@ export const ReplaceHostKeyRequest = TrustHostKeyRequest.extend({
 export const RevokeHostKeyRequest = z.object({ actingUserId, keyType: z.string().min(1).max(64) });
 
 /**
- * Remote tmux leftovers (plan D-30). Every Termdock tmux server on a remote host is named
- * `td-<installation prefix>-<tmux token>` (§6.3): the prefix is 1–8 characters of [a-z0-9], the
+ * Remote tmux leftovers (plan D-30). Every Termavox tmux server on a remote host is named
+ * `tv-<installation prefix>-<tmux token>` (§6.3): the prefix is 1–8 characters of [a-z0-9], the
  * token 12 of [a-z2-7]. Names read from a host are untrusted: anything else is ignored.
  */
-export const REMOTE_SOCKET_PATTERN = /^td-[a-z0-9]{1,8}-[a-z2-7]{12}$/;
+export const REMOTE_SOCKET_PATTERN = /^tv-[a-z0-9]{1,8}-[a-z2-7]{12}$/;
 export const RemoteSocketName = z.string().regex(REMOTE_SOCKET_PATTERN);
 
 /**
  * Where a listed remote session comes from:
- * - `ended`: this installation, a session of the acting user that was ended in Termdock but whose
+ * - `ended`: this installation, a session of the acting user that was ended in Termavox but whose
  *   tmux could not be ended (a scan ends these by itself first; listed only when that failed);
  * - `unknown`: this installation's prefix, but no session record has its token;
- * - `other`: another prefix: another Termdock installation, or this one before its database was
+ * - `other`: another prefix: another Termavox installation, or this one before its database was
  *   reset (the installation id lives in the database).
- * Sessions that run in Termdock, and ended sessions of other users, are never listed.
+ * Sessions that run in Termavox, and ended sessions of other users, are never listed.
  */
 export const RemoteSessionOrigin = z.enum(['ended', 'unknown', 'other']);
 export const RemoteSession = z.object({
@@ -153,13 +153,13 @@ export const RemoteSession = z.object({
   /** Epoch ms from tmux (`session_created`, `session_activity`); null when not reported. */
   createdAt: z.number().int().nullable(),
   lastActivityAt: z.number().int().nullable(),
-  /** Clients attached right now (another Termdock, or someone's terminal). */
+  /** Clients attached right now (another Termavox, or someone's terminal). */
   attachedClients: z.number().int().min(0),
 });
 
 /**
  * `POST /servers/:id/remote-sessions`: connects as the server's user (its credential, its
- * address's trusted host key; never prompting) and lists the Termdock tmux servers there. Ends the
+ * address's trusted host key; never prompting) and lists the Termavox tmux servers there. Ends the
  * leftovers of sessions the acting user already ended before listing (`cleaned` counts them).
  */
 export const ListRemoteSessionsRequest = z.object({ actingUserId });
@@ -168,13 +168,13 @@ export const ListRemoteSessionsResponse = z.object({
   error: z.string().nullable(),
   sessions: z.array(RemoteSession),
   cleaned: z.number().int().min(0),
-  /** The host listed more Termdock tmux servers than the daemon reads (the rest is ignored). */
+  /** The host listed more Termavox tmux servers than the daemon reads (the rest is ignored). */
   truncated: z.boolean(),
 });
 
 /**
  * `POST /servers/:id/remote-sessions/terminate`: ends one listed remote session. Refused (409)
- * when the socket belongs to a session that runs in Termdock.
+ * when the socket belongs to a session that runs in Termavox.
  */
 export const TerminateRemoteSessionRequest = z.object({ actingUserId, socket: RemoteSocketName });
 /** `terminated: false` when it was already gone. */
@@ -183,7 +183,7 @@ export const TerminateRemoteSessionResponse = z.object({ terminated: z.boolean()
 /**
  * `POST /servers/:id/remote-sessions/adopt`: a new session of this server attached to that tmux
  * server (answers with `CreateSessionResponse`). Refused (409) when the socket belongs to a session
- * that runs in Termdock; the running-session cap applies as for create.
+ * that runs in Termavox; the running-session cap applies as for create.
  */
 export const AdoptRemoteSessionRequest = z.object({
   actingUserId,

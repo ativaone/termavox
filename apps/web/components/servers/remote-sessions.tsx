@@ -31,7 +31,7 @@ function When({ at }: { at: number | null }) {
 
 /**
  * "Sessions on this server" (plan D-30): Check now connects to the server as its user and lists
- * the Termdock tmux servers there that this installation does not run. Each shows where it comes
+ * the Termavox tmux servers there that this installation does not run. Each shows where it comes
  * from, when it started and was last used, and who is attached, with Adopt (a new session of this
  * server attached to it, opened in the workspace; confirmed first while someone is attached) and
  * End (a danger slip: the programs in it stop). Nothing runs until the user presses Check now.

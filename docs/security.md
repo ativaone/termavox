@@ -1,22 +1,22 @@
 # Security model
 
-This document is for operators who run Termdock and for reviewers who want to know what it
+This document is for operators who run Termavox and for reviewers who want to know what it
 protects, what it does not, and how. It describes the code as of the v0.1.0 preparation. The
 design rationale lives in the [implementation plan](implementation-plan.md#10-security); this
 page links to it instead of repeating it.
 
 > [!WARNING]
-> Termdock 0.1.0 is the first supported release: internally reviewed twice (the findings are fixed,
+> Termavox 0.1.0 is the first supported release: internally reviewed twice (the findings are fixed,
 > see [`CHANGELOG.md`](../CHANGELOG.md)), not externally audited. Read this page before you expose
 > it to the internet or use it with production servers.
 
 To report a vulnerability, see [Reporting a vulnerability](#reporting-a-vulnerability).
 
-## What Termdock is, from a security standpoint
+## What Termavox is, from a security standpoint
 
-Termdock is a **privileged bastion**. It stores SSH credentials for every registered server,
+Termavox is a **privileged bastion**. It stores SSH credentials for every registered server,
 holds SSH sessions open on the server side, and lets browsers type into them. Whoever fully
-controls a Termdock instance can reach every server its users registered. Run it, and decide
+controls a Termavox instance can reach every server its users registered. Run it, and decide
 who may use it, the way you would a jump host.
 
 Inside one instance there are two roles, `admin` and `user`. Every server, credential, session
@@ -48,12 +48,12 @@ flowchart LR
 | Component | Holds | Notes |
 |---|---|---|
 | Browser | The auth-session cookie; the terminal view (xterm.js) | Untrusted. Never the source of truth for terminal state; it renders and sends input. |
-| Caddy | TLS keys and its local CA (`caddy-data` volume) | The only published service. Routes `/ws` and the file panel's `/transfer/*` to session-manager and everything else to web. Replaces any client `X-Forwarded-For` with the TCP peer address, or, behind a reverse proxy named in `TERMDOCK_REVERSE_PROXY`, with the address that proxy forwarded (read right to left). Not on the `internal` network, so it cannot reach the internal API. |
+| Caddy | TLS keys and its local CA (`caddy-data` volume) | The only published service. Routes `/ws` and the file panel's `/transfer/*` to session-manager and everything else to web. Replaces any client `X-Forwarded-For` with the TCP peer address, or, behind a reverse proxy named in `TERMAVOX_REVERSE_PROXY`, with the address that proxy forwarded (read right to left). Not on the `internal` network, so it cannot reach the internal API. |
 | web | `auth_secret`, `ws_secret`, `internal_token` | Control plane: sign-in, users, servers, layout, audit view, WebSocket ticket issuer. Never holds the master key. A secret passes through web only when a user creates a credential, and web can never read one back. |
 | session-manager | `master_key`, `ws_secret`, `internal_token`; decrypted credentials, in memory, while the SSH connection that uses them is open | Data plane: SSH connections, server-side emulators, the WebSocket server, the internal API and the credential vault. Writes every credential and known-host-key row. |
-| SQLite (`termdock-data` volume) | Users and argon2id password hashes, TOTP secrets (encrypted by Better Auth), encrypted credentials, host keys, sessions, audit events | Shared by web and session-manager. Assume it can leak through backups: SSH secrets in it are ciphertext only. |
+| SQLite (`termavox-data` volume) | Users and argon2id password hashes, TOTP secrets (encrypted by Better Auth), encrypted credentials, host keys, sessions, audit events | Shared by web and session-manager. Assume it can leak through backups: SSH secrets in it are ciphertext only. |
 | `deploy/secrets/` | The four secret files | Mounted read-only into the containers as Docker secrets. `master_key` is mounted into session-manager only. |
-| Remote hosts | The user's shell and a per-session tmux server | Reached over SSH with strict host-key verification. Termdock installs nothing on them. |
+| Remote hosts | The user's shell and a per-session tmux server | Reached over SSH with strict host-key verification. Termavox installs nothing on them. |
 
 The boundaries, from the outside in ([plan §4.4](implementation-plan.md#44-trust-boundaries)):
 
@@ -66,10 +66,10 @@ The boundaries, from the outside in ([plan §4.4](implementation-plan.md#44-trus
    explicit user decision, and a changed key fails hard.
 4. **The database file**: may leak. Secrets inside it are encrypted with a key that is not in it.
 
-What Termdock runs on a remote host: one capability probe per connection (an `exec sh -c '…'`
+What Termavox runs on a remote host: one capability probe per connection (an `exec sh -c '…'`
 that reads `$SHELL`, the tmux path and version, a UTF-8 locale, terminfo and the systemd-logind
 settings), and, for protected sessions, one tmux server per session on its own socket
-(`tmux -L td-<installation>-<token> -f /dev/null -C …`), so the user's own tmux configuration
+(`tmux -L tv-<installation>-<token> -f /dev/null -C …`), so the user's own tmux configuration
 and sessions are never touched. With logind's `KillUserProcesses=yes` and linger enabled, tmux
 is started through `systemd-run --user --scope`. While someone uses a session's Files panel, the
 daemon also opens an SFTP channel on that session's own connection: the server's SFTP subsystem
@@ -79,13 +79,13 @@ daemon also opens an SFTP channel on that session's own connection: the server's
 
 The summary table is in [plan §10.1](implementation-plan.md#101-threat-model-summary). In short:
 
-### What Termdock protects against
+### What Termavox protects against
 
 - **A leaked database or backup.** SSH passwords, private keys and passphrases are stored with
   AES-256-GCM under a master key that lives outside the database. Account passwords are argon2id
   hashes, and Better Auth encrypts TOTP secrets with web's `auth_secret`. Usernames, host names,
   fingerprints, session history and audit rows are not encrypted.
-- **Other Termdock users.** A user can only list, attach to, type into or manage their own
+- **Other Termavox users.** A user can only list, attach to, type into or manage their own
   sessions, servers, credentials and host-key decisions, both in web and in the daemon.
 - **Forged or replayed WebSocket connections.** The upgrade must carry the instance's `Origin`,
   and the first frame must present a 30-second, single-use ticket signed by web and bound to the
@@ -143,7 +143,7 @@ already within reach), and the reset is audited the same way, without an actor.
 which can read the master key and the database: enabling it would give admins effective access
 to the vault ([plan §10.1](implementation-plan.md#101-threat-model-summary)). Today the daemon
 refuses every local session, whatever its settings, and the compose deployment fixes
-`TERMDOCK_ENABLE_LOCAL_SHELL=false`.
+`TERMAVOX_ENABLE_LOCAL_SHELL=false`.
 
 #### The master key together with the database
 
@@ -167,18 +167,18 @@ secrets, the volumes and the containers' memory.
 - web trusts `X-Forwarded-For` because only Caddy can reach it. Anyone who can connect to
   `web:3000` directly can spoof the client IP and weaken the lockout, the rate limits and the
   audit trail.
-- Behind a reverse proxy (`TERMDOCK_TLS=off`), Caddy believes the proxy's `X-Forwarded-For` only
-  from `TERMDOCK_REVERSE_PROXY`, and answers `503` while that setting is empty (every client
+- Behind a reverse proxy (`TERMAVOX_TLS=off`), Caddy believes the proxy's `X-Forwarded-For` only
+  from `TERMAVOX_REVERSE_PROXY`, and answers `503` while that setting is empty (every client
   would otherwise share the proxy's address). Naming too wide a range (for example a whole public
   subnet) lets anyone in it choose their apparent address; and a port published on every
   interface lets clients skip the proxy, so publish it on loopback
-  (`TERMDOCK_BIND_ADDRESS=127.0.0.1`) or firewall it.
+  (`TERMAVOX_BIND_ADDRESS=127.0.0.1`) or firewall it.
 - On a host with IPv6, Docker forwards IPv6 clients to the IPv4-only `edge` network through its
-  userland proxy, from the network's gateway address: Termdock sees them as one client, with one
+  userland proxy, from the network's gateway address: Termavox sees them as one client, with one
   sign-in lockout, one rate limit and one address in the logs. Publish on IPv4 only
-  (`TERMDOCK_BIND_ADDRESS=0.0.0.0`) or put a reverse proxy in front if users connect over IPv6.
+  (`TERMAVOX_BIND_ADDRESS=0.0.0.0`) or put a reverse proxy in front if users connect over IPv6.
 - Audit and session-event rows are kept for 180 days by default
-  (`TERMDOCK_EVENT_RETENTION_DAYS`; `0` keeps them forever). Older rows are deleted for good:
+  (`TERMAVOX_EVENT_RETENTION_DAYS`; `0` keeps them forever). Older rows are deleted for good:
   raise the setting, or keep database backups, if you need a longer trail.
 - Terminal sessions keep running when a user is disabled, unless the admin also terminates them.
 - The file panel's bounds on what a server answers ([File panel transfers](#file-panel-transfers))
@@ -188,7 +188,7 @@ secrets, the volumes and the containers' memory.
   about twice that (roughly 64 MiB) in memory. A listing may hold its 2 MiB of names and link
   texts plus the entries' other fields, and its answer grows to about 13 MiB when the names are
   control characters escaped for JSON. 128 such requests are far beyond session-manager's memory
-  limit (`TERMDOCK_DAEMON_MEM_LIMIT`, 1 GiB by default), so a user who points the panel at a
+  limit (`TERMAVOX_DAEMON_MEM_LIMIT`, 1 GiB by default), so a user who points the panel at a
   server they control, or at many very large folders at once, can still make it run out of memory,
   which interrupts every user's sessions until it has restarted. A server can also keep one of its
   user's listings or deletes busy until a limit or a cancel stops it, and file answers to a
@@ -244,7 +244,7 @@ plugins.
 - **Better Auth over HTTP.** `/api/auth/*` serves only `GET /api/auth/get-session` (the open
   workspace's keep-alive); every other request answers `404` before reaching Better Auth. Sign-in,
   the second step, password changes, sign-out and every admin action run in Server Actions, which
-  apply Termdock's checks and audit rows. Better Auth's other endpoints (profile edits, the
+  apply Termavox's checks and audit rows. Better Auth's other endpoints (profile edits, the
   username availability check, its raw admin endpoints) are not reachable. Better Auth's own
   per-IP limiter stays on for what remains.
 - **Auth sessions.** Cookies are `HttpOnly; Secure; SameSite=Strict` with the `__Secure-`
@@ -272,7 +272,7 @@ plugins.
   session's owner. A non-owner gets `FORBIDDEN` without learning whether the session exists.
 - Admin-only internal API calls (terminating another user's sessions) re-check the acting
   user's role in the database.
-- Remote tmux leftovers: a session that runs in Termdock, whoever owns it, and every ended
+- Remote tmux leftovers: a session that runs in Termavox, whoever owns it, and every ended
   session of another user are never listed, ended or adopted from a server page (see
   [Remote tmux leftovers](#remote-tmux-leftovers)).
 
@@ -286,7 +286,7 @@ Next.js. Details: [plan §7.1](implementation-plan.md#71-connection-and-authenti
 2. The ticket is `base64url(payload).base64url(HMAC-SHA256(ws_secret, payload))`, with payload
    `{ v: 1, uid, asid, exp, nonce }`. It expires after 30 s and is single-use: the daemon
    remembers each nonce until the ticket expires.
-3. The daemon rejects an upgrade whose `Origin` differs from `TERMDOCK_PUBLIC_URL`'s origin
+3. The daemon rejects an upgrade whose `Origin` differs from `TERMAVOX_PUBLIC_URL`'s origin
    (close `4403`), and closes a connection that does not send a valid `hello` within 5 s
    (`4401`).
 4. It checks that the auth session still exists, has not expired and belongs to a user who is
@@ -315,13 +315,13 @@ connection: no second sign-in and no other credential use.
   other site can learn, and is always an attachment of type `application/octet-stream` with
   `nosniff`, `Content-Security-Policy: sandbox`, `Cross-Origin-Resource-Policy: same-origin`,
   `Referrer-Policy: no-referrer` and `no-store`: a downloaded HTML or SVG file never renders as a
-  Termdock page. The name it is saved under loses its invisible characters (Unicode's
+  Termavox page. The name it is saved under loses its invisible characters (Unicode's
   default-ignorable code points, such as bidi overrides, zero-width characters and the soft
   hyphen, and the interlinear annotation marks), and its UTF-8 form also loses control characters
   and the line and paragraph separators. A planted `report<U+202E>fdp.exe` is saved as
   `reportfdp.exe` instead of reading as `reportexe.pdf`.
 - Delete walks folders with `lstat` and removes a symbolic link as a link, never following it.
-- An upload is written to a hidden temporary file in the target folder (`.<name>.td-<id>.part`,
+- An upload is written to a hidden temporary file in the target folder (`.<name>.tv-<id>.part`,
   created exclusively) and renamed into place, so a failed or cancelled upload leaves no partial
   file. The exception: removing that file needs the same SFTP channel, so it stays when the
   connection to the server drops, when the channel is given up on a server that stopped answering
@@ -389,7 +389,7 @@ Bodies are JSON of at most 64 KiB, validated with zod. Routes:
   plaintext is a JSON envelope (`password`, or `privateKey` plus optional `passphrase`). The
   additional authenticated data binds each ciphertext to its credential id, owner, kind and key
   version, so a ciphertext copied to another row fails to decrypt.
-- **Master key.** `TERMDOCK_MASTER_KEY_FILE`: base64 of exactly 32 random bytes. The daemon
+- **Master key.** `TERMAVOX_MASTER_KEY_FILE`: base64 of exactly 32 random bytes. The daemon
   stores a key-check value in `instance_settings` (`vault_key_check`) on first boot and refuses
   to start when the key does not match it.
 - **Who decrypts.** Only session-manager, and only to connect; the connection keeps the
@@ -440,19 +440,19 @@ Docker host behind `host.docker.internal` stay allowed. A refused session fails 
 `TARGET_NOT_ALLOWED` and is not retried. Fetch & verify is limited to 10 checks per user per
 minute.
 
-`TERMDOCK_SSH_ALLOW_LOCAL_TARGETS=true` turns the policy off, for example when session-manager
+`TERMAVOX_SSH_ALLOW_LOCAL_TARGETS=true` turns the policy off, for example when session-manager
 runs outside Docker and should reach an sshd on the same machine. See the
 [installation guide](guides/install.md#ssh-targets).
 
 ### Remote tmux leftovers
 
 Details: [plan §6.12](implementation-plan.md#612-remote-leftovers-d-30). A protected session's
-tmux server keeps running on its server while Termdock is down; Termdock ends the ones it
+tmux server keeps running on its server while Termavox is down; Termavox ends the ones it
 forgot (a session ended while not connected, a database reset) and lists the rest on the server
 page with **End** and **Adopt**.
 
-- **Who may touch what.** The daemon classifies every Termdock tmux server it finds against the
-  session records of all users. One that belongs to a session that runs in Termdock (any user's)
+- **Who may touch what.** The daemon classifies every Termavox tmux server it finds against the
+  session records of all users. One that belongs to a session that runs in Termavox (any user's)
   or to an ended session of another user is never listed, ended or adopted. Only the acting
   user's own ended sessions are ended automatically, and only once they ended at least 60 s ago
   (a Reopen in between wins); every kill is classified again against the database right before
@@ -461,7 +461,7 @@ page with **End** and **Adopt**.
 - **Host output is untrusted.** The scan reports a socket name and three numbers per tmux server
   (created, last activity, attached clients): no session name, pane command or title is read.
   The parser caps the output (64 KiB), the line length and the number of entries (200), and
-  drops every name that is not exactly `td-<prefix>-<token>`; the script itself skips names with
+  drops every name that is not exactly `tv-<prefix>-<token>`; the script itself skips names with
   characters that could break the line format. A scan never starts, kills or removes anything.
 - **Same sign-in rules, never a prompt.** The one-shot connection that ends a terminated
   session's tmux, the background sweep (on a session's own connection) and the server page's
@@ -482,7 +482,7 @@ relayed to the owner's browser ([plan §5.10](implementation-plan.md#510-keyboar
 
 - The text comes from the host, so the daemon caps it (name 256, instructions 2048, each prompt
   256 characters, at most 16 prompts) and strips control characters and invisible formatting
-  (zero-width and bidi characters). The browser panel always shows Termdock's own title and
+  (zero-width and bidi characters). The browser panel always shows Termavox's own title and
   "Host user@host asks:", with the host's text quoted beneath it, never as the panel's own words.
 - A single password prompt is answered automatically from a stored password credential, at most
   once per connection attempt. Everything else waits for the user for 100 s; then the connection
@@ -533,7 +533,7 @@ Remote programs control what they print, so the browser treats terminal output a
   answers `400` to an upgrade request on any path but `/ws`, so no WebSocket ever reaches
   Next.js.
 - **CSRF.** Auth cookies are `SameSite=Strict`. Server Actions check the origin; the ticket and
-  layout route handlers compare `Origin` with `TERMDOCK_PUBLIC_URL`'s origin exactly; Better
+  layout route handlers compare `Origin` with `TERMAVOX_PUBLIC_URL`'s origin exactly; Better
   Auth trusts only that origin.
 
 ### Containers and resource limits
@@ -552,18 +552,18 @@ From [`deploy/compose.yaml`](../deploy/compose.yaml) and the Dockerfiles:
   `net.ipv4.ip_unprivileged_port_start=0`, a sysctl of its own network namespace that leaves the
   host unchanged. Its UID differs from the app's on purpose: a process that escaped the Caddy
   container would hold that UID on the host, which owns the certificate volumes but neither the
-  `termdock-data` volume (the database, `10001`, mode `0700`) nor the secret files (group
+  `termavox-data` volume (the database, `10001`, mode `0700`) nor the secret files (group
   `10001`, mode `0440`). The Caddyfile is baked into the image, root-owned.
 - Base images are pinned by digest. Dependency build scripts are blocked (pnpm `allowBuilds`).
-- Published images: every release's three images (`ghcr.io/ativaone/termdock-*`) are built by the
+- Published images: every release's three images (`ghcr.io/ativaone/termavox-*`) are built by the
   repository's release workflow from the tagged commit, after the pre-release smoke passed
   against those exact images, and carry a signed build provenance attestation (SLSA, through
   GitHub's `attest-build-provenance`). `gh attestation verify oci://<image> --repo
-  ativaone/termdock` checks it ([install guide](guides/install.md#verifying-the-images)).
+  ativaone/termavox` checks it ([install guide](guides/install.md#verifying-the-images)).
 - Only Caddy publishes ports. web and session-manager have none; the `internal` network has no
   outside connectivity. No container mounts the Docker socket.
-- Memory limits: Caddy 256 MiB, web `TERMDOCK_WEB_MEM_LIMIT` (768m), session-manager
-  `TERMDOCK_DAEMON_MEM_LIMIT` (1g). Process limits: 128, 256 and 512.
+- Memory limits: Caddy 256 MiB, web `TERMAVOX_WEB_MEM_LIMIT` (768m), session-manager
+  `TERMAVOX_DAEMON_MEM_LIMIT` (1g). Process limits: 128, 256 and 512.
 - Daemon caps per user: 16 WebSocket connections (the next closes with `4429`), 64 attached
   terminals across them (more attaches get `RATE_LIMITED`), and the admin setting
   `max_running_sessions_per_user` (default 50). Per connection: 32 channels (one more closes it
@@ -578,7 +578,7 @@ From [`deploy/compose.yaml`](../deploy/compose.yaml) and the Dockerfiles:
 
 ### Logging and redaction
 
-- session-manager logs JSON (pino) to stdout at `TERMDOCK_LOG_LEVEL`. web logs plain lines to
+- session-manager logs JSON (pino) to stdout at `TERMAVOX_LOG_LEVEL`. web logs plain lines to
   stdout.
 - **Terminal contents are never logged.** The code does not log terminal input or output bytes,
   keyboard-interactive answers, tickets or credential material.
@@ -620,10 +620,10 @@ From [`deploy/compose.yaml`](../deploy/compose.yaml) and the Dockerfiles:
   (`remote_cleanup`, `remote_cleanup_failed` with its code, `adopt_target_gone`).
 - Rows carry public data only (ids, names, roles, fingerprints, setting values), never a
   password, code or key. Client IPs come from Caddy's `X-Forwarded-For`; session-manager believes
-  it only from `TERMDOCK_TRUSTED_PROXIES` and takes the rightmost value that is not a trusted
+  it only from `TERMAVOX_TRUSTED_PROXIES` and takes the rightmost value that is not a trusted
   proxy.
 - Retention: session-manager deletes rows of both tables older than
-  `TERMDOCK_EVENT_RETENTION_DAYS` (default 180 days; `0` keeps them forever), a few minutes after
+  `TERMAVOX_EVENT_RETENTION_DAYS` (default 180 days; `0` keeps them forever), a few minutes after
   it starts and every 6 hours, oldest first and 500 rows per transaction. The purge covers every
   row, including the audit events web writes, and logs only the per-table counts
   ([Event retention](guides/configuration.md#event-retention)).
@@ -641,12 +641,12 @@ From [`deploy/compose.yaml`](../deploy/compose.yaml) and the Dockerfiles:
   secret and volume.
 - **Require TOTP** for everyone (`/admin/settings`), and keep the number of admins small.
 - **Decide on file transfer.** Where users must not move files to or from servers through
-  Termdock, turn file transfer off in `/admin/settings`; where you must know who moved what, turn
+  Termavox, turn file transfer off in `/admin/settings`; where you must know who moved what, turn
   on the file operations log there (it is off by default).
 - **Prefer key credentials** for high-value hosts, and verify host-key fingerprints out of band
   or pre-trust them.
-- **Keep the defaults** `TERMDOCK_SSH_ALLOW_LOCAL_TARGETS=false` and
-  `TERMDOCK_ENABLE_LOCAL_SHELL=false` unless you need otherwise.
+- **Keep the defaults** `TERMAVOX_SSH_ALLOW_LOCAL_TARGETS=false` and
+  `TERMAVOX_ENABLE_LOCAL_SHELL=false` unless you need otherwise.
 - **Finish setup promptly** and treat logs as sensitive until the first admin exists.
 - **Upgrade regularly** to pick up base-image and dependency fixes, verify the images' provenance
   before you run them, and review the audit log.

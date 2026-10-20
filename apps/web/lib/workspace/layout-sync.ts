@@ -1,4 +1,4 @@
-import { WorkspaceLayout } from '@termdock/protocol/client';
+import { WorkspaceLayout } from '@termavox/protocol/client';
 import { type LayoutAction, layoutReducer, normalizeLayout } from './tree.ts';
 
 /**

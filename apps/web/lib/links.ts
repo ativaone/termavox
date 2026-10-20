@@ -6,8 +6,8 @@ import type { Locale } from '../i18n/locales.ts';
  * components share it. Both languages of the guide share the anchors below, and a test in
  * `site/test` checks them against the site.
  */
-export const REPOSITORY_URL = 'https://github.com/ativaone/termdock';
-export const SITE_URL = 'https://ativaone.github.io/termdock';
+export const REPOSITORY_URL = 'https://github.com/ativaone/termavox';
+export const SITE_URL = 'https://ativaone.github.io/termavox';
 
 /** The user guide's sections, by their anchor on the help page. */
 export const HELP_SECTIONS = [

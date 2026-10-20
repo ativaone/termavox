@@ -1,5 +1,5 @@
-import { SessionSummary } from '@termdock/protocol';
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import { SessionSummary } from '@termavox/protocol';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 import { describe, expect, it } from 'vitest';
 import { createDriverFactory } from '../../src/core/driver-factory.ts';
 import { SessionRegistry } from '../../src/core/session-registry.ts';
@@ -88,7 +88,7 @@ describe('SessionRegistry session.upsert', () => {
   it("keeps a failed session's reason in the list (statusDetail), also after a restart", async () => {
     const { store, registry } = registryWith(() => ({
       connect: async () => {
-        throw new TermdockError(ErrorCode.AuthRejected, 'nope');
+        throw new TermavoxError(ErrorCode.AuthRejected, 'nope');
       },
     }));
     const detailOf = async (id: string) =>
@@ -194,7 +194,7 @@ describe('SessionRegistry.reopen and the running-session cap', () => {
     const reopens = () => store.events.filter((e) => e.type === 'reopened').length;
     const before = reopens();
     const error = await registry.reopen('s1', 'user-1').catch((err: unknown) => err);
-    expect(error).toBeInstanceOf(TermdockError);
+    expect(error).toBeInstanceOf(TermavoxError);
     expect(error).toMatchObject({
       code: ErrorCode.RateLimited,
       message: 'running session limit reached (1)',
@@ -277,7 +277,7 @@ describe('SessionRegistry.stop (plan D-31)', () => {
   it('stops a retrying session of its owner; CONFLICT when it is not retrying, NOT_FOUND for others', async () => {
     const { store, registry } = registryWith(() => ({
       connect: async () => {
-        throw new TermdockError(ErrorCode.HostUnreachable, 'down');
+        throw new TermavoxError(ErrorCode.HostUnreachable, 'down');
       },
     }));
     registry.create(store.add(makeRecord({ id: 's1' })));

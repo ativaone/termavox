@@ -1,10 +1,10 @@
-import type { TermdockDb } from '@termdock/db';
+import type { TermavoxDb } from '@termavox/db';
 import type {
   ListRemoteSessionsResponse,
   RemoteSession,
   TerminateRemoteSessionResponse,
-} from '@termdock/protocol';
-import { ErrorCode, normalizeHostname, TermdockError } from '@termdock/shared';
+} from '@termavox/protocol';
+import { ErrorCode, normalizeHostname, TermavoxError } from '@termavox/shared';
 import type { z } from 'zod';
 import { tmuxSocketPrefix } from '../core/driver-factory.ts';
 import {
@@ -49,7 +49,7 @@ export const REMOTE_LIST_BUDGET_MS = 20_000;
 export const REMOTE_ROUTE_DEADLINE_MS = 25_000;
 
 export interface RemoteSessionsDeps {
-  db: TermdockDb;
+  db: TermavoxDb;
   /** Session records: socket owners (writes still queued included), events, audits. */
   sessions: SqliteSessionStore;
   hostKeys: SqliteHostKeyStore;
@@ -141,14 +141,14 @@ function ownedSshServer(deps: RemoteSessionsDeps, actingUserId: string, id: stri
     id,
     actingUserId,
   );
-  if (!server) throw new TermdockError(ErrorCode.NotFound, 'server not found');
+  if (!server) throw new TermavoxError(ErrorCode.NotFound, 'server not found');
   if (
     server.kind !== 'ssh' ||
     server.hostname === null ||
     server.port === null ||
     server.username === null
   ) {
-    throw new TermdockError(ErrorCode.BadRequest, 'a local server has no remote sessions');
+    throw new TermavoxError(ErrorCode.BadRequest, 'a local server has no remote sessions');
   }
   return {
     id: server.id,
@@ -230,7 +230,7 @@ async function connectAsServer(
 /** The code a list reports in `error` (and a terminate in its 502). */
 function failureCode(err: unknown): string {
   if (err instanceof RemoteHostError || err instanceof TransportError) return err.code;
-  if (err instanceof TermdockError) return err.code;
+  if (err instanceof TermavoxError) return err.code;
   return ErrorCode.HostUnreachable;
 }
 
@@ -254,10 +254,10 @@ const ORIGIN_ORDER: Record<ListedSession['origin'], number> = { ended: 0, unknow
 
 /**
  * `POST /servers/:id/remote-sessions` (plan D-30): connects as the server's user, lists the
- * Termdock tmux servers there, ends at once the leftovers of sessions the acting user already
+ * Termavox tmux servers there, ends at once the leftovers of sessions the acting user already
  * ended (re-checked right before each kill, never one ended less than 60 s ago), and lists the
  * rest: `unknown` and `other` servers, and leftovers whose kill failed (`ended`). Sessions that
- * run in Termdock, and other users' sessions, are never listed. A failure to connect, sign in,
+ * run in Termavox, and other users' sessions, are never listed. A failure to connect, sign in,
  * probe or scan is reported in `error` with an empty list.
  */
 export async function listRemoteSessions(
@@ -278,7 +278,7 @@ export async function listRemoteSessions(
   const stop = hardStop(deps, startedAt, transport);
   try {
     const { tmuxPath } = await runProbe(transport, deps.probeTimeoutMs ?? REMOTE_PROBE_TIMEOUT_MS);
-    // Without tmux there is no Termdock tmux server to find.
+    // Without tmux there is no Termavox tmux server to find.
     if (!tmuxPath) return empty(null);
     const scan = await runRemoteScan(transport, tmuxPath, {
       timeoutMs: deps.scanTimeoutMs ?? REMOTE_SCAN_TIMEOUT_MS,
@@ -322,16 +322,16 @@ export async function listRemoteSessions(
   }
 }
 
-/** Plan D-30: a tmux server of a session that runs in Termdock, or another user's, is refused. */
-function assertNotTermdock(found: SocketClass): void {
+/** Plan D-30: a tmux server of a session that runs in Termavox, or another user's, is refused. */
+function assertNotTermavox(found: SocketClass): void {
   if (found.kind === 'running' || found.kind === 'foreign') {
-    throw new TermdockError(ErrorCode.Conflict, 'this tmux server belongs to a Termdock session');
+    throw new TermavoxError(ErrorCode.Conflict, 'this tmux server belongs to a Termavox session');
   }
 }
 
 /**
  * `POST /servers/:id/remote-sessions/terminate` (plan D-30): ends one tmux server on the server.
- * Refused (409) when it belongs to a session that runs in Termdock or to another user's session,
+ * Refused (409) when it belongs to a session that runs in Termavox or to another user's session,
  * checked again right before the kill. `terminated: false` when no server answered for that
  * socket (nothing is removed). A failure to connect, sign in or ask the host throws
  * RemoteHostError (502). Audited as `remote_session.terminated` with how it was classified.
@@ -350,7 +350,7 @@ export async function terminateRemoteSession(
       input.actingUserId,
       prefix,
     );
-  assertNotTermdock(await classify());
+  assertNotTermavox(await classify());
   let transport: SshTransport;
   try {
     transport = await connectAsServer(deps, server, input.actingUserId);
@@ -367,7 +367,7 @@ export async function terminateRemoteSession(
     }
     // A session may have attached (Reopen, adopt) while this connection was opening.
     const found = await classify();
-    assertNotTermdock(found);
+    assertNotTermavox(found);
     await endRemoteServer(transport, tmuxPath, input.socket, killTimeout);
     const origin = found.kind === 'ended' ? 'ended' : found.kind;
     deps.sessions.auditRemoteTermination({
@@ -385,7 +385,7 @@ export async function terminateRemoteSession(
     }
     return { terminated: true };
   } catch (err) {
-    if (err instanceof TermdockError && err.code === ErrorCode.Conflict) throw err;
+    if (err instanceof TermavoxError && err.code === ErrorCode.Conflict) throw err;
     throw asRemoteHostError(err);
   } finally {
     stop();

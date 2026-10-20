@@ -1,4 +1,4 @@
-# Termdock: the whole stack with one command (plan §13). From the repository root, at a release
+# Termavox: the whole stack with one command (plan §13). From the repository root, at a release
 # tag (the published images on GHCR):
 #
 #   deploy/scripts/init-secrets.sh
@@ -14,7 +14,7 @@
 #
 # Settings come from the environment or from deploy/.env (template: deploy/.env.example).
 # Full guide: docs/guides/install.md.
-name: termdock
+name: termavox
 
 # Hardening shared by every service (plan §10.2).
 x-hardened: &hardened
@@ -25,7 +25,7 @@ x-hardened: &hardened
 
 # The browser-facing URL: Origin checks (web and the WebSocket upgrade) and auth cookies use it.
 # Derived from the domain and HTTPS port unless set; a default port (443) is normalized away.
-x-public-url: &public-url ${TERMDOCK_PUBLIC_URL:-https://${TERMDOCK_DOMAIN:-localhost}:${TERMDOCK_HTTPS_PORT:-443}}
+x-public-url: &public-url ${TERMAVOX_PUBLIC_URL:-https://${TERMAVOX_DOMAIN:-localhost}:${TERMAVOX_HTTPS_PORT:-443}}
 
 # Fixed subnet of the `edge` network: the only peers there are Caddy, web and session-manager,
 # so session-manager trusts X-Forwarded-For from it (plan §4.3). Change it here if it collides
@@ -36,7 +36,7 @@ services:
   caddy:
     # The official Caddy image (pinned by digest in the Dockerfile) as UID/GID 10002, with no
     # capabilities and the Caddyfile baked in: changing deploy/Caddyfile means a rebuild.
-    image: ghcr.io/ativaone/termdock-caddy:0.0.0
+    image: ghcr.io/ativaone/termavox-caddy:0.0.0
     build:
       context: ..
       dockerfile: deploy/docker/caddy.Dockerfile
@@ -51,21 +51,21 @@ services:
     pids_limit: 128
     ports:
       # Same port inside and outside, so Caddy's HTTP/3 advertisement (Alt-Svc) names the
-      # published port; the Caddyfile's HTTP->HTTPS redirect also uses it. TERMDOCK_BIND_ADDRESS
+      # published port; the Caddyfile's HTTP->HTTPS redirect also uses it. TERMAVOX_BIND_ADDRESS
       # (e.g. 127.0.0.1 behind a reverse proxy on this host) limits them to one host address;
       # unset, they are published on every interface.
-      - "${TERMDOCK_BIND_ADDRESS:+${TERMDOCK_BIND_ADDRESS}:}${TERMDOCK_HTTP_PORT:-80}:${TERMDOCK_HTTP_PORT:-80}"
-      - "${TERMDOCK_BIND_ADDRESS:+${TERMDOCK_BIND_ADDRESS}:}${TERMDOCK_HTTPS_PORT:-443}:${TERMDOCK_HTTPS_PORT:-443}"
-      - "${TERMDOCK_BIND_ADDRESS:+${TERMDOCK_BIND_ADDRESS}:}${TERMDOCK_HTTPS_PORT:-443}:${TERMDOCK_HTTPS_PORT:-443}/udp"
+      - "${TERMAVOX_BIND_ADDRESS:+${TERMAVOX_BIND_ADDRESS}:}${TERMAVOX_HTTP_PORT:-80}:${TERMAVOX_HTTP_PORT:-80}"
+      - "${TERMAVOX_BIND_ADDRESS:+${TERMAVOX_BIND_ADDRESS}:}${TERMAVOX_HTTPS_PORT:-443}:${TERMAVOX_HTTPS_PORT:-443}"
+      - "${TERMAVOX_BIND_ADDRESS:+${TERMAVOX_BIND_ADDRESS}:}${TERMAVOX_HTTPS_PORT:-443}:${TERMAVOX_HTTPS_PORT:-443}/udp"
     environment:
-      TERMDOCK_DOMAIN: ${TERMDOCK_DOMAIN:-localhost}
-      TERMDOCK_HTTP_PORT: ${TERMDOCK_HTTP_PORT:-80}
-      TERMDOCK_HTTPS_PORT: ${TERMDOCK_HTTPS_PORT:-443}
-      TERMDOCK_TLS: ${TERMDOCK_TLS:-auto}
-      # TERMDOCK_TLS=off (plan D-35): the reverse proxy's address as Caddy sees it, the only peer
+      TERMAVOX_DOMAIN: ${TERMAVOX_DOMAIN:-localhost}
+      TERMAVOX_HTTP_PORT: ${TERMAVOX_HTTP_PORT:-80}
+      TERMAVOX_HTTPS_PORT: ${TERMAVOX_HTTPS_PORT:-443}
+      TERMAVOX_TLS: ${TERMAVOX_TLS:-auto}
+      # TERMAVOX_TLS=off (plan D-35): the reverse proxy's address as Caddy sees it, the only peer
       # whose X-Forwarded-For is believed. A proxy on this host: 172.30.10.1, the edge network's
       # gateway, which is how Docker presents host connections to a published port.
-      TERMDOCK_REVERSE_PROXY: ${TERMDOCK_REVERSE_PROXY:-}
+      TERMAVOX_REVERSE_PROXY: ${TERMAVOX_REVERSE_PROXY:-}
     volumes:
       - caddy-data:/data
       - caddy-config:/config
@@ -80,31 +80,31 @@ services:
         condition: service_healthy
 
   web:
-    image: ghcr.io/ativaone/termdock-web:0.0.0
+    image: ghcr.io/ativaone/termavox-web:0.0.0
     build:
       context: ..
       dockerfile: deploy/docker/web.Dockerfile
     <<: *hardened
     init: true
     user: "10001:10001"
-    mem_limit: ${TERMDOCK_WEB_MEM_LIMIT:-768m}
+    mem_limit: ${TERMAVOX_WEB_MEM_LIMIT:-768m}
     pids_limit: 256
     # No published ports: web is reachable only through Caddy. Its rate limits, lockout and audit
     # trust the single X-Forwarded-For value Caddy sets (plan §4.3); the other `edge` and
     # `internal` peer, session-manager, never calls web.
     environment:
-      TERMDOCK_PUBLIC_URL: *public-url
-      TERMDOCK_DATA_DIR: /data
-      TERMDOCK_INTERNAL_URL: http://session-manager-internal:3002
-      TERMDOCK_INTERNAL_TOKEN_FILE: /run/secrets/internal_token
-      TERMDOCK_WS_SECRET_FILE: /run/secrets/ws_secret
+      TERMAVOX_PUBLIC_URL: *public-url
+      TERMAVOX_DATA_DIR: /data
+      TERMAVOX_INTERNAL_URL: http://session-manager-internal:3002
+      TERMAVOX_INTERNAL_TOKEN_FILE: /run/secrets/internal_token
+      TERMAVOX_WS_SECRET_FILE: /run/secrets/ws_secret
       BETTER_AUTH_SECRET_FILE: /run/secrets/auth_secret
     secrets:
       - auth_secret
       - internal_token
       - ws_secret
     volumes:
-      - termdock-data:/data
+      - termavox-data:/data
     tmpfs:
       - /tmp
       - /app/apps/web/.next/cache:uid=10001,gid=10001,mode=0700
@@ -130,43 +130,43 @@ services:
       start_interval: 2s
 
   session-manager:
-    image: ghcr.io/ativaone/termdock-session-manager:0.0.0
+    image: ghcr.io/ativaone/termavox-session-manager:0.0.0
     build:
       context: ..
       dockerfile: deploy/docker/session-manager.Dockerfile
     <<: *hardened
     init: true
     user: "10001:10001"
-    mem_limit: ${TERMDOCK_DAEMON_MEM_LIMIT:-1g}
+    mem_limit: ${TERMAVOX_DAEMON_MEM_LIMIT:-1g}
     pids_limit: 512
     environment:
-      TERMDOCK_PUBLIC_URL: *public-url
-      TERMDOCK_DATA_DIR: /data
-      TERMDOCK_WS_HOST: 0.0.0.0
-      TERMDOCK_WS_PORT: "3001"
-      TERMDOCK_WS_SECRET_FILE: /run/secrets/ws_secret
+      TERMAVOX_PUBLIC_URL: *public-url
+      TERMAVOX_DATA_DIR: /data
+      TERMAVOX_WS_HOST: 0.0.0.0
+      TERMAVOX_WS_PORT: "3001"
+      TERMAVOX_WS_SECRET_FILE: /run/secrets/ws_secret
       # Bound to the address behind the `internal`-only alias, so the internal API does not
       # listen on the `edge` network at all (plan §4.3).
-      TERMDOCK_INTERNAL_HOST: session-manager-internal
-      TERMDOCK_INTERNAL_PORT: "3002"
-      TERMDOCK_INTERNAL_TOKEN_FILE: /run/secrets/internal_token
-      TERMDOCK_MASTER_KEY_FILE: /run/secrets/master_key
+      TERMAVOX_INTERNAL_HOST: session-manager-internal
+      TERMAVOX_INTERNAL_PORT: "3002"
+      TERMAVOX_INTERNAL_TOKEN_FILE: /run/secrets/internal_token
+      TERMAVOX_MASTER_KEY_FILE: /run/secrets/master_key
       # Local direct mode stays off in the container (plan §10.2).
-      TERMDOCK_ENABLE_LOCAL_SHELL: "false"
+      TERMAVOX_ENABLE_LOCAL_SHELL: "false"
       # WebSocket client IPs (session_events.ip): believe X-Forwarded-For only from `edge` peers.
-      TERMDOCK_TRUSTED_PROXIES: *edge-subnet
+      TERMAVOX_TRUSTED_PROXIES: *edge-subnet
       # SSH targets on loopback, link-local, multicast or this container's own addresses are
       # refused unless set to true (private LAN ranges and host.docker.internal stay allowed).
-      TERMDOCK_SSH_ALLOW_LOCAL_TARGETS: ${TERMDOCK_SSH_ALLOW_LOCAL_TARGETS:-false}
+      TERMAVOX_SSH_ALLOW_LOCAL_TARGETS: ${TERMAVOX_SSH_ALLOW_LOCAL_TARGETS:-false}
       # Audit and session events older than this many days are purged (0 keeps them forever).
-      TERMDOCK_EVENT_RETENTION_DAYS: ${TERMDOCK_EVENT_RETENTION_DAYS:-180}
-      TERMDOCK_LOG_LEVEL: ${TERMDOCK_LOG_LEVEL:-info}
+      TERMAVOX_EVENT_RETENTION_DAYS: ${TERMAVOX_EVENT_RETENTION_DAYS:-180}
+      TERMAVOX_LOG_LEVEL: ${TERMAVOX_LOG_LEVEL:-info}
     secrets:
       - master_key
       - internal_token
       - ws_secret
     volumes:
-      - termdock-data:/data
+      - termavox-data:/data
     tmpfs:
       - /tmp
     networks:
@@ -185,8 +185,8 @@ services:
         - node
         - -e
         - >-
-          const token = require('node:fs').readFileSync(process.env.TERMDOCK_INTERNAL_TOKEN_FILE, 'utf8').trim();
-          const url = 'http://' + process.env.TERMDOCK_INTERNAL_HOST + ':' + process.env.TERMDOCK_INTERNAL_PORT + '/internal/v1/health';
+          const token = require('node:fs').readFileSync(process.env.TERMAVOX_INTERNAL_TOKEN_FILE, 'utf8').trim();
+          const url = 'http://' + process.env.TERMAVOX_INTERNAL_HOST + ':' + process.env.TERMAVOX_INTERNAL_PORT + '/internal/v1/health';
           fetch(url, { headers: { authorization: 'Bearer ' + token }, signal: AbortSignal.timeout(4000) })
           .then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1));
       interval: 30s
@@ -206,7 +206,7 @@ networks:
     internal: true
 
 volumes:
-  termdock-data: {} # SQLite database (app.db): back it up with deploy/scripts/backup.sh
+  termavox-data: {} # SQLite database (app.db): back it up with deploy/scripts/backup.sh
   caddy-data: {} # certificates and Caddy's local CA (owned by Caddy's UID 10002)
   caddy-config: {}
 

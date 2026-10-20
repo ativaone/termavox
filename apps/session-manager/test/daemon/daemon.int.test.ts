@@ -160,7 +160,7 @@ describe('daemon (SQLite + vault + internal API + WS) against no-tmux', () => {
 
     // raw protection + auto_reopen: the screen was in RAM; a new shell starts after a banner.
     const again = await fixture.attach(second, userId, asid, sessionId);
-    const restored = await shows(again, /Termdock restarted/);
+    const restored = await shows(again, /Termavox restarted/);
     expect(restored).not.toContain('first-42');
     again.input(1, 'echo second-$((1+1))\r');
     await shows(again, /^second-2$/m);

@@ -50,7 +50,7 @@ export function tmuxSocketPrefix(installationId: string): string {
     .slice(0, 8);
 }
 
-/** Socket name `td-<installationId[0:8]>-<tmuxToken>` (plan §6.3; [a-z0-9-] only). */
+/** Socket name `tv-<installationId[0:8]>-<tmuxToken>` (plan §6.3; [a-z0-9-] only). */
 export function tmuxSocketName(installationId: string, tmuxToken: string): string {
-  return `td-${tmuxSocketPrefix(installationId)}-${tmuxToken}`;
+  return `tv-${tmuxSocketPrefix(installationId)}-${tmuxToken}`;
 }

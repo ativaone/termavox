@@ -1,4 +1,4 @@
-import { isControlChar, isInvisibleFormatChar } from '@termdock/protocol/client';
+import { isControlChar, isInvisibleFormatChar } from '@termavox/protocol/client';
 import { createTranslator } from 'next-intl';
 import { describe, expect, it } from 'vitest';
 import type { Locale } from '../../i18n/locales.ts';

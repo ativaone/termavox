@@ -1,11 +1,11 @@
 import '../server-guard.ts';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
-import type { TermdockDb } from '@termdock/db';
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import type { TermavoxDb } from '@termavox/db';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 import { isAPIError } from 'better-auth/api';
 import { z } from 'zod';
 import type { WebLogger } from '../logger.ts';
-import type { TermdockAuth } from './auth.ts';
+import type { TermavoxAuth } from './auth.ts';
 import { hasAnyUser } from './queries.ts';
 
 export const SetupInput = z.object({
@@ -16,8 +16,8 @@ export const SetupInput = z.object({
 export type SetupInput = z.infer<typeof SetupInput>;
 
 interface SetupDeps {
-  db: TermdockDb;
-  auth: TermdockAuth;
+  db: TermavoxDb;
+  auth: TermavoxAuth;
   logger: WebLogger;
   /** Absolute URL of the setup page, printed with the token. */
   setupUrl: string;
@@ -52,14 +52,14 @@ export class SetupToken {
     return this.#hash !== null;
   }
 
-  /** Throws TermdockError: NOT_FOUND (closed), FORBIDDEN (token), CONFLICT (busy), BAD_REQUEST. */
+  /** Throws TermavoxError: NOT_FOUND (closed), FORBIDDEN (token), CONFLICT (busy), BAD_REQUEST. */
   async complete(token: string, input: SetupInput): Promise<{ userId: string }> {
-    if (!this.isOpen()) throw new TermdockError(ErrorCode.NotFound, 'setup is closed');
-    if (!this.#matches(token)) throw new TermdockError(ErrorCode.Forbidden, 'invalid setup token');
-    if (this.#busy) throw new TermdockError(ErrorCode.Conflict, 'setup is already in progress');
+    if (!this.isOpen()) throw new TermavoxError(ErrorCode.NotFound, 'setup is closed');
+    if (!this.#matches(token)) throw new TermavoxError(ErrorCode.Forbidden, 'invalid setup token');
+    if (this.#busy) throw new TermavoxError(ErrorCode.Conflict, 'setup is already in progress');
     const parsed = SetupInput.safeParse(input);
     if (!parsed.success) {
-      throw new TermdockError(
+      throw new TermavoxError(
         ErrorCode.BadRequest,
         parsed.error.issues[0]?.message ?? 'invalid input',
       );
@@ -75,7 +75,7 @@ export class SetupToken {
       this.#deps.logger.info('first admin created; setup is closed');
       return { userId: user.id };
     } catch (err) {
-      if (isAPIError(err)) throw new TermdockError(ErrorCode.BadRequest, err.message);
+      if (isAPIError(err)) throw new TermavoxError(ErrorCode.BadRequest, err.message);
       throw err;
     } finally {
       this.#busy = false;

@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { type ServerMessage, TRANSFER_TOKEN_TTL_MS } from '@termdock/protocol';
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import { type ServerMessage, TRANSFER_TOKEN_TTL_MS } from '@termavox/protocol';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 import type { AttachmentClient } from '../core/types.ts';
 
 /** Unused transfer URLs one user may hold at once (each lives TRANSFER_TOKEN_TTL_MS). */
@@ -78,7 +78,7 @@ export class TransferTokens {
     let held = 0;
     for (const { grant } of this.#pending.values()) if (grant.userId === input.userId) held++;
     if (held >= this.#maxPerUser) {
-      throw new TermdockError(ErrorCode.RateLimited, 'too many unused transfer URLs');
+      throw new TermavoxError(ErrorCode.RateLimited, 'too many unused transfer URLs');
     }
     const token = randomBytes(32).toString('base64url');
     const grant = { ...input, transferId: randomUUID() } as TransferGrant;

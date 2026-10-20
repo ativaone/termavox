@@ -23,7 +23,7 @@ export type TerminateAllResult = { ok: true; terminated: number } | SessionActio
 export type RemoveEndedResult = { ok: true; removed: number } | SessionActionFailure;
 
 /**
- * Outcome of "Check now" on a server page (D-30, lib/actions/remote-sessions.ts): the Termdock
+ * Outcome of "Check now" on a server page (D-30, lib/actions/remote-sessions.ts): the Termavox
  * tmux servers there that this installation does not run, and how many leftovers of sessions the
  * user had already ended were ended by the check (`cleaned`). A check that could not sign in is a
  * failure whose `code` is the daemon's connection error code.

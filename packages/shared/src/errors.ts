@@ -43,7 +43,7 @@ export const ErrorCode = {
   /** The server failed a file operation without a more precise status (SFTP FAILURE). */
   FileOpFailed: 'FILE_OP_FAILED',
   /**
-   * The file panel's Delete stopped at Termdock's own bound (plan §5.12): a folder nested too
+   * The file panel's Delete stopped at Termavox's own bound (plan §5.12): a folder nested too
    * deep, or more entries or bytes of names read than one request may hold. What it removed by
    * then stays removed; the rest is for the terminal (`rm -r`).
    */
@@ -57,29 +57,29 @@ export const ErrorCode = {
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 
-export class TermdockError extends Error {
+export class TermavoxError extends Error {
   readonly code: ErrorCode;
   readonly details: Record<string, unknown> | undefined;
 
   constructor(code: ErrorCode, message: string, details?: Record<string, unknown>) {
     super(message);
-    this.name = 'TermdockError';
+    this.name = 'TermavoxError';
     this.code = code;
     this.details = details;
   }
 }
 
 /**
- * Recognizes a TermdockError from any copy of this module. Next bundles a server module once per
+ * Recognizes a TermavoxError from any copy of this module. Next bundles a server module once per
  * layer, so an error thrown by the web's auth runtime (built at boot by instrumentation and kept
- * on globalThis) is an instance of another TermdockError class than the one a Server Action
+ * on globalThis) is an instance of another TermavoxError class than the one a Server Action
  * imports, and `instanceof` alone misses it.
  */
-export function isTermdockError(err: unknown): err is TermdockError {
+export function isTermavoxError(err: unknown): err is TermavoxError {
   return (
-    err instanceof TermdockError ||
+    err instanceof TermavoxError ||
     (err instanceof Error &&
-      err.name === 'TermdockError' &&
+      err.name === 'TermavoxError' &&
       typeof (err as { code?: unknown }).code === 'string')
   );
 }

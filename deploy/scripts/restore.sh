@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Restores the Termdock database from a backup made by backup.sh (plan §13.5).
+# Restores the Termavox database from a backup made by backup.sh (plan §13.5).
 #
 #   1. Takes a safety backup of the current database (when session-manager is running).
 #   2. Stops web and session-manager (Caddy answers 502 meanwhile, if it keeps running).
@@ -17,8 +17,8 @@
 #   --yes  do not ask for confirmation (required when stdin is not a terminal)
 #
 # Environment (optional, for test stacks such as the release smoke; installs leave it unset):
-#   TERMDOCK_BACKUP_DIR        where the safety backup goes instead of deploy/backups/
-#   TERMDOCK_COMPOSE_OVERRIDE  compose files applied on top of deploy/compose.yaml, in order,
+#   TERMAVOX_BACKUP_DIR        where the safety backup goes instead of deploy/backups/
+#   TERMAVOX_COMPOSE_OVERRIDE  compose files applied on top of deploy/compose.yaml, in order,
 #                              separated by ":" (one file, or e.g. a.yaml:b.yaml)
 #   (the stack's project name comes from COMPOSE_PROJECT_NAME, which docker compose reads itself)
 set -euo pipefail
@@ -26,7 +26,7 @@ umask 077
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 deploy_dir=$(dirname -- "$script_dir")
-backup_dir=${TERMDOCK_BACKUP_DIR:-"$deploy_dir/backups"}
+backup_dir=${TERMAVOX_BACKUP_DIR:-"$deploy_dir/backups"}
 
 die() {
   printf 'restore: %s\n' "$*" >&2
@@ -54,8 +54,8 @@ done
 [[ "$(head -c 15 -- "$file")" == "SQLite format 3" ]] || die "$file is not a SQLite database"
 
 compose_files=(-f "$deploy_dir/compose.yaml")
-if [[ -n "${TERMDOCK_COMPOSE_OVERRIDE:-}" ]]; then
-  IFS=: read -r -a compose_overrides <<<"$TERMDOCK_COMPOSE_OVERRIDE"
+if [[ -n "${TERMAVOX_COMPOSE_OVERRIDE:-}" ]]; then
+  IFS=: read -r -a compose_overrides <<<"$TERMAVOX_COMPOSE_OVERRIDE"
   for override in "${compose_overrides[@]}"; do
     if [[ -n "$override" ]]; then compose_files+=(-f "$override"); fi
   done
@@ -67,7 +67,7 @@ daemon_running=0
 if grep -qx session-manager <<<"$running"; then daemon_running=1; fi
 
 cat >&2 <<EOF
-This replaces the Termdock database with:
+This replaces the Termavox database with:
   $file ($(wc -c <"$file" | tr -d ' ') bytes)
 web and session-manager stop for the duration: open browser tabs disconnect, protected
 sessions are restored when session-manager starts again.
@@ -130,9 +130,9 @@ const { pipeline } = require('node:stream/promises');
 const Database = require('better-sqlite3');
 (async () => {
   const stamp = process.argv[1];
-  const dir = process.env.TERMDOCK_DATA_DIR || '/data';
+  const dir = process.env.TERMAVOX_DATA_DIR || '/data';
   const db = path.join(dir, 'app.db');
-  const incoming = path.join(dir, '.termdock-restore-' + stamp + '.db');
+  const incoming = path.join(dir, '.termavox-restore-' + stamp + '.db');
   const removeIncoming = () => {
     for (const s of ['', '-wal', '-shm']) fs.rmSync(incoming + s, { force: true });
   };

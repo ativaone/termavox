@@ -63,7 +63,7 @@ function line(message: string, fields?: Record<string, unknown>): string {
 }
 
 export const consoleLogger: WebLogger = {
-  info: (message, fields) => console.info(`[termdock] ${line(message, fields)}`),
-  warn: (message, fields) => console.warn(`[termdock] WARN ${line(message, fields)}`),
-  error: (message, fields) => console.error(`[termdock] ERROR ${line(message, fields)}`),
+  info: (message, fields) => console.info(`[termavox] ${line(message, fields)}`),
+  warn: (message, fields) => console.warn(`[termavox] WARN ${line(message, fields)}`),
+  error: (message, fields) => console.error(`[termavox] ERROR ${line(message, fields)}`),
 };

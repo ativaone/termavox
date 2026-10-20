@@ -1,5 +1,5 @@
 import { Readable, Writable } from 'node:stream';
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 import type { SftpHandle, SftpSession } from '../core/types.ts';
 
 /**
@@ -151,7 +151,7 @@ export class SftpFileReader extends Readable {
       if (filled === length) return whole;
       data = await this.#sftp.read(this.#handle, length - filled, offset + filled);
     }
-    throw new TermdockError(ErrorCode.FileOpFailed, 'the file is shorter than its size');
+    throw new TermavoxError(ErrorCode.FileOpFailed, 'the file is shorter than its size');
   }
 }
 

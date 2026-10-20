@@ -1,4 +1,4 @@
-import { uuidv7 } from '@termdock/shared';
+import { uuidv7 } from '@termavox/shared';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { InternalApiClient } from '../lib/internal-api.ts';
 import { CONNECT_CODES, connectCodeKey } from '../lib/manage/connect-codes.ts';
@@ -29,7 +29,7 @@ const { adoptRemoteSession, listRemoteSessions, terminateRemoteSession } = await
 );
 const { terminateAllSessions } = await import('../lib/actions/sessions.ts');
 
-const SOCKET = 'td-a1b2c3d4-abcdefghijk2';
+const SOCKET = 'tv-a1b2c3d4-abcdefghijk2';
 
 interface Call {
   path: string;
@@ -120,11 +120,11 @@ beforeAll(async () => {
     port: null,
     username: null,
   });
-  (globalThis as { __termdockInternalApi?: InternalApiClient }).__termdockInternalApi =
+  (globalThis as { __termavoxInternalApi?: InternalApiClient }).__termavoxInternalApi =
     new InternalApiClient({ baseUrl: 'http://daemon.test', token: 'token', fetch: fakeFetch });
 });
 afterAll(() => {
-  delete (globalThis as { __termdockInternalApi?: InternalApiClient }).__termdockInternalApi;
+  delete (globalThis as { __termavoxInternalApi?: InternalApiClient }).__termavoxInternalApi;
   t.cleanup();
 });
 beforeEach(() => {
@@ -264,7 +264,7 @@ describe('End (terminateRemoteSession)', () => {
   });
 
   it('refuses a malformed socket name before asking the daemon', async () => {
-    for (const socket of ['td-abc', 'td-a1b2c3d4-ABCDEFGHIJK2', `${SOCKET}\n`, 'default']) {
+    for (const socket of ['tv-abc', 'tv-a1b2c3d4-ABCDEFGHIJK2', `${SOCKET}\n`, 'default']) {
       expect(await terminateRemoteSession(ready, socket)).toMatchObject({
         ok: false,
         code: 'BAD_REQUEST',
@@ -273,7 +273,7 @@ describe('End (terminateRemoteSession)', () => {
     expect(calls).toEqual([]);
   });
 
-  it('says a session that runs in Termdock is not ended here, and words connection codes', async () => {
+  it('says a session that runs in Termavox is not ended here, and words connection codes', async () => {
     answers['/remote-sessions/terminate'] = [409, { code: 'CONFLICT', message: 'running' }];
     expect(await terminateRemoteSession(ready, SOCKET)).toEqual({
       ok: false,
@@ -314,7 +314,7 @@ describe('Adopt (adoptRemoteSession)', () => {
     expect(await adoptRemoteSession(ready, SOCKET, 'x'.repeat(1025))).toMatchObject({
       code: 'BAD_REQUEST',
     });
-    expect(await adoptRemoteSession(ready, 'td-..')).toMatchObject({ code: 'BAD_REQUEST' });
+    expect(await adoptRemoteSession(ready, 'tv-..')).toMatchObject({ code: 'BAD_REQUEST' });
     expect(calls).toEqual([]);
     answers['/remote-sessions/adopt'] = [429, { code: 'RATE_LIMITED', message: 'cap' }];
     expect(await adoptRemoteSession(ready, SOCKET)).toEqual({

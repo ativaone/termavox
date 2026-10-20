@@ -1,6 +1,6 @@
 import '../server-guard.ts';
-import type { TermdockDb } from '@termdock/db';
-import { Protection, SessionStatus } from '@termdock/protocol';
+import type { TermavoxDb } from '@termavox/db';
+import { Protection, SessionStatus } from '@termavox/protocol';
 import { parseDetail } from './audit.ts';
 
 /**
@@ -42,7 +42,7 @@ export interface Page {
 }
 
 export function listSessionEvents(
-  db: TermdockDb,
+  db: TermavoxDb,
   userId: string,
   page: Page,
 ): { rows: SessionEventRow[]; total: number } {
@@ -90,7 +90,7 @@ export function listSessionEvents(
 }
 
 export function listSessionHistory(
-  db: TermdockDb,
+  db: TermavoxDb,
   userId: string,
   page: Page,
 ): { rows: SessionHistoryRow[]; total: number } {

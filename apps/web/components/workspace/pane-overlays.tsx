@@ -1,6 +1,6 @@
 'use client';
 
-import type { SessionStatus } from '@termdock/protocol/client';
+import type { SessionStatus } from '@termavox/protocol/client';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import { type FormEvent, type ReactNode, useId, useRef, useState } from 'react';
@@ -300,7 +300,7 @@ function AuthPanel({
   return (
     <Panel aria-labelledby={titleId} solid floating className="w-full max-w-[28rem]">
       <form onSubmit={submit} className="flex flex-col gap-4 px-5 py-4" autoComplete="off">
-        {/* Termdock's own title and framing line, always: the host's name and instructions are
+        {/* Termavox's own title and framing line, always: the host's name and instructions are
             quoted beneath as host content, never shown as the panel's own words (§5.10). */}
         <Head
           status="action_required"

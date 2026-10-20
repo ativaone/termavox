@@ -1,6 +1,6 @@
 ---
 name: ui-capture
-description: Capture real screenshots of the Termdock web UI with headless Chromium against test SSH servers. Use when taking review screenshots of a UI change, refreshing docs/screenshots for a release (release checklist step 7), checking a screen visually at desktop and phone sizes, or scripting UI states (retry cards, host-key prompts, ended sessions) for a review page.
+description: Capture real screenshots of the Termavox web UI with headless Chromium against test SSH servers. Use when taking review screenshots of a UI change, refreshing docs/screenshots for a release (release checklist step 7), checking a screen visually at desktop and phone sizes, or scripting UI states (retry cards, host-key prompts, ended sessions) for a review page.
 ---
 
 # UI capture sessions
@@ -24,7 +24,7 @@ flock <scratchpad>/heavy.lock systemd-run --user --scope -q -p MemoryMax=<cap> -
 
 The trap matters only when the cap kills the run: the module stops the containers itself
 otherwise. The flock serializes heavy steps between agents of one session. Two agents capturing
-at once must not share `apps/web/.next`: `next build` inlines `NEXT_PUBLIC_TERMDOCK_WS_URL`, so
+at once must not share `apps/web/.next`: `next build` inlines `NEXT_PUBLIC_TERMAVOX_WS_URL`, so
 whoever builds last decides which daemon every page talks to.
 
 ## Rules that keep captures honest
@@ -54,7 +54,7 @@ whoever builds last decides which daemon every page talks to.
 - **Ended:** `c.api('POST', '/sessions/<id>/terminate', { actingUserId: c.userId })`.
 - **A fixed or changed server:** update its row with `c.db()` (web owns the `servers` table).
 - **A tmux client attached on the server (D-30 leftovers):**
-  `docker compose -f test/sshd/compose.yaml exec -d -T -u td <service> sh -c 'sleep 100000 | TERM=xterm-256color script -qfc "tmux -L <socket> attach -t main" /dev/null'`.
+  `docker compose -f test/sshd/compose.yaml exec -d -T -u tv <service> sh -c 'sleep 100000 | TERM=xterm-256color script -qfc "tmux -L <socket> attach -t main" /dev/null'`.
   Without TERM the attach fails; without the held-open stdin, EOF reaches the pane as Ctrl+D and
   the shell's exit ends the tmux session.
 

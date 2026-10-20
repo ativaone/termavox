@@ -1,4 +1,4 @@
-import { uuidv7 } from '@termdock/shared';
+import { uuidv7 } from '@termavox/shared';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   type AddServerDeps,
@@ -85,7 +85,7 @@ function credentialCount(userId: string): number {
 }
 
 const PUBLIC_KEY =
-  'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeFakeFakeFakeFakeFakeFakeFakeFakeFake termdock';
+  'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeFakeFakeFakeFakeFakeFakeFakeFakeFake termavox';
 const FINGERPRINT = `SHA256:${'B'.repeat(43)}`;
 
 /**
@@ -648,10 +648,10 @@ describe('add server: the Server Actions', () => {
         return { sessionId: 'sess-1' };
       },
     });
-    (globalThis as { __termdockInternalApi?: unknown }).__termdockInternalApi = fake;
+    (globalThis as { __termavoxInternalApi?: unknown }).__termavoxInternalApi = fake;
   });
   afterAll(() => {
-    delete (globalThis as { __termdockInternalApi?: unknown }).__termdockInternalApi;
+    delete (globalThis as { __termavoxInternalApi?: unknown }).__termavoxInternalApi;
   });
 
   it('localizes field errors in the catalog of the section that owns the rule', async () => {

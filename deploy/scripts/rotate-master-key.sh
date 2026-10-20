@@ -23,9 +23,9 @@
 #   --yes  do not ask for confirmation (required when stdin is not a terminal)
 #
 # Environment (optional, for test stacks such as the release smoke; installs leave it unset):
-#   TERMDOCK_SECRETS_DIR       the secrets directory instead of deploy/secrets/
-#   TERMDOCK_BACKUP_DIR        where the pre-rotate backup is copied instead of deploy/backups/
-#   TERMDOCK_COMPOSE_OVERRIDE  compose files applied on top of deploy/compose.yaml, in order,
+#   TERMAVOX_SECRETS_DIR       the secrets directory instead of deploy/secrets/
+#   TERMAVOX_BACKUP_DIR        where the pre-rotate backup is copied instead of deploy/backups/
+#   TERMAVOX_COMPOSE_OVERRIDE  compose files applied on top of deploy/compose.yaml, in order,
 #                              separated by ":" (one file, or e.g. a.yaml:b.yaml)
 #   (the stack's project name comes from COMPOSE_PROJECT_NAME, which docker compose reads itself)
 set -euo pipefail
@@ -38,8 +38,8 @@ readonly NEW_KEY_IN_CONTAINER=/run/secrets/master_key.new
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 deploy_dir=$(dirname -- "$script_dir")
 compose_file="$deploy_dir/compose.yaml"
-secrets_dir=${TERMDOCK_SECRETS_DIR:-"$deploy_dir/secrets"}
-backup_dir=${TERMDOCK_BACKUP_DIR:-"$deploy_dir/backups"}
+secrets_dir=${TERMAVOX_SECRETS_DIR:-"$deploy_dir/secrets"}
+backup_dir=${TERMAVOX_BACKUP_DIR:-"$deploy_dir/backups"}
 key="$secrets_dir/master_key"
 new_key="$key.new"
 old_key="$key.old"
@@ -69,8 +69,8 @@ command -v openssl >/dev/null 2>&1 || die "openssl is required"
 command -v docker >/dev/null 2>&1 || die "docker is required"
 
 compose_files=(-f "$compose_file")
-if [[ -n "${TERMDOCK_COMPOSE_OVERRIDE:-}" ]]; then
-  IFS=: read -r -a compose_overrides <<<"$TERMDOCK_COMPOSE_OVERRIDE"
+if [[ -n "${TERMAVOX_COMPOSE_OVERRIDE:-}" ]]; then
+  IFS=: read -r -a compose_overrides <<<"$TERMAVOX_COMPOSE_OVERRIDE"
   for override in "${compose_overrides[@]}"; do
     if [[ -n "$override" ]]; then compose_files+=(-f "$override"); fi
   done

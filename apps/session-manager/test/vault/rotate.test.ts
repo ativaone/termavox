@@ -22,7 +22,7 @@ import { insertUser, type TempDb, tempDb } from '../store/fixture.ts';
 
 const KEYS = new URL('../../../../test/sshd/keys/', import.meta.url);
 const TEST_KEY_PASSPHRASE = readFileSync(new URL('id_ed25519_passphrase', KEYS), 'utf8');
-const PASSPHRASE = 'termdock-test-passphrase';
+const PASSPHRASE = 'termavox-test-passphrase';
 const CLI = fileURLToPath(new URL('../../src/cli/vault-rotate.ts', import.meta.url));
 const LOCK_MODULE = new URL('../../src/store/data-dir-lock.ts', import.meta.url).href;
 const FIXED_NOW = () => new Date('2026-10-16T12:15:00.123Z');
@@ -469,7 +469,7 @@ describe('vault rotate', () => {
           join(fixture.dir, 'master_key.new'),
           '--dry-run',
         ],
-        { env: { ...process.env, TERMDOCK_DATA_DIR: fixture.dir }, encoding: 'utf8' },
+        { env: { ...process.env, TERMAVOX_DATA_DIR: fixture.dir }, encoding: 'utf8' },
       );
       expect(run.stderr).toBe('');
       expect(run.status).toBe(EXIT.ok);

@@ -25,7 +25,7 @@ export const user = sqliteTable('user', {
   banExpires: integer('ban_expires', { mode: 'timestamp_ms' }),
   // twoFactor plugin
   twoFactorEnabled: integer('two_factor_enabled', { mode: 'boolean' }).notNull().default(false),
-  // Termdock additional fields
+  // Termavox additional fields
   locale: text('locale').notNull().default('en'),
   totpRequired: integer('totp_required', { mode: 'boolean' }).notNull().default(false),
   mustChangePassword: integer('must_change_password', { mode: 'boolean' }).notNull().default(false),

@@ -23,16 +23,16 @@ importers:
 
   apps/session-manager:
     dependencies:
-      '@termdock/db':
+      '@termavox/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@termdock/protocol':
+      '@termavox/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
-      '@termdock/shared':
+      '@termavox/shared':
         specifier: workspace:*
         version: link:../../packages/shared
-      '@termdock/terminal-config':
+      '@termavox/terminal-config':
         specifier: workspace:*
         version: link:../../packages/terminal-config
       '@xterm/addon-serialize':
@@ -75,16 +75,16 @@ importers:
       '@fontsource-variable/plus-jakarta-sans':
         specifier: 5.3.0
         version: 5.3.0
-      '@termdock/db':
+      '@termavox/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@termdock/protocol':
+      '@termavox/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
-      '@termdock/shared':
+      '@termavox/shared':
         specifier: workspace:*
         version: link:../../packages/shared
-      '@termdock/terminal-config':
+      '@termavox/terminal-config':
         specifier: workspace:*
         version: link:../../packages/terminal-config
       '@xterm/addon-fit':
@@ -142,7 +142,7 @@ importers:
 
   packages/db:
     dependencies:
-      '@termdock/shared':
+      '@termavox/shared':
         specifier: workspace:*
         version: link:../shared
       better-sqlite3:
@@ -161,7 +161,7 @@ importers:
 
   packages/protocol:
     dependencies:
-      '@termdock/shared':
+      '@termavox/shared':
         specifier: workspace:*
         version: link:../shared
       zod:

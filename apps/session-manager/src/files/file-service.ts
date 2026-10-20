@@ -1,5 +1,5 @@
-import { type FileRequest, type FileResult, TRANSFER_PATH } from '@termdock/protocol';
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import { type FileRequest, type FileResult, TRANSFER_PATH } from '@termavox/protocol';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 import { type Logger, silentLogger } from '../config/logger.ts';
 import type { AttachmentClient, FileHost } from '../core/types.ts';
 import type { AuditInput, DaemonAuditType } from '../store/audit.ts';
@@ -110,16 +110,16 @@ export class FileService implements FileGateway, TransferBackend {
   async handle(context: FileRequestContext, request: FileRequest): Promise<FileResult> {
     try {
       if (!this.#settings().transferEnabled) {
-        throw new TermdockError(ErrorCode.FilesDisabled, 'file transfer is turned off');
+        throw new TermavoxError(ErrorCode.FilesDisabled, 'file transfer is turned off');
       }
       const checked = checkRequest(request);
       const host = this.#options.sessions.fileHost(context.sessionId);
       if (!host) {
-        throw new TermdockError(ErrorCode.SessionNotConnected, 'the session is not connected');
+        throw new TermavoxError(ErrorCode.SessionNotConnected, 'the session is not connected');
       }
       // The connection's ownership check already passed; the runtime must agree.
-      if (host.userId !== context.userId) throw new TermdockError(ErrorCode.Forbidden, 'forbidden');
-      if (context.signal.aborted) throw new TermdockError(ErrorCode.Cancelled, 'cancelled');
+      if (host.userId !== context.userId) throw new TermavoxError(ErrorCode.Forbidden, 'forbidden');
+      if (context.signal.aborted) throw new TermavoxError(ErrorCode.Cancelled, 'cancelled');
       const release = this.holdChannel(host);
       try {
         return await this.#run(host, context, checked);

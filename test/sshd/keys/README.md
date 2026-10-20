@@ -6,10 +6,10 @@ None of it protects anything; do not reuse it on a real host, account or service
 | File | Purpose |
 |---|---|
 | `ssh_host_ed25519_key`, `.pub` | Fixed sshd host key baked into every test image, so clients pre-trust it. |
-| `id_ed25519`, `.pub` | User key for `td` (no passphrase), installed in `authorized_keys`. |
-| `id_ed25519_passphrase`, `.pub` | User key for `td` protected by the passphrase `termdock-test-passphrase`. |
+| `id_ed25519`, `.pub` | User key for `tv` (no passphrase), installed in `authorized_keys`. |
+| `id_ed25519_passphrase`, `.pub` | User key for `tv` protected by the passphrase `termavox-test-passphrase`. |
 
-The test user `td` also has the password `termdock-test-password` (password-auth tests).
+The test user `tv` also has the password `termavox-test-password` (password-auth tests).
 
 Host-key verification is never disabled: tests and `test/sshd/smoke.ts` derive the expected
 fingerprint from `ssh_host_ed25519_key.pub` and reject anything else.
@@ -24,6 +24,6 @@ For a manual OpenSSH session, copy the key somewhere private first (git does not
 and pin the host key with the committed `known_hosts`:
 
 ```sh
-install -m 600 test/sshd/keys/id_ed25519 /tmp/td_id_ed25519
-ssh -i /tmp/td_id_ed25519 -o UserKnownHostsFile=test/sshd/keys/known_hosts -p 2202 td@127.0.0.1
+install -m 600 test/sshd/keys/id_ed25519 /tmp/tv_id_ed25519
+ssh -i /tmp/tv_id_ed25519 -o UserKnownHostsFile=test/sshd/keys/known_hosts -p 2202 tv@127.0.0.1
 ```

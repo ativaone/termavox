@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg">
-  <title>Termdock site icons</title>
+  <title>Termavox site icons</title>
   <!-- The app's icon set (apps/web/components/icons): 24-unit grid, 1.75 stroke, round caps, drawn in currentColor by the <svg class="icon"> that uses them. -->
   <symbol id="link" viewBox="0 0 24 24">
     <path d="M10 13.5a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1.25 1.25"/>

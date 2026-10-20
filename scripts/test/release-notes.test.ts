@@ -23,8 +23,8 @@ The next release.
 
 - Older.
 
-[Unreleased]: https://github.com/ativaone/termdock/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/ativaone/termdock/releases/tag/v0.1.0
+[Unreleased]: https://github.com/ativaone/termavox/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/ativaone/termavox/releases/tag/v0.1.0
 `;
 
 describe('CHANGELOG section extraction', () => {

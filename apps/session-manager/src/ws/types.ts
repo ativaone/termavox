@@ -1,4 +1,4 @@
-import type { FileRequest, FileResult, ServerMessage, SessionSummary } from '@termdock/protocol';
+import type { FileRequest, FileResult, ServerMessage, SessionSummary } from '@termavox/protocol';
 import type { AttachmentClient, FileHost, SessionHost } from '../core/types.ts';
 import type { TransferBackend } from '../files/transfer-routes.ts';
 
@@ -47,7 +47,7 @@ export interface FileRequestContext {
 
 /** What the WebSocket server needs from the file service. */
 export interface FileGateway {
-  /** Runs one request; rejects with a TermdockError (its code and message go to the browser). */
+  /** Runs one request; rejects with a TermavoxError (its code and message go to the browser). */
   handle(context: FileRequestContext, request: FileRequest): Promise<FileResult>;
   /** `transfer.cancel`: stops a user's upload or download, or voids its unused URL. */
   cancelTransfer(userId: string, transferId: string): void;

@@ -1,5 +1,5 @@
-import { AUTH_PROMPT_LIMITS, ServerMessage } from '@termdock/protocol';
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import { AUTH_PROMPT_LIMITS, ServerMessage } from '@termavox/protocol';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 import { describe, expect, it } from 'vitest';
 import { createDriverFactory } from '../../src/core/driver-factory.ts';
 import { sanitizePromptText, sanitizeTitle } from '../../src/core/session-runtime.ts';
@@ -19,7 +19,7 @@ describe('launch parameters the builders refuse (M1)', () => {
         policies: {
           protectionMode: 'auto',
           startupCommand: null,
-          env: { TD_X: 'line1\nline2' },
+          env: { TV_X: 'line1\nline2' },
           keepaliveIntervalS: 15,
           autoReopen: true,
         },
@@ -86,7 +86,7 @@ describe('revoked host keys and refused targets fail closed', () => {
       behavior: () => ({
         connect: async (hooks) => {
           hooks.onHostKey({ ...TEST_KEY }, 'revoked');
-          throw new TermdockError(ErrorCode.HostKeyMismatch, 'revoked', {
+          throw new TermavoxError(ErrorCode.HostKeyMismatch, 'revoked', {
             presented,
             revoked: true,
           });
@@ -121,7 +121,7 @@ describe('revoked host keys and refused targets fail closed', () => {
     const h = harness({
       behavior: () => ({
         connect: async () => {
-          throw new TermdockError(ErrorCode.TargetNotAllowed, 'SSH target 127.0.0.1 refused');
+          throw new TermavoxError(ErrorCode.TargetNotAllowed, 'SSH target 127.0.0.1 refused');
         },
       }),
     });
@@ -166,7 +166,7 @@ describe('keyboard-interactive prompt text (L2)', () => {
         connect: async (hooks) => {
           hooks.onHostKey({ ...TEST_KEY }, 'trusted');
           await hooks.onKeyboardInteractive({
-            name: `Termdock\u202e\u200b login ${'n'.repeat(400)}`,
+            name: `Termavox\u202e\u200b login ${'n'.repeat(400)}`,
             instructions: `Line 1\x1b[31m\r\nLine 2\u2066\u0085 ${'i'.repeat(3000)}`,
             prompts: [{ text: `OTP\u200f:\x07 ${'p'.repeat(400)}`, echo: false }],
           });
@@ -177,7 +177,7 @@ describe('keyboard-interactive prompt text (L2)', () => {
     void rt.start();
     await until(() => h.notifier.ofType('auth.prompt').length === 1);
     const prompt = h.notifier.ofType('auth.prompt')[0]!;
-    expect(prompt.name.startsWith('Termdock login nnn')).toBe(true);
+    expect(prompt.name.startsWith('Termavox login nnn')).toBe(true);
     expect(prompt.name).toHaveLength(AUTH_PROMPT_LIMITS.name);
     expect(prompt.instructions.startsWith('Line 1[31m\nLine 2 iii')).toBe(true);
     expect(prompt.instructions).toHaveLength(AUTH_PROMPT_LIMITS.instructions);
@@ -202,7 +202,7 @@ describe('keyboard-interactive prompt text (L2)', () => {
             () => null,
             (err: Error) => err,
           );
-          throw new TermdockError(ErrorCode.AuthRejected, 'refused');
+          throw new TermavoxError(ErrorCode.AuthRejected, 'refused');
         },
       }),
     });

@@ -1,7 +1,7 @@
 /**
  * Builds the project site into site/dist (plan D-40): the hand-written pages of site/src with
  * the shared chrome filled in, the repository guides rendered from their Markdown, and the
- * repository's screenshots. Run with `pnpm --filter @termdock/site build`; the Pages workflow
+ * repository's screenshots. Run with `pnpm --filter @termavox/site build`; the Pages workflow
  * publishes the result.
  */
 

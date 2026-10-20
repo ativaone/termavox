@@ -1,6 +1,6 @@
 // T1: a live tmux control-mode session over SshTransport (core tmux images).
 // Precondition: docker compose -f test/sshd/compose.yaml up -d --build
-import { randomToken } from '@termdock/shared';
+import { randomToken } from '@termavox/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   hasSessionCommand,
@@ -28,13 +28,13 @@ describe.each(IMAGES)('tmux control mode (%s)', (image) => {
     const probe = parseProbeOutput((await runExec(transport, probeCommand())).stdout);
     opts = {
       tmuxPath: probe.tmuxPath!,
-      socket: `td-t1-${randomToken(12)}`,
+      socket: `tv-t1-${randomToken(12)}`,
       locale: probe.utf8Locale!,
       historyLimit: 5000,
       defaultTerminal: probe.tiTmux256 ? 'tmux-256color' : 'screen-256color',
       cols: 80,
       rows: 24,
-      env: { TD_T1: "x 'y' z" },
+      env: { TV_T1: "x 'y' z" },
       startupCommand: null,
     };
   });
@@ -58,7 +58,7 @@ describe.each(IMAGES)('tmux control mode (%s)', (image) => {
 
     // Input through the send-keys -H encoder: arithmetic proves the shell ran it, the env var
     // proves -e reached the pane, TMUX proves env -u removed our variables.
-    await client.input(0, `echo "R=$((6*7)) [$TD_T1] [\${TMUX:-unset}] é中😀"\r`);
+    await client.input(0, `echo "R=$((6*7)) [$TV_T1] [\${TMUX:-unset}] é中😀"\r`);
     await expect
       .poll(() => client.outputText(0), { timeout: 5_000 })
       .toContain("R=42 [x 'y' z] [unset] é中😀\r\n");
@@ -99,13 +99,13 @@ describe.each(SEMICOLON_IMAGES)('env values ending in ; (%s)', (image) => {
     const probe = parseProbeOutput((await runExec(transport, probeCommand())).stdout);
     opts = {
       tmuxPath: probe.tmuxPath!,
-      socket: `td-t1-${randomToken(12)}`,
+      socket: `tv-t1-${randomToken(12)}`,
       locale: probe.utf8Locale!,
       historyLimit: 5000,
       defaultTerminal: probe.tiTmux256 ? 'tmux-256color' : 'screen-256color',
       cols: 80,
       rows: 24,
-      env: { TD_SEMI: 'ends with;', TD_ESC: 'esc\\;', TD_BARE: ';' },
+      env: { TV_SEMI: 'ends with;', TV_ESC: 'esc\\;', TV_BARE: ';' },
       startupCommand: null,
     };
   });
@@ -123,7 +123,7 @@ describe.each(SEMICOLON_IMAGES)('env values ending in ; (%s)', (image) => {
     await client.waitFor((e) => e.type === 'sessionChanged');
     await client.waitFor((e) => e.type === 'output'); // the shell prompt
     await client.waitIdle(300);
-    await client.input(0, 'echo "V=[$TD_SEMI][$TD_ESC][$TD_BARE]"\r');
+    await client.input(0, 'echo "V=[$TV_SEMI][$TV_ESC][$TV_BARE]"\r');
     await expect
       .poll(() => client.outputText(0), { timeout: 5_000 })
       .toContain('V=[ends with;][esc\\;][;]\r\n');

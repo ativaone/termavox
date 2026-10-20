@@ -36,9 +36,9 @@ Re-encrypts every stored credential and the vault key check under a new master k
 transaction, after writing a backup next to the database (pre-rotate-<timestamp>.db). Stop
 session-manager first; start it with the new key file afterwards.
 
-  --old-key-file <file>  the current master key (the file TERMDOCK_MASTER_KEY_FILE names)
+  --old-key-file <file>  the current master key (the file TERMAVOX_MASTER_KEY_FILE names)
   --new-key-file <file>  the new master key: 32 random bytes, base64 (openssl rand -base64 32)
-  --data-dir <dir>       the directory holding app.db (default: $TERMDOCK_DATA_DIR, else /data)
+  --data-dir <dir>       the directory holding app.db (default: $TERMAVOX_DATA_DIR, else /data)
   --dry-run              check that every credential decrypts with the old key; write nothing
   -h, --help             show this help
 
@@ -104,7 +104,7 @@ export async function runVaultRotate(argv: string[], io: CliIo): Promise<number>
   // passes the directory it was started from as INIT_CWD.
   const base = io.env.INIT_CWD || io.cwd;
   const path = (p: string): string => (isAbsolute(p) ? p : resolve(base, p));
-  const dataDir = path(values['data-dir'] ?? io.env.TERMDOCK_DATA_DIR ?? '/data');
+  const dataDir = path(values['data-dir'] ?? io.env.TERMAVOX_DATA_DIR ?? '/data');
   const dryRun = values['dry-run'] ?? false;
 
   let oldKey: KeyObject;
@@ -161,7 +161,7 @@ export async function runVaultRotate(argv: string[], io: CliIo): Promise<number>
   io.out(`rotated: ${count}${kinds(result)} re-encrypted under key version ${result.toVersion}`);
   io.out('');
   io.out('Next steps:');
-  io.out('  1. Replace the master key file (TERMDOCK_MASTER_KEY_FILE) with the new key and start');
+  io.out('  1. Replace the master key file (TERMAVOX_MASTER_KEY_FILE) with the new key and start');
   io.out('     session-manager: it verifies the new key at boot.');
   io.out('  2. Keep the old key until session-manager runs with the new key and a session');
   io.out('     connects: the backup above opens only with the old key.');

@@ -29,9 +29,9 @@ const readKey = (name: string): string => readFileSync(`${KEYS_DIR}${name}`, 'ut
 export const HOST_KEY: HostKeyInfo = parsePublicKeyLine(readKey('ssh_host_ed25519_key.pub'));
 export const USER_KEY = readKey('id_ed25519');
 export const USER_KEY_WITH_PASSPHRASE = readKey('id_ed25519_passphrase');
-export const USER_KEY_PASSPHRASE = 'termdock-test-passphrase';
-export const TEST_PASSWORD = 'termdock-test-password';
-export const TEST_USER = 'td';
+export const USER_KEY_PASSPHRASE = 'termavox-test-passphrase';
+export const TEST_PASSWORD = 'termavox-test-password';
+export const TEST_USER = 'tv';
 
 /** Host-key policy that trusts exactly the committed test host key. */
 export function trustCommittedHostKey(key: HostKeyInfo): HostKeyDecision {

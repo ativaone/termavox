@@ -1,6 +1,6 @@
 'use server';
 
-import { ErrorCode, isTermdockError, type TermdockError } from '@termdock/shared';
+import { ErrorCode, isTermavoxError, type TermavoxError } from '@termavox/shared';
 import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
@@ -39,9 +39,9 @@ function deps(): AdminDeps {
   };
 }
 
-/** Maps the guard's errors to Next navigation; returns other TermdockErrors to the caller. */
-function guard(err: unknown): TermdockError {
-  if (!isTermdockError(err)) throw err;
+/** Maps the guard's errors to Next navigation; returns other TermavoxErrors to the caller. */
+function guard(err: unknown): TermavoxError {
+  if (!isTermavoxError(err)) throw err;
   if (err.code === ErrorCode.NotFound && err.message === 'not found') notFound();
   if (err.code === ErrorCode.Unauthenticated) redirect(ROUTES.login);
   return err;

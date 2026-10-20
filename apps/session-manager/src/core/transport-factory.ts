@@ -1,4 +1,4 @@
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 import {
   DEFAULT_READY_TIMEOUT_MS,
   type HostKeyDecision,
@@ -52,7 +52,7 @@ export function decideHostKey(
 export interface SshTransportFactoryOptions {
   hostKeys: HostKeyStore;
   credentials: CredentialProvider;
-  /** Which addresses sessions may connect to (TERMDOCK_SSH_ALLOW_LOCAL_TARGETS). */
+  /** Which addresses sessions may connect to (TERMAVOX_SSH_ALLOW_LOCAL_TARGETS). */
   targetPolicy: TargetPolicy;
   /** Overrides the handshake timeout (tests); otherwise chosen per credential kind. */
   readyTimeoutMs?: number;
@@ -69,7 +69,7 @@ export class SshTransportFactory implements TransportFactory {
   async create(record: SessionRecord, hooks: TransportHooks): Promise<Transport> {
     const { target, policies } = record;
     if (target.kind !== 'ssh') {
-      throw new TermdockError(ErrorCode.LocalShellDisabled, 'local sessions are not available');
+      throw new TermavoxError(ErrorCode.LocalShellDisabled, 'local sessions are not available');
     }
     // The owner's decisions for the session's snapshotted address (plan §5.9, D-29); the runtime
     // never gets here once the server was deleted. Loaded before connect, so the verifier

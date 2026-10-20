@@ -1,6 +1,6 @@
 'use client';
 
-import { fileNameProblem } from '@termdock/protocol/client';
+import { fileNameProblem } from '@termavox/protocol/client';
 import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { cx } from '../ui/cx.ts';
 import { useNameProblemText } from './use-file-text.ts';

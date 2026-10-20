@@ -1,4 +1,4 @@
-import { uuidv7 } from '@termdock/shared';
+import { uuidv7 } from '@termavox/shared';
 import type { FileSettings } from '../files/settings.ts';
 import type { BatchedWriter } from './batched-writer.ts';
 import { execute, getRow, parseJson, type Sqlite } from './sqlite.ts';

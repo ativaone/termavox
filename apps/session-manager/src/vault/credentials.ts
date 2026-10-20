@@ -1,6 +1,6 @@
-import type { TermdockDb } from '@termdock/db';
-import type { CreateCredentialRequest } from '@termdock/protocol';
-import { ErrorCode, TermdockError, uuidv7 } from '@termdock/shared';
+import type { TermavoxDb } from '@termavox/db';
+import type { CreateCredentialRequest } from '@termavox/protocol';
+import { ErrorCode, TermavoxError, uuidv7 } from '@termavox/shared';
 import ssh2 from 'ssh2';
 import type { z } from 'zod';
 import type { CredentialProvider, CredentialSecret } from '../core/types.ts';
@@ -21,7 +21,7 @@ export interface CreatedCredential {
   fingerprint: string | null;
 }
 
-const GENERATED_KEY_COMMENT = 'termdock';
+const GENERATED_KEY_COMMENT = 'termavox';
 
 /**
  * Validates an OpenSSH/PEM/PPK private key with ssh2's parser (incl. its passphrase) and
@@ -35,7 +35,7 @@ export function inspectPrivateKey(
     | ReturnType<typeof ssh2.utils.parseKey>
     | ReturnType<typeof ssh2.utils.parseKey>[];
   if (parsed instanceof Error) {
-    throw new TermdockError(
+    throw new TermavoxError(
       ErrorCode.BadRequest,
       /passphrase|decrypt/i.test(parsed.message)
         ? 'wrong or missing passphrase for the private key'
@@ -45,9 +45,9 @@ export function inspectPrivateKey(
   const keys = Array.isArray(parsed) ? parsed : [parsed];
   const key = keys[0];
   if (keys.length !== 1 || !key || key instanceof Error) {
-    throw new TermdockError(ErrorCode.BadRequest, 'expected exactly one private key');
+    throw new TermavoxError(ErrorCode.BadRequest, 'expected exactly one private key');
   }
-  if (!key.isPrivateKey()) throw new TermdockError(ErrorCode.BadRequest, 'not a private key');
+  if (!key.isPrivateKey()) throw new TermavoxError(ErrorCode.BadRequest, 'not a private key');
   const blob = key.getPublicSSH();
   const comment = key.comment?.trim();
   return {
@@ -78,7 +78,7 @@ export function generateEd25519Key(
 }
 
 export interface CredentialServiceOptions {
-  db: TermdockDb;
+  db: TermavoxDb;
   writer: BatchedWriter;
   vault: Vault;
   now?: () => number;
@@ -171,7 +171,7 @@ export class CredentialService {
         credentialId,
         actingUserId,
       );
-      if (changed === 0) throw new TermdockError(ErrorCode.NotFound, 'credential not found');
+      if (changed === 0) throw new TermavoxError(ErrorCode.NotFound, 'credential not found');
       insertAudit(sqlite, {
         type: 'credential.rename',
         actorUserId: actingUserId,
@@ -194,14 +194,14 @@ export class CredentialService {
         credentialId,
         actingUserId,
       );
-      if (!row) throw new TermdockError(ErrorCode.NotFound, 'credential not found');
+      if (!row) throw new TermavoxError(ErrorCode.NotFound, 'credential not found');
       const inUse = getRow(
         sqlite,
         "SELECT 1 FROM sessions WHERE target_credential_id = ? AND state <> 'ended' LIMIT 1",
         credentialId,
       );
       if (inUse) {
-        throw new TermdockError(
+        throw new TermavoxError(
           ErrorCode.Conflict,
           'credential is used by a session that has not ended',
         );
@@ -221,7 +221,7 @@ export class CredentialService {
 
 /**
  * `CredentialProvider` over the vault. Every failure (missing or foreign credential, failed
- * authentication, malformed envelope, DB error) is a `TermdockError(CREDENTIAL_INVALID)`: the
+ * authentication, malformed envelope, DB error) is a `TermavoxError(CREDENTIAL_INVALID)`: the
  * runtime parks the session on it instead of retrying forever. Updates `last_used_at` through
  * the batched writer.
  */
@@ -253,19 +253,19 @@ export class VaultCredentialProvider implements CredentialProvider {
         credentialId,
       );
       if (!row || row.user_id !== userId) {
-        throw new TermdockError(ErrorCode.CredentialInvalid, 'credential not found');
+        throw new TermavoxError(ErrorCode.CredentialInvalid, 'credential not found');
       }
       if (row.kind !== 'password' && row.kind !== 'private_key') {
-        throw new TermdockError(ErrorCode.CredentialInvalid, 'credential kind is invalid');
+        throw new TermavoxError(ErrorCode.CredentialInvalid, 'credential kind is invalid');
       }
       secret = this.#vault.open(
         { credentialId, userId, kind: row.kind },
         { ciphertext: row.ciphertext, nonce: row.nonce, keyVersion: row.key_version },
       );
     } catch (err) {
-      if (err instanceof TermdockError) throw err;
+      if (err instanceof TermavoxError) throw err;
       // No cause attached: nothing from the failure path is worth risking in a log line.
-      throw new TermdockError(ErrorCode.CredentialInvalid, 'credential cannot be decrypted');
+      throw new TermavoxError(ErrorCode.CredentialInvalid, 'credential cannot be decrypted');
     }
     const at = this.#now();
     this.#writer.enqueue('credential.last_used_at', (sqlite) => {

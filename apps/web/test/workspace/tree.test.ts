@@ -1,4 +1,4 @@
-import { EMPTY_LAYOUT, type PaneNode, WorkspaceLayout } from '@termdock/protocol/client';
+import { EMPTY_LAYOUT, type PaneNode, WorkspaceLayout } from '@termavox/protocol/client';
 import { describe, expect, it } from 'vitest';
 import {
   activeLeaf,

@@ -1,4 +1,4 @@
-import { ErrorCode, uuidv7 } from '@termdock/shared';
+import { ErrorCode, uuidv7 } from '@termavox/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DEFAULT_TERMINAL_PREFERENCES } from '../lib/preferences/terminal.ts';
 import { insertAuditEvent, listAuditEvents, listAuditTypes } from '../lib/repo/audit.ts';

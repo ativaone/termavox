@@ -2,7 +2,7 @@
 // WebSocket server) booted in-process. No sshd: the target policy refuses the test host
 // (127.0.0.1) before any connection, so the session parks in `failed`; a rename works in every
 // state.
-import type { ServerMessage } from '@termdock/protocol';
+import type { ServerMessage } from '@termavox/protocol';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Daemon } from '../../src/main.ts';
 import { until } from '../runtime/fakes.ts';
@@ -69,7 +69,7 @@ describe('session rename through the daemon wiring (D-28)', () => {
         kind: 'ssh',
         hostname: '127.0.0.1',
         port: 22,
-        username: 'td',
+        username: 'tv',
       });
     }
     expect(runtime()?.label).toBe('deploy watcher');

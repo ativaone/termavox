@@ -1,4 +1,4 @@
-import type { TermdockDb } from '@termdock/db';
+import type { TermavoxDb } from '@termavox/db';
 import { type Logger, silentLogger } from '../config/logger.ts';
 import type { Sqlite } from './sqlite.ts';
 
@@ -58,7 +58,7 @@ export class BatchedWriter {
   /** Committed transactions (diagnostics and tests). */
   committedBatches = 0;
 
-  constructor(db: TermdockDb, options: BatchedWriterOptions = {}) {
+  constructor(db: TermavoxDb, options: BatchedWriterOptions = {}) {
     this.#sqlite = db.$client;
     this.#log = (options.logger ?? silentLogger()).child({ component: 'db-writer' });
     this.#maxBatch = Math.max(1, options.maxBatch ?? DEFAULT_MAX_BATCH);

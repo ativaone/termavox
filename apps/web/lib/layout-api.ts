@@ -1,6 +1,6 @@
 import './server-guard.ts';
-import { WorkspaceLayout } from '@termdock/protocol';
-import { ErrorCode } from '@termdock/shared';
+import { WorkspaceLayout } from '@termavox/protocol';
+import { ErrorCode } from '@termavox/shared';
 import { authGate } from './auth/gate.ts';
 import type { AuthRuntime } from './auth/runtime.ts';
 import { getLayout, saveLayout } from './repo/layouts.ts';
@@ -16,7 +16,7 @@ export const MAX_LAYOUT_BYTES = 256 * 1024;
  * save). PUT carries the whole layout and `If-Match: <version>`; a stale version is answered with
  * 409 and the current version, and the client reloads and re-applies its change. Both pass the
  * auth gate (401 without a session, 403 while a password change or TOTP enrollment is pending);
- * PUT also requires `Origin` to be TERMDOCK_PUBLIC_URL's origin (CSRF, plan §10.2). A browser's
+ * PUT also requires `Origin` to be TERMAVOX_PUBLIC_URL's origin (CSRF, plan §10.2). A browser's
  * same-origin GET sends no `Origin`, so GET only refuses a foreign one.
  */
 export async function getLayoutResponse(deps: LayoutDeps, request: Request): Promise<Response> {

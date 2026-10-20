@@ -30,7 +30,7 @@ export interface SidebarProps {
   username: string;
   isAdmin: boolean;
   locale: Locale;
-  /** The running Termdock version, for the account menu's foot. */
+  /** The running Termavox version, for the account menu's foot. */
   version: string;
   serverCount: number;
   data: BayData;

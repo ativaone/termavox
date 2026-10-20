@@ -1,4 +1,4 @@
-import type { SessionSummary } from '@termdock/protocol/client';
+import type { SessionSummary } from '@termavox/protocol/client';
 import { describe, expect, it } from 'vitest';
 import { formatAddress, formatEndpoint, formatTarget } from '../../lib/servers/target.ts';
 import { toBayData } from '../../lib/sessions/live.ts';

@@ -1,7 +1,7 @@
 import '../server-guard.ts';
-import type { TermdockDb } from '@termdock/db';
-import type { ProtectionMode } from '@termdock/protocol';
-import { normalizeHostname, uuidv7 } from '@termdock/shared';
+import type { TermavoxDb } from '@termavox/db';
+import type { ProtectionMode } from '@termavox/protocol';
+import { normalizeHostname, uuidv7 } from '@termavox/shared';
 import { insertAuditEvent } from './audit.ts';
 
 /**
@@ -145,7 +145,7 @@ function auditDetail(row: ReturnType<typeof stored>) {
   };
 }
 
-function ownsCredential(db: TermdockDb, userId: string, credentialId: string | null): boolean {
+function ownsCredential(db: TermavoxDb, userId: string, credentialId: string | null): boolean {
   if (credentialId === null) return true;
   return (
     db.$client
@@ -155,7 +155,7 @@ function ownsCredential(db: TermdockDb, userId: string, credentialId: string | n
 }
 
 /** How many servers the user owns (drives the first-run state). */
-export function countServers(db: TermdockDb, userId: string): number {
+export function countServers(db: TermavoxDb, userId: string): number {
   const row = db.$client
     .prepare('SELECT COUNT(*) AS total FROM servers WHERE user_id = ?')
     .get(userId) as { total: number };
@@ -163,7 +163,7 @@ export function countServers(db: TermdockDb, userId: string): number {
 }
 
 /** The user's servers, by name. */
-export function listServers(db: TermdockDb, userId: string): Server[] {
+export function listServers(db: TermavoxDb, userId: string): Server[] {
   const rows = db.$client
     .prepare(`${SELECT_SERVER} WHERE s.user_id = ? ORDER BY s.name COLLATE NOCASE, s.id`)
     .all(userId) as ServerRow[];
@@ -171,7 +171,7 @@ export function listServers(db: TermdockDb, userId: string): Server[] {
 }
 
 /** One of the user's servers, or null (also for another user's id: the duplicate source too). */
-export function getServer(db: TermdockDb, userId: string, serverId: string): Server | null {
+export function getServer(db: TermavoxDb, userId: string, serverId: string): Server | null {
   const row = db.$client
     .prepare(`${SELECT_SERVER} WHERE s.id = ? AND s.user_id = ?`)
     .get(serverId, userId) as ServerRow | undefined;
@@ -179,7 +179,7 @@ export function getServer(db: TermdockDb, userId: string, serverId: string): Ser
 }
 
 export function createServer(
-  db: TermdockDb,
+  db: TermavoxDb,
   userId: string,
   input: ServerInput,
   meta: AuditMeta = {},
@@ -237,7 +237,7 @@ export function createServer(
  * reads the policies live (plan §9).
  */
 export function updateServer(
-  db: TermdockDb,
+  db: TermavoxDb,
   userId: string,
   serverId: string,
   input: ServerInput,
@@ -296,7 +296,7 @@ export function updateServer(
  * the same transaction. Its host-key decisions stay: they belong to the address, not the server.
  */
 export function deleteServer(
-  db: TermdockDb,
+  db: TermavoxDb,
   userId: string,
   serverId: string,
   meta: AuditMeta = {},
@@ -347,7 +347,7 @@ export function deleteServer(
 
 /** How many of the user's servers share this address (a host-key decision covers all of them). */
 export function countServersAtAddress(
-  db: TermdockDb,
+  db: TermavoxDb,
   userId: string,
   hostname: string,
   port: number,
@@ -380,7 +380,7 @@ export const PENDING_KEY_TTL_MS = 24 * 60 * 60 * 1000;
  * user's server, for a local server, and for another user's decisions on the same address.
  */
 export function listServerHostKeys(
-  db: TermdockDb,
+  db: TermavoxDb,
   userId: string,
   serverId: string,
   now: number = Date.now(),

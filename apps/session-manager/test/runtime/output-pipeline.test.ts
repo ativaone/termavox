@@ -1,4 +1,4 @@
-import { decodeFrame, FrameType } from '@termdock/protocol';
+import { decodeFrame, FrameType } from '@termavox/protocol';
 import { describe, expect, it } from 'vitest';
 import {
   bytes,

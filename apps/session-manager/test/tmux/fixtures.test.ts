@@ -18,7 +18,7 @@ import {
 
 const DIR = fileURLToPath(new URL('../fixtures/tmux/', import.meta.url));
 const IMAGES = ['tmux-3.2a', 'tmux-3.4', 'tmux-edge'] as const;
-const SENTINEL = / ; display-message -p '(td-[a-z2-7]+)'$/;
+const SENTINEL = / ; display-message -p '(tv-[a-z2-7]+)'$/;
 
 interface FixtureMeta {
   tmuxVersion: string;

@@ -111,14 +111,14 @@ jobs:
           for service in session-manager web caddy; do
             docker buildx build --load --platform "linux/$ARCH" \
               --file "deploy/docker/$service.Dockerfile" \
-              --tag "$REGISTRY/termdock-$service:$VERSION" \
-              --label "org.opencontainers.image.source=https://github.com/ativaone/termdock" \
+              --tag "$REGISTRY/termavox-$service:$VERSION" \
+              --label "org.opencontainers.image.source=https://github.com/ativaone/termavox" \
               --label "org.opencontainers.image.version=$VERSION" \
               --label "org.opencontainers.image.revision=$GITHUB_SHA" \
               --label "org.opencontainers.image.created=$created" \
               --label "org.opencontainers.image.licenses=AGPL-3.0-only" \
-              --label "org.opencontainers.image.title=termdock-$service" \
-              --label "org.opencontainers.image.description=Termdock $service: persistent SSH sessions in the browser" \
+              --label "org.opencontainers.image.title=termavox-$service" \
+              --label "org.opencontainers.image.description=Termavox $service: persistent SSH sessions in the browser" \
               .
           done
 
@@ -138,7 +138,7 @@ jobs:
           wrapper="$RUNNER_TEMP/chrome-headless"
           printf '#!/bin/sh\nexec %s --headless=new --no-sandbox "$@"\n' "$(command -v google-chrome)" >"$wrapper"
           chmod +x "$wrapper"
-          echo "TERMDOCK_SMOKE_CHROME=$wrapper" >>"$GITHUB_ENV"
+          echo "TERMAVOX_SMOKE_CHROME=$wrapper" >>"$GITHUB_ENV"
       - name: Test sshd containers
         if: matrix.arch == 'amd64'
         run: docker compose -f test/sshd/compose.yaml up -d --build
@@ -150,7 +150,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: smoke-failure
-          path: ${{ runner.temp }}/tmp/termdock-smoke-failure-*
+          path: ${{ runner.temp }}/tmp/termavox-smoke-failure-*
           if-no-files-found: ignore
           retention-days: 14
 
@@ -160,30 +160,30 @@ jobs:
         if: matrix.arch == 'arm64'
         run: |
           secrets="$(mktemp -d)"
-          TERMDOCK_SECRETS_DIR="$secrets" deploy/scripts/init-secrets.sh
+          TERMAVOX_SECRETS_DIR="$secrets" deploy/scripts/init-secrets.sh
           {
-            echo "TERMDOCK_SECRETS_DIR=$secrets"
-            echo "TERMDOCK_DOMAIN=localhost"
-            echo "TERMDOCK_TLS=internal"
-            echo "TERMDOCK_HTTP_PORT=18080"
-            echo "TERMDOCK_HTTPS_PORT=18443"
+            echo "TERMAVOX_SECRETS_DIR=$secrets"
+            echo "TERMAVOX_DOMAIN=localhost"
+            echo "TERMAVOX_TLS=internal"
+            echo "TERMAVOX_HTTP_PORT=18080"
+            echo "TERMAVOX_HTTPS_PORT=18443"
           } >>"$GITHUB_ENV"
-          export TERMDOCK_SECRETS_DIR="$secrets" TERMDOCK_DOMAIN=localhost TERMDOCK_TLS=internal \
-            TERMDOCK_HTTP_PORT=18080 TERMDOCK_HTTPS_PORT=18443
-          docker compose -p termdock-smoke -f deploy/compose.yaml -f test/release/compose.smoke.yaml \
+          export TERMAVOX_SECRETS_DIR="$secrets" TERMAVOX_DOMAIN=localhost TERMAVOX_TLS=internal \
+            TERMAVOX_HTTP_PORT=18080 TERMAVOX_HTTPS_PORT=18443
+          docker compose -p termavox-smoke -f deploy/compose.yaml -f test/release/compose.smoke.yaml \
             up -d --pull never --wait --wait-timeout 300 caddy web session-manager
           # A fresh install sends /login on to /setup (no admin yet); both are web's pages.
           result="$(curl -skL -o /dev/null -w '%{http_code} %{url_effective}' --retry 5 \
             --retry-all-errors https://localhost:18443/login)"
           echo "GET /login through Caddy, redirects followed: $result"
           test "${result%% *}" = 200
-          docker compose -p termdock-smoke -f deploy/compose.yaml -f test/release/compose.smoke.yaml ps
+          docker compose -p termavox-smoke -f deploy/compose.yaml -f test/release/compose.smoke.yaml ps
       - name: Service logs (arm64)
         if: always() && matrix.arch == 'arm64'
         run: |
-          docker compose -p termdock-smoke -f deploy/compose.yaml -f test/release/compose.smoke.yaml \
+          docker compose -p termavox-smoke -f deploy/compose.yaml -f test/release/compose.smoke.yaml \
             logs --no-color --tail 100 caddy web session-manager || true
-          docker compose -p termdock-smoke -f deploy/compose.yaml -f test/release/compose.smoke.yaml \
+          docker compose -p termavox-smoke -f deploy/compose.yaml -f test/release/compose.smoke.yaml \
             down -v || true
 
       - name: Push the tested images under per-architecture tags
@@ -194,7 +194,7 @@ jobs:
         run: |
           echo "$GITHUB_TOKEN" | docker login ghcr.io --username "$ACTOR" --password-stdin
           for service in session-manager web caddy; do
-            image="$REGISTRY/termdock-$service"
+            image="$REGISTRY/termavox-$service"
             docker tag "$image:$VERSION" "$image:$VERSION-$ARCH"
             docker push "$image:$VERSION-$ARCH"
           done
@@ -230,7 +230,7 @@ jobs:
           echo "$GITHUB_TOKEN" | docker login ghcr.io --username "$ACTOR" --password-stdin
           minor="$(echo "$VERSION" | cut -d. -f1,2)"
           for service in session-manager web caddy; do
-            image="$REGISTRY/termdock-$service"
+            image="$REGISTRY/termavox-$service"
             tags=(--tag "$image:$VERSION")
             if [[ "$PRERELEASE" == false ]]; then
               tags+=(--tag "$image:$minor" --tag "$image:latest")
@@ -246,21 +246,21 @@ jobs:
       - name: Attest web
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-name: ghcr.io/ativaone/termdock-web
+          subject-name: ghcr.io/ativaone/termavox-web
           subject-digest: ${{ steps.manifests.outputs.web }}
           push-to-registry: true
           create-storage-record: false
       - name: Attest session-manager
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-name: ghcr.io/ativaone/termdock-session-manager
+          subject-name: ghcr.io/ativaone/termavox-session-manager
           subject-digest: ${{ steps.manifests.outputs.session_manager }}
           push-to-registry: true
           create-storage-record: false
       - name: Attest caddy
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-name: ghcr.io/ativaone/termdock-caddy
+          subject-name: ghcr.io/ativaone/termavox-caddy
           subject-digest: ${{ steps.manifests.outputs.caddy }}
           push-to-registry: true
           create-storage-record: false
@@ -288,11 +288,11 @@ jobs:
             echo "Verify an image's build provenance:"
             echo
             echo '```'
-            echo "gh attestation verify oci://ghcr.io/ativaone/termdock-web:$VERSION --repo ativaone/termdock"
+            echo "gh attestation verify oci://ghcr.io/ativaone/termavox-web:$VERSION --repo ativaone/termavox"
             echo '```'
             echo
-            echo "Install and upgrade: https://github.com/ativaone/termdock/blob/$GITHUB_REF_NAME/docs/guides/install.md"
+            echo "Install and upgrade: https://github.com/ativaone/termavox/blob/$GITHUB_REF_NAME/docs/guides/install.md"
           } >"$notes"
-          flags=(--verify-tag --title "Termdock $VERSION" --notes-file "$notes")
+          flags=(--verify-tag --title "Termavox $VERSION" --notes-file "$notes")
           if [[ "$PRERELEASE" == true ]]; then flags+=(--prerelease); else flags+=(--latest); fi
           gh release create "$GITHUB_REF_NAME" "${flags[@]}"

@@ -1,6 +1,6 @@
 'use client';
 
-import type { SessionStatus } from '@termdock/protocol/client';
+import type { SessionStatus } from '@termavox/protocol/client';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { type KeyboardEvent, useEffect, useId, useMemo, useRef, useState } from 'react';

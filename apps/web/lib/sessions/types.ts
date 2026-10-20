@@ -1,4 +1,4 @@
-import type { Protection, SessionStatus } from '@termdock/protocol/client';
+import type { Protection, SessionStatus } from '@termavox/protocol/client';
 
 /** One strip in the bay: what the signed-in user needs to read a session at a glance. */
 export interface BaySession {

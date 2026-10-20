@@ -53,7 +53,7 @@ export function AccountMenu({
   username: string;
   isAdmin: boolean;
   locale: Locale;
-  /** The running Termdock version, shown at the menu's foot. */
+  /** The running Termavox version, shown at the menu's foot. */
   version: string;
   compact?: boolean;
   /** Preferred side; the menu flips when there is no room. */

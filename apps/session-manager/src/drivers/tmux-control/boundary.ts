@@ -11,7 +11,7 @@
  *    violation and the driver retakes the snapshot.
  */
 
-import { Utf8Aligner } from '@termdock/terminal-config';
+import { Utf8Aligner } from '@termavox/terminal-config';
 import type { Dimensions } from '../../core/types.ts';
 
 export type StreamEvent =

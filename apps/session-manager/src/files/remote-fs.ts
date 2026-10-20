@@ -1,12 +1,12 @@
-import { FILES_LIMITS, type FileEntry, type FileType } from '@termdock/protocol';
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import { FILES_LIMITS, type FileEntry, type FileType } from '@termavox/protocol';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 import { type SftpAttrs, type SftpDirEntry, type SftpSession, SftpStatus } from '../core/types.ts';
 import { sftpStatus } from './errors.ts';
 import { isRemotePath, joinPath, type NamedPath, normalizePath } from './paths.ts';
 
 /**
  * The file panel's operations over an SFTP session (plan §5.12), whatever transport carries it.
- * Errors are the session's (SftpError) or Termdock's own (CONFLICT, CANCELLED, FILE_OP_FAILED,
+ * Errors are the session's (SftpError) or Termavox's own (CONFLICT, CANCELLED, FILE_OP_FAILED,
  * REMOVE_TOO_LARGE); the file service maps them for the browser.
  */
 
@@ -263,7 +263,7 @@ function usableName(name: string): boolean {
 async function canonical(sftp: SftpSession, path: string): Promise<string> {
   const resolved = await sftp.realpath(path);
   if (!isRemotePath(resolved)) {
-    throw new TermdockError(ErrorCode.FileOpFailed, 'the server returned an unusable path');
+    throw new TermavoxError(ErrorCode.FileOpFailed, 'the server returned an unusable path');
   }
   return resolved;
 }
@@ -386,11 +386,11 @@ async function eachLimit<T>(
 }
 
 function throwIfCancelled(signal: AbortSignal | undefined): void {
-  if (signal?.aborted) throw new TermdockError(ErrorCode.Cancelled, 'cancelled');
+  if (signal?.aborted) throw new TermavoxError(ErrorCode.Cancelled, 'cancelled');
 }
 
-function conflict(): TermdockError {
-  return new TermdockError(ErrorCode.Conflict, 'a file or folder with this name already exists');
+function conflict(): TermavoxError {
+  return new TermavoxError(ErrorCode.Conflict, 'a file or folder with this name already exists');
 }
 
 /**
@@ -398,7 +398,7 @@ function conflict(): TermdockError {
  * one code for the browser, which words it in the user's language; the message says which bound,
  * for the logs.
  */
-function tooBig(what: 'deep' | 'large'): TermdockError {
+function tooBig(what: 'deep' | 'large'): TermavoxError {
   const message = `the folder is too ${what} to delete from the panel`;
-  return new TermdockError(ErrorCode.RemoveTooLarge, message);
+  return new TermavoxError(ErrorCode.RemoveTooLarge, message);
 }

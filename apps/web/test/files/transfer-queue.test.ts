@@ -1,4 +1,4 @@
-import type { FileRequest } from '@termdock/protocol';
+import type { FileRequest } from '@termavox/protocol';
 import { describe, expect, it } from 'vitest';
 import { FileRequestError } from '../../lib/files/errors.ts';
 import type {

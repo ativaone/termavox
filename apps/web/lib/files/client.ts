@@ -1,4 +1,4 @@
-import { TRANSFER_PATH } from '@termdock/protocol/client';
+import { TRANSFER_PATH } from '@termavox/protocol/client';
 import { FileCode, FileRequestError } from './errors.ts';
 import type { FileApi, FileRequestOptions } from './requests.ts';
 

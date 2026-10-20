@@ -44,7 +44,7 @@ export const credentials = sqliteTable(
  * A server (plan D-29): everything one terminal needs, in one row, like an `ssh user@host`
  * command line or an `~/.ssh/config` entry. Duplicates are allowed (the same machine as another
  * user is another server). `kind: local` (direct mode) has no address, user name or credential.
- * `hostname` is stored normalized (`normalizeHostname` in @termdock/shared).
+ * `hostname` is stored normalized (`normalizeHostname` in @termavox/shared).
  */
 export const servers = sqliteTable(
   'servers',
@@ -138,7 +138,7 @@ export const sessions = sqliteTable(
       enum: ['tmux-control', 'tmux-normal', 'none'],
     }),
     tmuxToken: text('tmux_token').notNull(),
-    // Full tmux socket name of an adopted session (plan D-30); null = `td-<prefix>-<tmux_token>`.
+    // Full tmux socket name of an adopted session (plan D-30); null = `tv-<prefix>-<tmux_token>`.
     tmuxSocket: text('tmux_socket'),
     tmuxVersion: text('tmux_version'),
     remoteIdentityJson: text('remote_identity_json'),

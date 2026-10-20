@@ -1,4 +1,4 @@
-import { isControlChar } from '@termdock/protocol/client';
+import { isControlChar } from '@termavox/protocol/client';
 
 /**
  * Remote file names and paths as the UI shows them (plan §5.12). A name comes from the server

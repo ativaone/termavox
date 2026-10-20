@@ -76,7 +76,7 @@
               "level": "error",
               "options": {
                 "paths": {
-                  "@termdock/db": "Only the user-scoped repository layer (apps/web/lib/repo) and the auth core may access the database."
+                  "@termavox/db": "Only the user-scoped repository layer (apps/web/lib/repo) and the auth core may access the database."
                 }
               }
             }

@@ -1,5 +1,5 @@
 import 'server-only';
-import { openDb } from '@termdock/db';
+import { openDb } from '@termavox/db';
 import { redirect } from 'next/navigation';
 import { loadWebConfig, readSecretFileSync, secretBytes } from '../config.ts';
 import { liveRequestHeaders } from '../live-headers.ts';
@@ -13,11 +13,11 @@ import type { SetupInput } from './setup.ts';
  * so `next build` needs no secrets) and kept on globalThis, because Next can load a server module
  * once per bundle layer and the setup token and lockout state must be process-wide.
  */
-const holder = globalThis as unknown as { __termdockAuthRuntime?: AuthRuntime };
+const holder = globalThis as unknown as { __termavoxAuthRuntime?: AuthRuntime };
 
 export function getAuthRuntime(): AuthRuntime {
-  holder.__termdockAuthRuntime ??= buildRuntimeFromEnv();
-  return holder.__termdockAuthRuntime;
+  holder.__termavoxAuthRuntime ??= buildRuntimeFromEnv();
+  return holder.__termavoxAuthRuntime;
 }
 
 function buildRuntimeFromEnv(): AuthRuntime {

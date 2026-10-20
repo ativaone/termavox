@@ -1,4 +1,4 @@
-import { FILES_LIMITS } from '@termdock/protocol/client';
+import { FILES_LIMITS } from '@termavox/protocol/client';
 
 /**
  * Upload names that already exist in the target folder (plan §5.12): the panel asks once for the

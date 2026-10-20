@@ -29,7 +29,7 @@ import {
   TerminateUserSessionsRequest,
   TerminateUserSessionsResponse,
   TrustHostKeyRequest,
-} from '@termdock/protocol';
+} from '@termavox/protocol';
 import type { z } from 'zod';
 import { loadWebConfig, readSecretFileSync } from './config.ts';
 
@@ -80,7 +80,7 @@ export class InternalApiError extends Error {
   }
 }
 
-/** Also matches another bundle layer's copy of the class (see isTermdockError in @termdock/shared). */
+/** Also matches another bundle layer's copy of the class (see isTermavoxError in @termavox/shared). */
 export function isInternalApiError(err: unknown): err is InternalApiError {
   return (
     err instanceof InternalApiError ||
@@ -92,9 +92,9 @@ export function isInternalApiError(err: unknown): err is InternalApiError {
 }
 
 export interface InternalApiClientOptions {
-  /** TERMDOCK_INTERNAL_URL, e.g. `http://session-manager:3002`. */
+  /** TERMAVOX_INTERNAL_URL, e.g. `http://session-manager:3002`. */
   baseUrl: string;
-  /** Trimmed content of TERMDOCK_INTERNAL_TOKEN_FILE. */
+  /** Trimmed content of TERMAVOX_INTERNAL_TOKEN_FILE. */
   token: string;
   /** Default time budget per call. */
   timeoutMs?: number;
@@ -264,7 +264,7 @@ export class InternalApiClient {
   // Each call signs in to the server as its user (never prompting), so each gets the SSH budget.
 
   /**
-   * Lists the Termdock tmux servers on the server that this installation does not run, after
+   * Lists the Termavox tmux servers on the server that this installation does not run, after
    * ending those of sessions the user already ended (`cleaned`).
    */
   async listRemoteSessions(serverId: string, actingUserId: string): Promise<RemoteSessionList> {
@@ -459,7 +459,7 @@ function badResponse(status: number): InternalApiError {
  * The process-wide client, built on first use from the environment (never at import, so
  * `next build` needs no secrets) and kept on globalThis like the auth runtime.
  */
-const holder = globalThis as unknown as { __termdockInternalApi?: InternalApiClient };
+const holder = globalThis as unknown as { __termavoxInternalApi?: InternalApiClient };
 
 /**
  * Closes WebSockets through the daemon (`auth-sessions/revoke`) for Server Actions; rejects
@@ -473,12 +473,12 @@ export async function revokeConnections(target: {
 }
 
 export function getInternalApi(): InternalApiClient {
-  if (!holder.__termdockInternalApi) {
+  if (!holder.__termavoxInternalApi) {
     const config = loadWebConfig();
-    holder.__termdockInternalApi = new InternalApiClient({
+    holder.__termavoxInternalApi = new InternalApiClient({
       baseUrl: config.internalUrl,
       token: readSecretFileSync(config.internalTokenFile),
     });
   }
-  return holder.__termdockInternalApi;
+  return holder.__termavoxInternalApi;
 }

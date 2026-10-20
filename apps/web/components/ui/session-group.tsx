@@ -1,4 +1,4 @@
-import type { SessionStatus } from '@termdock/protocol/client';
+import type { SessionStatus } from '@termavox/protocol/client';
 import { type ReactNode, useId } from 'react';
 import { ChevronRightIcon } from '../icons/index.tsx';
 import { cx } from './cx.ts';

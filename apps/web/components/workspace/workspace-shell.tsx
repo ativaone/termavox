@@ -1,6 +1,6 @@
 'use client';
 
-import { CloseCode } from '@termdock/protocol/client';
+import { CloseCode } from '@termavox/protocol/client';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -31,7 +31,7 @@ import type { SessionActionResult } from '../../lib/sessions/action-result.ts';
 import { sessionLabels, toBayData } from '../../lib/sessions/live.ts';
 import { sessionTarget } from '../../lib/sessions/target.ts';
 import type { BayData, BaySession } from '../../lib/sessions/types.ts';
-import { pasteText, TermdockConnection } from '../../lib/terminal/index.ts';
+import { pasteText, TermavoxConnection } from '../../lib/terminal/index.ts';
 import { useConnectionState } from '../../lib/terminal/react.ts';
 import { encodeKey, type TerminalKey } from '../../lib/workspace/keys.ts';
 import {
@@ -101,7 +101,7 @@ export interface WorkspaceShellProps {
   renderedAt: number;
   username: string;
   locale: Locale;
-  /** The running Termdock version (lib/version.ts), for the account menu's foot. */
+  /** The running Termavox version (lib/version.ts), for the account menu's foot. */
   version: string;
   workspaceHref: string;
   serversHref: string;
@@ -119,7 +119,7 @@ export interface WorkspaceShellProps {
 }
 
 /** The tab's own WebSocket state, on the trailing edge of the tab bar and the phone header. */
-function ConnectionChip({ connection }: { connection: TermdockConnection }) {
+function ConnectionChip({ connection }: { connection: TermavoxConnection }) {
   const t = useTranslations('workspace.connection');
   const state = useConnectionState(connection);
   const now = useNow(1_000, state.status === 'reconnecting');
@@ -151,7 +151,7 @@ function ConnectionChip({ connection }: { connection: TermdockConnection }) {
 }
 
 /** Non-retryable connection failures (the auth session one navigates to the login page). */
-function ConnectionFailure({ connection }: { connection: TermdockConnection }) {
+function ConnectionFailure({ connection }: { connection: TermavoxConnection }) {
   const t = useTranslations('workspace.connection');
   const { error } = useConnectionState(connection);
   if (!error || error.kind === 'unauthenticated') return null;
@@ -177,10 +177,10 @@ function ConnectionFailure({ connection }: { connection: TermdockConnection }) {
 }
 
 /**
- * 4429: this user already has too many Termdock windows connected. The connection keeps
+ * 4429: this user already has too many Termavox windows connected. The connection keeps
  * retrying on a long backoff (the countdown and Retry now sit in the tab bar on desktop).
  */
-function ConnectionLimit({ connection }: { connection: TermdockConnection }) {
+function ConnectionLimit({ connection }: { connection: TermavoxConnection }) {
   const t = useTranslations('workspace.connection');
   const { status, closeCode, error } = useConnectionState(connection);
   if (status === 'open' || error || closeCode !== CloseCode.RateLimited) return null;
@@ -206,7 +206,7 @@ function ConnectionLimit({ connection }: { connection: TermdockConnection }) {
 const REMOTE_SESSIONS_ANCHOR = 'remote-sessions';
 
 /**
- * Plan D-30: a session's connection found Termdock sessions on its server that this installation
+ * Plan D-30: a session's connection found Termavox sessions on its server that this installation
  * does not run. One dismissible notice per server, linking to that server's page (and back here);
  * a dismissed server stays quiet while the tab lives.
  */
@@ -214,7 +214,7 @@ function RemoteSessionsNotices({
   connection,
   serverHref,
 }: {
-  connection: TermdockConnection;
+  connection: TermavoxConnection;
   serverHref: (serverId: string) => string;
 }) {
   const t = useTranslations('workspace');
@@ -289,7 +289,7 @@ export function WorkspaceShell({
   );
 
   // ── connection and layout ─────────────────────────────────────────────────
-  const [connection] = useState(() => new TermdockConnection());
+  const [connection] = useState(() => new TermavoxConnection());
   useEffect(() => {
     connection.connect();
     return () => connection.close();

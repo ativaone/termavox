@@ -1,13 +1,13 @@
 import './server-guard.ts';
-import { signTicket, TICKET_TTL_MS } from '@termdock/protocol';
-import { ErrorCode } from '@termdock/shared';
+import { signTicket, TICKET_TTL_MS } from '@termavox/protocol';
+import { ErrorCode } from '@termavox/shared';
 import { authGate } from './auth/gate.ts';
 import type { AuthRuntime } from './auth/runtime.ts';
 
 type TicketDeps = Pick<AuthRuntime, 'auth' | 'db' | 'publicOrigin' | 'wsSecret'>;
 
 /**
- * `POST /api/ws/ticket` (plan §7.1). Requires `Origin` to equal TERMDOCK_PUBLIC_URL's origin and
+ * `POST /api/ws/ticket` (plan §7.1). Requires `Origin` to equal TERMAVOX_PUBLIC_URL's origin and
  * an auth session that passes the gate: no session or a disabled account → 401, a pending
  * password change or TOTP enrollment → 403. Returns a 30 s single-use ticket bound to the user
  * and the auth session, signed with the key session-manager verifies.

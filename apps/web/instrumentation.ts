@@ -10,7 +10,7 @@ export async function register() {
     (await import('./lib/auth/server.ts')).getAuthRuntime();
   } catch (error) {
     console.warn(
-      '[termdock] auth runtime not ready at boot (is session-manager running and migrated?); it will start on the first request.',
+      '[termavox] auth runtime not ready at boot (is session-manager running and migrated?); it will start on the first request.',
       error instanceof Error ? error.message : error,
     );
   }

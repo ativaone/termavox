@@ -9,8 +9,8 @@ import type {
   SessionState,
   SessionStatus,
   SessionSummary,
-} from '@termdock/protocol';
-import { ErrorCode } from '@termdock/shared';
+} from '@termavox/protocol';
+import { ErrorCode } from '@termavox/shared';
 
 export interface Dimensions {
   cols: number;
@@ -384,7 +384,7 @@ export interface SessionRecord {
   tmuxToken: string;
   /**
    * The full socket name of a session adopted from a remote leftover (plan D-30); null for every
-   * other session, whose socket is `td-<installation prefix>-<tmuxToken>`.
+   * other session, whose socket is `tv-<installation prefix>-<tmuxToken>`.
    */
   tmuxSocket: string | null;
   /** Absolute tmux path from the last stored probe (`probe_json` → `tmux_path`), if any. */

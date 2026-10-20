@@ -1,4 +1,4 @@
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 import type { Attributes, FileEntryWithStats, SFTPWrapper } from 'ssh2';
 import { hostText } from '../../core/host-text.ts';
 import {
@@ -47,7 +47,7 @@ export function openSshSftp(client: SftpClient, options: OpenSftpOptions): Promi
     let settled = false;
     const timer = setTimeout(() => {
       settled = true;
-      reject(new TermdockError(ErrorCode.SftpUnavailable, 'the server did not start SFTP in time'));
+      reject(new TermavoxError(ErrorCode.SftpUnavailable, 'the server did not start SFTP in time'));
     }, options.timeoutMs ?? SFTP_OPEN_TIMEOUT_MS);
     const done = (err: Error | undefined, wrapper?: SFTPWrapper): void => {
       if (settled) {
@@ -73,24 +73,24 @@ export function openSshSftp(client: SftpClient, options: OpenSftpOptions): Promi
       client.sftp(done);
     } catch {
       // ssh2 throws 'Not connected' synchronously when its socket is gone.
-      done(new TermdockError(ErrorCode.SessionNotConnected, 'the session is not connected'));
+      done(new TermavoxError(ErrorCode.SessionNotConnected, 'the session is not connected'));
     }
   });
 }
 
-function openError(err: Error | undefined, connected: boolean): TermdockError {
-  if (err instanceof TermdockError) return err;
+function openError(err: Error | undefined, connected: boolean): TermavoxError {
+  if (err instanceof TermavoxError) return err;
   if (!connected) {
-    return new TermdockError(ErrorCode.SessionNotConnected, 'the session is not connected');
+    return new TermavoxError(ErrorCode.SessionNotConnected, 'the session is not connected');
   }
   const message = hostText(err?.message ?? 'unknown error', OPEN_ERROR_TEXT_MAX);
   // ssh2 sets `reason` (a number) when the server refused to open the channel itself.
   if (typeof (err as { reason?: unknown } | undefined)?.reason === 'number') {
-    return new TermdockError(ErrorCode.FileOpFailed, `the server refused a channel: ${message}`);
+    return new TermavoxError(ErrorCode.FileOpFailed, `the server refused a channel: ${message}`);
   }
   // "Unable to start subsystem: sftp", "Received exit code N while establishing SFTP session", or
   // an SFTP protocol error during the version exchange (a shell printing into the channel).
-  return new TermdockError(ErrorCode.SftpUnavailable, `the server offers no SFTP: ${message}`);
+  return new TermavoxError(ErrorCode.SftpUnavailable, `the server offers no SFTP: ${message}`);
 }
 
 type Callback<T> = (err: Error | null | undefined, value?: T) => void;

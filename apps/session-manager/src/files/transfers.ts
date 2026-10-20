@@ -1,5 +1,5 @@
-import { FILES_LIMITS, type TransferState } from '@termdock/protocol';
-import { ErrorCode, isTermdockError, TermdockError } from '@termdock/shared';
+import { FILES_LIMITS, type TransferState } from '@termavox/protocol';
+import { ErrorCode, isTermavoxError, TermavoxError } from '@termavox/shared';
 import {
   matches,
   type TransferDirection,
@@ -26,7 +26,7 @@ export type TransferEnd =
  * Why a running transfer was stopped from outside: by its user (`cancelled`), or by the daemon
  * (`failed` with the code: a sign-out, the shutdown, an upload that stopped sending).
  */
-export class TransferStop extends TermdockError {
+export class TransferStop extends TermavoxError {
   readonly end: Exclude<TransferEnd, { state: 'done' }>;
 
   constructor(end: Exclude<TransferEnd, { state: 'done' }>, message: string) {
@@ -38,7 +38,7 @@ export class TransferStop extends TermdockError {
 /** The end a failure gives a transfer: a stop says it, any other error is `failed` with its code. */
 export function endOf(err: unknown): Exclude<TransferEnd, { state: 'done' }> {
   if (err instanceof TransferStop) return err.end;
-  return { state: 'failed', code: isTermdockError(err) ? err.code : ErrorCode.Internal };
+  return { state: 'failed', code: isTermavoxError(err) ? err.code : ErrorCode.Internal };
 }
 
 /** One upload or download from the moment its URL was used until its last progress. */
@@ -182,7 +182,7 @@ export class Transfers {
   }
 
   mint(input: TransferGrantInput): { token: string; grant: TransferGrant } {
-    if (this.#closed) throw new TermdockError(ErrorCode.SessionNotConnected, 'shutting down');
+    if (this.#closed) throw new TermavoxError(ErrorCode.SessionNotConnected, 'shutting down');
     return this.tokens.mint(input);
   }
 
@@ -195,12 +195,12 @@ export class Transfers {
    * the maximum.
    */
   begin(grant: TransferGrant): ActiveTransfer {
-    if (this.#closed) throw new TermdockError(ErrorCode.SessionNotConnected, 'shutting down');
+    if (this.#closed) throw new TermavoxError(ErrorCode.SessionNotConnected, 'shutting down');
     if (this.running(grant.userId).length >= this.#perUser) {
-      throw new TermdockError(ErrorCode.RateLimited, 'too many transfers at once');
+      throw new TermavoxError(ErrorCode.RateLimited, 'too many transfers at once');
     }
     if (this.#running.size >= this.#maxRunning) {
-      throw new TermdockError(ErrorCode.RateLimited, 'the server runs too many transfers at once');
+      throw new TermavoxError(ErrorCode.RateLimited, 'the server runs too many transfers at once');
     }
     const transfer = new ActiveTransfer(grant, this.#now, () => {
       this.#running.delete(transfer);

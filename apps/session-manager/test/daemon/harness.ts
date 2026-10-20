@@ -6,7 +6,7 @@ import { randomBytes } from 'node:crypto';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { type ServerMessage, signTicket } from '@termdock/protocol';
+import { type ServerMessage, signTicket } from '@termavox/protocol';
 import type { DaemonConfig } from '../../src/config/config.ts';
 import type { HeadlessEmulator } from '../../src/emulator/headless-emulator.ts';
 import { type Daemon, startDaemon } from '../../src/main.ts';
@@ -24,7 +24,7 @@ export class DaemonFixture {
   readonly #wsSecret = randomBytes(32).toString('base64url');
 
   constructor() {
-    this.dir = mkdtempSync(join(tmpdir(), 'termdock-daemon-'));
+    this.dir = mkdtempSync(join(tmpdir(), 'termavox-daemon-'));
     const secret = (name: string, value: string): string => {
       const path = join(this.dir, name);
       writeFileSync(path, `${value}\n`, { mode: 0o600 });

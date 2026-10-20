@@ -4,7 +4,7 @@
  * diff. Reading internals is fine here: the version is pinned and this is test-only code.
  */
 import { readdirSync, readFileSync } from 'node:fs';
-import type { ModeState } from '@termdock/terminal-config';
+import type { ModeState } from '@termavox/terminal-config';
 import type { Terminal } from '@xterm/headless';
 import { HeadlessEmulator } from '../../src/emulator/headless-emulator.ts';
 

@@ -2,7 +2,7 @@
 // internal API, registry) booted in-process and restarted on the same DB. No sshd: the target
 // policy refuses the test host (127.0.0.1) before any connection, so sessions park in `failed`
 // (TARGET_NOT_ALLOWED) and the deleted server's refusal is told apart by its own code.
-import { openDb } from '@termdock/db';
+import { openDb } from '@termavox/db';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Daemon } from '../../src/main.ts';
 import { until } from '../runtime/fakes.ts';

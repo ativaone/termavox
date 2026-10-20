@@ -2,7 +2,7 @@
 // it, so modules shared with tests import this guard instead. The Next-facing entry
 // (lib/auth/server.ts) also imports `server-only`, which Next turns into a build-time check.
 if (typeof window !== 'undefined') {
-  throw new Error('a server-only Termdock module was imported in a browser bundle');
+  throw new Error('a server-only Termavox module was imported in a browser bundle');
 }
 
 export {};

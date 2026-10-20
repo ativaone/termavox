@@ -1,5 +1,5 @@
-import type { TermdockDb } from '@termdock/db';
-import { normalizeHostname, uuidv7 } from '@termdock/shared';
+import type { TermavoxDb } from '@termavox/db';
+import { normalizeHostname, uuidv7 } from '@termavox/shared';
 import type { TransportFactory, TransportHooks } from '../core/transport-factory.ts';
 import {
   type HostKeyAddress,
@@ -88,7 +88,7 @@ export class SqliteHostKeyStore implements HostKeyStore {
   readonly #writer: BatchedWriter;
   readonly #now: () => number;
 
-  constructor(db: TermdockDb, writer: BatchedWriter, options: { now?: () => number } = {}) {
+  constructor(db: TermavoxDb, writer: BatchedWriter, options: { now?: () => number } = {}) {
     this.#sqlite = db.$client;
     this.#writer = writer;
     this.#now = options.now ?? Date.now;

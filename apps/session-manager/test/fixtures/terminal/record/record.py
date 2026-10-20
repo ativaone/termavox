@@ -29,7 +29,7 @@ OUT_DIR = os.path.dirname(HERE)
 COLS, ROWS = 100, 30
 
 SAMPLE = (
-    "# termdock golden sample\n"
+    "# termavox golden sample\n"
     "def greet(name: str) -> str:\n"
     "\treturn f'hello {name}'  # tab-indented\n"
     "\n"
@@ -43,7 +43,7 @@ set nocompatible
 syntax on
 set number laststatus=2 ruler
 set mouse=a ttymouse=sgr
-set title titlestring=termdock-vim
+set title titlestring=termavox-vim
 set termguicolors
 let &t_SI = "\e[6 q"
 let &t_EI = "\e[2 q"
@@ -53,7 +53,7 @@ set viminfo= noswapfile
 """
 
 BASHRC = r"""
-PS1='\[\e[1;32m\]user@termdock\[\e[0m\]:\[\e[1;34m\]~/demo\[\e[0m\]\$ '
+PS1='\[\e[1;32m\]user@termavox\[\e[0m\]:\[\e[1;34m\]~/demo\[\e[0m\]\$ '
 """
 
 HTOPRC = """fields=0 17 18 2 46 47 49 1
@@ -87,7 +87,7 @@ def scenario_steps(name, home):
             ("wait", 0.6),
             ("send", b"tabs 4,12,30; printf 'a\\tb\\tc\\td\\n'\r"),
             ("wait", 0.4),
-            ("send", b"printf '\\e]2;termdock-bash\\a'; echo '\xe6\xbc\xa2\xe5\xad\x97 \xf0\x9f\x99\x82 end'\r"),
+            ("send", b"printf '\\e]2;termavox-bash\\a'; echo '\xe6\xbc\xa2\xe5\xad\x97 \xf0\x9f\x99\x82 end'\r"),
             ("wait", 0.4),
             ("send", b"echo a long command line that keeps going and going past the right edge of the 100 column screen ok"),
             ("wait", 0.4),
@@ -158,7 +158,7 @@ def drain(fd, events, seconds):
 
 
 def record(name):
-    home = tempfile.mkdtemp(prefix="termdock-rec-")
+    home = tempfile.mkdtemp(prefix="termavox-rec-")
     try:
         argv, steps = scenario_steps(name, home)
         env = {

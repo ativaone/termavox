@@ -24,7 +24,7 @@ import type {
 
 export interface DataPlaneDeps {
   publicOrigin: string;
-  /** `trustedProxies`: TERMDOCK_TRUSTED_PROXIES (default: trust no X-Forwarded-For). */
+  /** `trustedProxies`: TERMAVOX_TRUSTED_PROXIES (default: trust no X-Forwarded-For). */
   ws: { host: string; port: number; trustedProxies?: readonly string[] };
   wsSecret: Uint8Array;
   installationId: string;

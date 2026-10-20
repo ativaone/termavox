@@ -8,7 +8,7 @@ import {
   parseServerMessage,
   type ServerMessage,
   type SessionSummary,
-} from '@termdock/protocol/client';
+} from '@termavox/protocol/client';
 import {
   type FileApi,
   type FileRequestOptions,
@@ -64,7 +64,7 @@ export interface ConnectionError {
 export type HostKeyPrompt = Extract<ServerMessage, { type: 'hostkey.prompt' }>;
 export type AuthPromptRequest = Extract<ServerMessage, { type: 'auth.prompt' }>;
 export type ServerError = Extract<ServerMessage, { type: 'error' }>;
-/** Termdock tmux servers a session's connection found that this installation does not run. */
+/** Termavox tmux servers a session's connection found that this installation does not run. */
 export type RemoteSessionsNotice = Omit<
   Extract<ServerMessage, { type: 'server.remote_sessions' }>,
   'type'
@@ -106,7 +106,7 @@ export interface ConnectionState {
   /** When the next attempt starts (epoch ms) while `reconnecting`. */
   readonly retryAt: number | null;
   /**
-   * Close code of the socket that dropped last (4429: too many Termdock windows for this user);
+   * Close code of the socket that dropped last (4429: too many Termavox windows for this user);
    * null once a connection is accepted again (`hello.ok`) or after `close()`.
    */
   readonly closeCode: number | null;
@@ -129,8 +129,8 @@ export interface ConnectionState {
   readonly remoteSessions: readonly RemoteSessionsNotice[];
 }
 
-export interface TermdockConnectionOptions {
-  /** Default: NEXT_PUBLIC_TERMDOCK_WS_URL, else same-origin `/ws`. */
+export interface TermavoxConnectionOptions {
+  /** Default: NEXT_PUBLIC_TERMAVOX_WS_URL, else same-origin `/ws`. */
   url?: string;
   /** Default: `POST /api/ws/ticket` on the same origin. */
   fetchTicket?: TicketFetcher;
@@ -214,7 +214,7 @@ function toBytes(data: unknown): Uint8Array | null {
  * the server then sends fresh snapshots). The file panel's requests and transfer progress
  * (plan §5.12) ride on it too, through `FileRequests`.
  */
-export class TermdockConnection implements FileApi {
+export class TermavoxConnection implements FileApi {
   readonly #store = new Store<ConnectionState>(INITIAL_STATE);
   readonly #channels = new Map<number, TerminalChannel>();
   readonly #urlOverride: string | undefined;
@@ -238,7 +238,7 @@ export class TermdockConnection implements FileApi {
   readonly #dismissedServers = new Set<string>();
   readonly #files: FileRequests;
 
-  constructor(options: TermdockConnectionOptions = {}) {
+  constructor(options: TermavoxConnectionOptions = {}) {
     // Resolved on first connect, so constructing during server rendering is harmless.
     this.#urlOverride = options.url;
     this.#fetchTicket = options.fetchTicket ?? fetchWsTicket;

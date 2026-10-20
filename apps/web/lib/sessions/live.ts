@@ -1,4 +1,4 @@
-import type { SessionSummary } from '@termdock/protocol/client';
+import type { SessionSummary } from '@termavox/protocol/client';
 import { ENDED_SHOWN } from './lanes.ts';
 import type { BayData, BaySession, SessionLabel } from './types.ts';
 

@@ -1,4 +1,4 @@
-# Termdock web (Next.js control plane). Build context: the repository root.
+# Termavox web (Next.js control plane). Build context: the repository root.
 #   docker compose -f deploy/compose.yaml build web
 #
 # Next.js `output: 'standalone'` (apps/web/next.config.ts) traces the server's runtime files from
@@ -22,12 +22,12 @@ COPY packages/shared/package.json packages/shared/
 COPY packages/terminal-config/package.json packages/terminal-config/
 # The full workspace install (dev dependencies included): `next build` type-checks with the root
 # typescript and @types/node, and compiles CSS with Tailwind.
-RUN --mount=type=cache,id=termdock-pnpm-store,target=/pnpm/store \
+RUN --mount=type=cache,id=termavox-pnpm-store,target=/pnpm/store \
     pnpm install --frozen-lockfile --store-dir /pnpm/store
 COPY tsconfig.base.json ./
 COPY packages packages
 COPY apps/web apps/web
-RUN pnpm --filter @termdock/web build
+RUN pnpm --filter @termavox/web build
 
 # Same base image, pinned by the same digest.
 FROM node:24-bookworm-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5 AS runtime
@@ -35,12 +35,12 @@ ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     HOSTNAME=0.0.0.0 \
     PORT=3000 \
-    TERMDOCK_DATA_DIR=/data
+    TERMAVOX_DATA_DIR=/data
 # Fixed non-root UID/GID shared with the session-manager image (plan §10.2); npm, npx, corepack
 # and yarn are not needed at runtime. Writable paths: /data (volume), /tmp and .next/cache (tmpfs).
-RUN groupadd --system --gid 10001 termdock \
+RUN groupadd --system --gid 10001 termavox \
  && useradd --system --uid 10001 --gid 10001 --no-create-home --home-dir /nonexistent \
-      --shell /usr/sbin/nologin termdock \
+      --shell /usr/sbin/nologin termavox \
  && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
       /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
       /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-* \

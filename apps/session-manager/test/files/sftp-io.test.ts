@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { Readable, Writable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { ErrorCode, type TermdockError } from '@termdock/shared';
+import { ErrorCode, type TermavoxError } from '@termavox/shared';
 import { describe, expect, it } from 'vitest';
 import { SftpError, type SftpHandle, SftpStatus } from '../../src/core/types.ts';
 import {
@@ -86,7 +86,7 @@ describe('pipelined SFTP reads', () => {
     const parts: Buffer[] = [];
     const err = await (async () => {
       for await (const part of reader) parts.push(part as Buffer);
-    })().catch((e: unknown) => e as TermdockError);
+    })().catch((e: unknown) => e as TermavoxError);
     expect(err).toMatchObject({ code: ErrorCode.FileOpFailed });
     expect(Buffer.concat(parts).length).toBeLessThanOrEqual(50_000);
   });

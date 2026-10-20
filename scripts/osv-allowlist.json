@@ -4,7 +4,7 @@
     {
       "id": "GHSA-67mh-4wv8-2f99",
       "package": "esbuild@0.18.20",
-      "reason": "Dev-only: pulled in only by drizzle-kit (a devDependency of packages/db for generating migrations, through @esbuild-kit). The advisory concerns esbuild's development server, which Termdock never starts; esbuild is in neither runtime image.",
+      "reason": "Dev-only: pulled in only by drizzle-kit (a devDependency of packages/db for generating migrations, through @esbuild-kit). The advisory concerns esbuild's development server, which Termavox never starts; esbuild is in neither runtime image.",
       "reviewed": "2026-10-16"
     }
   ]

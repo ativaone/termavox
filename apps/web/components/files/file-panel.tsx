@@ -1,6 +1,6 @@
 'use client';
 
-import { FILES_LIMITS, type FileEntry } from '@termdock/protocol/client';
+import { FILES_LIMITS, type FileEntry } from '@termavox/protocol/client';
 import { useLocale, useTranslations } from 'next-intl';
 import { memo, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { sessionFiles } from '../../lib/files/client.ts';

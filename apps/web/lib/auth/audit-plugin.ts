@@ -1,5 +1,5 @@
 import '../server-guard.ts';
-import type { TermdockDb } from '@termdock/db';
+import type { TermavoxDb } from '@termavox/db';
 import type { BetterAuthPlugin } from 'better-auth';
 import { createAuthMiddleware, getIP, isAPIError } from 'better-auth/api';
 import type { WebLogger } from '../logger.ts';
@@ -8,7 +8,7 @@ import { type AuditInput, insertAuditEvent } from '../repo/audit.ts';
 
 /**
  * Audit trail of the auth endpoints (plan §10.2), as a plugin so it sees each endpoint's final
- * result: plugin after-hooks run after Termdock's own `hooks.after` and in plugin order, so placed
+ * result: plugin after-hooks run after Termavox's own `hooks.after` and in plugin order, so placed
  * after `twoFactor` it sees a 2FA redirect (no session) instead of the provisional sign-in. Every
  * entry point (Server Actions, `/api/auth/*`, server calls) is covered the same way.
  *
@@ -35,7 +35,7 @@ const AUDITED = new Set([
 ]);
 
 export interface AuditPluginOptions {
-  db: TermdockDb;
+  db: TermavoxDb;
   logger: WebLogger;
 }
 
@@ -58,7 +58,7 @@ export function auditPlugin({ db, logger }: AuditPluginOptions): BetterAuthPlugi
   };
 
   return {
-    id: 'termdock-audit',
+    id: 'termavox-audit',
     hooks: {
       after: [
         {

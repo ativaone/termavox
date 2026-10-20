@@ -1,4 +1,4 @@
-import type { PaneNode, Tab, WorkspaceLayout } from '@termdock/protocol/client';
+import type { PaneNode, Tab, WorkspaceLayout } from '@termavox/protocol/client';
 
 /**
  * The workspace layout as a pure reducer (plan §9, §11.1): tabs, each holding a split tree whose

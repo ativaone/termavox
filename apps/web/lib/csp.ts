@@ -3,7 +3,7 @@
  * nonce (Next attaches it to its own scripts; `'strict-dynamic'` lets them load chunks).
  * Styles allow `'unsafe-inline'` because the xterm.js DOM renderer injects style elements.
  * Development adds `'unsafe-eval'`, which React needs only for dev-time stack reconstruction.
- * The terminal WebSocket is same-origin `/ws` (`'self'`); when NEXT_PUBLIC_TERMDOCK_WS_URL points
+ * The terminal WebSocket is same-origin `/ws` (`'self'`); when NEXT_PUBLIC_TERMAVOX_WS_URL points
  * elsewhere (development), pass it as `wsUrl` and its origin joins `connect-src`, in both its
  * `ws(s):` and `http(s):` forms: the file panel's uploads are XHRs to the transfer routes beside
  * the WebSocket (plan §5.12).

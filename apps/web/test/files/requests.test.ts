@@ -1,7 +1,7 @@
-import type { ClientMessage, ServerMessage } from '@termdock/protocol';
+import type { ClientMessage, ServerMessage } from '@termavox/protocol';
 import { afterEach, describe, expect, it } from 'vitest';
 import { FileRequests } from '../../lib/files/requests.ts';
-import { TermdockConnection } from '../../lib/terminal/index.ts';
+import { TermavoxConnection } from '../../lib/terminal/index.ts';
 import { FakeServer, sleep, until } from '../terminal/helpers.ts';
 
 type FilesRequest = Extract<ClientMessage, { type: 'files.request' }>;
@@ -14,8 +14,8 @@ afterEach(() => {
 
 async function connected(timeoutMs = 30_000) {
   const server = new FakeServer();
-  const connection = new TermdockConnection({
-    url: 'ws://termdock.test/ws',
+  const connection = new TermavoxConnection({
+    url: 'ws://termavox.test/ws',
     fetchTicket: async () => ({ ticket: 't', expiresAt: Date.now() + 30_000 }),
     createWebSocket: server.createWebSocket,
     backoff: { initialMs: 5, maxMs: 20, jitter: 0 },
@@ -52,10 +52,10 @@ describe('file requests over the tab connection (plan §5.12)', () => {
     reply({
       type: 'files.result',
       requestId: first!.requestId,
-      result: { op: 'open', home: '/home/td', cwd: null },
+      result: { op: 'open', home: '/home/tv', cwd: null },
     });
     await expect(listed).resolves.toMatchObject({ op: 'list', entries: [entry] });
-    await expect(opened).resolves.toEqual({ op: 'open', home: '/home/td', cwd: null });
+    await expect(opened).resolves.toEqual({ op: 'open', home: '/home/tv', cwd: null });
   });
 
   it("rejects with the daemon's code, and with INTERNAL for a result of another op", async () => {

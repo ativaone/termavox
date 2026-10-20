@@ -1,4 +1,4 @@
-import { CloseCode, type ServerMessage, signTicket } from '@termdock/protocol';
+import { CloseCode, type ServerMessage, signTicket } from '@termavox/protocol';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { encodeChannelMessage } from '../../src/attachments/wire.ts';
 import type {
@@ -19,7 +19,7 @@ import type { SessionGateway } from '../../src/ws/types.ts';
 import { until } from '../runtime/fakes.ts';
 import { TestClient } from './client.ts';
 
-const ORIGIN = 'https://termdock.test';
+const ORIGIN = 'https://termavox.test';
 const SECRET = new TextEncoder().encode('test-secret-test-secret-test-secret!');
 
 class FakeHost implements SessionHost {

@@ -3,7 +3,7 @@
   "tmuxVersion": "tmux 3.8",
   "recordedAt": "2026-10-15",
   "description": "launch (flags=0 blocks) → UTF-8/wide/control output → ok/error/parse-error commands → refresh-client -C → batches (ok and failing) → pause-after, manual pause/continue → has-session → kill-server → %exit",
-  "launch": "exec sh -c 'export LC_CTYPE=C.UTF-8; exec /usr/bin/tmux -u -L td-fixture-z5pppcie -f /dev/null -C start-server '\\\\'; set-option -g history-limit 2000 '\\\\'; set-option -g default-terminal tmux-256color '\\\\'; set-option -g aggressive-resize off '\\\\'; set-option -g detach-on-destroy on '\\\\'; set-option -g window-size latest '\\\\'; set-option -g status off '\\\\'; new-session -A -s main -x 80 -y 24 -e TD_FIXTURE=yes '\\''exec env -u TMUX -u TMUX_PANE \"$SHELL\" -l'\\'",
+  "launch": "exec sh -c 'export LC_CTYPE=C.UTF-8; exec /usr/bin/tmux -u -L tv-fixture-z5pppcie -f /dev/null -C start-server '\\\\'; set-option -g history-limit 2000 '\\\\'; set-option -g default-terminal tmux-256color '\\\\'; set-option -g aggressive-resize off '\\\\'; set-option -g detach-on-destroy on '\\\\'; set-option -g window-size latest '\\\\'; set-option -g status off '\\\\'; new-session -A -s main -x 80 -y 24 -e TV_FIXTURE=yes '\\''exec env -u TMUX -u TMUX_PANE \"$SHELL\" -l'\\'",
   "cols": 80,
   "rows": 24,
   "notes": [
@@ -203,7 +203,7 @@
           "code": 1,
           "signal": null
         },
-        "stderr": "no server running on /tmp/tmux-1000/td-fixture-z5pppcie"
+        "stderr": "no server running on /tmp/tmux-1000/tv-fixture-z5pppcie"
       }
     }
   ],
@@ -261,12 +261,12 @@
     {
       "atMs": 1983,
       "atByte": 1499,
-      "line": "capture-pane -p -e -J -N -t %0 -S - -E - ; capture-pane -p -e -J -N -a -q -t %0 ; display-message -p -t %0 '#{pane_id}\t#{pane_width}\t#{pane_height}\t#{history_size}\t#{cursor_x}\t#{cursor_y}\t#{alternate_on}' ; capture-pane -p -P -C -t %0 ; display-message -p 'td-mrvjwt5h2dzq'"
+      "line": "capture-pane -p -e -J -N -t %0 -S - -E - ; capture-pane -p -e -J -N -a -q -t %0 ; display-message -p -t %0 '#{pane_id}\t#{pane_width}\t#{pane_height}\t#{history_size}\t#{cursor_x}\t#{cursor_y}\t#{alternate_on}' ; capture-pane -p -P -C -t %0 ; display-message -p 'tv-mrvjwt5h2dzq'"
     },
     {
       "atMs": 2025,
       "atByte": 1989,
-      "line": "display-message -p before ; select-pane -t %99 ; display-message -p never-runs ; display-message -p 'td-rrrvreeqwq2u'"
+      "line": "display-message -p before ; select-pane -t %99 ; display-message -p never-runs ; display-message -p 'tv-rrrvreeqwq2u'"
     },
     {
       "atMs": 2067,

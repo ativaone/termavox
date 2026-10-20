@@ -1,4 +1,4 @@
-import type { ParserHost } from '@termdock/terminal-config';
+import type { ParserHost } from '@termavox/terminal-config';
 
 export interface Dimensions {
   cols: number;

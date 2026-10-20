@@ -1,4 +1,4 @@
-// Termdock site: small progressive enhancements. Every page works without this file.
+// Termavox site: small progressive enhancements. Every page works without this file.
 
 // The index lights the section being read.
 const links = new Map();

@@ -3,13 +3,13 @@ import type {
   FileRequest,
   FileResultOf,
   ServerMessage,
-} from '@termdock/protocol/client';
+} from '@termavox/protocol/client';
 import { ClientFileCode, FileCode, FileRequestError } from './errors.ts';
 
 /**
  * The file panel's side of the tab's WebSocket (plan §5.12): `files.request` → exactly one
  * `files.result` matched by `requestId`, `files.progress` for a running remove, `files.cancel`,
- * and the `transfer.progress` of uploads and downloads this tab minted. `TermdockConnection`
+ * and the `transfer.progress` of uploads and downloads this tab minted. `TermavoxConnection`
  * owns one and feeds it; it has no socket of its own. Framework-free.
  */
 

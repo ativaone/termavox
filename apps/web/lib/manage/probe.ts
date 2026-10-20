@@ -1,4 +1,4 @@
-import type { ProtectionMode } from '@termdock/protocol';
+import type { ProtectionMode } from '@termavox/protocol';
 
 /**
  * Reads the capability probe report of "Test connection" (raw key/value output, plan §5.11) the

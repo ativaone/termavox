@@ -11,7 +11,7 @@ import type {
   ConnectionState,
   Dimensions,
   SessionEntry,
-  TermdockConnection,
+  TermavoxConnection,
   TerminalChannel,
 } from '../../lib/terminal/index.ts';
 import type { TerminalAppearance } from '../../lib/terminal/xterm.ts';
@@ -41,7 +41,7 @@ export interface PanePlace {
 }
 
 export interface WorkspaceContextValue {
-  connection: TermdockConnection;
+  connection: TermavoxConnection;
   connectionState: ConnectionState;
   sessions: ReadonlyMap<string, SessionEntry>;
   /** Label and status per session, from the server-rendered bay until live data arrives. */

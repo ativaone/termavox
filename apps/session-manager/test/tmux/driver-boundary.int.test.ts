@@ -1,4 +1,4 @@
-// T1, spike S3: the snapshot boundary under heavy output (core tmux images; TD_TMUX_IMAGES to
+// T1, spike S3: the snapshot boundary under heavy output (core tmux images; TV_TMUX_IMAGES to
 // override). The pane's raw output is piped to a file from its first byte; the driver attaches
 // mid-flood on its own transport, rebuilds from a capture and applies the later output. Once the
 // flood is over, its emulator must equal, cell by cell, a fresh emulator fed the whole stream.

@@ -14,7 +14,7 @@
  */
 import { BadLaunchParamsError } from '../../core/types.ts';
 
-/** Session name inside every Termdock tmux server. */
+/** Session name inside every Termavox tmux server. */
 export const TMUX_SESSION = 'main';
 
 // Bare words: no leading `=` (zsh EQUALS expansion) or `%` (fish/csh job syntax).
@@ -69,7 +69,7 @@ export type DefaultTerminal = 'tmux-256color' | 'screen-256color';
 export interface LaunchOptions {
   /** Absolute tmux path from the probe (`tmux_path`). */
   tmuxPath: string;
-  /** `td-<installationId[0:8]>-<tmuxToken>`. */
+  /** `tv-<installationId[0:8]>-<tmuxToken>`. */
   socket: string;
   /** Concrete UTF-8 locale from the probe (`utf8_locale`), exported as LC_CTYPE. */
   locale: string;
@@ -124,7 +124,7 @@ export function paneCommand(startupCommand?: string | null): string {
  * existing one, tmux returns before printing (ADR-0003). The marker lands in the reply block of
  * the last launch command.
  */
-export const SESSION_CREATED_MARKER = 'td-created';
+export const SESSION_CREATED_MARKER = 'tv-created';
 
 /**
  * The tmux commands of the launch argv, in order. Each one answers with its own flags-0 block,
@@ -198,8 +198,8 @@ export function hasSessionCommand(opts: { tmuxPath: string; socket: string }): s
  * SOCKET_PROCESSES lists the tmux processes of our socket (server and clients): the first word
  * of the command line names the tmux binary (Alpine shows `{tmux: server} /usr/bin/tmux …`), so a
  * shell whose command line merely mentions the socket never matches, and the socket name only
- * appears as `$s` in our own scripts. The trailing space keeps `td-x-ab` from matching
- * `td-x-abc` (our argv always continues with `-f /dev/null`).
+ * appears as `$s` in our own scripts. The trailing space keeps `tv-x-ab` from matching
+ * `tv-x-abc` (our argv always continues with `-f /dev/null`).
  *
  * A tmux server whose session ended still waits for every client to go, and a
  * control client whose output can no longer be written (its connection died with output queued)
@@ -279,8 +279,8 @@ export const SCAN_SESSION_FORMAT =
 export const SCAN_MAX_SERVERS = 200;
 
 /**
- * Remote command listing this user's Termdock tmux servers (plan D-30): every socket file
- * `${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)/td-*` whose server answers `list-sessions` gives one line
+ * Remote command listing this user's Termavox tmux servers (plan D-30): every socket file
+ * `${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)/tv-*` whose server answers `list-sessions` gives one line
  * `<socket>\t<created>\t<activity>\t<attached>` for its `main` session, or its first session if
  * there is no `main`. A name with anything outside [a-z0-9-] is skipped (it could break the line
  * format), and so is a socket whose server does not answer. Nothing is started, killed or
@@ -291,7 +291,7 @@ export function scanSocketsCommand(opts: { tmuxPath: string }): string {
   assertAbsolutePath(opts.tmuxPath);
   return remoteCommand(
     `t=${opts.tmuxPath}; d="\${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)"; [ -d "$d" ] || exit 0; n=0; ` +
-      `for f in "$d"/td-*; do [ -S "$f" ] || continue; s=\${f##*/}; ` +
+      `for f in "$d"/tv-*; do [ -S "$f" ] || continue; s=\${f##*/}; ` +
       `expr "x$s" : 'x[a-z0-9-]*$' >/dev/null || continue; ` +
       `l=$("$t" -L "$s" list-sessions -F '${SCAN_SESSION_FORMAT}' 2>/dev/null) || continue; ` +
       `m=$(printf '%s\\n' "$l" | grep '^1 ' | head -n 1); ` +

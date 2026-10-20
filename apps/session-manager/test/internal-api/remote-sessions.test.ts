@@ -6,9 +6,9 @@ import { readFileSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
 import { Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
-import type { TermdockDb } from '@termdock/db';
-import { ListRemoteSessionsResponse, type SessionSummary } from '@termdock/protocol';
-import { randomToken, uuidv7 } from '@termdock/shared';
+import type { TermavoxDb } from '@termavox/db';
+import { ListRemoteSessionsResponse, type SessionSummary } from '@termavox/protocol';
+import { randomToken, uuidv7 } from '@termavox/shared';
 import { pino } from 'pino';
 import ssh2 from 'ssh2';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -46,7 +46,7 @@ const PASSWORD = 'remote-secret';
 const TMUX = '/usr/bin/tmux';
 const PROBE = `shell=/bin/sh\ntmux_path=${TMUX}\ntmux_version=tmux 3.4\nutf8_locale=C.UTF-8\n`;
 const own = (token: string): string => tmuxSocketName(INSTALLATION_ID, token);
-const OTHER = 'td-zzzzzzzz-abcdefghijkl';
+const OTHER = 'tv-zzzzzzzz-abcdefghijkl';
 
 /** An SSH host that accepts one password and answers exec commands from a script. */
 async function startHost(): Promise<{
@@ -241,7 +241,7 @@ afterEach(async () => {
 
 /** A session row as session-manager writes them (state, end, socket) for the classification. */
 function insertSession(
-  db: TermdockDb,
+  db: TermavoxDb,
   opts: {
     userId: string;
     serverId: string | null;
@@ -260,7 +260,7 @@ function insertSession(
       `INSERT INTO sessions (id, user_id, server_id, target_kind, target_hostname, target_port,
          target_username, term, scrollback_lines, label, desired_state, state, status,
          protection_effective, tmux_token, tmux_socket, cols, rows, created_at, ended_at, end_reason)
-       VALUES (?, ?, ?, 'ssh', '127.0.0.1', ?, 'td', 'xterm-256color', 1000, ?, ?, ?, ?,
+       VALUES (?, ?, ?, 'ssh', '127.0.0.1', ?, 'tv', 'xterm-256color', 1000, ?, ?, ?, ?,
          'tmux-control', ?, ?, 80, 24, ?, ?, ?)`,
     )
     .run(
@@ -292,7 +292,7 @@ function script(
     if (command === scanSocketsCommand({ tmuxPath: TMUX })) {
       return { stdout: lines.map((l) => `${l}\n`).join(''), code: 0 };
     }
-    const socket = /(td-[a-z0-9]+-[a-z2-7]{12})/.exec(command)?.[1];
+    const socket = /(tv-[a-z0-9]+-[a-z2-7]{12})/.exec(command)?.[1];
     if (socket && command === serverAnswersCommand({ tmuxPath: TMUX, socket })) {
       return { code: opts.answers?.(socket) ?? 0 };
     }
@@ -324,7 +324,7 @@ const audits = (type: string) =>
   ).map((r) => ({ ...r, detail_json: JSON.parse(r.detail_json!) }));
 
 describe('POST /servers/:id/remote-sessions (list)', () => {
-  it('ends my old leftovers, lists unknown, other and failed ones; hides Termdock and foreign sessions', async () => {
+  it('ends my old leftovers, lists unknown, other and failed ones; hides Termavox and foreign sessions', async () => {
     const { db } = fixture;
     const minute = 60_000;
     const running = insertSession(db, { userId: userA, serverId: serverA });
@@ -357,7 +357,7 @@ describe('POST /servers/:id/remote-sessions (list)', () => {
     });
     insertSession(db, { userId: userA, serverId: serverA, tmuxSocket: OTHER }); // adopted
     const unknownToken = randomToken(12);
-    const otherInstall = 'td-qqqq9999-mnopqrstuvwx';
+    const otherInstall = 'tv-qqqq9999-mnopqrstuvwx';
     const { killed } = script(
       [
         scanLine(own(running.token)),
@@ -492,7 +492,7 @@ describe('POST /servers/:id/remote-sessions/terminate', () => {
   const terminate = (socket: string, actingUserId = userA, serverId = serverA) =>
     call('POST', `/servers/${serverId}/remote-sessions/terminate`, { actingUserId, socket });
 
-  it('refuses Termdock and foreign sessions (409) without connecting', async () => {
+  it('refuses Termavox and foreign sessions (409) without connecting', async () => {
     const { db } = fixture;
     const mine = insertSession(db, { userId: userA, serverId: serverA });
     const theirs = insertSession(db, { userId: userB, serverId: null });
@@ -507,7 +507,7 @@ describe('POST /servers/:id/remote-sessions/terminate', () => {
       expect(await terminate(socket)).toMatchObject({ status: 409, json: { code: 'CONFLICT' } });
     }
     expect(host.connections).toBe(0);
-    expect((await terminate('td-bad name')).status).toBe(400);
+    expect((await terminate('tv-bad name')).status).toBe(400);
     expect((await terminate(own(randomToken(12)), userB)).status).toBe(404);
   });
 
@@ -544,7 +544,7 @@ describe('POST /servers/:id/remote-sessions/terminate', () => {
     expect(audits('remote_session.terminated').map((a) => a.detail_json.origin)).toEqual(['ended']);
 
     // While the connection opened, a session of userB was adopted onto that socket: refused.
-    const contested = 'td-yyyy0000-abcdefghijkl';
+    const contested = 'tv-yyyy0000-abcdefghijkl';
     script([], {
       answers: () => {
         insertSession(db, { userId: userB, serverId: null, tmuxSocket: contested });
@@ -636,7 +636,7 @@ describe('POST /servers/:id/remote-sessions/adopt', () => {
     // Nothing on the host is touched by the route itself: the runtime attaches.
     expect(host.connections).toBe(0);
 
-    // The same socket again: it now belongs to a session that runs in Termdock.
+    // The same socket again: it now belongs to a session that runs in Termavox.
     expect(await adopt({ socket: OTHER })).toMatchObject({ status: 409 });
     // A label is cleaned like any session label.
     const unknown = own(randomToken(12));
@@ -667,7 +667,7 @@ describe('POST /servers/:id/remote-sessions/adopt', () => {
     const reopenInstead = await adopt({ socket: own(mineEnded.token) });
     expect(reopenInstead).toMatchObject({ status: 409 });
     expect(reopenInstead.json?.message).toMatch(/reopen/);
-    expect((await adopt({ socket: 'td-UPPER-abcdefghijkl' })).status).toBe(400);
+    expect((await adopt({ socket: 'tv-UPPER-abcdefghijkl' })).status).toBe(400);
     expect((await adopt({ socket: OTHER }, insertServer(db, userB))).status).toBe(404);
     expect(
       (await adopt({ socket: OTHER }, insertServer(db, userA, { kind: 'local' }))).status,

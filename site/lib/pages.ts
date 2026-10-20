@@ -51,7 +51,7 @@ function metaOf(html: string): { title: string; description: string } {
 function pageMeta(html: string, ctx: PageContext): PageMeta {
   const { title, description } = metaOf(html);
   const prefix = ctx.locale === 'en' ? '' : `${ctx.locale}/`;
-  const name = title.replace(/ · Termdock$/, '');
+  const name = title.replace(/ · Termavox$/, '');
   const docs: [string, string] = [CHROME[ctx.locale].docs, `${prefix}docs/index.html`];
   const page = ctx.path.replace(/^pt-BR\//, '');
   const trail: [string, string][] =

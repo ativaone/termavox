@@ -1,4 +1,4 @@
-import type { Protection, ProtectionMode, ProtectionNotice } from '@termdock/protocol';
+import type { Protection, ProtectionMode, ProtectionNotice } from '@termavox/protocol';
 import { type ProbeResult, tmuxVersionAtLeast } from '../probe/index.ts';
 
 export interface ProtectionChoice {

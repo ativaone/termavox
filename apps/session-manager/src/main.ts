@@ -10,7 +10,7 @@
  * clients are told the server is restarting), batched writer flush, DB close, lock release.
  */
 import type { AddressInfo } from 'node:net';
-import { migrateDb, openDb, type TermdockDb } from '@termdock/db';
+import { migrateDb, openDb, type TermavoxDb } from '@termavox/db';
 import pkg from '../package.json' with { type: 'json' };
 import { type DaemonConfig, loadDaemonConfig, readSecretFile } from './config/config.ts';
 import { createLogger, type Logger } from './config/logger.ts';
@@ -49,7 +49,7 @@ export interface DaemonOverrides {
 
 export interface Daemon {
   config: DaemonConfig;
-  db: TermdockDb;
+  db: TermavoxDb;
   writer: BatchedWriter;
   installationId: string;
   sessions: SqliteSessionStore;
@@ -57,7 +57,7 @@ export interface Daemon {
   credentials: CredentialService;
   plane: DataPlane;
   internalApi: InternalApi;
-  /** Audit and session-event purge (TERMDOCK_EVENT_RETENTION_DAYS). */
+  /** Audit and session-event purge (TERMAVOX_EVENT_RETENTION_DAYS). */
   retention: RetentionJob;
   wsAddress: AddressInfo;
   internalAddress: AddressInfo;
@@ -75,7 +75,7 @@ export async function startDaemon(
   const log = overrides.logger ?? createLogger(config.logLevel);
   // Held until the shutdown completes; a crash releases it with the process.
   const lock = lockDataDir(config.dbFile);
-  let db: TermdockDb;
+  let db: TermavoxDb;
   try {
     db = openDb(config.dbFile, { busyTimeoutMs: DAEMON_BUSY_TIMEOUT_MS });
   } catch (err) {
@@ -238,7 +238,7 @@ async function main(): Promise<void> {
   try {
     config = loadDaemonConfig();
   } catch (err) {
-    console.error(`termdock session-manager: ${(err as Error).message}`);
+    console.error(`termavox session-manager: ${(err as Error).message}`);
     process.exit(1);
   }
   const log = createLogger(config.logLevel);

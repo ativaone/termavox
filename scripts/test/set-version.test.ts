@@ -11,21 +11,21 @@ import {
 } from '../set-version.ts';
 
 const manifest = (version: string | null) =>
-  `{\n  "name": "@termdock/x",\n${version === null ? '' : `  "version": "${version}",\n`}  "private": true,\n  "dependencies": {\n    "y": "1.2.3"\n  },\n  "nested": {\n    "version": "9.9.9"\n  }\n}\n`;
+  `{\n  "name": "@termavox/x",\n${version === null ? '' : `  "version": "${version}",\n`}  "private": true,\n  "dependencies": {\n    "y": "1.2.3"\n  },\n  "nested": {\n    "version": "9.9.9"\n  }\n}\n`;
 
 const compose = (tags: Record<string, string>) =>
   [
     'services:',
     '  caddy:',
-    `    image: ghcr.io/ativaone/termdock-caddy:${tags.caddy}`,
+    `    image: ghcr.io/ativaone/termavox-caddy:${tags.caddy}`,
     '    build:',
     '      context: ..',
     '  web:',
-    `    image: ghcr.io/ativaone/termdock-web:${tags.web}`,
+    `    image: ghcr.io/ativaone/termavox-web:${tags.web}`,
     '  session-manager:',
-    `    image: ghcr.io/ativaone/termdock-session-manager:${tags['session-manager']}`,
+    `    image: ghcr.io/ativaone/termavox-session-manager:${tags['session-manager']}`,
     '  smoke:',
-    '    image: termdock-test-sshd:tmux-3.4',
+    '    image: termavox-test-sshd:tmux-3.4',
     '',
   ].join('\n');
 
@@ -79,18 +79,18 @@ describe('mismatch report', () => {
     expect(problems).toEqual([
       'package.json: no "version" field, expected "0.1.0"',
       'apps/web/package.json: version "0.0.0", expected "0.1.0"',
-      'deploy/compose.yaml: image ghcr.io/ativaone/termdock-web:0.0.9, expected tag 0.1.0',
+      'deploy/compose.yaml: image ghcr.io/ativaone/termavox-web:0.0.9, expected tag 0.1.0',
     ]);
   });
   it('reports a missing or duplicated image', () => {
     const text = compose(ALL)
-      .replace('termdock-caddy:0.0.0', 'termdock-web:0.0.0')
-      .replace('termdock-session-manager', 'termdock-other');
+      .replace('termavox-caddy:0.0.0', 'termavox-web:0.0.0')
+      .replace('termavox-session-manager', 'termavox-other');
     expect(mismatches({ manifests: new Map(), compose: text }, '0.0.0')).toEqual([
-      'deploy/compose.yaml: no image ghcr.io/ativaone/termdock-caddy:<version>',
-      'deploy/compose.yaml: image ghcr.io/ativaone/termdock-web appears 2 times',
-      'deploy/compose.yaml: no image ghcr.io/ativaone/termdock-session-manager:<version>',
-      'deploy/compose.yaml: unexpected image ghcr.io/ativaone/termdock-other',
+      'deploy/compose.yaml: no image ghcr.io/ativaone/termavox-caddy:<version>',
+      'deploy/compose.yaml: image ghcr.io/ativaone/termavox-web appears 2 times',
+      'deploy/compose.yaml: no image ghcr.io/ativaone/termavox-session-manager:<version>',
+      'deploy/compose.yaml: unexpected image ghcr.io/ativaone/termavox-other',
     ]);
   });
 });
@@ -107,7 +107,7 @@ describe('writing a version', () => {
       'web:0.1.0-rc.1',
       'session-manager:0.1.0-rc.1',
     ]);
-    expect(after.compose).toContain('image: termdock-test-sshd:tmux-3.4');
+    expect(after.compose).toContain('image: termavox-test-sshd:tmux-3.4');
     expect(mismatches(after, '0.1.0-rc.1')).toEqual([]);
     expect(applyVersion(after, '0.0.0')).toEqual(before);
   });

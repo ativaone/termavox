@@ -96,14 +96,14 @@ describe('sessions.tmux_socket (plan D-30)', () => {
     db.insert(schema.servers).values(server({})).run();
     db.insert(schema.sessions).values(session({})).run();
     db.insert(schema.sessions)
-      .values(session({ id: 'x2', tmuxSocket: 'td-zzzzzzzz-abcdefghijkl' }))
+      .values(session({ id: 'x2', tmuxSocket: 'tv-zzzzzzzz-abcdefghijkl' }))
       .run();
     const rows = db.$client
       .prepare('SELECT id, tmux_socket FROM sessions ORDER BY id')
       .all() as Array<{ id: string; tmux_socket: string | null }>;
     expect(rows).toEqual([
       { id: 'x1', tmux_socket: null },
-      { id: 'x2', tmux_socket: 'td-zzzzzzzz-abcdefghijkl' },
+      { id: 'x2', tmux_socket: 'tv-zzzzzzzz-abcdefghijkl' },
     ]);
   });
 });

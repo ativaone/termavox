@@ -1,4 +1,4 @@
-// T1, spike S4: flow control (core tmux images; TD_TMUX_IMAGES to override).
+// T1, spike S4: flow control (core tmux images; TV_TMUX_IMAGES to override).
 // The runtime stops reading the control channel during a `yes` flood (pauseOutput):
 //  - alone on the session, tmux stops reading the pane (the flood blocks): nothing is lost and the
 //    daemon reads nothing while paused; a %pause may still come if tmux holds blocks older than
@@ -6,7 +6,7 @@
 //  - with a second client keeping the pane busy, tmux pauses our pane (%pause) and discards its
 //    output; the driver sends continue + a snapshot batch on one line and rebuilds.
 // Either way the driver's state must end equal to tmux's and memory stays bounded. The logged
-// rebuilds run with a ~5k-line history (timings for ADR-0003). TD_S4_PAUSE_MS overrides the
+// rebuilds run with a ~5k-line history (timings for ADR-0003). TV_S4_PAUSE_MS overrides the
 // pause length.
 // Precondition: docker compose -f test/sshd/compose.yaml up -d --build
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -36,7 +36,7 @@ const IMAGES = selectedImages(['tmux-3.2a', 'tmux-edge']);
  * pause-after while tmux still has blocks to write (3.8 sometimes needed more than 2 s, and a
  * loaded machine more than one busy hold). */
 const PAUSE_MS = { alone: 2_000, busy: 3_500 };
-if (process.env.TD_S4_PAUSE_MS) PAUSE_MS.alone = PAUSE_MS.busy = Number(process.env.TD_S4_PAUSE_MS);
+if (process.env.TV_S4_PAUSE_MS) PAUSE_MS.alone = PAUSE_MS.busy = Number(process.env.TV_S4_PAUSE_MS);
 const enc = (s: string): Uint8Array => new TextEncoder().encode(s);
 /**
  * The flood: `yes` of a UTF-8 line (é中 + SGR reset) in batches of whole lines until `stopFlag`

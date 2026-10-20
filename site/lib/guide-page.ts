@@ -23,11 +23,11 @@ export function renderGuidePage(guide: Guide, markdown: string, alternate: strin
   return `<!doctype html>
 <html lang="en">
 <head>
-<title>${escapeHtml(doc.title)} · Termdock</title>
+<title>${escapeHtml(doc.title)} · Termavox</title>
 <meta name="description" content="${escapeHtml(doc.summary)}">
 ${head(ctx)}
 ${seoHead(path, {
-  title: `${doc.title} · Termdock`,
+  title: `${doc.title} · Termavox`,
   description: doc.summary,
   translation: null,
   kind: 'article',

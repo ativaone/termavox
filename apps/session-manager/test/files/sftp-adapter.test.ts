@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { ErrorCode, type TermdockError } from '@termdock/shared';
+import { ErrorCode, type TermavoxError } from '@termavox/shared';
 import type { SFTPWrapper } from 'ssh2';
 import { describe, expect, it } from 'vitest';
 import { HOST_TEXT_MAX } from '../../src/core/host-text.ts';
@@ -76,7 +76,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const codeOf = (promise: Promise<unknown>): Promise<string> =>
   promise.then(
     () => 'resolved',
-    (err: unknown) => (err as TermdockError).code,
+    (err: unknown) => (err as TermavoxError).code,
   );
 
 describe('opening the sftp subsystem', () => {
@@ -92,7 +92,7 @@ describe('opening the sftp subsystem', () => {
       'Received exit code 127 while establishing SFTP session',
       'Received unexpected SFTP session termination',
     ]) {
-      const err = (await opening((cb) => cb(new Error(message))).catch((e) => e)) as TermdockError;
+      const err = (await opening((cb) => cb(new Error(message))).catch((e) => e)) as TermavoxError;
       expect(err.code).toBe(ErrorCode.SftpUnavailable);
       expect(err.message).toContain(message);
     }

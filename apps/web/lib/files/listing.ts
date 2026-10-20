@@ -1,4 +1,4 @@
-import type { FileEntry } from '@termdock/protocol/client';
+import type { FileEntry } from '@termavox/protocol/client';
 
 /**
  * A listed folder as the panel shows it (plan §5.12): folders (and links to folders) first, then

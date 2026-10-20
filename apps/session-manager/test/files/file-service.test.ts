@@ -1,5 +1,5 @@
-import type { FileRequest, ServerMessage } from '@termdock/protocol';
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import type { FileRequest, ServerMessage } from '@termavox/protocol';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 import { describe, expect, it } from 'vitest';
 import { type FileHost, SftpError, SftpStatus } from '../../src/core/types.ts';
 import {
@@ -30,7 +30,7 @@ class FakeFileHost implements FileHost {
 
   async sftp(): Promise<MemorySftp> {
     if (!this.ready) {
-      throw new TermdockError(ErrorCode.SessionNotConnected, 'the session is not connected');
+      throw new TermavoxError(ErrorCode.SessionNotConnected, 'the session is not connected');
     }
     this.opens++;
     return this.fs;
@@ -96,7 +96,7 @@ function setup(options: { idleCloseMs?: number; tick?: number } = {}): Setup {
     code: (request, overrides) =>
       run(request, overrides).then(
         () => 'resolved',
-        (err: unknown) => (err as TermdockError).code,
+        (err: unknown) => (err as TermavoxError).code,
       ),
   };
 }
@@ -338,8 +338,8 @@ describe('file service audit', () => {
     );
     await until(() => s.host.fs.under('/data/sub').length < 25);
     abort.abort();
-    const err = await result.catch((e: unknown) => e as TermdockError);
-    expect((err as TermdockError).code).toBe(ErrorCode.Cancelled);
+    const err = await result.catch((e: unknown) => e as TermavoxError);
+    expect((err as TermavoxError).code).toBe(ErrorCode.Cancelled);
     const removed = 31 - s.host.fs.under('/data/sub').length;
     expect(s.audits).toHaveLength(1);
     expect(s.audits[0]!.detail).toEqual({ serverId: 'server-1', paths: ['/data/sub'], removed });

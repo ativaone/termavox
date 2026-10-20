@@ -302,7 +302,7 @@ describe('SSH target policy (L4)', () => {
       new SshTransport({
         host,
         port: 1, // never dialled
-        username: 'td',
+        username: 'tv',
         credential: null,
         verifyHostKey: () => 'trusted',
         targetPolicy: policy,
@@ -318,7 +318,7 @@ describe('SSH target policy (L4)', () => {
       const error = await new SshTransport({
         host: '127.0.0.1',
         port: 1,
-        username: 'td',
+        username: 'tv',
         credential: { kind: 'private_key', privateKey: 'not a private key' },
         verifyHostKey: () => 'trusted',
         targetPolicy: new TargetPolicy({ allowLocalTargets: true, localAddresses: () => [] }),

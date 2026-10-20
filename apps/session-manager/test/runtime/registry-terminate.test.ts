@@ -2,7 +2,7 @@
 // within the bound, races (a second terminate, Reopen, Retry, eviction pins), "End all
 // sessions", the process-wide cleanup limit, boot ending interrupted terminations, and daemon
 // shutdown during a cleanup.
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 import { describe, expect, it } from 'vitest';
 import { createDriverFactory } from '../../src/core/driver-factory.ts';
 import { REMOTE_CLEANUP_CONCURRENCY, SessionRegistry } from '../../src/core/session-registry.ts';
@@ -120,8 +120,8 @@ describe('registry terminate with a remote cleanup (plan D-30)', () => {
     store.add(offline('s1'));
     await registry.terminate('s1', USER);
     const refused = await registry.reopen('s1', USER).catch((err: unknown) => err);
-    expect(refused).toBeInstanceOf(TermdockError);
-    expect((refused as TermdockError).code).toBe(ErrorCode.Conflict);
+    expect(refused).toBeInstanceOf(TermavoxError);
+    expect((refused as TermavoxError).code).toBe(ErrorCode.Conflict);
     expect(registry.host('s1')?.state).toBe('terminating');
 
     // A cleanup that finishes while Reopen waits: Reopen goes ahead.

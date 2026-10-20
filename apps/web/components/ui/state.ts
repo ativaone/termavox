@@ -1,4 +1,4 @@
-import type { SessionStatus } from '@termdock/protocol/client';
+import type { SessionStatus } from '@termavox/protocol/client';
 
 /** State colour per user-facing status: the only place state colours are assigned. */
 export const STATE_FILL: Record<SessionStatus, string> = {

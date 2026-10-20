@@ -1,4 +1,4 @@
-import type { FileEntry } from '@termdock/protocol';
+import type { FileEntry } from '@termavox/protocol';
 import { describe, expect, it } from 'vitest';
 import {
   countKinds,
@@ -35,44 +35,44 @@ function entry(
 describe('file panel paths (plan §5.12)', () => {
   it('joins, normalizes and finds parents; the parent of / is /', () => {
     expect(joinPath('/', 'etc')).toBe('/etc');
-    expect(joinPath('/home/td', 'a b')).toBe('/home/td/a b');
-    expect(normalizePath('//home/./td/../td//app/')).toBe('/home/td/app');
+    expect(joinPath('/home/tv', 'a b')).toBe('/home/tv/a b');
+    expect(normalizePath('//home/./tv/../tv//app/')).toBe('/home/tv/app');
     expect(normalizePath('/../..')).toBe('/');
     expect(parentPath('/')).toBe('/');
     expect(parentPath('/etc')).toBe('/');
-    expect(parentPath('/home/td/app')).toBe('/home/td');
-    expect(baseName('/home/td/app')).toBe('app');
+    expect(parentPath('/home/tv/app')).toBe('/home/tv');
+    expect(baseName('/home/tv/app')).toBe('app');
     expect(baseName('/')).toBe('/');
   });
 
   it('builds breadcrumbs from home inside it and from / elsewhere', () => {
-    expect(breadcrumbs('/home/td/app/releases', '/home/td')).toEqual([
-      { kind: 'home', name: '~', path: '/home/td' },
-      { kind: 'dir', name: 'app', path: '/home/td/app' },
-      { kind: 'dir', name: 'releases', path: '/home/td/app/releases' },
+    expect(breadcrumbs('/home/tv/app/releases', '/home/tv')).toEqual([
+      { kind: 'home', name: '~', path: '/home/tv' },
+      { kind: 'dir', name: 'app', path: '/home/tv/app' },
+      { kind: 'dir', name: 'releases', path: '/home/tv/app/releases' },
     ]);
-    expect(breadcrumbs('/home/td', '/home/td')).toEqual([
-      { kind: 'home', name: '~', path: '/home/td' },
+    expect(breadcrumbs('/home/tv', '/home/tv')).toEqual([
+      { kind: 'home', name: '~', path: '/home/tv' },
     ]);
     // A sibling whose name starts like home is not inside it.
-    expect(breadcrumbs('/home/td2', '/home/td').map((c) => c.path)).toEqual([
+    expect(breadcrumbs('/home/tv2', '/home/tv').map((c) => c.path)).toEqual([
       '/',
       '/home',
-      '/home/td2',
+      '/home/tv2',
     ]);
-    expect(breadcrumbs('/', '/home/td')).toEqual([{ kind: 'root', name: '/', path: '/' }]);
+    expect(breadcrumbs('/', '/home/tv')).toEqual([{ kind: 'root', name: '/', path: '/' }]);
     // root's home (/) never replaces the root segment
     expect(breadcrumbs('/var/log', '/')[0]).toEqual({ kind: 'root', name: '/', path: '/' });
     expect(breadcrumbs('/var/log', null).map((c) => c.name)).toEqual(['/', 'var', 'log']);
   });
 
   it('resolves what is typed in the path bar', () => {
-    const at = { current: '/home/td/app', home: '/home/td' };
+    const at = { current: '/home/tv/app', home: '/home/tv' };
     expect(resolvePathInput('  /etc/nginx/ ', at)).toBe('/etc/nginx');
-    expect(resolvePathInput('~', at)).toBe('/home/td');
-    expect(resolvePathInput('~/logs', at)).toBe('/home/td/logs');
-    expect(resolvePathInput('releases/../shared', at)).toBe('/home/td/app/shared');
-    expect(resolvePathInput('..', at)).toBe('/home/td');
+    expect(resolvePathInput('~', at)).toBe('/home/tv');
+    expect(resolvePathInput('~/logs', at)).toBe('/home/tv/logs');
+    expect(resolvePathInput('releases/../shared', at)).toBe('/home/tv/app/shared');
+    expect(resolvePathInput('..', at)).toBe('/home/tv');
     expect(resolvePathInput('', at)).toBeNull();
     expect(resolvePathInput('a\0b', at)).toBeNull();
     expect(resolvePathInput('~', { current: '/', home: null })).toBeNull();

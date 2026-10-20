@@ -17,7 +17,7 @@ import {
 
 export const REBUILD_FIXTURE_DIR = fileURLToPath(new URL('../fixtures/tmux/', import.meta.url));
 export const REBUILD_IMAGES = ['tmux-3.2a', 'tmux-3.4', 'tmux-edge'] as const;
-const SENTINEL = / ; display-message -p '(td-[a-z2-7]+)'$/;
+const SENTINEL = / ; display-message -p '(tv-[a-z2-7]+)'$/;
 
 export interface RebuildScenarioMeta {
   name: string;

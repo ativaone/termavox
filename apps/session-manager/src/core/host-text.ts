@@ -1,4 +1,4 @@
-import { isControlChar, isInvisibleFormatChar } from '@termdock/protocol';
+import { isControlChar, isInvisibleFormatChar } from '@termavox/protocol';
 
 /**
  * Text a remote host decides (tmux replies, SFTP server messages) made safe before it reaches an

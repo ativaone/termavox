@@ -1,4 +1,4 @@
-# Termdock
+# Termavox
 
 - Everything in the repository is in English: code, comments, docs and commit messages. The
   pt-BR UI catalog and the site's pt-BR pages are the translations that ship.
@@ -24,12 +24,12 @@
   (daemon, web terminal) `pnpm exec vitest run --project t1 <path>`. They need the test sshd
   containers (`docker compose -f test/sshd/compose.yaml up -d --build`, and `down` after).
   `pnpm test:release` runs before a release.
-- `deploy/compose.yaml` pins the compose project name `termdock`: `docker compose -f
+- `deploy/compose.yaml` pins the compose project name `termavox`: `docker compose -f
   deploy/compose.yaml` without `-p` acts on the machine's real install. Test stacks pass
-  `-p termdock-smoke` or use `test/sshd/compose.yaml` (project `termdock-sshd`).
+  `-p termavox-smoke` or use `test/sshd/compose.yaml` (project `termavox-sshd`).
 - Migrations are append-only: add one with `drizzle-kit generate`, never edit or regenerate an
   applied one. D-29's fresh `0000_init` was a one-off, before any install held data.
-- In apps/web server code, match errors with `isTermdockError` / `isInternalApiError`, never
+- In apps/web server code, match errors with `isTermavoxError` / `isInternalApiError`, never
   `instanceof` alone: the auth runtime built in `instrumentation.ts` is another bundle layer with
   its own copies of the classes (a wrong setup token crashed `/setup` this way, only in the built
   app).

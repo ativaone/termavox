@@ -4,15 +4,15 @@ import icon512 from './_icons/icon-512.png';
 import maskable512 from './_icons/maskable-512.png';
 
 /**
- * The web app manifest: what a browser uses to pin or install Termdock as an app (Firefox's
+ * The web app manifest: what a browser uses to pin or install Termavox as an app (Firefox's
  * "Add tab to taskbar" reads its icons first and shows a globe without one). The PNGs are
  * rendered from icon.svg (the maskable one full bleed, for launchers that crop to a shape).
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: '/',
-    name: 'Termdock',
-    short_name: 'Termdock',
+    name: 'Termavox',
+    short_name: 'Termavox',
     description: 'Persistent terminal sessions in the browser.',
     start_url: '/',
     scope: '/',

@@ -8,7 +8,7 @@
  * generated temporary password, a forced change at the next sign-in, every sign-in of the user
  * ended and their open WebSockets closed (through the internal API, best effort), and an
  * `auth.password_reset` audit row, here without an actor. `--reset-totp` also does what an
- * admin's TOTP reset does (resetTotp in @termdock/db, audited as `auth.totp_reset`), for a user
+ * admin's TOTP reset does (resetTotp in @termavox/db, audited as `auth.totp_reset`), for a user
  * who lost their authenticator and their backup codes too. It runs next to the running stack:
  * deploy/scripts/reset-password.sh runs it in the session-manager container. The temporary
  * password is printed once, on stdout, and nowhere else.
@@ -16,9 +16,9 @@
 import { existsSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { openDb, resetTotp } from '@termdock/db';
-import { INTERNAL_API_PREFIX } from '@termdock/protocol';
-import { hashPassword, randomToken } from '@termdock/shared';
+import { openDb, resetTotp } from '@termavox/db';
+import { INTERNAL_API_PREFIX } from '@termavox/protocol';
+import { hashPassword, randomToken } from '@termavox/shared';
 import { readSecretFile } from '../config/config.ts';
 import { insertAudit } from '../store/audit.ts';
 import { allRows, execute, getRow, type Sqlite } from '../store/sqlite.ts';
@@ -41,7 +41,7 @@ on the user's admin page.
 
   --reset-totp      also remove the user's TOTP (authenticator, backup codes, trusted devices),
                     for a lost authenticator; they set it up again when it is required
-  --data-dir <dir>  the directory holding app.db (default: $TERMDOCK_DATA_DIR, else /data)
+  --data-dir <dir>  the directory holding app.db (default: $TERMAVOX_DATA_DIR, else /data)
   -h, --help        show this help
 
 Exit status: 0 done, 1 refused or failed (nothing changed), 2 bad arguments, 70 unexpected error.`;
@@ -193,12 +193,12 @@ export async function closeConnectionsViaInternalApi(
   env: NodeJS.ProcessEnv,
   userId: string,
 ): Promise<boolean> {
-  const tokenFile = env.TERMDOCK_INTERNAL_TOKEN_FILE;
+  const tokenFile = env.TERMAVOX_INTERNAL_TOKEN_FILE;
   if (!tokenFile) return false;
   try {
     const token = new TextDecoder().decode(await readSecretFile(tokenFile));
-    const host = env.TERMDOCK_INTERNAL_HOST || '127.0.0.1';
-    const port = env.TERMDOCK_INTERNAL_PORT || '3002';
+    const host = env.TERMAVOX_INTERNAL_HOST || '127.0.0.1';
+    const port = env.TERMAVOX_INTERNAL_PORT || '3002';
     const res = await fetch(`http://${host}:${port}${INTERNAL_API_PREFIX}/auth-sessions/revoke`, {
       method: 'POST',
       headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
@@ -259,7 +259,7 @@ export async function runResetPassword(
     return EXIT.usage;
   }
   const base = io.env.INIT_CWD || io.cwd;
-  const rawDir = values['data-dir'] ?? io.env.TERMDOCK_DATA_DIR ?? '/data';
+  const rawDir = values['data-dir'] ?? io.env.TERMAVOX_DATA_DIR ?? '/data';
   const dbFile = join(isAbsolute(rawDir) ? rawDir : resolve(base, rawDir), 'app.db');
   // openDb would create an empty database at a mistyped path.
   if (!existsSync(dbFile)) {
@@ -291,7 +291,7 @@ export async function runResetPassword(
   io.out(`reset-password: ${result.username} (${result.role})`);
   io.out(`temporary password: ${password}`);
   io.out('');
-  io.out('Sign in with it: Termdock then asks for a new password.');
+  io.out('Sign in with it: Termavox then asks for a new password.');
   io.out(
     `${result.signInsEnded} sign-in${result.signInsEnded === 1 ? '' : 's'} ended; ` +
       (closed

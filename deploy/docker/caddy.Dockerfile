@@ -1,4 +1,4 @@
-# Termdock edge proxy: the official Caddy image, run as a non-root user, with the Termdock
+# Termavox edge proxy: the official Caddy image, run as a non-root user, with the Termavox
 # Caddyfile baked in. Build context: the repository root.
 #   docker compose -f deploy/compose.yaml build caddy
 #

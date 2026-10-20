@@ -2,7 +2,7 @@
 // one-shot remote cleanup, its failures (the session ends anyway, `remoteCleanup: 'pending'`),
 // host keys failing closed, no prompt ever, shutdown during the cleanup; the adopted session's
 // socket and `adopt_target_gone`; the background sweep hook after ready.
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 import { describe, expect, it, vi } from 'vitest';
 import type { RemoteSweeper } from '../../src/core/remote-sessions.ts';
 import { type SessionRecord, TransportError } from '../../src/core/types.ts';
@@ -20,7 +20,7 @@ import {
 
 const SID = 'session-1';
 /** `installationId: 'install-1'` (harness) → prefix `install1`; makeRecord's token. */
-const SOCKET = 'td-install1-abcdefghijkl';
+const SOCKET = 'tv-install1-abcdefghijkl';
 const KILL = killServerCommand({ tmuxPath: '/usr/bin/tmux', socket: SOCKET });
 
 /** A tmux-protected session that is not connected (waiting to reconnect), tmux path stored. */
@@ -93,7 +93,7 @@ describe('terminate while not connected (plan D-30)', () => {
   });
 
   it('an adopted session ends the tmux server it was adopted from', async () => {
-    const adopted = 'td-zzzzzzzz-mnopqrstuvwx';
+    const adopted = 'tv-zzzzzzzz-mnopqrstuvwx';
     const h = harness({ record: { ...OFFLINE, tmuxSocket: adopted }, behavior: killing() });
     await h.runtime().terminate();
     expect(h.factory.last.commands).toEqual([
@@ -136,7 +136,7 @@ describe('terminate while not connected (plan D-30)', () => {
       behavior: () => ({
         connect: async (hooks) => {
           hooks.onHostKey({ ...TEST_KEY }, 'unknown');
-          throw new TermdockError(ErrorCode.HostKeyRejected, 'unknown host key', {
+          throw new TermavoxError(ErrorCode.HostKeyRejected, 'unknown host key', {
             pending: { ...TEST_KEY },
           });
         },
@@ -166,7 +166,7 @@ describe('terminate while not connected (plan D-30)', () => {
               prompts: [{ text: 'OTP: ', echo: false }],
             }),
           );
-          throw new TermdockError(ErrorCode.AuthTimeout, 'keyboard-interactive prompt expired');
+          throw new TermavoxError(ErrorCode.AuthTimeout, 'keyboard-interactive prompt expired');
         },
       }),
     });
@@ -274,7 +274,7 @@ describe('adopted sessions and the sweep hook (plan D-30)', () => {
         record: {
           protection: 'tmux-control',
           lastReadyAt: 5,
-          tmuxSocket: 'td-zzzzzzzz-abcdefghijkl',
+          tmuxSocket: 'tv-zzzzzzzz-abcdefghijkl',
         },
         behavior: () => ({ probe: TMUX_PROBE }),
         drivers: fakeTmuxDrivers(async (_ctx, opts) => {
@@ -286,7 +286,7 @@ describe('adopted sessions and the sweep hook (plan D-30)', () => {
       const rt = h.runtime();
       await rt.start();
       expect(rt.state).toBe('ready');
-      expect(seen).toEqual(['td-zzzzzzzz-abcdefghijkl']);
+      expect(seen).toEqual(['tv-zzzzzzzz-abcdefghijkl']);
       // Status said Restoring, not Connecting, on the way (lastReadyAt was set).
       expect(h.notifier.ofType('session.status')[0]?.status).toBe('restoring');
       expect(h.store.events.some((e) => e.type === 'adopt_target_gone')).toBe(created);
@@ -316,7 +316,7 @@ describe('adopted sessions and the sweep hook (plan D-30)', () => {
         serverId: 'server-1',
         hostname: '127.0.0.1',
         port: 22,
-        username: 'td',
+        username: 'tv',
       },
       tmuxPath: '/usr/bin/tmux',
     });

@@ -4,8 +4,8 @@ import {
   type FileResult,
   type ServerMessage,
   signTicket,
-} from '@termdock/protocol';
-import { ErrorCode, TermdockError } from '@termdock/shared';
+} from '@termavox/protocol';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { encodeChannelMessage } from '../../src/attachments/wire.ts';
 import type { AttachmentHandle, Dimensions, SessionHost } from '../../src/core/types.ts';
@@ -14,7 +14,7 @@ import type { FileGateway, FileRequestContext, SessionGateway } from '../../src/
 import { until } from '../runtime/fakes.ts';
 import { TestClient } from '../ws/client.ts';
 
-const ORIGIN = 'https://termdock.test';
+const ORIGIN = 'https://termavox.test';
 const SECRET = new TextEncoder().encode('test-secret-test-secret-test-secret!');
 
 class FakeHost implements SessionHost {
@@ -62,7 +62,7 @@ class FakeFiles implements FileGateway {
         resolve({ op: 'list', path: '/', entries: [], truncated: false }),
       );
       context.signal.addEventListener('abort', () =>
-        reject(new TermdockError(ErrorCode.Cancelled, 'cancelled')),
+        reject(new TermavoxError(ErrorCode.Cancelled, 'cancelled')),
       );
     });
   }

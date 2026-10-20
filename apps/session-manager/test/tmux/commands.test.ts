@@ -50,7 +50,7 @@ function sh(script: string, env: Record<string, string> = {}): string {
   return result.stdout;
 }
 
-const work = mkdtempSync(join(tmpdir(), 'td-commands-test-'));
+const work = mkdtempSync(join(tmpdir(), 'tv-commands-test-'));
 afterAll(() => rmSync(work, { recursive: true, force: true }));
 
 /** A fake executable that prints its argv NUL-separated. */
@@ -90,7 +90,7 @@ function tmuxCommands(argv: string[]): string[][] {
 
 const LAUNCH: LaunchOptions = {
   tmuxPath: '/usr/bin/tmux',
-  socket: 'td-1a2b3c4d-k3j9x2m8q0wz',
+  socket: 'tv-1a2b3c4d-k3j9x2m8q0wz',
   locale: 'C.UTF-8',
   historyLimit: 10000,
   defaultTerminal: 'tmux-256color',
@@ -129,12 +129,12 @@ describe('shQuote', () => {
 describe('launch command', () => {
   it('produces the documented script', () => {
     expect(launchScript(LAUNCH)).toBe(
-      'export LC_CTYPE=C.UTF-8; exec /usr/bin/tmux -u -L td-1a2b3c4d-k3j9x2m8q0wz -f /dev/null -C ' +
+      'export LC_CTYPE=C.UTF-8; exec /usr/bin/tmux -u -L tv-1a2b3c4d-k3j9x2m8q0wz -f /dev/null -C ' +
         'start-server \\; set-option -g history-limit 10000 \\; ' +
         'set-option -g default-terminal tmux-256color \\; set-option -g aggressive-resize off \\; ' +
         'set-option -g detach-on-destroy on \\; set-option -g window-size latest \\; ' +
         'set-option -g status off \\; set-option -gqw scroll-on-clear off \\; ' +
-        'new-session -A -P -F td-created -s main -x 120 -y 40 -e EDITOR=vim ' +
+        'new-session -A -P -F tv-created -s main -x 120 -y 40 -e EDITOR=vim ' +
         '\'exec env -u TMUX -u TMUX_PANE "$SHELL" -l\'',
     );
     expect(launchCommands(LAUNCH)).toHaveLength(9); // one flags-0 reply block each
@@ -145,7 +145,7 @@ describe('launch command', () => {
     const command = launchCommand({
       ...LAUNCH,
       tmuxPath: fakeArgvPrinter('tmux'),
-      env: { EDITOR: 'vim', TD_X: "a 'b' \\c $d" },
+      env: { EDITOR: 'vim', TV_X: "a 'b' \\c $d" },
       startupCommand: startup,
     });
     expect(argvOf(sh(command))).toEqual([
@@ -157,8 +157,8 @@ describe('launch command', () => {
       ...['set-option', '-g', 'window-size', 'latest', ';'],
       ...['set-option', '-g', 'status', 'off', ';'],
       ...['set-option', '-gqw', 'scroll-on-clear', 'off', ';'],
-      ...['new-session', '-A', '-P', '-F', 'td-created', '-s', 'main', '-x', '120', '-y', '40'],
-      ...['-e', 'EDITOR=vim', '-e', "TD_X=a 'b' \\c $d"],
+      ...['new-session', '-A', '-P', '-F', 'tv-created', '-s', 'main', '-x', '120', '-y', '40'],
+      ...['-e', 'EDITOR=vim', '-e', "TV_X=a 'b' \\c $d"],
       // The pane command reaches tmux as ONE argument (else tmux would exec `exec` as a program).
       `exec env -u TMUX -u TMUX_PANE "$SHELL" -lc ${shQuote(startup)}`,
     ]);
@@ -184,7 +184,7 @@ describe('launch command', () => {
   it('rejects unsafe inputs instead of quoting them', () => {
     expect(() => launchScript({ ...LAUNCH, tmuxPath: 'tmux' })).toThrow(RangeError);
     expect(() => launchScript({ ...LAUNCH, tmuxPath: '/opt/my tmux' })).toThrow(RangeError);
-    expect(() => launchScript({ ...LAUNCH, socket: 'TD;rm' })).toThrow(RangeError);
+    expect(() => launchScript({ ...LAUNCH, socket: 'TV;rm' })).toThrow(RangeError);
     expect(() => launchScript({ ...LAUNCH, locale: "C.UTF-8'" })).toThrow(RangeError);
     expect(() => launchScript({ ...LAUNCH, env: { 'BAD-KEY': 'x' } })).toThrow(RangeError);
     expect(() => launchScript({ ...LAUNCH, cols: 0 })).toThrow(RangeError);
@@ -195,20 +195,20 @@ describe('launch command', () => {
     const refused: Array<Partial<LaunchOptions>> = [
       { startupCommand: 'a\nb' },
       { startupCommand: 'a\rb' },
-      { env: { TD_X: 'line\nbreak' } },
-      { env: { TD_X: 'nul\0byte' } },
+      { env: { TV_X: 'line\nbreak' } },
+      { env: { TV_X: 'nul\0byte' } },
       { env: { 'BAD-KEY': 'x' } },
       { tmuxPath: '/usr/bin/tmux;id' },
       { tmuxPath: 'relative/tmux' },
       { locale: 'C.UTF-8\nX' },
-      { socket: 'TD;rm' },
+      { socket: 'TV;rm' },
     ];
     for (const value of refused) {
       expect(() => launchCommand({ ...LAUNCH, ...value })).toThrow(BadLaunchParamsError);
     }
     const error = (() => {
       try {
-        launchCommand({ ...LAUNCH, env: { TD_X: 'a\nb' } });
+        launchCommand({ ...LAUNCH, env: { TV_X: 'a\nb' } });
       } catch (err) {
         return err;
       }
@@ -226,14 +226,14 @@ describe('launch command', () => {
     expect(tmuxArg('a\\;')).toBe('a\\\\;');
     expect(tmuxArg('a;b')).toBe('a;b');
 
-    const env = { TD_SEMI: 'value;', TD_ESCAPED: 'x\\;', TD_BARE: ';', TD_MID: 'a;b' };
+    const env = { TV_SEMI: 'value;', TV_ESCAPED: 'x\\;', TV_BARE: ';', TV_MID: 'a;b' };
     const argv = argvOf(sh(launchCommand({ ...LAUNCH, tmuxPath: fakeArgvPrinter('tmux'), env })));
     const commands = tmuxCommands(argv);
     expect(commands).toHaveLength(launchCommands({ ...LAUNCH, env }).length);
     const newSession = commands.at(-1)!;
     expect(newSession[0]).toBe('new-session');
     const values = newSession.flatMap((arg, i) => (newSession[i - 1] === '-e' ? [arg] : []));
-    expect(values).toEqual(['TD_SEMI=value;', 'TD_ESCAPED=x\\;', 'TD_BARE=;', 'TD_MID=a;b']);
+    expect(values).toEqual(['TV_SEMI=value;', 'TV_ESCAPED=x\\;', 'TV_BARE=;', 'TV_MID=a;b']);
     // The pane command stays one argument, untouched.
     expect(newSession.at(-1)).toBe('exec env -u TMUX -u TMUX_PANE "$SHELL" -l');
   });
@@ -242,7 +242,7 @@ describe('launch command', () => {
 describe('control commands', () => {
   it('builds the documented commands', () => {
     expect(hasSessionCommand(LAUNCH)).toBe(
-      "exec sh -c 'exec /usr/bin/tmux -L td-1a2b3c4d-k3j9x2m8q0wz has-session -t main'",
+      "exec sh -c 'exec /usr/bin/tmux -L tv-1a2b3c4d-k3j9x2m8q0wz has-session -t main'",
     );
     expect(refreshClientSize(100, 30)).toBe('refresh-client -C 100x30');
     expect(refreshClientPauseAfter(5)).toBe('refresh-client -f pause-after=5');

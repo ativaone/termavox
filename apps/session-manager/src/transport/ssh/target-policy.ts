@@ -1,7 +1,7 @@
 import { promises as dns, type LookupAddress, type LookupOptions } from 'node:dns';
 import { isIP, type LookupFunction } from 'node:net';
 import { networkInterfaces } from 'node:os';
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 
 /**
  * SSH target policy (plan §10.2). Users choose the hosts the daemon connects to, so by default
@@ -9,7 +9,7 @@ import { ErrorCode, TermdockError } from '@termdock/shared';
  * link-local (cloud metadata services live there), unspecified, multicast, and the daemon's
  * own interface addresses. Private LAN ranges (10/8, 172.16/12, 192.168/16, fc00::/7), and so
  * the Docker host gateway behind `host.docker.internal`, stay allowed: self-hosters target
- * their LAN. `TERMDOCK_SSH_ALLOW_LOCAL_TARGETS=true` allows everything.
+ * their LAN. `TERMAVOX_SSH_ALLOW_LOCAL_TARGETS=true` allows everything.
  */
 export type TargetDenial = 'loopback' | 'link_local' | 'unspecified' | 'multicast' | 'own_address';
 
@@ -17,7 +17,7 @@ export type TargetDenial = 'loopback' | 'link_local' | 'unspecified' | 'multicas
 export type ResolveAll = (hostname: string, options: LookupOptions) => Promise<LookupAddress[]>;
 
 export interface TargetPolicyOptions {
-  /** TERMDOCK_SSH_ALLOW_LOCAL_TARGETS. */
+  /** TERMAVOX_SSH_ALLOW_LOCAL_TARGETS. */
   allowLocalTargets: boolean;
   /** Default: `dns.lookup(hostname, { all: true })`. */
   resolve?: ResolveAll;
@@ -172,8 +172,8 @@ export class TargetPolicy {
   };
 }
 
-function notAllowed(host: string, denial: TargetDenial): TermdockError {
-  return new TermdockError(
+function notAllowed(host: string, denial: TargetDenial): TermavoxError {
+  return new TermavoxError(
     ErrorCode.TargetNotAllowed,
     `SSH target ${host} is not allowed (${denial.replace('_', ' ')} address)`,
     { denial },

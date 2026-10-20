@@ -1,12 +1,12 @@
 <div align="center">
 
-# Termdock
+# Termavox
 
-**Your terminals, docked. Close the browser, come back anywhere, and pick up exactly where you left off.**
+**Your terminals, always on. Close the browser, come back anywhere, and pick up exactly where you left off.**
 
 A self-hosted, persistent terminal-session runtime for SSH, accessible from the web.
 
-**[Website and documentation](https://ativaone.github.io/termdock)** · [Help](https://ativaone.github.io/termdock/docs/help/) · [Ajuda em português](https://ativaone.github.io/termdock/pt-BR/docs/help/)
+**[Website and documentation](https://ativaone.github.io/termavox)** · [Help](https://ativaone.github.io/termavox/docs/help/) · [Ajuda em português](https://ativaone.github.io/termavox/pt-BR/docs/help/)
 
 [![Status: v0.1.0 release candidate](https://img.shields.io/badge/status-v0.1.0_release_candidate-yellow)](#status-and-roadmap)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
@@ -27,7 +27,7 @@ A self-hosted, persistent terminal-session runtime for SSH, accessible from the 
 ---
 
 <p align="center">
-  <a href="docs/screenshots/README.md"><img src="docs/screenshots/workspace.png" alt="The Termdock workspace: named sessions on the left, a live shell on the right" width="900"></a>
+  <a href="docs/screenshots/README.md"><img src="docs/screenshots/workspace.png" alt="The Termavox workspace: named sessions on the left, a live shell on the right" width="900"></a>
 </p>
 
 <details>
@@ -49,22 +49,22 @@ All screens, with notes: [docs/screenshots](docs/screenshots/README.md).
 
 ## The idea
 
-In most web SSH tools, the browser tab **is** the session: close the laptop or lose Wi-Fi, and the connection dies with it. Termdock flips that around.
+In most web SSH tools, the browser tab **is** the session: close the laptop or lose Wi-Fi, and the connection dies with it. Termavox flips that around.
 
 > **The browser lifecycle is not the terminal lifecycle.**
 
-Termdock runs on a server you control and holds your SSH sessions open **on the server side**, indefinitely, until you decide to end them. Browsers only *attach* and *detach*. When you come back, from the same laptop, another computer or your phone, every terminal is exactly as you left it. You get the same screen, cursor, colors and scrollback, with `vim` or `htop` still running.
+Termavox runs on a server you control and holds your SSH sessions open **on the server side**, indefinitely, until you decide to end them. Browsers only *attach* and *detach*. When you come back, from the same laptop, another computer or your phone, every terminal is exactly as you left it. You get the same screen, cursor, colors and scrollback, with `vim` or `htop` still running.
 
 Think of it as tmux, but the "client" is any browser, the sessions live in a service rather than in a terminal window, and you never have to type `tmux attach` again.
 
 ## Why it is different
 
-| What happens… | Typical web SSH | Termdock |
+| What happens… | Typical web SSH | Termavox |
 |---|---|---|
 | You close the browser tab | The SSH session dies | Nothing; the session keeps running |
 | You reopen it on another device | You start over | Same screen, instantly, including full-screen apps |
 | Your Wi-Fi drops for a minute | The session is lost | It reconnects behind the scenes; the shell never noticed |
-| The Termdock service restarts | — | Protected sessions come back as they were ("Restoring…") |
+| The Termavox service restarts | — | Protected sessions come back as they were ("Restoring…") |
 | Two devices open the same session | Usually not supported | Both attach; the one you are typing on sets the size |
 
 ## How it works
@@ -74,7 +74,7 @@ flowchart LR
   subgraph B["Any browser · laptop or phone"]
     V["xterm.js view<br/>(renderer + keyboard)"]
   end
-  subgraph T["Termdock · self-hosted"]
+  subgraph T["Termavox · self-hosted"]
     W["web<br/>Next.js control plane<br/>users · servers · login + TOTP"]
     S["session-manager<br/>Node.js data plane<br/>authoritative terminal emulators"]
   end
@@ -90,7 +90,7 @@ flowchart LR
 Three ideas carry the design:
 
 1. **A terminal emulator lives on the server.** For every session, `session-manager` keeps an authoritative [`@xterm/headless`](https://github.com/xtermjs/xterm.js) instance fed with the raw SSH output. When a browser attaches, it receives a serialized **snapshot** of that state followed by the live byte stream, so it renders an exact copy, alternate screen and terminal modes included.
-2. **tmux protects sessions, and you never see it.** Every SSH session automatically runs inside a dedicated remote tmux server, driven through tmux's **control mode** (the same technique as iTerm2's tmux integration). tmux draws nothing: no status bar, no prefix key, and scrollback stays normal. If the network drops or Termdock restarts, it reattaches and rebuilds the screen and history from tmux. Servers without tmux still work; the session is simply marked as *not protected*.
+2. **tmux protects sessions, and you never see it.** Every SSH session automatically runs inside a dedicated remote tmux server, driven through tmux's **control mode** (the same technique as iTerm2's tmux integration). tmux draws nothing: no status bar, no prefix key, and scrollback stays normal. If the network drops or Termavox restarts, it reattaches and rebuilds the screen and history from tmux. Servers without tmux still work; the session is simply marked as *not protected*.
 3. **Sessions are owned by the service, not the browser.** The web app (control plane) manages users, servers, credentials and layout. The session-manager (data plane) owns connections, emulators and reconnection. Deploying a new web version never drops a terminal.
 
 ## Features (v0.1 goals)
@@ -107,14 +107,14 @@ Three ideas carry the design:
   - Login uses username/password plus optional TOTP, with rate limits.
   - Audit logs record session and security events.
 - 🔑 **SSH authentication** with private keys (with passphrase), passwords, and keyboard-interactive prompts (OTP/2FA) relayed to your browser.
-- 🏠 **Local modes**: the "This Docker host" preset (available) adds the machine running Termdock as an SSH host; direct mode, a local shell without SSH, is on the roadmap.
+- 🏠 **Local modes**: the "This Docker host" preset (available) adds the machine running Termavox as an SSH host; direct mode, a local shell without SSH, is on the roadmap.
 - 🌍 **English and Brazilian Portuguese** UI.
 - 🐳 **One-command deployment** with Docker Compose and Caddy (automatic HTTPS).
 
 ## Status and roadmap
 
 > [!WARNING]
-> **v0.1.0 is the first supported release**: internally reviewed twice, not externally audited. Read the [security model](docs/security.md) before you expose it to the internet or use it with production servers. Release candidates come first, for testing, on the [releases page](https://github.com/ativaone/termdock/releases).
+> **v0.1.0 is the first supported release**: internally reviewed twice, not externally audited. Read the [security model](docs/security.md) before you expose it to the internet or use it with production servers. Release candidates come first, for testing, on the [releases page](https://github.com/ativaone/termavox/releases).
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -149,7 +149,7 @@ The full plan, with architecture, protocol, data model, security model and per-p
 Three containers behind a single origin: **Caddy** (TLS), **web** and **session-manager**, from images each release publishes for `linux/amd64` and `linux/arm64`. You need **Docker** with Compose v2 on a Linux host.
 
 ```bash
-git clone https://github.com/ativaone/termdock.git && cd termdock
+git clone https://github.com/ativaone/termavox.git && cd termavox
 git checkout v0.1.0                                  # the release to install (see Releases)
 deploy/scripts/init-secrets.sh                       # generate the secrets; back up deploy/secrets/master_key
 docker compose -f deploy/compose.yaml pull           # the release's images from ghcr.io
@@ -198,12 +198,12 @@ docs/                guides, security model, architecture overview, implementati
 
 ## Documentation
 
-The guides below are also published on the [project site](https://ativaone.github.io/termdock/docs/), rendered from these files at every change, next to the user help.
+The guides below are also published on the [project site](https://ativaone.github.io/termavox/docs/), rendered from these files at every change, next to the user help.
 
 | Document | What it covers |
 |---|---|
-| [User help](https://ativaone.github.io/termdock/docs/help/) ([pt-BR](https://ativaone.github.io/termdock/pt-BR/docs/help/)) | What happens to a session in each situation, every status and message, and what to do: what the app's help button opens |
-| [Installation guide](docs/guides/install.md) | Running Termdock with Docker Compose: secrets, domains and TLS, backups, upgrades, troubleshooting |
+| [User help](https://ativaone.github.io/termavox/docs/help/) ([pt-BR](https://ativaone.github.io/termavox/pt-BR/docs/help/)) | What happens to a session in each situation, every status and message, and what to do: what the app's help button opens |
+| [Installation guide](docs/guides/install.md) | Running Termavox with Docker Compose: secrets, domains and TLS, backups, upgrades, troubleshooting |
 | [Configuration reference](docs/guides/configuration.md) | Every environment variable, secret file, port, volume and instance setting |
 | [Security model](docs/security.md) | Trust boundaries, threat model, controls and operator recommendations |
 | [Architecture overview](docs/architecture.md) | Components, session lifecycle, protection modes, protocol and persistence, for contributors |
@@ -213,7 +213,7 @@ The guides below are also published on the [project site](https://ativaone.githu
 
 ## Security
 
-Termdock is designed to be deployed as a **privileged bastion**: whoever controls it can reach every registered server. The design reflects that:
+Termavox is designed to be deployed as a **privileged bastion**: whoever controls it can reach every registered server. The design reflects that:
 
 - SSH secrets are encrypted at rest (AES-256-GCM) and can only be decrypted by the data plane.
 - There is no `StrictHostKeyChecking=no` anywhere.
@@ -221,14 +221,14 @@ Termdock is designed to be deployed as a **privileged bastion**: whoever control
 - Every request is scoped to its owner.
 - Terminal contents are never logged.
 
-The threat model, the controls and what Termdock does *not* protect against are described in the [security model](docs/security.md). Two internal security reviews have been completed and their findings fixed; there has been no external audit. To report a vulnerability privately, see [`SECURITY.md`](SECURITY.md).
+The threat model, the controls and what Termavox does *not* protect against are described in the [security model](docs/security.md). Two internal security reviews have been completed and their findings fixed; there has been no external audit. To report a vulnerability privately, see [`SECURITY.md`](SECURITY.md).
 
 ## License
 
-Termdock is free software, licensed under the [GNU Affero General Public License v3.0 only](LICENSE) (`AGPL-3.0-only`). If you run a modified version as a network service, the AGPL requires you to offer its source to the users of that service.
+Termavox is free software, licensed under the [GNU Affero General Public License v3.0 only](LICENSE) (`AGPL-3.0-only`). If you run a modified version as a network service, the AGPL requires you to offer its source to the users of that service.
 
 ---
 
 <div align="center">
-<sub>Termdock — a terminal that stays docked while you are away.</sub>
+<sub>Termavox — a terminal that stays on while you are away.</sub>
 </div>

@@ -29,7 +29,7 @@ type Handle =
 const TYPE_BITS = { dir: 0o040000, file: 0o100000, link: 0o120000 } as const;
 const MAX_LINK_HOPS = 40;
 
-export const HOME = '/home/td';
+export const HOME = '/home/tv';
 
 export class MemorySftp implements SftpSession {
   readonly nodes = new Map<string, Node>([['/', { kind: 'dir', mode: 0o755, mtime: 1 }]]);

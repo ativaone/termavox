@@ -1,6 +1,6 @@
 'use server';
 
-import { ErrorCode, isTermdockError } from '@termdock/shared';
+import { ErrorCode, isTermavoxError } from '@termavox/shared';
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
@@ -166,7 +166,7 @@ export async function setUp(_prev: FormState, formData: FormData): Promise<FormS
   try {
     ({ userId } = await completeSetup(token, { username, email, password }));
   } catch (err) {
-    if (!isTermdockError(err)) throw err;
+    if (!isTermavoxError(err)) throw err;
     switch (err.code) {
       case ErrorCode.NotFound:
         closed = true;
@@ -223,7 +223,7 @@ export async function changeOwnPassword(_prev: FormState, formData: FormData): P
       revokeConnections,
     );
   } catch (err) {
-    if (!isTermdockError(err)) throw err;
+    if (!isTermavoxError(err)) throw err;
     const code = err.details?.betterAuthCode;
     if (err.code === ErrorCode.Unauthenticated) unauthenticated = true;
     else if (code === 'INVALID_PASSWORD') return { fields: { currentPassword: t('current') } };
@@ -296,7 +296,7 @@ export async function signOut(): Promise<void> {
     // Also closes this auth session's WebSockets at once (other sessions stay signed in).
     await signOutSession(getAuthRuntime(), await headers(), revokeConnections);
   } catch (err) {
-    if (!isTermdockError(err)) throw err;
+    if (!isTermavoxError(err)) throw err;
   }
   redirect(ROUTES.login);
 }

@@ -64,7 +64,7 @@ jobs:
           wrapper="$RUNNER_TEMP/chrome-headless"
           printf '#!/bin/sh\nexec %s --headless=new --no-sandbox "$@"\n' "$(command -v google-chrome)" >"$wrapper"
           chmod +x "$wrapper"
-          echo "TERMDOCK_SMOKE_CHROME=$wrapper" >>"$GITHUB_ENV"
+          echo "TERMAVOX_SMOKE_CHROME=$wrapper" >>"$GITHUB_ENV"
       - name: Test sshd containers
         run: docker compose -f test/sshd/compose.yaml up -d --build
       - name: pnpm test:release
@@ -74,7 +74,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: smoke-failure
-          path: ${{ runner.temp }}/tmp/termdock-smoke-failure-*
+          path: ${{ runner.temp }}/tmp/termavox-smoke-failure-*
           if-no-files-found: ignore
           retention-days: 14
       - name: Stop the test sshd containers

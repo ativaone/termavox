@@ -1,6 +1,6 @@
 import { createSecretKey, randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { CredentialSecret } from '../../src/core/types.ts';
 import { BatchedWriter } from '../../src/store/batched-writer.ts';
@@ -23,7 +23,7 @@ import { insertUser, type TempDb, tempDb, testVault } from '../store/fixture.ts'
 const KEYS = new URL('../../../../test/sshd/keys/', import.meta.url);
 const TEST_KEY = readFileSync(new URL('id_ed25519', KEYS), 'utf8');
 const TEST_KEY_PASSPHRASE = readFileSync(new URL('id_ed25519_passphrase', KEYS), 'utf8');
-const PASSPHRASE = 'termdock-test-passphrase';
+const PASSPHRASE = 'termavox-test-passphrase';
 const TEST_KEY_FINGERPRINT = 'SHA256:l0QRLCAtKH6Gb16KKefB+gzm47fuHwPGrLltuW+6G94';
 
 const binding: CredentialBinding = { credentialId: 'cred-1', userId: 'user-1', kind: 'password' };
@@ -31,7 +31,7 @@ const password: CredentialSecret = { kind: 'password', password: 's3cret-pässwo
 
 function expectCode(promise: Promise<unknown>, code: string) {
   return expect(promise).rejects.toSatisfy(
-    (err: unknown) => err instanceof TermdockError && err.code === code,
+    (err: unknown) => err instanceof TermavoxError && err.code === code,
   );
 }
 
@@ -141,13 +141,13 @@ describe('generated keys', () => {
         calls++;
         return { private: malformed };
       }),
-    ).toThrow(TermdockError);
+    ).toThrow(TermavoxError);
     expect(calls).toBe(GENERATE_KEY_ATTEMPTS);
   });
 
   it('generates parseable ed25519 keys', () => {
     for (let i = 0; i < 50; i++) {
-      expect(generateEd25519Key().publicKey).toMatch(/^ssh-ed25519 [A-Za-z0-9+/]+=* termdock$/);
+      expect(generateEd25519Key().publicKey).toMatch(/^ssh-ed25519 [A-Za-z0-9+/]+=* termavox$/);
     }
   });
 });
@@ -228,7 +228,7 @@ describe('vault on SQLite', () => {
       name: 'gen',
       algorithm: 'ed25519',
     });
-    expect(generated.publicKey).toMatch(/^ssh-ed25519 [A-Za-z0-9+/]+=* termdock$/);
+    expect(generated.publicKey).toMatch(/^ssh-ed25519 [A-Za-z0-9+/]+=* termavox$/);
     expect(parsePublicKeyLine(generated.publicKey!).fingerprint).toBe(generated.fingerprint);
     const secret = await provider.get(generated.credentialId, owner);
     expect(secret.kind === 'private_key' && secret.privateKey).toMatch(

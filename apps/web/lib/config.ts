@@ -5,12 +5,12 @@ import { z } from 'zod';
 
 /** Web process environment (plan §13.2). Secrets are passed as file paths, never as values. */
 const Env = z.object({
-  TERMDOCK_PUBLIC_URL: z.url({ protocol: /^https?$/ }),
-  TERMDOCK_DATA_DIR: z.string().min(1).default('/data'),
+  TERMAVOX_PUBLIC_URL: z.url({ protocol: /^https?$/ }),
+  TERMAVOX_DATA_DIR: z.string().min(1).default('/data'),
   BETTER_AUTH_SECRET_FILE: z.string().min(1),
-  TERMDOCK_WS_SECRET_FILE: z.string().min(1),
-  TERMDOCK_INTERNAL_URL: z.url({ protocol: /^https?$/ }),
-  TERMDOCK_INTERNAL_TOKEN_FILE: z.string().min(1),
+  TERMAVOX_WS_SECRET_FILE: z.string().min(1),
+  TERMAVOX_INTERNAL_URL: z.url({ protocol: /^https?$/ }),
+  TERMAVOX_INTERNAL_TOKEN_FILE: z.string().min(1),
 });
 
 export interface WebConfig {
@@ -35,14 +35,14 @@ export function loadWebConfig(env: NodeJS.ProcessEnv = process.env): WebConfig {
   }
   const e = parsed.data;
   return {
-    publicUrl: e.TERMDOCK_PUBLIC_URL,
-    publicOrigin: new URL(e.TERMDOCK_PUBLIC_URL).origin,
-    dataDir: e.TERMDOCK_DATA_DIR,
-    dbFile: join(e.TERMDOCK_DATA_DIR, 'app.db'),
+    publicUrl: e.TERMAVOX_PUBLIC_URL,
+    publicOrigin: new URL(e.TERMAVOX_PUBLIC_URL).origin,
+    dataDir: e.TERMAVOX_DATA_DIR,
+    dbFile: join(e.TERMAVOX_DATA_DIR, 'app.db'),
     betterAuthSecretFile: e.BETTER_AUTH_SECRET_FILE,
-    wsSecretFile: e.TERMDOCK_WS_SECRET_FILE,
-    internalUrl: e.TERMDOCK_INTERNAL_URL,
-    internalTokenFile: e.TERMDOCK_INTERNAL_TOKEN_FILE,
+    wsSecretFile: e.TERMAVOX_WS_SECRET_FILE,
+    internalUrl: e.TERMAVOX_INTERNAL_URL,
+    internalTokenFile: e.TERMAVOX_INTERNAL_TOKEN_FILE,
   };
 }
 

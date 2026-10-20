@@ -1,5 +1,5 @@
 import '../server-guard.ts';
-import type { TermdockDb } from '@termdock/db';
+import type { TermavoxDb } from '@termavox/db';
 import {
   parseTerminalPreferences,
   type TerminalPreferences,
@@ -11,7 +11,7 @@ import {
  * only ever read or write their own preferences.
  */
 
-export function getTerminalPreferences(db: TermdockDb, userId: string): TerminalPreferences {
+export function getTerminalPreferences(db: TermavoxDb, userId: string): TerminalPreferences {
   const row = db.$client
     .prepare('SELECT terminal_json FROM user_preferences WHERE user_id = ?')
     .get(userId) as { terminal_json: string } | undefined;
@@ -20,7 +20,7 @@ export function getTerminalPreferences(db: TermdockDb, userId: string): Terminal
 
 /** Validates (zod) and stores the preferences; creates the row on first save. */
 export function saveTerminalPreferences(
-  db: TermdockDb,
+  db: TermavoxDb,
   userId: string,
   preferences: TerminalPreferences,
   now: number = Date.now(),

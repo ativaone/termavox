@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import type { TermdockDb } from '@termdock/db';
+import type { TermavoxDb } from '@termavox/db';
 import {
   ActingUserRequest,
   AdoptRemoteSessionRequest,
@@ -23,8 +23,8 @@ import {
   TerminateRemoteSessionRequest,
   TerminateUserSessionsRequest,
   TrustHostKeyRequest,
-} from '@termdock/protocol';
-import { ErrorCode, normalizeHostname, TermdockError } from '@termdock/shared';
+} from '@termavox/protocol';
+import { ErrorCode, normalizeHostname, TermavoxError } from '@termavox/shared';
 import type { z } from 'zod';
 import { type Logger, silentLogger } from '../config/logger.ts';
 import { tmuxSocketPrefix } from '../core/driver-factory.ts';
@@ -92,9 +92,9 @@ export interface ConnectionRevoker {
 export interface InternalApiOptions {
   host: string;
   port: number;
-  /** Bearer token bytes (trimmed content of TERMDOCK_INTERNAL_TOKEN_FILE). */
+  /** Bearer token bytes (trimmed content of TERMAVOX_INTERNAL_TOKEN_FILE). */
   token: Uint8Array;
-  db: TermdockDb;
+  db: TermavoxDb;
   sessions: SqliteSessionStore;
   hostKeys: SqliteHostKeyStore;
   credentials: CredentialService;
@@ -102,7 +102,7 @@ export interface InternalApiOptions {
   ownership: OwnershipCheck;
   registry: SessionControl;
   connections: ConnectionRevoker;
-  /** TERMDOCK_ENABLE_LOCAL_SHELL. */
+  /** TERMAVOX_ENABLE_LOCAL_SHELL. */
   enableLocalShell: boolean;
   /** SSH target policy for server tests (the same one sessions use). */
   targetPolicy: TargetPolicy;
@@ -320,7 +320,7 @@ export class InternalApi {
     let detail: string | undefined;
     if (err instanceof HttpError) {
       ({ status, code, message } = err);
-    } else if (err instanceof TermdockError) {
+    } else if (err instanceof TermavoxError) {
       status = STATUS_BY_CODE[err.code] ?? 500;
       code = err.code;
       message = status === 500 ? 'internal error' : err.message;
@@ -520,7 +520,7 @@ export class InternalApi {
     const sessionId = ctx.params[0]!;
     requireActingUser(this.#options.db.$client, actingUserId);
     if ((await this.#options.ownership.sessionOwner(sessionId)) !== actingUserId) {
-      throw new TermdockError(ErrorCode.NotFound, 'session not found');
+      throw new TermavoxError(ErrorCode.NotFound, 'session not found');
     }
     const { registry } = this.#options;
     if (action === 'reopen')
@@ -574,7 +574,7 @@ export class InternalApi {
   async #testServer(ctx: RequestContext): Promise<Reply> {
     const body = parse(ServerTestRequest, ctx.body);
     if (!this.#serverTests.take(body.actingUserId)) {
-      throw new TermdockError(
+      throw new TermavoxError(
         ErrorCode.RateLimited,
         `at most ${SERVER_TEST_LIMIT.max} server tests per minute; try again shortly`,
       );
@@ -602,13 +602,13 @@ export class InternalApi {
       allowPreTrust: true,
     });
     if (outcome === 'conflict') {
-      throw new TermdockError(
+      throw new TermavoxError(
         ErrorCode.Conflict,
         'another key of this type is trusted for this address; use replace-key',
       );
     }
     if (outcome === 'revoked') {
-      throw new TermdockError(
+      throw new TermavoxError(
         ErrorCode.Conflict,
         'this key was revoked for this address; only replace-key can trust it again',
       );
@@ -625,7 +625,7 @@ export class InternalApi {
     const body = parse(ReplaceHostKeyRequest, ctx.body);
     const target = this.#hostKeyTarget(ctx.params[0]!, body.actingUserId);
     if (normalizeHostname(body.confirmHostname) !== target.hostname) {
-      throw new TermdockError(
+      throw new TermavoxError(
         ErrorCode.BadRequest,
         'confirmHostname does not match the server hostname',
       );
@@ -638,7 +638,7 @@ export class InternalApi {
     const body = parse(RevokeHostKeyRequest, ctx.body);
     const target = this.#hostKeyTarget(ctx.params[0]!, body.actingUserId);
     if (!(await this.#options.hostKeys.revoke(target, body.keyType, body.actingUserId))) {
-      throw new TermdockError(ErrorCode.NotFound, 'no trusted key of this type');
+      throw new TermavoxError(ErrorCode.NotFound, 'no trusted key of this type');
     }
     return NO_CONTENT;
   }
@@ -661,7 +661,7 @@ export class InternalApi {
   /** Lists and terminates connect to a user-chosen target: limited per user like server tests. */
   #takeRemoteCall(actingUserId: string): void {
     if (!this.#remoteCalls.take(actingUserId)) {
-      throw new TermdockError(
+      throw new TermavoxError(
         ErrorCode.RateLimited,
         `at most ${REMOTE_SESSIONS_LIMIT.max} remote session requests per minute; try again shortly`,
       );
@@ -693,7 +693,7 @@ export class InternalApi {
    * Adopt (plan D-30): a new session of this server attached to that tmux server, created exactly
    * as `POST /sessions` creates one (target snapshot, label defaulting to the server's name, the
    * running-session cap), tmux-protected from the start and counted as ready before. Refused
-   * (409) for a tmux server of a session that runs in Termdock, of another user's session, or of
+   * (409) for a tmux server of a session that runs in Termavox, of another user's session, or of
    * one of the user's own ended sessions (reopen that one). Clients attached to it do not
    * prevent it (web asks the user first).
    */
@@ -731,9 +731,9 @@ export class InternalApi {
       serverId,
       actingUserId,
     );
-    if (!server) throw new TermdockError(ErrorCode.NotFound, 'server not found');
+    if (!server) throw new TermavoxError(ErrorCode.NotFound, 'server not found');
     if (server.kind !== 'ssh' || server.hostname === null || server.port === null) {
-      throw new TermdockError(ErrorCode.BadRequest, 'a local server has no host keys');
+      throw new TermavoxError(ErrorCode.BadRequest, 'a local server has no host keys');
     }
     return {
       userId: actingUserId,
@@ -756,10 +756,10 @@ export class InternalApi {
     const { actingUserId } = parse(TerminateUserSessionsRequest, ctx.body);
     const sqlite = this.#options.db.$client;
     const actor = requireActingUser(sqlite, actingUserId);
-    if (!isAdmin(actor)) throw new TermdockError(ErrorCode.Forbidden, 'admin only');
+    if (!isAdmin(actor)) throw new TermavoxError(ErrorCode.Forbidden, 'admin only');
     const targetId = ctx.params[0]!;
     const target = getRow<{ id: string }>(sqlite, 'SELECT id FROM user WHERE id = ?', targetId);
-    if (!target) throw new TermdockError(ErrorCode.NotFound, 'user not found');
+    if (!target) throw new TermavoxError(ErrorCode.NotFound, 'user not found');
     const terminated = await this.#options.registry.terminateAll(target.id);
     this.#log.info({ targetUserId: target.id, terminated }, 'admin terminated user sessions');
     return { status: 200, body: { terminated } };
@@ -797,7 +797,7 @@ export class InternalApi {
 export function sessionLabel(raw: string): string {
   const label = sanitizePromptText(raw, raw.length, false).trim();
   if (label.length === 0 || label.length > SESSION_LABEL_MAX) {
-    throw new TermdockError(
+    throw new TermavoxError(
       ErrorCode.LabelInvalid,
       `label must be 1 to ${SESSION_LABEL_MAX} characters once control and invisible formatting characters are removed`,
     );

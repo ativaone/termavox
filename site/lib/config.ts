@@ -4,9 +4,9 @@
  * build, so the site never holds a second copy of them.
  */
 
-export const REPOSITORY_URL = 'https://github.com/ativaone/termdock';
+export const REPOSITORY_URL = 'https://github.com/ativaone/termavox';
 /** Where GitHub Pages serves the site (canonical URLs, the sitemap, link previews). */
-export const SITE_URL = 'https://ativaone.github.io/termdock';
+export const SITE_URL = 'https://ativaone.github.io/termavox';
 /** Google Search Console's ownership check for the URL-prefix property SITE_URL (home page only). */
 export const GOOGLE_SITE_VERIFICATION = '_NiWrzBBGWJTqMM_wfMpYWAbRyDroAhu6pk6dogdQpE';
 export const BRANCH = 'main';

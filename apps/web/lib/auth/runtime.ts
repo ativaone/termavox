@@ -1,26 +1,26 @@
 import '../server-guard.ts';
-import type { TermdockDb } from '@termdock/db';
-import type { Argon2Params } from '@termdock/shared';
+import type { TermavoxDb } from '@termavox/db';
+import type { Argon2Params } from '@termavox/shared';
 import { consoleLogger, type WebLogger } from '../logger.ts';
-import { createAuth, type TermdockAuth } from './auth.ts';
+import { createAuth, type TermavoxAuth } from './auth.ts';
 import { type LockoutPolicy, LoginLockout } from './lockout.ts';
 import { SetupToken } from './setup.ts';
 
 /** Everything the auth core needs, built once per process (lib/auth/server.ts) or per test. */
 export interface AuthRuntime {
-  db: TermdockDb;
-  auth: TermdockAuth;
+  db: TermavoxDb;
+  auth: TermavoxAuth;
   lockout: LoginLockout;
   setup: SetupToken;
-  /** Origin of TERMDOCK_PUBLIC_URL, compared exactly with the `Origin` header. */
+  /** Origin of TERMAVOX_PUBLIC_URL, compared exactly with the `Origin` header. */
   publicOrigin: string;
-  /** WS ticket HMAC key: TERMDOCK_WS_SECRET_FILE's trimmed content as UTF-8 bytes. */
+  /** WS ticket HMAC key: TERMAVOX_WS_SECRET_FILE's trimmed content as UTF-8 bytes. */
   wsSecret: Uint8Array;
   logger: WebLogger;
 }
 
 export interface CreateAuthRuntimeOptions {
-  db: TermdockDb;
+  db: TermavoxDb;
   publicUrl: string;
   authSecret: string;
   wsSecret: Uint8Array;

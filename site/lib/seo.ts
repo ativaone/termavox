@@ -22,9 +22,9 @@ const IMAGE = {
   width: 1440,
   height: 900,
   alt: {
-    en: 'The Termdock workspace: named sessions grouped by state, and a live shell',
+    en: 'The Termavox workspace: named sessions grouped by state, and a live shell',
     'pt-BR':
-      'A área de trabalho do Termdock: sessões nomeadas agrupadas por estado e um shell ao vivo',
+      'A área de trabalho do Termavox: sessões nomeadas agrupadas por estado e um shell ao vivo',
   },
 };
 
@@ -55,7 +55,7 @@ function structuredData(path: string, meta: PageMeta): unknown[] {
     data.push({
       '@context': 'https://schema.org',
       '@type': 'SoftwareApplication',
-      name: 'Termdock',
+      name: 'Termavox',
       description: meta.description,
       url,
       inLanguage: locale,
@@ -75,7 +75,7 @@ function structuredData(path: string, meta: PageMeta): unknown[] {
     data.push({
       '@context': 'https://schema.org',
       '@type': 'WebSite',
-      name: 'Termdock',
+      name: 'Termavox',
       url: home,
       inLanguage: locale,
     });
@@ -99,12 +99,12 @@ function structuredData(path: string, meta: PageMeta): unknown[] {
     data.push({
       '@context': 'https://schema.org',
       '@type': 'TechArticle',
-      headline: meta.title.replace(/ · Termdock$/, ''),
+      headline: meta.title.replace(/ · Termavox$/, ''),
       description: meta.description,
       url,
       inLanguage: locale,
-      isPartOf: { '@type': 'WebSite', name: 'Termdock', url: home },
-      about: { '@type': 'SoftwareApplication', name: 'Termdock', url: home },
+      isPartOf: { '@type': 'WebSite', name: 'Termavox', url: home },
+      about: { '@type': 'SoftwareApplication', name: 'Termavox', url: home },
     });
   }
   return data;
@@ -131,7 +131,7 @@ export function seoHead(path: string, meta: PageMeta): string {
   const description = escapeHtml(meta.description);
   const image = absoluteUrl(IMAGE.path);
   lines.push(
-    `<meta property="og:site_name" content="Termdock">`,
+    `<meta property="og:site_name" content="Termavox">`,
     `<meta property="og:type" content="${meta.kind === 'home' ? 'website' : 'article'}">`,
     `<meta property="og:title" content="${title}">`,
     `<meta property="og:description" content="${description}">`,

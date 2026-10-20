@@ -1,6 +1,6 @@
 import { posix } from 'node:path';
-import { FILES_LIMITS, fileNameProblem } from '@termdock/protocol';
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import { FILES_LIMITS, fileNameProblem } from '@termavox/protocol';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 
 /**
  * Remote paths of the file panel (plan §5.12): absolute POSIX paths on the session's server. The
@@ -41,7 +41,7 @@ export function namedPath(raw: string): NamedPath {
 export function checkName(name: string): void {
   const problem = fileNameProblem(name);
   if (problem !== null) {
-    throw new TermdockError(ErrorCode.NameInvalid, `invalid name (${problem})`, { problem });
+    throw new TermavoxError(ErrorCode.NameInvalid, `invalid name (${problem})`, { problem });
   }
 }
 

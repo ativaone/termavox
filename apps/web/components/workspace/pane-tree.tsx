@@ -1,6 +1,6 @@
 'use client';
 
-import type { PaneNode, Tab } from '@termdock/protocol/client';
+import type { PaneNode, Tab } from '@termavox/protocol/client';
 import { useTranslations } from 'next-intl';
 import {
   Fragment,

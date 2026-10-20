@@ -1,11 +1,11 @@
 import { readFileSync } from 'node:fs';
-import { FrameType } from '@termdock/protocol';
-import { XTERM_VERSION } from '@termdock/terminal-config';
+import { FrameType } from '@termavox/protocol';
+import { XTERM_VERSION } from '@termavox/terminal-config';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   ChannelLimitError,
   RATE_LIMITED_RETRY_MS,
-  TermdockConnection,
+  TermavoxConnection,
   type TerminalChannel,
 } from '../../lib/terminal/index.ts';
 import type { TerminalLike } from '../../lib/terminal/types.ts';
@@ -33,8 +33,8 @@ afterEach(() => {
 
 function setup(server: FakeServer) {
   let ticketCalls = 0;
-  const connection = new TermdockConnection({
-    url: 'ws://termdock.test/ws',
+  const connection = new TermavoxConnection({
+    url: 'ws://termavox.test/ws',
     fetchTicket: async () => ({
       ticket: `ticket-${++ticketCalls}`,
       expiresAt: Date.now() + 30_000,
@@ -53,7 +53,7 @@ function session(opts: ConstructorParameters<typeof ScriptedSession>[0] = {}): S
   return s;
 }
 
-function attachedChannel(connection: TermdockConnection): {
+function attachedChannel(connection: TermavoxConnection): {
   channel: TerminalChannel;
   term: HeadlessTerminal;
 } {
@@ -283,7 +283,7 @@ describe('TerminalChannel', () => {
   });
 });
 
-describe('TermdockConnection', () => {
+describe('TermavoxConnection', () => {
   it('reconnects after an abnormal close with a fresh ticket and re-attaches every channel', async () => {
     const server = new FakeServer();
     server.sessions = [summary(SESSION), summary('session-2', { status: 'action_required' })];

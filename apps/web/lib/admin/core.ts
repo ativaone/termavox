@@ -1,5 +1,5 @@
 import '../server-guard.ts';
-import { ErrorCode, TermdockError } from '@termdock/shared';
+import { ErrorCode, TermavoxError } from '@termavox/shared';
 import {
   createUserWithTemporaryPassword,
   type NewUserInput,
@@ -43,8 +43,8 @@ export async function requireAdminOrNotFound(
   headers: Headers,
 ): Promise<AuthSession> {
   const gate = await authGate(deps, headers);
-  if (!gate.ok) throw new TermdockError(ErrorCode.Unauthenticated, `not allowed: ${gate.reason}`);
-  if (!isAdminRole(gate.user.role)) throw new TermdockError(ErrorCode.NotFound, 'not found');
+  if (!gate.ok) throw new TermavoxError(ErrorCode.Unauthenticated, `not allowed: ${gate.reason}`);
+  if (!isAdminRole(gate.user.role)) throw new TermavoxError(ErrorCode.NotFound, 'not found');
   return { session: gate.session, user: gate.user };
 }
 
@@ -81,7 +81,7 @@ export async function adminSetBanned(
 ): Promise<BanOutcome> {
   const admin = await requireAdminOrNotFound(deps, headers);
   if (input.userId === admin.user.id) {
-    throw new TermdockError(ErrorCode.BadRequest, 'admins cannot disable their own account');
+    throw new TermavoxError(ErrorCode.BadRequest, 'admins cannot disable their own account');
   }
   const outcome: BanOutcome = {
     connectionsClosed: false,
@@ -179,7 +179,7 @@ export async function adminSetRole(
 ): Promise<void> {
   const admin = await requireAdminOrNotFound(deps, headers);
   if (input.userId === admin.user.id && input.role !== 'admin') {
-    throw new TermdockError(ErrorCode.BadRequest, 'admins cannot remove their own admin role');
+    throw new TermavoxError(ErrorCode.BadRequest, 'admins cannot remove their own admin role');
   }
   await callAuth(() =>
     deps.auth.api.setRole({ headers, body: { userId: input.userId, role: input.role } }),
@@ -215,7 +215,7 @@ export async function adminSaveSettings(
   return { changed };
 }
 
-/** Runs a Better Auth API call, translating its APIError into a TermdockError. */
+/** Runs a Better Auth API call, translating its APIError into a TermavoxError. */
 async function callAuth<T>(fn: () => Promise<T>): Promise<T> {
   try {
     return await fn();
@@ -231,6 +231,6 @@ async function callAuth<T>(fn: () => Promise<T>): Promise<T> {
             ? ErrorCode.BadRequest
             : ErrorCode.Internal;
     const betterAuthCode = (err as { body?: { code?: unknown } }).body?.code;
-    throw new TermdockError(code, (err as Error).message, { betterAuthCode });
+    throw new TermavoxError(code, (err as Error).message, { betterAuthCode });
   }
 }

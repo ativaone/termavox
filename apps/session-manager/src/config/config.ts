@@ -7,14 +7,14 @@ const LogLevel = z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'si
 
 /** Environment of the data-plane pieces (plan §13.2). Boot wiring adds the rest in main.ts. */
 const Env = z.object({
-  TERMDOCK_PUBLIC_URL: z.url({ protocol: /^https?$/ }),
-  TERMDOCK_WS_HOST: z.string().min(1).default('0.0.0.0'),
-  TERMDOCK_WS_PORT: z.coerce.number().int().min(0).max(65_535).default(3001),
-  TERMDOCK_WS_SECRET_FILE: z.string().min(1),
-  TERMDOCK_LOG_LEVEL: LogLevel.default('info'),
-  TERMDOCK_DATA_DIR: z.string().min(1).default('/data'),
+  TERMAVOX_PUBLIC_URL: z.url({ protocol: /^https?$/ }),
+  TERMAVOX_WS_HOST: z.string().min(1).default('0.0.0.0'),
+  TERMAVOX_WS_PORT: z.coerce.number().int().min(0).max(65_535).default(3001),
+  TERMAVOX_WS_SECRET_FILE: z.string().min(1),
+  TERMAVOX_LOG_LEVEL: LogLevel.default('info'),
+  TERMAVOX_DATA_DIR: z.string().min(1).default('/data'),
   // Comma-separated IPs/CIDRs allowed to set X-Forwarded-For on WebSockets (plan §4.3).
-  TERMDOCK_TRUSTED_PROXIES: z
+  TERMAVOX_TRUSTED_PROXIES: z
     .string()
     .default('')
     .transform((value, ctx) => {
@@ -49,19 +49,19 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): DataPlaneConfi
   }
   const e = parsed.data;
   return {
-    publicUrl: e.TERMDOCK_PUBLIC_URL,
-    publicOrigin: new URL(e.TERMDOCK_PUBLIC_URL).origin,
-    wsHost: e.TERMDOCK_WS_HOST,
-    wsPort: e.TERMDOCK_WS_PORT,
-    wsSecretFile: e.TERMDOCK_WS_SECRET_FILE,
-    logLevel: e.TERMDOCK_LOG_LEVEL,
-    dataDir: e.TERMDOCK_DATA_DIR,
-    trustedProxies: e.TERMDOCK_TRUSTED_PROXIES,
+    publicUrl: e.TERMAVOX_PUBLIC_URL,
+    publicOrigin: new URL(e.TERMAVOX_PUBLIC_URL).origin,
+    wsHost: e.TERMAVOX_WS_HOST,
+    wsPort: e.TERMAVOX_WS_PORT,
+    wsSecretFile: e.TERMAVOX_WS_SECRET_FILE,
+    logLevel: e.TERMAVOX_LOG_LEVEL,
+    dataDir: e.TERMAVOX_DATA_DIR,
+    trustedProxies: e.TERMAVOX_TRUSTED_PROXIES,
   };
 }
 
 /**
- * Reads a secret file (TERMDOCK_WS_SECRET_FILE, TERMDOCK_INTERNAL_TOKEN_FILE). The trimmed file
+ * Reads a secret file (TERMAVOX_WS_SECRET_FILE, TERMAVOX_INTERNAL_TOKEN_FILE). The trimmed file
  * content, encoded as UTF-8 bytes, is the secret (no base64 decoding): the WS ticket HMAC-SHA256
  * key, or the internal API bearer token sent as `Authorization: Bearer <trimmed content>`. Web
  * must derive both the same way.
@@ -104,16 +104,16 @@ const RetentionDays = z
   });
 
 const DaemonEnv = z.object({
-  TERMDOCK_MASTER_KEY_FILE: z.string().min(1),
-  TERMDOCK_INTERNAL_TOKEN_FILE: z.string().min(1),
+  TERMAVOX_MASTER_KEY_FILE: z.string().min(1),
+  TERMAVOX_INTERNAL_TOKEN_FILE: z.string().min(1),
   // 127.0.0.1 outside containers; compose sets 0.0.0.0 (reachable on the `internal` network only).
-  TERMDOCK_INTERNAL_HOST: z.string().min(1).default('127.0.0.1'),
-  TERMDOCK_INTERNAL_PORT: z.coerce.number().int().min(0).max(65_535).default(3002),
-  TERMDOCK_ENABLE_LOCAL_SHELL: Flag,
+  TERMAVOX_INTERNAL_HOST: z.string().min(1).default('127.0.0.1'),
+  TERMAVOX_INTERNAL_PORT: z.coerce.number().int().min(0).max(65_535).default(3002),
+  TERMAVOX_ENABLE_LOCAL_SHELL: Flag,
   // SSH targets on loopback, link-local, unspecified, multicast or the daemon's own addresses
   // are refused unless this is set (plan §10.2).
-  TERMDOCK_SSH_ALLOW_LOCAL_TARGETS: Flag,
-  TERMDOCK_EVENT_RETENTION_DAYS: RetentionDays,
+  TERMAVOX_SSH_ALLOW_LOCAL_TARGETS: Flag,
+  TERMAVOX_EVENT_RETENTION_DAYS: RetentionDays,
 });
 
 /** Everything the daemon process needs (plan §13.2): the data plane plus vault and internal API. */
@@ -125,10 +125,10 @@ export interface DaemonConfig extends DataPlaneConfig {
   internalHost: string;
   internalPort: number;
   enableLocalShell: boolean;
-  /** TERMDOCK_SSH_ALLOW_LOCAL_TARGETS: sessions and host tests may reach local addresses. */
+  /** TERMAVOX_SSH_ALLOW_LOCAL_TARGETS: sessions and host tests may reach local addresses. */
   sshAllowLocalTargets: boolean;
   /**
-   * TERMDOCK_EVENT_RETENTION_DAYS: `audit_events` and `session_events` rows older than this are
+   * TERMAVOX_EVENT_RETENTION_DAYS: `audit_events` and `session_events` rows older than this are
    * purged (store/retention.ts); 0 keeps them forever.
    */
   eventRetentionDays: number;
@@ -153,13 +153,13 @@ export function loadDaemonConfig(env: NodeJS.ProcessEnv = process.env): DaemonCo
   const e = parsed.data;
   return {
     ...base,
-    masterKeyFile: e.TERMDOCK_MASTER_KEY_FILE,
-    internalTokenFile: e.TERMDOCK_INTERNAL_TOKEN_FILE,
-    internalHost: e.TERMDOCK_INTERNAL_HOST,
-    internalPort: e.TERMDOCK_INTERNAL_PORT,
-    enableLocalShell: e.TERMDOCK_ENABLE_LOCAL_SHELL,
-    sshAllowLocalTargets: e.TERMDOCK_SSH_ALLOW_LOCAL_TARGETS,
-    eventRetentionDays: e.TERMDOCK_EVENT_RETENTION_DAYS,
+    masterKeyFile: e.TERMAVOX_MASTER_KEY_FILE,
+    internalTokenFile: e.TERMAVOX_INTERNAL_TOKEN_FILE,
+    internalHost: e.TERMAVOX_INTERNAL_HOST,
+    internalPort: e.TERMAVOX_INTERNAL_PORT,
+    enableLocalShell: e.TERMAVOX_ENABLE_LOCAL_SHELL,
+    sshAllowLocalTargets: e.TERMAVOX_SSH_ALLOW_LOCAL_TARGETS,
+    eventRetentionDays: e.TERMAVOX_EVENT_RETENTION_DAYS,
     dbFile: join(base.dataDir, 'app.db'),
   };
 }

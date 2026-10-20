@@ -36,18 +36,18 @@ describe('client address behind a trusted proxy (plan §4.3)', () => {
     expect(clientAddress('172.30.10.5', '172.30.10.9, 172.30.10.8', caddy)).toBe('172.30.10.5');
   });
 
-  it('TERMDOCK_TRUSTED_PROXIES defaults to none and rejects anything but IPs and CIDRs', () => {
+  it('TERMAVOX_TRUSTED_PROXIES defaults to none and rejects anything but IPs and CIDRs', () => {
     const env = {
-      TERMDOCK_PUBLIC_URL: 'https://termdock.test',
-      TERMDOCK_WS_SECRET_FILE: '/run/secrets/ws_secret',
+      TERMAVOX_PUBLIC_URL: 'https://termavox.test',
+      TERMAVOX_WS_SECRET_FILE: '/run/secrets/ws_secret',
     };
     expect(loadConfig(env).trustedProxies).toEqual([]);
     expect(
-      loadConfig({ ...env, TERMDOCK_TRUSTED_PROXIES: ' 172.30.10.0/24, ::1 ,' }).trustedProxies,
+      loadConfig({ ...env, TERMAVOX_TRUSTED_PROXIES: ' 172.30.10.0/24, ::1 ,' }).trustedProxies,
     ).toEqual(['172.30.10.0/24', '::1']);
     for (const bad of ['caddy', '172.30.10.0/33', '10.0.0.1/8/1', '::1/129']) {
-      expect(() => loadConfig({ ...env, TERMDOCK_TRUSTED_PROXIES: bad })).toThrow(
-        /TERMDOCK_TRUSTED_PROXIES/,
+      expect(() => loadConfig({ ...env, TERMAVOX_TRUSTED_PROXIES: bad })).toThrow(
+        /TERMAVOX_TRUSTED_PROXIES/,
       );
     }
   });

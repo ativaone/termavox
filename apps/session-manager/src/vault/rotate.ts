@@ -1,7 +1,7 @@
 import type { KeyObject } from 'node:crypto';
 import { chmodSync, closeSync, existsSync, fsyncSync, openSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { type FileLock, openDb } from '@termdock/db';
+import { type FileLock, openDb } from '@termavox/db';
 import { DataDirLockedError, lockDataDir } from '../store/data-dir-lock.ts';
 import { readSetting, SETTING_VAULT_KEY_CHECK } from '../store/settings.ts';
 import { allRows, execute, getRow, parseJson, type Sqlite } from '../store/sqlite.ts';
@@ -61,7 +61,7 @@ export class RotateError extends Error {
 }
 
 export interface RotateOptions {
-  /** Holds `app.db` (TERMDOCK_DATA_DIR). */
+  /** Holds `app.db` (TERMAVOX_DATA_DIR). */
   dataDir: string;
   oldKey: KeyObject;
   newKey: KeyObject;
@@ -145,7 +145,7 @@ function rotateOpenDb(sqlite: Sqlite, dbFile: string, options: RotateOptions): R
     throw new RotateError(
       'wrong-old-key',
       'the old key does not match this database (vault_key_check failed): pass the key ' +
-        'session-manager uses now (TERMDOCK_MASTER_KEY_FILE)',
+        'session-manager uses now (TERMAVOX_MASTER_KEY_FILE)',
     );
   }
 

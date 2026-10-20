@@ -1,4 +1,4 @@
-import { SessionSummary } from '@termdock/protocol';
+import { SessionSummary } from '@termavox/protocol';
 import { afterEach, describe, expect, it } from 'vitest';
 import { BatchedWriter } from '../../src/store/batched-writer.ts';
 import { DEFAULT_POLICIES, SqliteSessionStore } from '../../src/store/session-store.ts';
@@ -36,7 +36,7 @@ describe('SqliteSessionStore', () => {
       kind: 'ssh',
       hostname: '127.0.0.1',
       port: 2222,
-      username: 'td',
+      username: 'tv',
       credentialId: null,
     });
 
@@ -66,8 +66,8 @@ describe('SqliteSessionStore', () => {
     ];
     // A failed session keeps its last failure code (after a restart nothing else knows it).
     expect((await store.listForUser(userId)).map(summary)).toEqual([
-      [b.id, serverId, 'box', 'ssh', '127.0.0.1', 2222, 'td', 'AUTH_REJECTED'],
-      [a.id, serverId, 'box', 'ssh', '127.0.0.1', 2222, 'td', null],
+      [b.id, serverId, 'box', 'ssh', '127.0.0.1', 2222, 'tv', 'AUTH_REJECTED'],
+      [a.id, serverId, 'box', 'ssh', '127.0.0.1', 2222, 'tv', null],
     ]);
     // Every listed summary is a valid `SessionSummary` of the protocol.
     for (const listed of await store.listForUser(userId)) SessionSummary.parse(listed);
@@ -85,7 +85,7 @@ describe('SqliteSessionStore', () => {
       'ssh',
       '127.0.0.1',
       2222,
-      'td',
+      'tv',
       null,
     ]);
 
@@ -103,7 +103,7 @@ describe('SqliteSessionStore', () => {
       'ssh',
       '127.0.0.1',
       2222,
-      'td',
+      'tv',
       null,
     ]);
   });
@@ -264,11 +264,11 @@ describe('SqliteSessionStore: remote tmux leftovers (plan D-30)', () => {
       serverId: serverA,
       viewport: VIEWPORT,
       enableLocalShell: false,
-      adopt: { socket: 'td-zzzzzzzz-abcdefghijkl', ownPrefix: PREFIX },
+      adopt: { socket: 'tv-zzzzzzzz-abcdefghijkl', ownPrefix: PREFIX },
     });
-    const own = (token: string) => `td-${PREFIX}-${token}`;
+    const own = (token: string) => `tv-${PREFIX}-${token}`;
     const owners = await store.socketOwners(
-      [own(a.tmuxToken), own(b.tmuxToken), 'td-zzzzzzzz-abcdefghijkl', own(adopted.tmuxToken)],
+      [own(a.tmuxToken), own(b.tmuxToken), 'tv-zzzzzzzz-abcdefghijkl', own(adopted.tmuxToken)],
       PREFIX,
     );
     // The adopted session is found by its socket, not by its own (unused) token.
@@ -276,11 +276,11 @@ describe('SqliteSessionStore: remote tmux leftovers (plan D-30)', () => {
       [
         [a.id, userA, own(a.tmuxToken), 'new'],
         [b.id, userB, own(b.tmuxToken), 'new'],
-        [adopted.id, userA, 'td-zzzzzzzz-abcdefghijkl', 'new'],
+        [adopted.id, userA, 'tv-zzzzzzzz-abcdefghijkl', 'new'],
       ].sort(),
     );
     // Another prefix does not match by token.
-    expect(await store.socketOwners([`td-bbbb2222-${a.tmuxToken}`], PREFIX)).toEqual([]);
+    expect(await store.socketOwners([`tv-bbbb2222-${a.tmuxToken}`], PREFIX)).toEqual([]);
 
     // Read-your-writes: an end still queued in the writer already counts.
     store.update(a.id, {

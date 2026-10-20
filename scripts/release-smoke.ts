@@ -1,16 +1,16 @@
 // End-to-end smoke of the composed stack (pre-release routine, plan §15.4). Steps `smoke` and
 // `smoke-proxy` of `pnpm test:release`; also runnable alone once the images are built:
 //
-//   pnpm test:release --only build          (termdock-smoke-caddy, -session-manager, -web)
+//   pnpm test:release --only build          (termavox-smoke-caddy, -session-manager, -web)
 //   node scripts/release-smoke.ts [--proxy] [--prebuilt]
 //
-// Images: by default the test-only termdock-smoke-* images built from the checkout (the override
+// Images: by default the test-only termavox-smoke-* images built from the checkout (the override
 // test/release/compose.smoke-images.yaml names them). `--prebuilt` runs the images
-// deploy/compose.yaml itself names (ghcr.io/ativaone/termdock-*:<version>) instead: the release
+// deploy/compose.yaml itself names (ghcr.io/ativaone/termavox-*:<version>) instead: the release
 // pipeline's freshly built ones. Either way they must be present locally: `up` runs with
 // `--no-build --pull never`.
 //
-// Isolated from any real install: compose project `termdock-smoke`, throwaway volumes, secrets
+// Isolated from any real install: compose project `termavox-smoke`, throwaway volumes, secrets
 // from init-secrets.sh in a temporary directory, Caddy on loopback ports 18080/18443 and the
 // test-only override test/release/compose.smoke.yaml (which adds a test sshd from the
 // already-built test image, authenticated with the test-only keys of test/sshd/keys). Everything
@@ -27,20 +27,20 @@
 // then the CSP and teardown checks.
 //
 // The real web UI is driven over the Chrome DevTools Protocol (scripts/cdp.ts) in a local
-// headless Chromium: TERMDOCK_SMOKE_CHROME, else the newest
+// headless Chromium: TERMAVOX_SMOKE_CHROME, else the newest
 // ~/.cache/ms-playwright/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell.
 //
-// `--proxy` (plan D-35) runs the same flow with TERMDOCK_TLS=off behind a front proxy that
+// `--proxy` (plan D-35) runs the same flow with TERMAVOX_TLS=off behind a front proxy that
 // terminates TLS, as nginx would: a second Caddy from the official image the deployment's Caddy
 // image is built on (the digest of deploy/docker/caddy.Dockerfile), on the host network at
-// 127.0.0.1:TERMDOCK_SMOKE_FRONT_PORT (18543), forwarding to Caddy's plain-HTTP port. It also
+// 127.0.0.1:TERMAVOX_SMOKE_FRONT_PORT (18543), forwarding to Caddy's plain-HTTP port. It also
 // checks that the stored client addresses are the browser's, not the proxy's, and its file panel
 // step sends the uploads and downloads through both proxies.
 //
-// Environment: TERMDOCK_SMOKE_CHROME, TERMDOCK_SMOKE_HTTP_PORT (18080),
-// TERMDOCK_SMOKE_HTTPS_PORT (18443), TERMDOCK_SMOKE_MIN_AVAILABLE_MB (900), TMPDIR, and the
-// override's TERMDOCK_SMOKE_SSHD_IMAGE (a test sshd image with tmux >= 3.2) and
-// TERMDOCK_SMOKE_EDGE_SUBNET.
+// Environment: TERMAVOX_SMOKE_CHROME, TERMAVOX_SMOKE_HTTP_PORT (18080),
+// TERMAVOX_SMOKE_HTTPS_PORT (18443), TERMAVOX_SMOKE_MIN_AVAILABLE_MB (900), TMPDIR, and the
+// override's TERMAVOX_SMOKE_SSHD_IMAGE (a test sshd image with tmux >= 3.2) and
+// TERMAVOX_SMOKE_EDGE_SUBNET.
 import { spawn } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import {
@@ -63,7 +63,7 @@ import en from '../apps/web/messages/en.json' with { type: 'json' };
 import { type CdpPage, type Chromium, findChromium, launchChromium, sleep } from './cdp.ts';
 
 const ROOT = join(import.meta.dirname, '..');
-const PROJECT = 'termdock-smoke';
+const PROJECT = 'termavox-smoke';
 const COMPOSE_FILE = join(ROOT, 'deploy', 'compose.yaml');
 const PREBUILT = process.argv.includes('--prebuilt');
 /** The smoke override, plus (from source) the one that gives the images test-only names. */
@@ -74,18 +74,18 @@ const OVERRIDES = [
 const CADDY_DOCKERFILE = join(ROOT, 'deploy', 'docker', 'caddy.Dockerfile');
 const SCRIPTS = join(ROOT, 'deploy', 'scripts');
 const KEYS = join(ROOT, 'test', 'sshd', 'keys');
-const HTTP_PORT = Number(process.env.TERMDOCK_SMOKE_HTTP_PORT ?? 18080);
-const HTTPS_PORT = Number(process.env.TERMDOCK_SMOKE_HTTPS_PORT ?? 18443);
+const HTTP_PORT = Number(process.env.TERMAVOX_SMOKE_HTTP_PORT ?? 18080);
+const HTTPS_PORT = Number(process.env.TERMAVOX_SMOKE_HTTPS_PORT ?? 18443);
 const PROXY = process.argv.includes('--proxy');
-const FRONT_PORT = Number(process.env.TERMDOCK_SMOKE_FRONT_PORT ?? 18543);
-const FRONT_CONTAINER = 'termdock-smoke-front-proxy';
+const FRONT_PORT = Number(process.env.TERMAVOX_SMOKE_FRONT_PORT ?? 18543);
+const FRONT_CONTAINER = 'termavox-smoke-front-proxy';
 /** The browser's URL: Caddy's HTTPS port, or the front proxy's with --proxy. */
 const BASE = `https://localhost:${PROXY ? FRONT_PORT : HTTPS_PORT}`;
-const EDGE_SUBNET = process.env.TERMDOCK_SMOKE_EDGE_SUBNET ?? '172.30.111.0/24';
+const EDGE_SUBNET = process.env.TERMAVOX_SMOKE_EDGE_SUBNET ?? '172.30.111.0/24';
 /** How Docker presents a connection from this host to a published port: the edge gateway. */
 const EDGE_GATEWAY = EDGE_SUBNET.replace(/\.\d+\/\d+$/, '.1');
-const MIN_AVAILABLE_MB = Number(process.env.TERMDOCK_SMOKE_MIN_AVAILABLE_MB ?? 900);
-const SSHD_IMAGE = process.env.TERMDOCK_SMOKE_SSHD_IMAGE ?? 'termdock-test-sshd:tmux-3.4';
+const MIN_AVAILABLE_MB = Number(process.env.TERMAVOX_SMOKE_MIN_AVAILABLE_MB ?? 900);
+const SSHD_IMAGE = process.env.TERMAVOX_SMOKE_SSHD_IMAGE ?? 'termavox-test-sshd:tmux-3.4';
 const SSHD_SERVICE = 'smoke-sshd';
 const SERVICES = ['caddy', 'web', 'session-manager', SSHD_SERVICE];
 /** The file panel step's upload: random bytes, a few MiB. */
@@ -102,7 +102,7 @@ const NAMES = {
   renamed: 'smoke-renamed',
 };
 /** The smoke server's sign-in, as rows and the Add server result show it (port 22 is implied). */
-const TARGET = `td@${SSHD_SERVICE}`;
+const TARGET = `tv@${SSHD_SERVICE}`;
 const LABELS = {
   restoring: en.workspace.status.restoring,
   connecting: en.workspace.status.connecting,
@@ -196,7 +196,7 @@ function run(
 
 // ── isolation: paths and the compose environment ────────────────────────────
 
-const tmpRoot = mkdtempSync(join(tmpdir(), 'termdock-smoke-'));
+const tmpRoot = mkdtempSync(join(tmpdir(), 'termavox-smoke-'));
 const secretsDir = join(tmpRoot, 'secrets');
 const backupDir = join(tmpRoot, 'backups');
 const chromeProfile = join(tmpRoot, 'chrome');
@@ -205,23 +205,23 @@ const chromeProfile = join(tmpRoot, 'chrome');
 const smokeEnv: NodeJS.ProcessEnv = {
   ...process.env,
   COMPOSE_PROJECT_NAME: PROJECT,
-  TERMDOCK_SMOKE_SSHD_IMAGE: SSHD_IMAGE,
+  TERMAVOX_SMOKE_SSHD_IMAGE: SSHD_IMAGE,
   // The deploy scripts add the same overrides (a ':'-separated list).
-  TERMDOCK_COMPOSE_OVERRIDE: OVERRIDES.join(':'),
-  TERMDOCK_SECRETS_DIR: secretsDir,
-  TERMDOCK_BACKUP_DIR: backupDir,
-  TERMDOCK_DOMAIN: 'localhost',
-  TERMDOCK_HTTP_PORT: String(HTTP_PORT),
-  TERMDOCK_HTTPS_PORT: String(HTTPS_PORT),
-  TERMDOCK_PUBLIC_URL: BASE,
-  TERMDOCK_TLS: PROXY ? 'off' : 'internal',
-  TERMDOCK_REVERSE_PROXY: PROXY ? EDGE_GATEWAY : '',
-  TERMDOCK_BIND_ADDRESS: '',
-  TERMDOCK_LOG_LEVEL: 'info',
-  TERMDOCK_DAEMON_MEM_LIMIT: '1g',
-  TERMDOCK_WEB_MEM_LIMIT: '768m',
-  TERMDOCK_SSH_ALLOW_LOCAL_TARGETS: 'false',
-  TERMDOCK_EVENT_RETENTION_DAYS: '180',
+  TERMAVOX_COMPOSE_OVERRIDE: OVERRIDES.join(':'),
+  TERMAVOX_SECRETS_DIR: secretsDir,
+  TERMAVOX_BACKUP_DIR: backupDir,
+  TERMAVOX_DOMAIN: 'localhost',
+  TERMAVOX_HTTP_PORT: String(HTTP_PORT),
+  TERMAVOX_HTTPS_PORT: String(HTTPS_PORT),
+  TERMAVOX_PUBLIC_URL: BASE,
+  TERMAVOX_TLS: PROXY ? 'off' : 'internal',
+  TERMAVOX_REVERSE_PROXY: PROXY ? EDGE_GATEWAY : '',
+  TERMAVOX_BIND_ADDRESS: '',
+  TERMAVOX_LOG_LEVEL: 'info',
+  TERMAVOX_DAEMON_MEM_LIMIT: '1g',
+  TERMAVOX_WEB_MEM_LIMIT: '768m',
+  TERMAVOX_SSH_ALLOW_LOCAL_TARGETS: 'false',
+  TERMAVOX_EVENT_RETENTION_DAYS: '180',
 };
 
 function compose(args: string[], echo = false, allowWhileStopping = false): Promise<RunResult> {
@@ -380,7 +380,7 @@ async function preflight(): Promise<string> {
     'preflight',
     available >= MIN_AVAILABLE_MB,
     `${available} MB available (stack + test sshd + one headless Chromium need about ${MIN_AVAILABLE_MB} MB)`,
-    'free memory first, or lower TERMDOCK_SMOKE_MIN_AVAILABLE_MB if you know it fits',
+    'free memory first, or lower TERMAVOX_SMOKE_MIN_AVAILABLE_MB if you know it fits',
   );
   // The images this stack runs, as compose resolves them (the test sshd is checked below).
   const listed = await compose(['config', '--images']);
@@ -450,7 +450,7 @@ async function startStack(): Promise<void> {
     check(
       'stack',
       status === 200,
-      'TERMDOCK_TLS=off: Caddy serves plain HTTP, no redirect',
+      'TERMAVOX_TLS=off: Caddy serves plain HTTP, no redirect',
       `HTTP ${status}`,
     );
     await startFrontProxy();
@@ -750,7 +750,7 @@ async function addServer(page: CdpPage): Promise<{ serverId: string; sessionId: 
   await page.fill(field('input[name="server.name"]'), NAMES.server, 'server name');
   await page.fill(field('input[name="server.hostname"]'), SSHD_SERVICE, 'address');
   await page.fill(field('input[name="server.port"]'), '22', 'port');
-  await page.fill(field('input[name="server.username"]'), 'td', 'user name on the server');
+  await page.fill(field('input[name="server.username"]'), 'tv', 'user name on the server');
   await page.click(
     field('input[name="credential.mode"][value=private_key]'),
     `the "${ADD_SERVER.credential.choices.private_key}" option`,
@@ -1016,7 +1016,7 @@ async function duplicateServer(page: CdpPage, serverId: string): Promise<string>
     name: NAMES.duplicate,
     hostname: SSHD_SERVICE,
     port: '22',
-    username: 'td',
+    username: 'tv',
     mode: 'saved',
     credential: NAMES.credential,
   };
@@ -1434,7 +1434,7 @@ async function backup(ids: string[], renamedId: string): Promise<void> {
 // ── failure diagnostics and teardown ────────────────────────────────────────
 
 async function diagnostics(): Promise<void> {
-  const dir = mkdtempSync(join(tmpdir(), 'termdock-smoke-failure-'));
+  const dir = mkdtempSync(join(tmpdir(), 'termavox-smoke-failure-'));
   if (browser) {
     try {
       const shot = join(dir, 'screenshot.png');
@@ -1498,8 +1498,8 @@ async function main(): Promise<number> {
   const password = `Smoke-${randomBytes(12).toString('base64url')}`;
   const nextPassword = `Smoke-${randomBytes(12).toString('base64url')}`;
   const nonce = randomBytes(4).toString('hex');
-  const markers = [`termdock-smoke-${nonce}`, `termdock-smoke-${nonce}-2`];
-  const fileName = `termdock-smoke-${nonce}.bin`;
+  const markers = [`termavox-smoke-${nonce}`, `termavox-smoke-${nonce}-2`];
+  const fileName = `termavox-smoke-${nonce}.bin`;
   let failed = false;
   try {
     const chrome = await preflight();

@@ -49,7 +49,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 
 /**
  * A server's page (plan D-29, §8.1 /servers/[id]): edit every field, test the connection, decide
- * on the host keys of its address, find the Termdock sessions left running on it (D-30, SSH
+ * on the host keys of its address, find the Termavox sessions left running on it (D-30, SSH
  * only), duplicate it, delete it (refused while sessions from it run).
  */
 export default async function ServerPage({
