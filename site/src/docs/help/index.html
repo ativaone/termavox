@@ -207,7 +207,7 @@
       </ul>
       <h3 id="ring-the-bell">Making a program ring the bell</h3>
       <ul>
-        <li><strong>Claude Code:</strong> on the server where it runs, add <code>"preferredNotifChannel": "terminal_bell"</code> to <code>~/.claude/settings.json</code>, or pick the terminal bell under <strong>Local notifications</strong> in <code>/config</code>. It then rings when it finishes a task or waits for your permission.</li>
+        <li><strong>Claude Code and Codex:</strong> each has a setting for it, in <a href="#tool-tips">Tips for other tools</a>.</li>
         <li><strong>Any command:</strong> add <code>; tput bel</code> after it, as in <code>make release; tput bel</code>.</li>
       </ul>
       <aside class="note note-info">
@@ -265,6 +265,26 @@
         <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#info"/></svg>
         <div class="note-body"><p class="note-title">The panel says the server doesn't offer SFTP?</p><p>Whoever runs the server must enable <code>Subsystem sftp internal-sftp</code> in <code>sshd_config</code> and reload sshd. If the <strong>Files</strong> button doesn't show anywhere, the Termavox administrator turned the panel off.</p></div>
       </aside>
+    </section>
+
+    <section class="sec" id="tool-tips" data-group="Day to day">
+      <h2>Tips for other tools</h2>
+      <p>Settings that make programs you run in your sessions work better in Termavox. Each one changes only that program, on the server where it runs.</p>
+      <h3 id="claude-code">Claude Code</h3>
+      <p><strong>Ring the bell when it finishes.</strong> Add <code>"preferredNotifChannel": "terminal_bell"</code> at the top level of <code>~/.claude/settings.json</code>, or pick the terminal bell under <strong>Local notifications</strong> in <code>/config</code>, and restart Claude Code. It then rings when it finishes a task or waits for your permission, which is what <a href="#notifications">desktop notifications</a> listen for.</p>
+      <p><strong>Scroll the conversation with the mouse wheel.</strong> When the wheel walks through your earlier prompts instead of scrolling (Claude Code says the wheel is sending arrow keys), Claude Code is drawing in its fullscreen mode, where only <kbd>PgUp</kbd> and <kbd>PgDn</kbd> scroll. Its classic mode keeps the conversation in the terminal's scrollback, where the wheel and the scrollbar work. Any of these switches to it:</p>
+      <ul>
+        <li>start it with <code>CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 claude</code>;</li>
+        <li>add the variable <code>CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN</code>, with the value <code>1</code>, to the server's <strong>Environment variables</strong>, under <strong>Advanced</strong>: it applies to the protected sessions opened after that;</li>
+        <li>run <code>/tui default</code> once in Claude Code, which keeps the choice.</li>
+      </ul>
+      <h3 id="codex">Codex</h3>
+      <p><strong>Ring the bell when it finishes.</strong> Add these lines to <code>~/.codex/config.toml</code> (only the three keys, if it already has a <code>[tui]</code> table) and restart Codex:</p>
+      <pre class="code"><code>[tui]
+notifications = true
+notification_method = "bel"
+notification_condition = "always"</code></pre>
+      <p>It then rings when it finishes a turn or asks for your approval. <code>bel</code> because Termavox notifies on the bell, not on the other kind of terminal notification Codex can send; <code>always</code> because Termavox already notifies only when you are not looking at the session.</p>
     </section>
 
     <section class="sec" id="servers" data-group="Setup and security">

@@ -123,8 +123,9 @@ upgraded: remove it together with its volumes and install fresh from a new clone
   computer), and when its terminal rings the bell while you are looking elsewhere, the browser
   shows a notification with the session's name and terminal title; clicking it brings the
   session to the front. The choice is stored on the session; only sessions open in a tab notify,
-  while a Termavox page is open. Claude Code rings the bell when it finishes or waits for you
-  with `"preferredNotifChannel": "terminal_bell"` in its settings on the server.
+  while a Termavox page is open. Tips for other tools, a new section of the user help, say how
+  to make Claude Code and Codex ring it, and how to scroll Claude Code's conversation with the
+  mouse wheel.
 - The browser window's title follows the tab in front (the session's name and terminal title),
   and starts with 🔔 while a bell you have not seen is waiting.
 

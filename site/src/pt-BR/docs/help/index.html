@@ -207,7 +207,7 @@
       </ul>
       <h3 id="ring-the-bell">Como fazer um programa tocar o sino</h3>
       <ul>
-        <li><strong>Claude Code:</strong> no servidor onde ele roda, acrescente <code>"preferredNotifChannel": "terminal_bell"</code> ao <code>~/.claude/settings.json</code>, ou escolha o sino do terminal em <strong>Local notifications</strong> no <code>/config</code>. Assim ele toca quando termina uma tarefa ou espera a sua permissão.</li>
+        <li><strong>Claude Code e Codex:</strong> cada um tem uma configuração para isso, em <a href="#tool-tips">Dicas para outras ferramentas</a>.</li>
         <li><strong>Qualquer comando:</strong> acrescente <code>; tput bel</code> depois dele, como em <code>make release; tput bel</code>.</li>
       </ul>
       <aside class="note note-info">
@@ -265,6 +265,26 @@
         <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#info"/></svg>
         <div class="note-body"><p class="note-title">O painel diz que o servidor não oferece SFTP?</p><p>Quem administra o servidor precisa habilitar <code>Subsystem sftp internal-sftp</code> no <code>sshd_config</code> e recarregar o sshd. Se o botão <strong>Arquivos</strong> não aparece em lugar nenhum, o administrador do Termavox desligou o painel.</p></div>
       </aside>
+    </section>
+
+    <section class="sec" id="tool-tips" data-group="No dia a dia">
+      <h2>Dicas para outras ferramentas</h2>
+      <p>Configurações que fazem programas que você usa nas sessões funcionarem melhor no Termavox. Cada uma muda só aquele programa, no servidor onde ele roda.</p>
+      <h3 id="claude-code">Claude Code</h3>
+      <p><strong>Tocar o sino quando termina.</strong> Acrescente <code>"preferredNotifChannel": "terminal_bell"</code> no nível principal do <code>~/.claude/settings.json</code>, ou escolha o sino do terminal em <strong>Local notifications</strong> no <code>/config</code>, e reinicie o Claude Code. Ele passa a tocar quando termina uma tarefa ou espera a sua permissão, que é o que as <a href="#notifications">notificações na área de trabalho</a> esperam.</p>
+      <p><strong>Rolar a conversa com a roda do mouse.</strong> Quando a roda percorre os seus pedidos anteriores em vez de rolar (o Claude Code avisa que a roda está mandando setas), ele está desenhando no modo tela cheia, em que só <kbd>PgUp</kbd> e <kbd>PgDn</kbd> rolam. O modo clássico deixa a conversa no histórico do terminal, onde a roda e a barra de rolagem funcionam. Qualquer uma destas opções o ativa:</p>
+      <ul>
+        <li>iniciar com <code>CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 claude</code>;</li>
+        <li>acrescentar a variável <code>CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN</code>, com o valor <code>1</code>, às <strong>Variáveis de ambiente</strong> do servidor, em <strong>Avançado</strong>: vale para as sessões protegidas abertas depois;</li>
+        <li>rodar <code>/tui default</code> uma vez no Claude Code, que guarda a escolha.</li>
+      </ul>
+      <h3 id="codex">Codex</h3>
+      <p><strong>Tocar o sino quando termina.</strong> Acrescente estas linhas ao <code>~/.codex/config.toml</code> (só as três chaves, se ele já tiver uma tabela <code>[tui]</code>) e reinicie o Codex:</p>
+      <pre class="code"><code>[tui]
+notifications = true
+notification_method = "bel"
+notification_condition = "always"</code></pre>
+      <p>Ele passa a tocar quando termina uma rodada ou pede a sua aprovação. <code>bel</code> porque o Termavox avisa pelo sino, não pelo outro tipo de notificação de terminal que o Codex manda; <code>always</code> porque o Termavox já só avisa quando você não está olhando para a sessão.</p>
     </section>
 
     <section class="sec" id="servers" data-group="Configuração e segurança">

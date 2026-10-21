@@ -34,6 +34,8 @@ Hand-written pages carry placeholders the build fills (`{{head}}`, `{{bar}}`, `{
   or reworded one is in both pages. Describe only what ships.
 - **A help anchor the app links to** → `HELP_SECTIONS` in `apps/web/lib/links.ts` and the `id`
   in both pages, together; ids are stable English words shared by both languages.
+- **A setting of another program that makes it work better in Termavox** (Claude Code, Codex,
+  …) → the help's tool tips (`#tool-tips`): one `h3` per program, both languages.
 - **A README change** (pitch, features, quick start, status) → both home pages.
 - **A guide added under `docs/`** → `GUIDES` and both documentation indexes (the build test
   checks both). Edits to existing guides need nothing: they are rendered at every build.
