@@ -3,7 +3,7 @@
 This guide runs the whole system on one Linux host with a single command: **Caddy** (TLS and the only public listener), **web** (the Next.js control plane) and **session-manager** (the daemon that holds your SSH sessions). The architecture behind it is described in [`docs/implementation-plan.md`](../implementation-plan.md) (§4.3 network, §10.2 hardening, §13 operations).
 
 > [!WARNING]
-> Termavox 0.1.0 is the first supported release: internally reviewed twice, not externally audited. Read the [security model](../security.md) before you expose it to the internet or use it with production servers.
+> Termavox 0.1.0 is the first supported release. Read the [security model](../security.md) before you expose it to the internet or use it with production servers.
 
 ## What you get
 

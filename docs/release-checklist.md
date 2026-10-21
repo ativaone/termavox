@@ -50,10 +50,11 @@ the final release needs only step 11.
 Install it as the installation guide says (check out the tag, `docker compose pull`, `up -d`)
 on a throwaway install, or upgrade the trial install to it. Then:
 
-6. **Real phone.** On an actual phone (not emulation), sign in, open a session, type with the
-   on-screen keyboard and the extra-key bar (Esc, Tab, Ctrl, Alt, arrows, paste), rotate the
-   screen, lock the phone for a minute and come back: the session is still there. Open the
-   Files panel, upload a photo and download it back.
+6. **Real phone, when the owner checks one.** On an actual phone (not emulation), sign in, open a
+   session, type with the on-screen keyboard and the extra-key bar (Esc, Tab, Ctrl, Alt, arrows,
+   paste), rotate the screen, lock the phone for a minute and come back: the session is still
+   there. Open the Files panel, upload a photo and download it back. Optional (D-50): the
+   owner's go-ahead after using the candidate in a desktop browser is enough for a release.
 7. **Both locales.** Switch en ↔ pt-BR (the corner control on the sign-in page; account menu →
    Language… once signed in); walk sign-in, the workspace, servers and admin pages in each; no
    untranslated or truncated text; the choice persists after signing out and in. The account

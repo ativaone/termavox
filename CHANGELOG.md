@@ -6,8 +6,7 @@ All notable changes to Termavox are recorded here. The format follows
 
 ## [Unreleased]
 
-The first release, v0.1.0: the first supported release, internally reviewed twice, not
-externally audited. Read the [security model](docs/security.md) before you expose it.
+The first release, v0.1.0. Read the [security model](docs/security.md) before you expose it.
 
 ### Upgrade notes
 

@@ -114,7 +114,7 @@ Three ideas carry the design:
 ## Status and roadmap
 
 > [!WARNING]
-> **v0.1.0 is the first supported release**: internally reviewed twice, not externally audited. Read the [security model](docs/security.md) before you expose it to the internet or use it with production servers. Release candidates come first, for testing, on the [releases page](https://github.com/ativaone/termavox/releases).
+> **v0.1.0 is the first supported release.** Read the [security model](docs/security.md) before you expose it to the internet or use it with production servers. Release candidates come first, for testing, on the [releases page](https://github.com/ativaone/termavox/releases).
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -126,7 +126,7 @@ Three ideas carry the design:
 | 5 | Workspace UI: sidebar, tabs, splits, mobile key bar, Docker Compose deployment | ✅ |
 | 6 | Local modes: the "This Docker host" preset ships; direct mode moved to the roadmap | ✅ |
 | 7 | Compatibility fallback for tmux older than 3.2: moved to the roadmap (such hosts run unprotected and say so) | ⏭️ |
-| 8 | Hardening, two security reviews, docs, CI and a release pipeline with published images; release v0.1.0 (release candidate stage) | 🚧 |
+| 8 | Hardening, security reviews, docs, CI and a release pipeline with published images; release v0.1.0 (release candidate stage) | 🚧 |
 
 The full plan, with architecture, protocol, data model, security model and per-phase exit criteria, lives in [`docs/implementation-plan.md`](docs/implementation-plan.md). Spike results are recorded as ADRs in [`docs/adr/`](docs/adr/README.md).
 
@@ -234,7 +234,7 @@ Termavox is designed to be deployed as a **privileged bastion**: whoever control
 - Every request is scoped to its owner.
 - Terminal contents are never logged.
 
-The threat model, the controls and what Termavox does *not* protect against are described in the [security model](docs/security.md). Two internal security reviews have been completed and their findings fixed; there has been no external audit. To report a vulnerability privately, see [`SECURITY.md`](SECURITY.md).
+The threat model, the controls and what Termavox does *not* protect against are described in the [security model](docs/security.md). To report a vulnerability privately, see [`SECURITY.md`](SECURITY.md).
 
 ## License
 

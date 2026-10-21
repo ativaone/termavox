@@ -6,9 +6,8 @@ design rationale lives in the [implementation plan](implementation-plan.md#10-se
 page links to it instead of repeating it.
 
 > [!WARNING]
-> Termavox 0.1.0 is the first supported release: internally reviewed twice (the findings are fixed,
-> see [`CHANGELOG.md`](../CHANGELOG.md)), not externally audited. Read this page before you expose
-> it to the internet or use it with production servers.
+> Termavox 0.1.0 is the first supported release. Read this page before you expose it to the
+> internet or use it with production servers.
 
 To report a vulnerability, see [Reporting a vulnerability](#reporting-a-vulnerability).
 
