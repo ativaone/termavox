@@ -28,13 +28,14 @@ import { Button } from '../ui/button.tsx';
 import { cx } from '../ui/cx.ts';
 import { Panel } from '../ui/panel.tsx';
 import { StateLamp, StatusChip } from '../ui/status-chip.tsx';
-import { FULL_WIDTH, usePaneWidth } from './pane-width-preference.ts';
+import { EdgeHandle, type EdgeKey } from './edge-handle.tsx';
 import { TerminalPane } from './terminal-pane.tsx';
+import { type PaneArea, usePaneArea } from './view-preferences.ts';
 import { type PaneMeta, type PanePlace, useWorkspace } from './workspace-context.tsx';
 
 /** Smallest pane, in CSS px, when dragging or nudging a divider. */
 const MIN_PANE_PX = { row: 160, column: 96 } as const;
-/** Narrowest pane area, in CSS px, when dragging or nudging its trailing edge. */
+/** Narrowest pane area, in CSS px, when dragging or nudging one of its edges. */
 const MIN_AREA_PX = 320;
 const KEY_STEP = 2;
 const KEY_STEP_LARGE = 10;
@@ -379,98 +380,103 @@ function TreeNode(props: TreeProps & { node: PaneNode }) {
   );
 }
 
+type AreaEdge = keyof PaneArea;
+
 /**
- * The pane area at the width its trailing edge was dragged to (per browser, every tab), so a
- * lone pane can be narrowed without a split; the ground shows beyond it. The edge is a divider
- * in the area's gutter, so at full width it takes nothing from the panes. Double-click restores
- * the full width.
+ * The pane area between the margins its edges were dragged to (per browser, every tab), so a
+ * lone pane can be narrowed without a split; the ground shows beyond it. Each edge is a divider
+ * in the area's gutter, so at full width it takes nothing from the panes; double-click puts that
+ * edge back. Margins are percent of the room beside the sidebar.
  */
 function AreaFrame({ children }: { children: ReactNode }) {
   const t = useTranslations('workspace.pane');
-  const [stored, setStored] = usePaneWidth();
-  const [preview, setPreview] = useState<number | null>(null);
+  const [stored, setStored] = usePaneArea();
+  const [preview, setPreview] = useState<PaneArea | null>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{
-    start: number;
+    edge: AreaEdge;
+    from: PaneArea;
     extent: number;
-    from: number;
-    min: number;
-    value: number | null;
+    limit: number;
+    value: PaneArea | null;
   } | null>(null);
-  const width = preview ?? stored;
+  const area = preview ?? stored;
 
-  const minWidth = (): number => {
-    const extent = frameRef.current?.getBoundingClientRect().width;
-    return extent ? Math.min(FULL_WIDTH, (MIN_AREA_PX / extent) * 100) : 10;
+  const extent = (): number => frameRef.current?.getBoundingClientRect().width ?? 0;
+  /** How far in (percent) an edge may go before the area gets narrower than its minimum. */
+  const limitOf = (edge: AreaEdge, from: PaneArea): number => {
+    const width = extent();
+    const narrowest = width > 0 ? Math.min(100, (MIN_AREA_PX / width) * 100) : 100;
+    return Math.max(0, 100 - narrowest - (edge === 'start' ? from.end : from.start));
   };
-  const clamp = (value: number, min: number): number => Math.min(FULL_WIDTH, Math.max(min, value));
-  const min = minWidth();
+  const place = (edge: AreaEdge, from: PaneArea, value: number, limit: number): PaneArea => ({
+    ...from,
+    [edge]: Math.min(limit, Math.max(0, value)),
+  });
 
-  const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return;
-    const extent = frameRef.current?.getBoundingClientRect().width;
-    if (!extent) return;
-    event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    drag.current = { start: event.clientX, extent, from: width, min: minWidth(), value: null };
-  };
-  const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    const state = drag.current;
-    if (!state) return;
-    const delta = ((event.clientX - state.start) / state.extent) * 100;
-    state.value = clamp(state.from + delta, state.min);
-    setPreview(state.value);
-  };
-  const finish = () => {
-    const value = drag.current?.value ?? null;
-    drag.current = null;
-    setPreview(null);
-    if (value !== null) setStored(value);
-  };
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const step = event.shiftKey ? KEY_STEP_LARGE : KEY_STEP;
-    let next: number;
-    if (event.key === 'ArrowLeft') next = width - step;
-    else if (event.key === 'ArrowRight') next = width + step;
-    else if (event.key === 'Home') next = min;
-    else if (event.key === 'End') next = FULL_WIDTH;
-    else return;
-    event.preventDefault();
-    setStored(clamp(next, min));
+  const handlers = (edge: AreaEdge) => {
+    // Moving right widens the start margin and narrows the end one.
+    const sign = edge === 'start' ? 1 : -1;
+    return {
+      onPress: () => {
+        drag.current = {
+          edge,
+          from: area,
+          extent: extent(),
+          limit: limitOf(edge, area),
+          value: null,
+        };
+      },
+      onDrag: (dx: number) => {
+        const state = drag.current;
+        if (!state || state.edge !== edge || state.extent <= 0) return;
+        const value = state.from[edge] + ((sign * dx) / state.extent) * 100;
+        state.value = place(edge, state.from, value, state.limit);
+        setPreview(state.value);
+      },
+      onRelease: () => {
+        const value = drag.current?.value ?? null;
+        drag.current = null;
+        setPreview(null);
+        if (value) setStored(value);
+      },
+      onKey: (key: EdgeKey, large: boolean) => {
+        const step = large ? KEY_STEP_LARGE : KEY_STEP;
+        const limit = limitOf(edge, area);
+        // Home and End take the edge to its left and right limits.
+        let value: number;
+        if (key === 'home') value = edge === 'start' ? 0 : limit;
+        else if (key === 'end') value = edge === 'start' ? limit : 0;
+        else value = area[edge] + sign * (key === 'back' ? -step : step);
+        setStored(place(edge, area, value, limit));
+      },
+      onReset: () => setStored({ ...area, [edge]: 0 }),
+    };
   };
 
   return (
     <div ref={frameRef} className="flex h-full w-full min-h-0 min-w-0">
-      <div className="relative flex h-full min-h-0 min-w-0" style={{ width: `${width}%` }}>
+      <div
+        className="relative flex h-full min-h-0 min-w-0"
+        style={{ marginInlineStart: `${area.start}%`, width: `${100 - area.start - area.end}%` }}
+      >
         {children}
-        {/* biome-ignore lint/a11y/useSemanticElements: a focusable, draggable separator has no native element (<hr> cannot take focus or a value) */}
-        <div
-          role="separator"
-          tabIndex={0}
-          aria-orientation="vertical"
-          aria-label={t('resizeArea')}
-          aria-valuenow={Math.round(width)}
-          aria-valuemin={Math.round(min)}
-          aria-valuemax={FULL_WIDTH}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={finish}
-          onPointerCancel={finish}
-          onDoubleClick={() => setStored(FULL_WIDTH)}
-          onKeyDown={onKeyDown}
-          className={cx(
-            'group/divider absolute inset-y-0 -end-2 z-10 flex w-2 cursor-col-resize touch-none flex-col items-center justify-center',
-            'focus-visible:outline-2 focus-visible:outline-focus focus-visible:-outline-offset-1',
-          )}
-        >
-          <span
-            aria-hidden="true"
-            className={cx(
-              'h-10 w-0.5 rounded-pill bg-transparent transition-colors duration-(--duration-step) ease-(--ease-out)',
-              'group-hover/divider:bg-line-strong group-active/divider:bg-accent group-focus-visible/divider:bg-accent',
-            )}
-          />
-        </div>
+        <EdgeHandle
+          label={t('resizeAreaStart')}
+          value={area.start}
+          min={0}
+          max={100 - area.end}
+          className="absolute inset-y-0 -start-2"
+          {...handlers('start')}
+        />
+        <EdgeHandle
+          label={t('resizeAreaEnd')}
+          value={100 - area.end}
+          min={area.start}
+          max={100}
+          className="absolute inset-y-0 -end-2"
+          {...handlers('end')}
+        />
       </div>
     </div>
   );

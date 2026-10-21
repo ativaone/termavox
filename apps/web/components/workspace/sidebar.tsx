@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import type { ReactNode } from 'react';
+import { type ReactNode, useRef } from 'react';
 import type { Locale } from '../../i18n/locales.ts';
 import { ROUTES } from '../../lib/routes.ts';
 import type { BayData, BaySession } from '../../lib/sessions/types.ts';
@@ -17,14 +17,20 @@ import { cx } from '../ui/cx.ts';
 import { NavIcon, NavRow } from '../ui/nav-row.tsx';
 import { BrandTile, Wordmark } from '../ui/wordmark.tsx';
 import { AccountMenu } from './account-menu.tsx';
+import { EdgeHandle } from './edge-handle.tsx';
 import { FirstRunPanel } from './empty-panels.tsx';
 import { EndAllSessions } from './end-all-sessions.tsx';
 import { NewSessionButton } from './new-session-button.tsx';
 import { SessionList, SessionRail } from './session-list.tsx';
 import type { SessionMenuActions } from './session-menu.tsx';
 import type { SidebarMode } from './sidebar-preference.ts';
+import { SIDEBAR_DEFAULT_PX, SIDEBAR_MAX_PX, SIDEBAR_MIN_PX } from './view-preferences.ts';
 
 export const SESSION_LIST_ID = 'session-list';
+
+/** Arrow-key steps on the sidebar's edge, in CSS px (Shift takes the large one). */
+const EDGE_STEP_PX = 16;
+const EDGE_STEP_LARGE_PX = 64;
 
 export interface SidebarProps {
   username: string;
@@ -259,5 +265,78 @@ export function Sidebar({
         </div>
       </div>
     </aside>
+  );
+}
+
+/**
+ * The rule between the sidebar and the workspace, drawn like the file panel's divider. Beside
+ * the full list it is the list's resize handle (drag or arrows; double-click restores the
+ * default width); beside the rail it is only the rule, so switching modes never shifts the
+ * workspace. Hidden on a phone, where the sidebar is the whole screen.
+ */
+export function SidebarEdge({
+  rail,
+  width,
+  onPreview,
+  onCommit,
+}: {
+  rail: boolean;
+  /** The stored width in CSS px, or null for the default. */
+  width: number | null;
+  onPreview(width: number | null): void;
+  onCommit(width: number | null): void;
+}) {
+  const t = useTranslations('workspace.sidebar');
+  const drag = useRef<{ from: number; max: number; value: number | null } | null>(null);
+  if (rail) {
+    return (
+      <div aria-hidden="true" className="relative flex w-2 shrink-0 justify-center max-md:hidden">
+        <span className="absolute inset-y-0 w-px bg-line" />
+      </div>
+    );
+  }
+
+  const maxWidth = (): number =>
+    Math.max(SIDEBAR_MIN_PX, Math.min(SIDEBAR_MAX_PX, window.innerWidth / 2));
+  const clamp = (value: number, max: number): number =>
+    Math.min(max, Math.max(SIDEBAR_MIN_PX, value));
+  /** The sidebar's drawn width: the edge starts where the sidebar ends. */
+  const measure = (handle: HTMLElement): number =>
+    handle.getBoundingClientRect().left - (handle.parentElement?.getBoundingClientRect().left ?? 0);
+
+  return (
+    <EdgeHandle
+      ruled
+      label={t('resize')}
+      value={width ?? SIDEBAR_DEFAULT_PX}
+      min={SIDEBAR_MIN_PX}
+      max={SIDEBAR_MAX_PX}
+      className="relative max-md:hidden"
+      onPress={(handle) => {
+        drag.current = { from: measure(handle), max: maxWidth(), value: null };
+      }}
+      onDrag={(dx) => {
+        const state = drag.current;
+        if (!state) return;
+        state.value = clamp(state.from + dx, state.max);
+        onPreview(state.value);
+      }}
+      onRelease={() => {
+        const value = drag.current?.value ?? null;
+        drag.current = null;
+        onPreview(null);
+        if (value !== null) onCommit(value);
+      }}
+      onKey={(key, large, handle) => {
+        const max = maxWidth();
+        const step = large ? EDGE_STEP_LARGE_PX : EDGE_STEP_PX;
+        let next: number;
+        if (key === 'home') next = SIDEBAR_MIN_PX;
+        else if (key === 'end') next = max;
+        else next = measure(handle) + (key === 'back' ? -step : step);
+        onCommit(clamp(next, max));
+      }}
+      onReset={() => onCommit(null)}
+    />
   );
 }

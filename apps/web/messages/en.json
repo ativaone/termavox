@@ -232,7 +232,8 @@
       "noSessionsTitle": "Start a session",
       "noSessionsBody": "Your servers are ready. Start a session and it will appear in the bay.",
       "resize": "Resize panes",
-      "resizeArea": "Resize the terminal area",
+      "resizeAreaStart": "Resize the terminal area from the left",
+      "resizeAreaEnd": "Resize the terminal area from the right",
       "loading": "Session",
       "emptyPane": "Empty pane",
       "emptyPaneBody": "Pick a session for this pane, or start a new one here.",
@@ -289,7 +290,8 @@
     },
     "sidebar": {
       "collapse": "Collapse the session list",
-      "expand": "Expand the session list"
+      "expand": "Expand the session list",
+      "resize": "Resize the session list"
     },
     "overlay": {
       "offline": "Not connected to Termavox right now. Try again when the connection is back.",

@@ -77,11 +77,12 @@ import { NEW_SESSION_EVENT } from './new-session-button.tsx';
 import { CommandPalette, type PaletteServer, type PaletteSession } from './palette.tsx';
 import { PaneTree } from './pane-tree.tsx';
 import { RenameDialog, type RenameTarget } from './rename-dialog.tsx';
-import { SESSION_LIST_ID, Sidebar } from './sidebar.tsx';
+import { SESSION_LIST_ID, Sidebar, SidebarEdge } from './sidebar.tsx';
 import { useSidebarMode } from './sidebar-preference.ts';
 import { TabBar } from './tab-bar.tsx';
 import { isPaletteShortcut, TerminalPane } from './terminal-pane.tsx';
 import { withViewTransition } from './transitions.ts';
+import { useSidebarWidth } from './view-preferences.ts';
 import {
   type PaneHandle,
   type PaneMeta,
@@ -744,6 +745,9 @@ export function WorkspaceShell({
   // ── view ───────────────────────────────────────────────────────────────────
   const [sidebarMode, setSidebarMode] = useSidebarMode();
   const rail = isDesktop && sidebarMode === 'rail';
+  const [sidebarWidth, setSidebarWidth] = useSidebarWidth();
+  const [sidebarPreview, setSidebarPreview] = useState<number | null>(null);
+  const shownSidebarWidth = sidebarPreview ?? sidebarWidth;
   const phoneSessionId = urlSession;
   const phoneView = phoneSessionId ? 'pane' : 'bay';
   const followedId = isDesktop ? (current?.leaf.sessionId ?? null) : phoneSessionId;
@@ -823,6 +827,10 @@ export function WorkspaceShell({
         style={{
           ...(viewportHeight ? { height: viewportHeight } : {}),
           ['--sidebar-current' as string]: rail ? 'var(--rail-width)' : 'var(--sidebar-width)',
+          // A dragged sidebar width (per browser), never more than half the window.
+          ...(shownSidebarWidth !== null
+            ? { ['--sidebar-width' as string]: `min(${shownSidebarWidth}px, 50vw)` }
+            : {}),
         }}
       >
         <SkipLink label={tc('skipToContent')} target={followedId ? 'main' : SESSION_LIST_ID} />
@@ -843,6 +851,12 @@ export function WorkspaceShell({
           mode={sidebarMode}
           onModeChange={setSidebarMode}
           hidden={phoneView === 'pane'}
+        />
+        <SidebarEdge
+          rail={rail}
+          width={sidebarWidth}
+          onPreview={setSidebarPreview}
+          onCommit={setSidebarWidth}
         />
 
         <main
