@@ -108,6 +108,43 @@ describe('SessionRegistry session.upsert', () => {
     expect(await detailOf('new')).toBe('AUTH_REJECTED');
     await registry.shutdown();
   });
+
+  it('an expired sign-in prompt is not replayed to a later connection; the list says it expired', async () => {
+    const store = new MemorySessionStore();
+    const notifier = new RecordingNotifier();
+    const registry = new SessionRegistry({
+      store,
+      hostKeys: new MemoryHostKeyStore(),
+      transports: new FakeTransportFactory(() => ({
+        connect: async (hooks) => {
+          const answers = await hooks.onKeyboardInteractive({
+            name: '',
+            instructions: '',
+            prompts: [{ text: 'OTP: ', echo: false }],
+          });
+          if (!answers) throw new TermavoxError(ErrorCode.AuthTimeout, 'expired');
+        },
+      })),
+      drivers: createDriverFactory(),
+      notifier,
+      installationId: 'install-1',
+      runtime: { resizeDebounceMs: 1, promptTimeoutMs: 40 },
+    });
+    registry.create(store.add(makeRecord({ id: 's1' })));
+    // What a WebSocket that opens now gets after `sessions.list` (ws/server.ts).
+    await until(() => registry.pendingPrompts('user-1').some((m) => m.type === 'auth.prompt'));
+    await until(() =>
+      notifier.ofType('session.status').some((m) => m.detail === ErrorCode.AuthTimeout),
+    );
+    expect(registry.pendingPrompts('user-1')).toEqual([]);
+    const summary = (await registry.listForUser('user-1')).find((s) => s.id === 's1');
+    expect(summary).toMatchObject({
+      state: 'awaiting_user_input',
+      status: 'action_required',
+      statusDetail: ErrorCode.AuthTimeout,
+    });
+    await registry.shutdown();
+  });
 });
 
 describe('SessionRegistry.reopen', () => {

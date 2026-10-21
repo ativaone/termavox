@@ -49,7 +49,9 @@ export default async function CredentialsPage({
         done={search.done}
         messages={{ renamed: t('notice.renamed'), deleted: t('notice.deleted') }}
       />
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,27rem)]">
+      {/* Side by side only from 88rem, where the list card holds its table (about 36rem) beside
+          the form's 27rem; narrower windows stack them, so the table never scrolls on a laptop. */}
+      <div className="grid items-start gap-6 min-[88rem]:grid-cols-[minmax(0,1fr)_minmax(0,27rem)]">
         <Panel aria-labelledby="credentials-list-title">
           <PanelSection>
             <SectionHeading id="credentials-list-title" title={t('list.title')} />
@@ -64,7 +66,8 @@ export default async function CredentialsPage({
               </div>
             </PanelSection>
           ) : (
-            <div className="border-line border-t">
+            <div className="border-line border-t md:overflow-x-auto">
+              {/* A card narrower than the table (a tablet) scrolls it inside the card. */}
               <DataTable
                 caption={t('list.title')}
                 head={
@@ -80,7 +83,9 @@ export default async function CredentialsPage({
               >
                 {credentials.map((credential) => (
                   <Tr key={credential.id}>
-                    <Td primary className="md:w-[45%] md:max-w-0">
+                    {/* Never narrower than 12rem: the fingerprint keeps to a few lines and the
+                        usage line to one, whatever the other columns need. */}
+                    <Td primary className="md:w-[45%] md:min-w-48 md:max-w-0">
                       {renaming === credential.id ? (
                         <RenameCredential id={credential.id} name={credential.name} />
                       ) : (
@@ -100,17 +105,18 @@ export default async function CredentialsPage({
                     <Td label={t('list.kind')}>
                       <Tag>{t(`kind.${credential.kind}`)}</Tag>
                     </Td>
-                    {/* One line on wide screens: the actions row must not squeeze it to three. */}
-                    <Td label={t('list.lastUsed')} className="text-ink-muted md:whitespace-nowrap">
+                    {/* Breaks only between the date and the time, never inside either. */}
+                    <Td label={t('list.lastUsed')} className="text-ink-muted">
                       {credential.lastUsedAt ? (
-                        <LocalTime at={credential.lastUsedAt} />
+                        <LocalTime at={credential.lastUsedAt} splitTime />
                       ) : (
                         t('list.never')
                       )}
                     </Td>
                     <Td className="max-md:pt-2">
-                      {/* One row: Delete keeps its 2rem isolation beside Rename (no 8 px stack). */}
-                      <div className="flex flex-wrap items-start justify-end gap-x-2 gap-y-8 max-md:justify-start md:flex-nowrap">
+                      {/* Delete keeps 2rem from Rename: beside it on a phone, below it on wide
+                          screens, where a row of both took the width the credential needs. */}
+                      <div className="flex flex-wrap items-start gap-8 md:flex-col md:items-end">
                         {renaming === credential.id ? null : (
                           <ButtonLink
                             href={`/credentials?rename=${encodeURIComponent(credential.id)}`}
@@ -127,6 +133,7 @@ export default async function CredentialsPage({
                           confirmLabel={t('list.deleteConfirm')}
                           action={deleteCredential}
                           hidden={{ id: credential.id }}
+                          isolated={false}
                         />
                       </div>
                     </Td>

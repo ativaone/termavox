@@ -170,6 +170,73 @@ describe('SessionRuntime state machine', () => {
     await rt.shutdown();
   });
 
+  it('keyboard-interactive expiry: tells every connection the prompt is gone, replays none', async () => {
+    let attempts = 0;
+    const h = harness({
+      behavior: () => ({
+        connect: async (hooks) => {
+          attempts++;
+          hooks.onHostKey({ ...TEST_KEY }, 'trusted');
+          const answers = await hooks.onKeyboardInteractive({
+            name: '',
+            instructions: '',
+            prompts: [{ text: 'Password: ', echo: false }],
+          });
+          if (!answers) throw new TermavoxError(ErrorCode.AuthTimeout, 'expired');
+        },
+      }),
+    });
+    const sent = (back: number) => h.notifier.messages.at(-back);
+    const rt = h.runtime({ promptTimeoutMs: 40 });
+    // A browser is attached the whole time: nobody attaches after the expiry to start an attempt.
+    rt.attach(new FakeAttachment('a1'), { cols: 80, rows: 24 });
+    void rt.start();
+    await until(() => h.notifier.ofType('auth.prompt').length === 1);
+    // The status that asks for the answer carries no detail; the prompt follows it.
+    const asking = {
+      type: 'session.status',
+      sessionId: SID,
+      status: 'action_required',
+      state: 'awaiting_user_input',
+    };
+    expect(sent(2)?.message).toEqual(asking);
+    expect(rt.pendingPrompt()).toEqual(h.notifier.ofType('auth.prompt')[0]);
+
+    // Expiry: the same state, now with AUTH_TIMEOUT, to every connection of the session's user.
+    await until(() => sent(1)?.message.type === 'session.status');
+    expect(sent(1)).toEqual({
+      userId: 'user-1',
+      message: { ...asking, detail: ErrorCode.AuthTimeout },
+    });
+    expect(rt.state).toBe('awaiting_user_input');
+    // A client that connects later gets no prompt to answer, and the reason with the summary.
+    expect(rt.pendingPrompt()).toBeNull();
+    expect(rt.live()).toMatchObject({
+      status: 'action_required',
+      statusDetail: ErrorCode.AuthTimeout,
+    });
+    // Recorded once, as the expiry: the state itself did not change.
+    expect(h.store.events.filter((e) => e.type === 'auth_prompt_expired')).toHaveLength(1);
+    expect(
+      h.store.events.filter(
+        (e) =>
+          e.type === 'state_changed' &&
+          e.detail?.from === 'awaiting_user_input' &&
+          e.detail?.to === 'awaiting_user_input',
+      ),
+    ).toEqual([]);
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    expect(attempts).toBe(1); // no unattended prompt loop
+    expect(h.notifier.ofType('auth.prompt')).toHaveLength(1);
+
+    // Retry asks the server again: a new prompt, asked for without a detail.
+    await rt.retry();
+    await until(() => h.notifier.ofType('auth.prompt').length === 2);
+    expect(sent(2)?.message).toEqual(asking);
+    expect(rt.live().statusDetail).toBeNull();
+    await rt.shutdown();
+  });
+
   it('records attached/detached with the client address and user agent (session_events)', async () => {
     const h = harness();
     const rt = h.runtime();

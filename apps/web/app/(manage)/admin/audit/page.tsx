@@ -398,7 +398,9 @@ export default async function AdminAuditPage({
                 <Td label={t('actor')} className="text-sm">
                   {auditActorLabel(row, t)}
                 </Td>
-                <Td label={t('target')} className="text-sm [overflow-wrap:anywhere]">
+                {/* `anywhere` alone let the table squeeze the column to a few letters ("rc2a|dmin"):
+                    from 9rem a name or address breaks only when it is longer than that. */}
+                <Td label={t('target')} className="text-sm [overflow-wrap:anywhere] md:min-w-36">
                   <span className="flex min-w-0 flex-col">
                     <span>{targetLabel(row, settingLabel)}</span>
                     {detailAddress(row) && detailAddress(row) !== targetLabel(row, settingLabel) ? (

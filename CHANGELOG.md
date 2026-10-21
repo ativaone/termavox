@@ -123,6 +123,17 @@ upgraded: remove it together with its volumes and install fresh from a new clone
 - Home and End in protected sessions: programs inside the session's tmux now get them as their
   terminal reads them. Before, vim in insert mode took End for a new line with an "F" in it, and
   Home for one with an "H".
+- An expired sign-in prompt (a code or password the server asks for) now leaves the pane at
+  once: every open window replaces the form with "Waiting for the server's prompt" and its Retry,
+  which asks the server again. Before, the form stayed up for good and looked alive, and an
+  answer typed into it was dropped.
+- Credentials: the list no longer spills past its card or squeezes the credential into a narrow
+  strip (in Brazilian Portuguese at 1440 px the fingerprint wrapped every few characters). Last
+  used breaks only between the date and the time, Delete sits below Rename on wide screens, the
+  list sits beside the New credential form only where both fit, and on a tablet the table scrolls
+  inside its card.
+- Audit log: short targets (user and server names, addresses) no longer break in the middle
+  ("rc2a" over "dmin"); only a value longer than the column wraps.
 
 ### Security
 

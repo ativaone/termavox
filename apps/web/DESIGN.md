@@ -416,10 +416,11 @@ A session's files beside its terminal, inside the same pane (never a split), ove
 
 ### Management pages (servers, credentials, activity, settings, admin)
 - **Page header:** the title in Title size, one line of context in `ink-muted`, page actions on the trailing edge (primary cyan, secondary raised).
-- **Table:** inside a card: column labels in group label, a hairline between rows, a faint `surface` hover, tabular figures, counts right-aligned, machine values (addresses, fingerprints) in 13 px mono and muted. Below 48rem every row becomes a block with each cell carrying its own label, so nothing scrolls sideways.
+- **Table:** inside a card: column labels in group label, a hairline between rows, a faint `surface` hover, tabular figures, counts right-aligned, machine values (addresses, fingerprints) in 13 px mono and muted. Below 48rem every row becomes a block with each cell carrying its own label, so nothing scrolls sideways. A column whose values can be long (names, addresses) has a minimum width and breaks anywhere only past it: `overflow-wrap: anywhere` alone lets the table squeeze it to a few letters (the audit log's Target keeps 9rem). A table that can be wider than its card on a tablet scrolls inside the card, never past its edge.
 - **Tag:** a 20 px pill in sentence case for the state of a record that is not a session: `success-soft`, `warning-soft`, `danger-soft`, `info-soft` with the matching lamp or accent text, or `surface-raised` with muted text; the word always carries the meaning.
 - **Confirm action:** a destructive action behind a native disclosure; the first press opens a `danger-soft` slip that names exactly what will happen, the destructive button inside it submits, and a server refusal shows in the same slip.
 - **Success after a redirect:** a success notice at the top of the page, from a whitelisted `?done=` key.
+- **Credentials:** the list card sits beside the New credential card from 88rem, where it holds its table, and above it below that. Its table: the credential (name, fingerprint, a muted "Used by n servers" on one line) never narrower than 12rem; the kind tag; Last used, which breaks only between the date and the time; then Rename over Delete…, 2rem apart (side by side on a phone).
 - **Back to where you came from:** a page reached with `?from=` (plan D-27) shows a quiet sm "Back to …" link with a left arrow above its title, named after that page; after its job is done the same destination becomes a large button (primary when it is the next step).
 
 ### Add server form

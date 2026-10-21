@@ -3,12 +3,14 @@ import { FrameType } from '@termavox/protocol';
 import { XTERM_VERSION } from '@termavox/terminal-config';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  type AuthPromptRequest,
   ChannelLimitError,
   RATE_LIMITED_RETRY_MS,
   TermavoxConnection,
   type TerminalChannel,
 } from '../../lib/terminal/index.ts';
 import type { TerminalLike } from '../../lib/terminal/types.ts';
+import { chooseOverlay } from '../../lib/workspace/overlay.ts';
 import {
   createClientTerminal,
   FakeServer,
@@ -470,6 +472,67 @@ describe('TermavoxConnection', () => {
     // One that lost its connection retries until a deadline.
     status({ status: 'reconnecting', state: 'reconnecting', retryInMs: 2_000, retryUntil: 99 });
     expect(entry()).toMatchObject({ attempt: null, retryUntil: 99 });
+  });
+
+  it('trades an expired sign-in prompt for the waiting card with Retry (§5.10)', async () => {
+    const server = new FakeServer();
+    const waiting = { state: 'awaiting_user_input', status: 'action_required' } as const;
+    server.sessions = [summary('a', waiting)];
+    const prompt = (promptId: string): AuthPromptRequest => ({
+      type: 'auth.prompt',
+      sessionId: 'a',
+      promptId,
+      name: '',
+      instructions: '',
+      prompts: [{ text: 'Password: ', echo: false }],
+    });
+    server.pendingPrompts = [prompt('p1')];
+    const { connection } = setup(server);
+    connection.connect();
+    await until(() => connection.getSnapshot().authPrompts.a !== undefined);
+    const status = (extra: Record<string, unknown> = {}) =>
+      server.last.deliver(
+        JSON.stringify({ type: 'session.status', sessionId: 'a', ...waiting, ...extra }),
+      );
+    // What the pane draws over the session (pane-overlays.tsx).
+    const overlay = () => {
+      const state = connection.getSnapshot();
+      return chooseOverlay(
+        'a',
+        state.sessions.find((e) => e.id === 'a'),
+        false,
+        {
+          hostKey: state.hostKeyPrompts.a,
+          auth: state.authPrompts.a,
+        },
+      );
+    };
+    expect(overlay()).toEqual({ kind: 'auth', prompt: prompt('p1') });
+    // The status that asks for an answer comes before its prompt, without a detail: kept.
+    status();
+    expect(overlay()).toEqual({ kind: 'auth', prompt: prompt('p1') });
+
+    // The daemon withdrew the prompt: the form goes at once, the waiting card offers Retry.
+    status({ detail: 'AUTH_TIMEOUT' });
+    expect(connection.getSnapshot().authPrompts).toEqual({});
+    expect(connection.getSnapshot().sessions[0]).toMatchObject({
+      status: 'action_required',
+      detail: 'AUTH_TIMEOUT',
+    });
+    expect(overlay()).toEqual({ kind: 'actionWait' });
+
+    // A page that connects now: the list says why, and no prompt is replayed.
+    server.pendingPrompts = [];
+    server.sessions = [summary('a', { ...waiting, statusDetail: 'AUTH_TIMEOUT' })];
+    server.last.serverClose(1006);
+    await until(() => server.sockets.length === 2 && connection.getSnapshot().status === 'open');
+    expect(overlay()).toEqual({ kind: 'actionWait' });
+
+    // Retry: the server asks again, and the form comes back with the new prompt.
+    status({ status: 'connecting', state: 'connecting' });
+    status();
+    server.last.deliver(JSON.stringify(prompt('p2')));
+    expect(overlay()).toEqual({ kind: 'auth', prompt: prompt('p2') });
   });
 
   it('shows one remote-sessions notice per server; a dismissed one stays quiet', async () => {

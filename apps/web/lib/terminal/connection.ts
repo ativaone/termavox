@@ -588,9 +588,11 @@ export class TermavoxConnection implements FileApi {
       case 'session.status': {
         const { sessionId, status, detail, retryInMs } = message;
         // A prompt always follows the status that asks for it, so a later status supersedes it.
-        // A host-key mismatch prompt belongs to the `failed` state it comes with.
+        // A host-key mismatch prompt belongs to the `failed` state it comes with. The status that
+        // asks for a keyboard-interactive answer carries no detail; one in the same state with a
+        // detail (AUTH_TIMEOUT) says the prompt expired (§5.10): the pane offers Retry instead.
         const keepHostKey = message.state === 'awaiting_host_key' || message.state === 'failed';
-        const keepAuth = message.state === 'awaiting_user_input';
+        const keepAuth = message.state === 'awaiting_user_input' && detail === undefined;
         this.#store.update({
           sessions: patchSession(state.sessions, sessionId, (entry) => ({
             ...entry,

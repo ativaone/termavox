@@ -424,7 +424,7 @@ failed ── user Retry ──► connecting                                   
 ```
 
 - `awaiting_host_key`: the unknown key is stored as `pending` and the connection is aborted; an accept trusts that key and reconnects (§5.9).
-- `awaiting_user_input`: on prompt expiry the connection is closed and the session stays here; the next connect attempt re-prompts (§5.10).
+- `awaiting_user_input`: on prompt expiry the connection is closed and the session stays here, its prompt withdrawn (a `session.status` with `detail: AUTH_TIMEOUT`); the next connect attempt re-prompts (§5.10).
 
 User-facing status (what the UI shows — never the internal detail). The mapping is `toSessionStatus(state, wasReady)` in `packages/protocol`, where `wasReady` means the session reached `ready` at least once (`last_ready_at` is set):
 
@@ -507,6 +507,7 @@ A session's effective protection is fixed at creation. If a later reconnect find
   - Exactly one prompt matching `/password/i`, with a stored password credential, on the first round → answer automatically (at most once per connection attempt, to avoid loops).
   - Otherwise → state `awaiting_user_input`; broadcast `auth.prompt { sessionId, promptId, name, instructions, prompts: [{ text, echo }] }` to all of that user's connections. The first `auth.response { sessionId, promptId, answers }` carrying the current `promptId` wins; answers with any other `promptId` are stale and discarded.
   - **Prompt timeout 100 s**, below OpenSSH's default `LoginGraceTime` of 120 s. On expiry the daemon closes the connection and the session stays in `awaiting_user_input` (not `failed`); the next connect attempt prompts again with a new `promptId`. That attempt starts only when someone can answer: an attachment opens the session, or the user presses Retry. There are no unattended prompt loops (repeated failed logins can trip fail2ban-style defenses on the host).
+  - The expired prompt is withdrawn at once: every connection of the user gets a `session.status` in the same state with `detail: AUTH_TIMEOUT` (the status that asks for an answer carries no detail), the summary's `statusDetail` keeps it, and the prompt is no longer replayed to connections that open later. The browser drops the form and the pane shows the waiting card with Retry. The state did not change, so no `state_changed` event: `auth_prompt_expired` records it.
 - Answers are never logged, persisted or echoed back. `echo: false` prompts are rendered as password inputs.
 - Host text is capped and cleaned by the daemon, and the panel quotes it under Termavox's own framing (§10.2).
 
@@ -838,7 +839,7 @@ Server → client:
 | `hello.ok` | `protocol, userId, serverTime` |
 | `sessions.list` | full list of the user's sessions with `status`, `protection`, labels (sent after `hello.ok`) |
 | `session.upsert` / `session.removed` | incremental list updates (also used for sessions created in another tab) |
-| `session.status` | `sessionId, status, state, detail?, retryInMs?, attempt?, maxAttempts?, retryUntil?, remoteCleanup?` — `attempt`/`maxAttempts` (a session that never connected) or `retryUntil` (epoch ms, one that lost its connection) on every status of a retry round (D-31, §5.7); `remoteCleanup: 'pending'` only with `ended`: the session's tmux could not be ended now (§5.8). Both live only, not part of the summary |
+| `session.status` | `sessionId, status, state, detail?, retryInMs?, attempt?, maxAttempts?, retryUntil?, remoteCleanup?` — `attempt`/`maxAttempts` (a session that never connected) or `retryUntil` (epoch ms, one that lost its connection) on every status of a retry round (D-31, §5.7); `remoteCleanup: 'pending'` only with `ended`: the session's tmux could not be ended now (§5.8). Both live only, not part of the summary. `awaiting_user_input` with `detail: AUTH_TIMEOUT`: the sign-in prompt expired and is withdrawn (§5.10) |
 | `session.attached` | `channel, sessionId, cols, rows, scrollbackLines` (followed by a `SNAPSHOT` frame; the browser sizes its scrollback from `scrollbackLines`) |
 | `terminal.resized` | `channel, cols, rows, seq, activeAttachment: boolean` — the client resizes after applying every `OUTPUT` with `seq <= seq` and before later ones (§5.5) |
 | `terminal.title` | `channel, title` (sanitized, ≤ 256 chars) |

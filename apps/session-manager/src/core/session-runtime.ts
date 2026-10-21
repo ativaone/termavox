@@ -1025,6 +1025,7 @@ export class SessionRuntime implements SessionHost, FileHost {
           if (this.#promptExpired) {
             // Stays in awaiting_user_input; the next attempt starts on attach or Retry.
             this.#event('auth_prompt_expired');
+            this.#promptWithdrawn();
             return 'park';
           }
           this.#lastFailure = err.code;
@@ -1117,6 +1118,23 @@ export class SessionRuntime implements SessionHost, FileHost {
     clearTimeout(prompt.timer);
     this.#authPrompt = null;
     prompt.resolve(null);
+  }
+
+  /**
+   * The prompt expired and its connection is closed (§5.10): every connection of the user gets a
+   * status in the same state with `detail: AUTH_TIMEOUT`, so a browser stops showing the form and
+   * offers Retry. The state does not change, so no `state_changed` event (`auth_prompt_expired`
+   * records it); the detail stays in the summary for clients that connect later.
+   */
+  #promptWithdrawn(): void {
+    this.#statusDetail = ErrorCode.AuthTimeout;
+    this.#notify({
+      type: 'session.status',
+      sessionId: this.sessionId,
+      status: toSessionStatus(this.#state, this.#wasReady),
+      state: this.#state,
+      detail: ErrorCode.AuthTimeout,
+    });
   }
 
   /** Effective protection: chosen at first start, then honoured or degraded (§5.7, §5.11). */

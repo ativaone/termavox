@@ -63,7 +63,8 @@ on a throwaway install, or upgrade the trial install to it. Then:
    replacing the trusted key on the server page asks for the address and then connects.
 9. **Keyboard-interactive / OTP host.** Against a host with keyboard-interactive or OTP
    sign-in: the prompt appears in the browser (secret answers masked), a correct answer
-   connects, and after letting a prompt expire the next attempt prompts again.
+   connects, and when a prompt expires with the page open (100 s) the form gives way at once to
+   the "Waiting for the server's prompt" card, whose Retry prompts again.
 10. **Backup → restore on a scratch install.** On a throwaway install (never a real one):
     `deploy/scripts/backup.sh`, change something (add a server), then
     `deploy/scripts/restore.sh --yes <backup>`: the change is gone, users, servers and sessions
