@@ -15,6 +15,13 @@
       "when": 1792255769117,
       "tag": "0001_session_tmux_socket",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792555059684,
+      "tag": "0002_tmux_term",
+      "breakpoints": true
     }
   ]
 }

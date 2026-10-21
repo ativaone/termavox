@@ -59,6 +59,7 @@ const SERVER: ServerInput = {
   username: 'ops',
   credentialId: null,
   protectionMode: 'auto',
+  tmuxTerm: 'auto',
   startupCommand: null,
   env: {},
   keepaliveIntervalS: 15,

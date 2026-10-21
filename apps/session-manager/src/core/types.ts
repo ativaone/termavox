@@ -9,6 +9,7 @@ import type {
   SessionState,
   SessionStatus,
   SessionSummary,
+  TmuxTerm,
 } from '@termavox/protocol';
 import { ErrorCode } from '@termavox/shared';
 
@@ -373,8 +374,11 @@ export interface SessionRecord {
   serverId: string | null;
   label: string;
   target: SessionTarget;
+  /** TERM of an unprotected session's PTY. */
   term: string;
   scrollbackLines: number;
+  /** Terminal type inside a protected session (plan D-49), copied from the server at creation. */
+  tmuxTerm: TmuxTerm;
   policies: SessionPolicies;
   desiredState: 'running' | 'terminated';
   state: SessionState;

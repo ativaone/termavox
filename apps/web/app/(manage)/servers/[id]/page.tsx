@@ -145,6 +145,7 @@ export default async function ServerPage({
               }}
               options={{
                 protectionMode: server.protectionMode,
+                tmuxTerm: server.tmuxTerm,
                 startupCommand: server.startupCommand ?? '',
                 env: Object.entries(server.env).map(([key, value]) => ({ key, value })),
                 keepaliveIntervalS: server.keepaliveIntervalS,

@@ -8,6 +8,8 @@ import {
   DEFAULT_MAX_UNSOLICITED_BLOCK_BYTES,
   encodeInput,
   encodeInputItems,
+  homeEndByName,
+  inputItemOf,
   LineSplitter,
   singlePaneLayout,
   TmuxDesyncError,
@@ -354,6 +356,23 @@ describe('Home and End by name', () => {
     expect(tmuxKeyOf(enc('x\x1b[F'))).toBeNull();
     expect(tmuxKeyOf(enc('\x1b[Fx'))).toBeNull();
     expect(tmuxKeyOf(new Uint8Array())).toBeNull();
+  });
+
+  it("only for tmux's own terminal types: xterm-256color gets the bytes as sent (D-49)", () => {
+    expect(homeEndByName('tmux-256color')).toBe(true);
+    expect(homeEndByName('screen-256color')).toBe(true);
+    expect(homeEndByName('xterm-256color')).toBe(false);
+    for (const key of ['\x1b[H', '\x1bOH']) expect(inputItemOf(enc(key), true)).toBe('Home');
+    for (const key of ['\x1b[F', '\x1bOF']) expect(inputItemOf(enc(key), true)).toBe('End');
+    for (const key of ['\x1b[H', '\x1bOH', '\x1b[F', '\x1bOF', 'x']) {
+      expect(inputItemOf(enc(key), false)).toEqual(enc(key));
+    }
+    expect(inputItemOf(enc('x'), true)).toEqual(enc('x'));
+    // A copy: the caller may reuse its buffer.
+    const data = enc('\x1b[F');
+    const item = inputItemOf(data, false);
+    data[2] = 0x48;
+    expect(item).toEqual(enc('\x1b[F'));
   });
 
   it('encodes queued input in order: byte runs as hex, keys by name', () => {

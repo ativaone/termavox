@@ -1,6 +1,6 @@
 import '../server-guard.ts';
 import type { TermavoxDb } from '@termavox/db';
-import type { ProtectionMode } from '@termavox/protocol';
+import type { ProtectionMode, TmuxTerm } from '@termavox/protocol';
 import { normalizeHostname, uuidv7 } from '@termavox/shared';
 import { insertAuditEvent } from './audit.ts';
 
@@ -17,6 +17,8 @@ export type ServerKind = 'ssh' | 'local';
 
 export interface ServerOptions {
   protectionMode: ProtectionMode;
+  /** The terminal type inside protected sessions (plan D-49). */
+  tmuxTerm: TmuxTerm;
   startupCommand: string | null;
   env: Record<string, string>;
   keepaliveIntervalS: number;
@@ -66,6 +68,7 @@ interface ServerRow {
   credential_id: string | null;
   credential_name: string | null;
   protection_mode: string;
+  tmux_term: string;
   startup_command: string | null;
   env_json: string;
   keepalive_interval_s: number;
@@ -78,7 +81,7 @@ interface ServerRow {
 
 const SELECT_SERVER = `
   SELECT s.id, s.name, s.kind, s.hostname, s.port, s.username, s.credential_id,
-         c.name AS credential_name, s.protection_mode, s.startup_command, s.env_json,
+         c.name AS credential_name, s.protection_mode, s.tmux_term, s.startup_command, s.env_json,
          s.keepalive_interval_s, s.auto_reopen, s.scrollback_lines, s.created_at, s.updated_at,
          (SELECT COUNT(*) FROM sessions x
            WHERE x.server_id = s.id AND x.user_id = s.user_id AND x.state <> 'ended') AS live_count
@@ -111,6 +114,7 @@ function toServer(row: ServerRow): Server {
     credentialId: row.credential_id,
     credentialName: row.credential_name,
     protectionMode: row.protection_mode === 'off' ? 'off' : 'auto',
+    tmuxTerm: row.tmux_term === 'xterm-256color' ? 'xterm-256color' : 'auto',
     startupCommand: row.startup_command,
     env: parseEnv(row.env_json),
     keepaliveIntervalS: row.keepalive_interval_s,
@@ -196,9 +200,9 @@ export function createServer(
       .prepare(
         `INSERT INTO servers
            (id, user_id, name, kind, hostname, port, username, credential_id, protection_mode,
-            startup_command, env_json, keepalive_interval_s, auto_reopen, scrollback_lines,
-            created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            tmux_term, startup_command, env_json, keepalive_interval_s, auto_reopen,
+            scrollback_lines, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         id,
@@ -210,6 +214,7 @@ export function createServer(
         row.username,
         row.credentialId,
         input.protectionMode,
+        input.tmuxTerm,
         input.startupCommand,
         JSON.stringify(input.env),
         input.keepaliveIntervalS,
@@ -256,8 +261,8 @@ export function updateServer(
       .prepare(
         `UPDATE servers
             SET name = ?, kind = ?, hostname = ?, port = ?, username = ?, credential_id = ?,
-                protection_mode = ?, startup_command = ?, env_json = ?, keepalive_interval_s = ?,
-                auto_reopen = ?, scrollback_lines = ?, updated_at = ?
+                protection_mode = ?, tmux_term = ?, startup_command = ?, env_json = ?,
+                keepalive_interval_s = ?, auto_reopen = ?, scrollback_lines = ?, updated_at = ?
           WHERE id = ? AND user_id = ?`,
       )
       .run(
@@ -268,6 +273,7 @@ export function updateServer(
         row.username,
         row.credentialId,
         input.protectionMode,
+        input.tmuxTerm,
         input.startupCommand,
         JSON.stringify(input.env),
         input.keepaliveIntervalS,

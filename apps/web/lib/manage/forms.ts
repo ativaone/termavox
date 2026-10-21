@@ -59,6 +59,7 @@ export const SERVER_ISSUES = [
   'usernameRequired',
   'username',
   'protection',
+  'tmuxTerm',
   'startupLong',
   'startupControl',
   'envKey',
@@ -99,6 +100,7 @@ const serverName = z.string().trim().min(1, 'nameRequired').max(SERVER_NAME_MAX,
 /** How sessions from a server behave (the "Advanced" options). */
 const ServerOptionsShape = {
   protectionMode: z.enum(['auto', 'off'], { message: 'protection' }),
+  tmuxTerm: z.enum(['auto', 'xterm-256color'], { message: 'tmuxTerm' }),
   startupCommand: z
     .string()
     .max(1_000, 'startupLong')
@@ -171,8 +173,11 @@ export function readServerForm(formData: FormData) {
     .map((key, i) => ({ key, value: vals[i] ?? '' }))
     .filter((pair) => pair.key !== '' || pair.value !== '');
   const startup = text(formData, 'startupCommand').trim();
+  // A missing (or empty) terminal type is the default; any other value is refused, not guessed.
+  const tmuxTerm = text(formData, 'tmuxTerm') || 'auto';
   const options = {
     protectionMode: text(formData, 'protectionMode') === 'off' ? 'off' : 'auto',
+    tmuxTerm,
     startupCommand: startup || null,
     env,
     keepaliveIntervalS: integer(formData, 'keepaliveIntervalS'),
@@ -209,6 +214,7 @@ export function readServerForm(formData: FormData) {
       port: text(formData, 'port'),
       username: text(formData, 'username'),
       protectionMode: options.protectionMode,
+      tmuxTerm,
       startupCommand: startup,
       keepaliveIntervalS: text(formData, 'keepaliveIntervalS'),
       autoReopen: options.autoReopen ? 'on' : '',

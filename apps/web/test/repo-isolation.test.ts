@@ -29,6 +29,7 @@ const SERVER: ServerInput = {
   username: 'deploy',
   credentialId: null,
   protectionMode: 'auto',
+  tmuxTerm: 'auto',
   startupCommand: null,
   env: { APP_ENV: 'prod' },
   keepaliveIntervalS: 15,
@@ -111,6 +112,21 @@ describe('repository isolation (user B never reads or changes user A’s rows)',
     const aliceKey = insertCredential(alice);
     expect(updateServer(db, alice, serverId, { ...SERVER, credentialId: aliceKey })).toBe('ok');
     expect(listCredentials(db, alice).find((c) => c.id === aliceKey)?.serverCount).toBe(1);
+  });
+
+  it('the terminal type is stored on create and on update, for its owner only (D-49)', () => {
+    const { db } = t.rt;
+    const serverId = create(alice, { name: 'term', tmuxTerm: 'xterm-256color' });
+    expect(getServer(db, alice, serverId)?.tmuxTerm).toBe('xterm-256color');
+    expect(updateServer(db, bob, serverId, { ...SERVER, tmuxTerm: 'auto' })).toBe('not_found');
+    expect(getServer(db, alice, serverId)?.tmuxTerm).toBe('xterm-256color');
+    expect(updateServer(db, alice, serverId, { ...SERVER, name: 'term', tmuxTerm: 'auto' })).toBe(
+      'ok',
+    );
+    expect(getServer(db, alice, serverId)?.tmuxTerm).toBe('auto');
+    // A value the code does not know reads as the default.
+    db.$client.prepare("UPDATE servers SET tmux_term = 'vt100' WHERE id = ?").run(serverId);
+    expect(listServers(db, alice).find((s) => s.id === serverId)?.tmuxTerm).toBe('auto');
   });
 
   it('a delete is refused while a session from the server runs, and is audited', () => {

@@ -107,3 +107,30 @@ describe('sessions.tmux_socket (plan D-30)', () => {
     ]);
   });
 });
+
+describe('tmux_term (plan D-49)', () => {
+  it("is NOT NULL DEFAULT 'auto' on servers and sessions, so existing rows read 'auto'", () => {
+    const db = withUser();
+    for (const table of ['servers', 'sessions']) {
+      const columns = db.$client.prepare(`PRAGMA table_info(${table})`).all() as Array<{
+        name: string;
+        type: string;
+        notnull: number;
+        dflt_value: unknown;
+      }>;
+      expect(
+        columns.find((c) => c.name === 'tmux_term'),
+        table,
+      ).toEqual(expect.objectContaining({ notnull: 1, dflt_value: "'auto'" }));
+    }
+    db.insert(schema.servers).values(server({})).run();
+    db.insert(schema.servers)
+      .values(server({ id: 's2', tmuxTerm: 'xterm-256color' }))
+      .run();
+    const rows = db.$client.prepare('SELECT id, tmux_term FROM servers ORDER BY id').all();
+    expect(rows).toEqual([
+      { id: 's1', tmux_term: 'auto' },
+      { id: 's2', tmux_term: 'xterm-256color' },
+    ]);
+  });
+});

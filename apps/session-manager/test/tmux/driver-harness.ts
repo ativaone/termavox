@@ -16,6 +16,7 @@ import type {
   TransportError,
 } from '../../src/core/types.ts';
 import {
+  defaultTerminalFor,
   type LaunchOptions,
   launchCommand,
   launchScript,
@@ -177,6 +178,13 @@ export async function tmuxEnv(
 
 export const newSocket = (): string => `tv-t1-${randomToken(10)}`;
 
+/**
+ * The terminal type the tmux area runs with (plan D-49): `auto`, or `xterm-256color` when
+ * TV_TMUX_TERM=xterm-256color, for both the driver and the sessions tests launch themselves.
+ */
+export const HARNESS_TMUX_TERM: TmuxControlDriverOptions['tmuxTerm'] =
+  process.env.TV_TMUX_TERM === 'xterm-256color' ? 'xterm-256color' : 'auto';
+
 export function driverOptions(
   env: TmuxEnv,
   socket: string,
@@ -187,6 +195,7 @@ export function driverOptions(
     probe: env.probe,
     socket,
     scrollbackLines: SCROLLBACK,
+    tmuxTerm: HARNESS_TMUX_TERM,
     startupCommand: null,
     env: {},
     previousIdentity: null,
@@ -202,7 +211,7 @@ export function launchOptions(env: TmuxEnv, socket: string, startup: string | nu
     socket,
     locale: env.probe.utf8Locale!,
     historyLimit: SCROLLBACK,
-    defaultTerminal: env.probe.tiTmux256 ? 'tmux-256color' : 'screen-256color',
+    defaultTerminal: defaultTerminalFor(HARNESS_TMUX_TERM, env.probe.tiTmux256),
     cols: DIMS.cols,
     rows: DIMS.rows,
     startupCommand: startup,

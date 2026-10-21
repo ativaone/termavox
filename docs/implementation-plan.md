@@ -104,6 +104,7 @@ Other protocols (RDP/VNC); Agent mode (outbound agent on target servers); RBAC a
 | D-46 | **No upgrade path from development builds, and the names an install depends on.** Nothing was released, tagged or published before v0.1.0, so nothing stays compatible with a development build of `main`: it is removed together with its volumes and installed fresh (one CHANGELOG upgrade note, which replaces the pre-release ones, D-43's volume re-own among them). **Names:** the repository `ativaone/termavox` and its site https://ativaone.github.io/termavox; packages `@termavox/*`; images `ghcr.io/ativaone/termavox-*`; the compose project `termavox` and its volumes (`termavox_*`); environment variables `TERMAVOX_*`; the session cookie prefix; the product abbreviation `tv-` (tmux socket names on remote servers, upload temporary files); the test user `tv`. The vault's AAD domain strings `termavox.credential.v1` and `termavox.vault-key-check.v1` are frozen from the first install that holds data: any other string makes every stored credential unreadable. | Owner, 2026-10-20 |
 | D-47 | **Work happens on `develop`; `main` holds the final releases.** Every verified block is committed and pushed to `develop` (D-20's cadence; supersedes its branch), and the owner tests it there on the trial install's local build. No workflow runs on a push to `develop` (CI can be run on it by hand). A release is the owner's call: a release candidate is tagged on `develop` (the release workflow tests its images before it publishes anything); a final release fast-forwards `main` to `develop`, where CI and the site's publication run, and is tagged on `main`. So a clone gets the latest final release and the project site describes it. Nothing is committed to `main` directly: a fix goes to `develop` and ships in the next release. Dependabot opens its pull requests against `develop`. | Owner, 2026-10-20 |
 | D-48 | **Image paste into a terminal (trial).** A terminal over SSH only carries text, so a program on the server (Claude Code, an editor) cannot read the browser's clipboard image. When a paste into a pane carries an image (PNG, JPEG, GIF or WebP) and no text, the browser saves it on the session's server through the file panel's upload (D-39, same gates: file transfer on, an SSH session that has not ended), into `~/.cache/termavox/paste/paste-<date>-<time>-<random>.<ext>`, and pastes the file's absolute path into the terminal. No confirmation: pasting is the intent. Termavox runs nothing on the server between pastes (D-10), so a paste removes that folder's pastes older than 7 days. Files and folders get the server's default permissions. On the owner's trial; its vulnerability analysis waits until the owner decides to keep it. | Owner, 2026-10-21 |
+| D-49 | **Terminal type inside protected sessions, and truecolor.** A per-server advanced option, "Terminal type" (`servers.tmux_term`, copied to `sessions.tmux_term` at creation like `term`, so a change reaches only new sessions), sets tmux's `default-terminal` (§6.3). **Automatic** (the default) keeps tmux's own type, as tmux recommends: `tmux-256color` when the probe finds its terminfo, else `screen-256color`. **xterm-256color** is for advanced users: programs behave as in a plain terminal (Ctrl+End in vim, for example), at a risk: tmux's own copy of the screen, which rebuilds the terminal after a restart (§6.8), may diverge from what the programs drew. Home and End go to tmux by name (§6.5) only with tmux's own types; with xterm-256color the browser's bytes already match the pane's terminfo. Protected sessions declare `COLORTERM=truecolor` (`new-session -e`), unless the server's environment sets COLORTERM, to any value, the empty one included. Unprotected sessions are unchanged: TERM is `term`, and no COLORTERM is added. | Owner, 2026-10-21 |
 
 ### 2.2 Technical decisions (orchestrator; reversible, with rationale)
 
@@ -133,7 +134,7 @@ These names are used in code, the database, the protocol and the UI. **Do not in
 
 | Term | Meaning |
 |---|---|
-| **Server** | Everything one terminal needs, owned by one user (D-29): `kind: ssh` with hostname, port, user name and an optional credential, or `kind: local` for direct mode; plus the options (protection mode, startup command, TERM, env, keepalive, auto-reopen, scrollback lines). Duplicates are allowed. |
+| **Server** | Everything one terminal needs, owned by one user (D-29): `kind: ssh` with hostname, port, user name and an optional credential, or `kind: local` for direct mode; plus the options (protection mode, the terminal type inside protection (D-49), startup command, TERM of unprotected sessions, env, keepalive, auto-reopen, scrollback lines). Duplicates are allowed. |
 | **Credential** | Secret material used to authenticate: a password, or a private key with an optional passphrase. Stored encrypted; owned by one user; reusable by any of the user's servers. |
 | **Address** | A server's normalized hostname (`normalizeHostname`: trimmed, lowercased, IPv6 without brackets) plus its port. Host-key decisions are kept per user and address (§5.9). |
 | **Session** | A live terminal created from a server. Exists independently of any browser. Snapshots its target (host, port, username, credential) at creation (§9). Has an internal **state** and a user-facing **status**. |
@@ -607,7 +608,7 @@ Naming: socket `tv-<installationId[0:8]>-<session.tmuxToken>`, where `tmuxToken`
 ```sh
 # Sent over an SSH exec channel (no PTY) as:  exec sh -c '<script>'   (§5.11 remote command rule)
 # Example <script>, with values from the probe and the session:
-#   tmux_path=/usr/bin/tmux · utf8_locale=C.UTF-8 · scrollback_lines=5000 · server env EDITOR=vim
+#   tmux_path=/usr/bin/tmux · utf8_locale=C.UTF-8 · scrollback_lines=5000 · tmux_term=auto · server env EDITOR=vim
 # `exec /usr/bin/tmux` becomes `exec systemd-run --user --scope --quiet /usr/bin/tmux` only under the §5.11 logind rules.
 export LC_CTYPE=C.UTF-8
 exec /usr/bin/tmux -u -L tv-1a2b3c4d-k3j9x2m8q0wz -f /dev/null -C \
@@ -618,7 +619,7 @@ exec /usr/bin/tmux -u -L tv-1a2b3c4d-k3j9x2m8q0wz -f /dev/null -C \
   set-option -g detach-on-destroy on \; \
   set-option -g window-size latest \; \
   set-option -g status off \; \
-  new-session -A -s main -x 120 -y 40 -e EDITOR=vim \
+  new-session -A -s main -x 120 -y 40 -e COLORTERM=truecolor -e EDITOR=vim \
     "exec env -u TMUX -u TMUX_PANE \"\$SHELL\" -l"
 ```
 
@@ -628,8 +629,8 @@ Notes and rules:
 - **Absolute tmux path** from the probe (`tmux_path`), so the launch does not depend on the PATH of a non-login `sh`.
 - `history-limit` = the session's `scrollback_lines` (from the server; never hard-coded).
 - `-f /dev/null` applies only when this invocation starts the server. Options are re-applied harmlessly on reattach. Exact quoting and option ordering **[SPIKE S2]**.
-- `default-terminal`: use `tmux-256color` if the probe found its terminfo, else `screen-256color`.
-- **Pane command**: `exec env -u TMUX -u TMUX_PANE "$SHELL" -l`, or, with a startup command, `exec env -u TMUX -u TMUX_PANE "$SHELL" -lc '<quoted startup>'`. Profile env vars (`env_json`) are passed as `new-session -e KEY=VALUE`, one per variable.
+- `default-terminal`: the session's terminal type (D-49). Automatic (the default): `tmux-256color` if the probe found its terminfo, else `screen-256color`, as tmux recommends; `xterm-256color` when the server asks for it.
+- **Pane command**: `exec env -u TMUX -u TMUX_PANE "$SHELL" -l`, or, with a startup command, `exec env -u TMUX -u TMUX_PANE "$SHELL" -lc '<quoted startup>'`. Profile env vars (`env_json`) are passed as `new-session -e KEY=VALUE`, one per variable, after `-e COLORTERM=truecolor`, which is left out when they set COLORTERM themselves, to any value (D-49).
 - `env -u TMUX -u TMUX_PANE` lets the user run their **own** `tmux` inside a Termavox session without the "sessions should be nested with care" warning. Their tmux uses the default socket, fully separate from ours. **[SPIKE S5]**
 - One tmux server per Termavox session gives isolation (options, crash blast radius), and `terminate` is a simple `kill-server` on that socket.
 
@@ -646,7 +647,7 @@ Notes and rules:
 
 ### 6.5 Input
 
-- Input bytes → `send-keys -H -t %<pane> <hex> <hex> …` (one byte per argument). This is safe for C0, ESC, DEL, UTF-8 and bracketed-paste markers, and it bypasses `escape-time`. One exception: an input event that is exactly Home or End (`CSI H`/`CSI F`, `SS3 H`/`SS3 F`) goes as `send-keys -t %<pane> Home|End`, since the pane's terminal (`tmux-256color`/`screen-256color`) reads them as `CSI 1 ~`/`CSI 4 ~` and nothing else translates them in control mode (vim took `SS3 F` for Escape, `O`, `F`). Every other key the browser sends reads the same in both terminals.
+- Input bytes → `send-keys -H -t %<pane> <hex> <hex> …` (one byte per argument). This is safe for C0, ESC, DEL, UTF-8 and bracketed-paste markers, and it bypasses `escape-time`. One exception: an input event that is exactly Home or End (`CSI H`/`CSI F`, `SS3 H`/`SS3 F`) goes as `send-keys -t %<pane> Home|End`, since the pane's terminal (`tmux-256color`/`screen-256color`) reads them as `CSI 1 ~`/`CSI 4 ~` and nothing else translates them in control mode (vim took `SS3 F` for Escape, `O`, `F`), unless the session's terminal type is xterm-256color (D-49), whose terminfo reads the browser's bytes as they are. Every other key the browser sends reads the same in both terminals.
 - Coalesce keystrokes for 2–5 ms. Chunk large pastes at ≤ 1 KiB of input per command. Pipeline commands without waiting for replies.
 - If the pane is in a mode (`#{pane_in_mode}` / `%pane-mode-changed`), first send `send-keys -X -t %<pane> cancel`.
 - Bracketed paste is applied by the browser's xterm.js (it saw `?2004h` in the raw output); the bytes pass through unchanged.
@@ -871,7 +872,7 @@ Evolution: additive changes stay in v1 (receivers ignore unknown fields and unkn
 | `/login`, `/login/two-factor` | Username/password, then TOTP (with "trust this device for 30 days"). A pending forced password change (`must_change_password`) or required TOTP enrollment (`totp_required` or the instance-wide requirement) is completed before any other page opens. |
 | `/workspace` | The terminal workspace (§11). Default landing page. "End all sessions…" at the foot of the session list (D-30); a notice links to a server page when a session's connection found Termavox tmux servers this installation does not run. |
 | `/servers` | The user's servers (D-29): name, `user@address` (`:port` when not 22), the credential or "None", Edit and Duplicate. With none yet, the empty state leads to Add server and the Docker host preset. |
-| `/servers/new` | **Add server** (D-27, D-29): two sections in one form. Server: name, address, port (22), user name on the server (the `local` kind only for admins when the instance allows it, without address, user or credential), and the options behind an "Advanced" disclosure (protection, startup command, env, keepalive, scrollback, auto-reopen). Credential: generate a key (recommended), paste a key (+ passphrase), a password, a saved credential, or none (the server asks for the password in the terminal); the name defaults to `<user>@<server name>`. Validates everything first, creates a new credential through the daemon, then inserts the server, and deletes that credential again if the insert fails. The result shows in place: the public key, install command and fingerprint of a generated key (the fingerprint of a pasted one), "Start a session" (opens `/workspace?open=<sessionId>`), the way back and the server's page. `?duplicate=<id>` prefills every field from one of the user's servers (name + " (copy)", the same credential or none; another user's id gives an empty form); nothing is written until the user saves. Links to the Docker host preset. |
+| `/servers/new` | **Add server** (D-27, D-29): two sections in one form. Server: name, address, port (22), user name on the server (the `local` kind only for admins when the instance allows it, without address, user or credential), and the options behind an "Advanced" disclosure (protection, terminal type, startup command, env, keepalive, scrollback, auto-reopen). Credential: generate a key (recommended), paste a key (+ passphrase), a password, a saved credential, or none (the server asks for the password in the terminal); the name defaults to `<user>@<server name>`. Validates everything first, creates a new credential through the daemon, then inserts the server, and deletes that credential again if the insert fails. The result shows in place: the public key, install command and fingerprint of a generated key (the fingerprint of a pasted one), "Start a session" (opens `/workspace?open=<sessionId>`), the way back and the server's page. `?duplicate=<id>` prefills every field from one of the user's servers (name + " (copy)", the same credential or none; another user's id gives an empty form); nothing is written until the user saves. Links to the Docker host preset. |
 | `/servers/[id]` | A server's page: edit every field (credential: a saved one or none, with a "New credential" link that returns here), Duplicate, and delete (rejected while a non-ended session came from it, §8.2). Diagnostics for SSH servers: "Test connection" (reachability, host key, probe summary; the probe needs a stored credential to sign in) and the host keys of the server's address (trust a pending key, pre-trust a fingerprint, replace after a mismatch by typing the address, revoke). A decision applies to all of the user's servers at that hostname and port (§5.9). "Sessions on this server" (D-30, §6.12, SSH servers only): "Check now" lists the Termavox tmux servers this installation does not run, with End and Adopt (a leftover of the user's own ended session links to the workspace instead, where Reopen reattaches it). |
 | `/servers/docker` | "Add this Docker host" preset (§13.4): a generated key plus a server `user@host.docker.internal:22` that uses it. |
 | `/credentials` | Create (password / paste private key / **generate ed25519 key** and show the public key), rename, delete (rejected while referenced by a non-ended session). Secrets are never displayed after creation. |
@@ -951,6 +952,7 @@ servers               id, user_id→user, name, kind('ssh'|'local'),
                       protection_mode('auto'|'off'), startup_command,
                       term(default 'xterm-256color'), env_json, keepalive_interval_s(default 15),
                       auto_reopen(default 1), scrollback_lines(default 5000),
+                      tmux_term('auto'|'xterm-256color', default 'auto'),  -- protected sessions (D-49)
                       created_at, updated_at
 
 known_host_keys       id, user_id→user, hostname, port,             -- the address (D-29); no FK to servers
@@ -969,7 +971,7 @@ sessions              id, user_id→user,
                       target_kind('ssh'|'local'),
                       target_hostname, target_port, target_username,   -- local: 'localhost', 0, ''
                       target_credential_id→credentials (nullable, ON DELETE SET NULL),
-                      term, scrollback_lines,                      -- copied from the server at creation
+                      term, scrollback_lines, tmux_term,           -- copied from the server at creation
                       label, desired_state('running'|'terminated'), state, status,
                       protection_effective('tmux-control'|'tmux-normal'|'none'),
                       tmux_token, tmux_version, remote_identity_json,  -- session_created, pane_pid
@@ -993,7 +995,7 @@ instance_settings     key (PK), value_json, updated_at            -- e.g. instal
                                                                   -- require_totp, max_running_sessions_per_user
 ```
 
-**Live sessions vs edits and deletes.** A session snapshots its target at creation (`target_*`, plus `term` and `scrollback_lines`), so later edits to the server's address, user name or credential affect only new sessions, except for a session that never connected: it follows its server's target until its first `ready` (D-31). Launch settings (`startup_command`, `env_json`) only matter when the remote shell or tmux session is created; policies (`keepalive_interval_s`, `auto_reopen`, `protection_mode` for future reopens) are read live from the server. Deleting a server or credential referenced by a non-ended session is rejected (`409 CONFLICT`, §8.2). `desired_state` transitions are in §5.7.
+**Live sessions vs edits and deletes.** A session snapshots its target at creation (`target_*`, plus `term`, `scrollback_lines` and `tmux_term`), so later edits to the server's address, user name or credential affect only new sessions, except for a session that never connected: it follows its server's target until its first `ready` (D-31). Launch settings (`startup_command`, `env_json`) only matter when the remote shell or tmux session is created; policies (`keepalive_interval_s`, `auto_reopen`, `protection_mode` for future reopens) are read live from the server. Deleting a server or credential referenced by a non-ended session is rejected (`409 CONFLICT`, §8.2). `desired_state` transitions are in §5.7.
 
 **Write ownership** (per table). It prevents logical conflicts between the two processes; it does **not** avoid write contention, because SQLite serializes writers globally (see "Writers and lock waits" above).
 

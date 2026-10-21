@@ -191,6 +191,43 @@ describe('SqliteSessionStore', () => {
     });
   });
 
+  it("copies the server's terminal type at creation; later edits only reach new sessions (D-49)", async () => {
+    const { db, store } = setup();
+    const userId = insertUser(db);
+    const plain = insertServer(db, userId, { name: 'plain' });
+    const xterm = insertServer(db, userId, { name: 'xterm', tmuxTerm: 'xterm-256color' });
+    const create = (serverId: string) =>
+      store.createFromServer({
+        actingUserId: userId,
+        serverId,
+        viewport: VIEWPORT,
+        enableLocalShell: false,
+      });
+    const a = await create(plain);
+    const b = await create(xterm);
+    expect(a.tmuxTerm).toBe('auto');
+    expect(b.tmuxTerm).toBe('xterm-256color');
+    const stored = () =>
+      Object.fromEntries(
+        (
+          db.$client.prepare('SELECT id, tmux_term FROM sessions').all() as Array<{
+            id: string;
+            tmux_term: string;
+          }>
+        ).map((row) => [row.id, row.tmux_term]),
+      );
+    expect(stored()).toEqual({ [a.id]: 'auto', [b.id]: 'xterm-256color' });
+
+    db.$client.prepare("UPDATE servers SET tmux_term = 'auto' WHERE id = ?").run(xterm);
+    expect((await store.get(b.id))?.tmuxTerm).toBe('xterm-256color');
+    expect((await create(xterm)).tmuxTerm).toBe('auto');
+    // The snapshot outlives its server; a value the code does not know reads as the default.
+    db.$client.prepare('DELETE FROM servers WHERE id = ?').run(xterm);
+    expect((await store.get(b.id))?.tmuxTerm).toBe('xterm-256color');
+    db.$client.prepare("UPDATE sessions SET tmux_term = 'vt100' WHERE id = ?").run(a.id);
+    expect((await store.get(a.id))?.tmuxTerm).toBe('auto');
+  });
+
   it('applies the running-session cap to create and reopen alike, never counting the reopened row', async () => {
     const { db, store } = setup();
     const userId = insertUser(db);

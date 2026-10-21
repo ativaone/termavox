@@ -6,6 +6,7 @@ import {
   SessionState,
   SessionStatus,
   type SessionSummary,
+  TmuxTerm,
 } from '@termavox/protocol';
 import { ErrorCode, normalizeHostname, randomToken, TermavoxError, uuidv7 } from '@termavox/shared';
 import { z } from 'zod';
@@ -44,6 +45,7 @@ const StatusColumn = SessionStatus.catch('disconnected');
 const ProtectionColumn = Protection.nullable().catch(null);
 const EndReasonColumn = EndReason.nullable().catch(null);
 const ProtectionModeColumn = ProtectionMode.catch('auto');
+const TmuxTermColumn = TmuxTerm.catch('auto');
 const EnvJson = z.record(z.string(), z.string());
 const RemoteIdentityJson = z.object({ sessionCreated: z.number(), panePid: z.number() });
 
@@ -67,6 +69,7 @@ interface RecordRow {
   target_credential_id: string | null;
   term: string;
   scrollback_lines: number;
+  tmux_term: string;
   label: string;
   desired_state: string;
   state: string;
@@ -100,8 +103,8 @@ interface RecordRow {
 
 const SELECT_RECORD = `
   SELECT s.id, s.user_id, s.server_id, s.target_kind, s.target_hostname, s.target_port,
-         s.target_username, s.target_credential_id, s.term, s.scrollback_lines, s.label,
-         s.desired_state, s.state, s.status, s.protection_effective, s.tmux_token, s.tmux_socket,
+         s.target_username, s.target_credential_id, s.term, s.scrollback_lines, s.tmux_term,
+         s.label, s.desired_state, s.state, s.status, s.protection_effective, s.tmux_token, s.tmux_socket,
          s.tmux_version, s.remote_identity_json, s.probe_json, s.cols, s.rows, s.created_at,
          s.last_ready_at, s.ended_at, s.end_reason,
          sv.id AS sv_id, sv.protection_mode AS sv_protection_mode,
@@ -534,10 +537,12 @@ export class SqliteSessionStore implements SessionStore, RemoteSessionLookup {
         keepalive_interval_s: number;
         auto_reopen: number;
         scrollback_lines: number;
+        tmux_term: string;
       }>(
         sqlite,
         `SELECT id, name, kind, hostname, port, username, credential_id, protection_mode,
-                startup_command, term, env_json, keepalive_interval_s, auto_reopen, scrollback_lines
+                startup_command, term, env_json, keepalive_interval_s, auto_reopen, scrollback_lines,
+                tmux_term
            FROM servers WHERE id = ? AND user_id = ?`,
         input.serverId,
         user.id,
@@ -602,6 +607,7 @@ export class SqliteSessionStore implements SessionStore, RemoteSessionLookup {
         target,
         term: server.term,
         scrollbackLines: server.scrollback_lines,
+        tmuxTerm: TmuxTermColumn.parse(server.tmux_term),
         policies: policiesOf({
           sv_id: server.id,
           sv_protection_mode: server.protection_mode,
@@ -629,10 +635,10 @@ export class SqliteSessionStore implements SessionStore, RemoteSessionLookup {
       execute(
         sqlite,
         `INSERT INTO sessions (id, user_id, server_id, target_kind, target_hostname, target_port,
-           target_username, target_credential_id, term, scrollback_lines, label, desired_state,
-           state, status, protection_effective, tmux_token, tmux_socket, cols, rows, created_at,
-           last_ready_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           target_username, target_credential_id, term, scrollback_lines, tmux_term, label,
+           desired_state, state, status, protection_effective, tmux_token, tmux_socket, cols, rows,
+           created_at, last_ready_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         record.id,
         record.userId,
         record.serverId,
@@ -643,6 +649,7 @@ export class SqliteSessionStore implements SessionStore, RemoteSessionLookup {
         record.target.credentialId,
         record.term,
         record.scrollbackLines,
+        record.tmuxTerm,
         record.label,
         record.desiredState,
         record.state,
@@ -816,6 +823,7 @@ function toRecord(row: RecordRow): SessionRecord {
     },
     term: row.term,
     scrollbackLines: row.scrollback_lines,
+    tmuxTerm: TmuxTermColumn.parse(row.tmux_term),
     policies: policiesOf(row),
     desiredState: row.desired_state === 'running' ? 'running' : 'terminated',
     state: StateColumn.parse(row.state),

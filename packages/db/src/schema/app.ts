@@ -69,6 +69,10 @@ export const servers = sqliteTable(
     keepaliveIntervalS: integer('keepalive_interval_s').notNull().default(15),
     autoReopen: integer('auto_reopen', { mode: 'boolean' }).notNull().default(true),
     scrollbackLines: integer('scrollback_lines').notNull().default(5_000),
+    // The terminal type inside protected sessions (plan D-49); `term` is the unprotected one.
+    tmuxTerm: text('tmux_term', { enum: ['auto', 'xterm-256color'] })
+      .notNull()
+      .default('auto'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -130,6 +134,9 @@ export const sessions = sqliteTable(
     }),
     term: text('term').notNull(),
     scrollbackLines: integer('scrollback_lines').notNull(),
+    tmuxTerm: text('tmux_term', { enum: ['auto', 'xterm-256color'] })
+      .notNull()
+      .default('auto'),
     label: text('label').notNull(),
     desiredState: text('desired_state', { enum: ['running', 'terminated'] }).notNull(),
     state: text('state').notNull(),

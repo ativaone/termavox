@@ -1,3 +1,4 @@
+import type { DefaultTerminal } from './commands.ts';
 import { concatBytes } from './lines.ts';
 
 /** Input bytes per `send-keys` command (plan §6.5: ≤ 1 KiB per command). */
@@ -5,10 +6,12 @@ export const MAX_INPUT_BYTES_PER_COMMAND = 1024;
 
 /**
  * Keys sent to tmux by name: the browser's xterm encodes Home and End as `CSI H` / `CSI F`
- * (`SS3 H` / `SS3 F` in application cursor mode), but a pane's terminal (`tmux-256color` or
- * `screen-256color`) reads `CSI 1 ~` / `CSI 4 ~`, so vim took `SS3 F` for Escape, `O`, `F`. A
- * tmux client translates them; in control mode nothing does, so they go by name and tmux encodes
- * them for the pane. Every other key the browser sends reads the same in both terminals.
+ * (`SS3 H` / `SS3 F` in application cursor mode), but a pane whose terminal is tmux's own
+ * (`tmux-256color` or `screen-256color`) reads `CSI 1 ~` / `CSI 4 ~`, so vim took `SS3 F` for
+ * Escape, `O`, `F`. A tmux client translates them; in control mode nothing does, so they go by
+ * name and tmux encodes them for the pane. Every other key the browser sends reads the same in
+ * both terminals. A pane of type `xterm-256color` (plan D-49) reads the browser's bytes as they
+ * are, so it gets them unchanged (see homeEndByName).
  */
 export type TmuxKey = 'Home' | 'End';
 
@@ -26,6 +29,19 @@ const FINALS: Readonly<Record<number, TmuxKey>> = { 72: 'Home', 70: 'End' }; // 
 export function tmuxKeyOf(data: Uint8Array): TmuxKey | null {
   if (data.byteLength !== 3 || data[0] !== ESC || !CSI_OR_SS3.has(data[1]!)) return null;
   return FINALS[data[2]!] ?? null;
+}
+
+/**
+ * Whether Home and End go to tmux by name for a pane of this terminal type (plan §6.5, D-49):
+ * yes for tmux's own types; `xterm-256color` reads the browser's bytes exactly as xterm sends them.
+ */
+export function homeEndByName(terminal: DefaultTerminal): boolean {
+  return terminal !== 'xterm-256color';
+}
+
+/** One browser input event as the driver queues it: Home or End by name when `byName`, else bytes. */
+export function inputItemOf(data: Uint8Array, byName: boolean): InputItem {
+  return (byName ? tmuxKeyOf(data) : null) ?? data.slice();
 }
 
 const HEX = Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, '0'));

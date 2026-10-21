@@ -182,6 +182,7 @@ const SERVER: ServerInput = {
   username: 'ops',
   credentialId: null,
   protectionMode: 'off',
+  tmuxTerm: 'xterm-256color',
   startupCommand: 'cd /srv/app',
   env: { APP_ENV: 'prod', TZ: 'UTC' },
   keepaliveIntervalS: 30,
@@ -225,6 +226,7 @@ describe('add server: a new credential', () => {
       username: 'deploy',
       credentialName: 'deploy@api-prod',
       protectionMode: 'auto',
+      tmuxTerm: 'auto',
       env: { APP_ENV: 'prod' },
       keepaliveIntervalS: 15,
       autoReopen: true,
@@ -342,6 +344,7 @@ describe('add server: validation', () => {
         'server.port': '70000',
         'server.username': '',
         'server.keepaliveIntervalS': '1',
+        'server.tmuxTerm': 'vt100',
         'credential.mode': 'private_key',
         'credential.privateKey': '',
         'credential.passphrase': 'pass-secret',
@@ -357,6 +360,7 @@ describe('add server: validation', () => {
       'server.port': { scope: 'server', key: 'port' },
       'server.username': { scope: 'server', key: 'usernameRequired' },
       'server.keepaliveIntervalS': { scope: 'server', key: 'keepalive' },
+      'server.tmuxTerm': { scope: 'server', key: 'tmuxTerm' },
       'credential.privateKey': { scope: 'credential', key: 'privateKeyRequired' },
       'credential.name': { scope: 'credential', key: 'nameLong' },
     });
@@ -365,6 +369,7 @@ describe('add server: validation', () => {
     expect(outcome.values).toMatchObject({
       'server.hostname': 'not a host',
       'server.port': '70000',
+      'server.tmuxTerm': 'vt100',
       'credential.mode': 'private_key',
     });
     for (const key of ['credential.password', 'credential.privateKey', 'credential.passphrase']) {
@@ -543,6 +548,7 @@ describe('duplicate (plan D-29)', () => {
       'server.port': '22',
       'server.username': 'ops',
       'server.protectionMode': 'off',
+      'server.tmuxTerm': 'xterm-256color',
       'server.startupCommand': 'cd /srv/app',
       'server.keepaliveIntervalS': '30',
       'server.autoReopen': '',
@@ -564,6 +570,7 @@ describe('duplicate (plan D-29)', () => {
       ...SERVER,
       name: 'default options',
       protectionMode: 'auto',
+      tmuxTerm: 'auto',
       startupCommand: null,
       env: {},
       keepaliveIntervalS: 15,
@@ -579,6 +586,10 @@ describe('duplicate (plan D-29)', () => {
     expect(
       optionsDifferFromDefaults({ 'server.env': '[{"key":"A","value":"1"}]' }, 'server.'),
     ).toBe(true);
+    expect(optionsDifferFromDefaults({ 'server.tmuxTerm': 'xterm-256color' }, 'server.')).toBe(
+      true,
+    );
+    expect(optionsDifferFromDefaults({ 'server.tmuxTerm': 'auto' }, 'server.')).toBe(false);
     expect(optionsDifferFromDefaults({}, 'server.')).toBe(false);
   });
 
@@ -626,6 +637,7 @@ describe('duplicate (plan D-29)', () => {
       username: source?.username,
       credentialId,
       protectionMode: 'off',
+      tmuxTerm: 'xterm-256color',
       startupCommand: 'cd /srv/app',
       env: SERVER.env,
       keepaliveIntervalS: 30,
@@ -658,11 +670,17 @@ describe('add server: the Server Actions', () => {
     const { addServer } = await import('../lib/actions/add-server.ts');
     const state = await addServer(
       {},
-      form({ 'server.port': '0', 'server.username': 'two words', 'credential.mode': 'saved' }),
+      form({
+        'server.port': '0',
+        'server.username': 'two words',
+        'server.tmuxTerm': 'vt100',
+        'credential.mode': 'saved',
+      }),
     );
     expect(state.fields).toEqual({
       'server.port': 'servers.error.port',
       'server.username': 'servers.error.username',
+      'server.tmuxTerm': 'servers.error.tmuxTerm',
       'credential.id': 'servers.addServer.error.credentialRequired',
     });
     expect(state.created).toBeUndefined();

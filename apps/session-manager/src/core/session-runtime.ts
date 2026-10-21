@@ -1195,6 +1195,7 @@ export class SessionRuntime implements SessionHost, FileHost {
         probe,
         socket: this.#socket,
         scrollbackLines: this.#record.scrollbackLines,
+        tmuxTerm: this.#record.tmuxTerm,
         startupCommand: policies.startupCommand,
         env: policies.env,
         previousIdentity: this.#record.remoteIdentity,

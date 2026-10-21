@@ -12,6 +12,7 @@
  * A value the builders cannot pass safely throws BadLaunchParamsError (a RangeError): the
  * runtime fails the session instead of reconnecting, since a retry would only repeat it.
  */
+import type { TmuxTerm } from '@termavox/protocol';
 import { BadLaunchParamsError } from '../../core/types.ts';
 
 /** Session name inside every Termavox tmux server. */
@@ -64,7 +65,18 @@ export function tmuxQuote(value: string): string {
   return `"${value.replace(/[\\"$~]/g, (ch) => `\\${ch}`)}"`;
 }
 
-export type DefaultTerminal = 'tmux-256color' | 'screen-256color';
+/** The pane's terminal type, tmux's `default-terminal` (plan §6.3). */
+export type DefaultTerminal = 'tmux-256color' | 'screen-256color' | 'xterm-256color';
+
+/**
+ * The pane's terminal type for a session (plan §6.3, D-49): `xterm-256color` when its server asks
+ * for it, else tmux's own type, as tmux recommends: `tmux-256color` when the probe found its
+ * terminfo, else `screen-256color`.
+ */
+export function defaultTerminalFor(tmuxTerm: TmuxTerm, tiTmux256: boolean): DefaultTerminal {
+  if (tmuxTerm === 'xterm-256color') return 'xterm-256color';
+  return tiTmux256 ? 'tmux-256color' : 'screen-256color';
+}
 
 export interface LaunchOptions {
   /** Absolute tmux path from the probe (`tmux_path`). */
@@ -77,7 +89,10 @@ export interface LaunchOptions {
   defaultTerminal: DefaultTerminal;
   cols: number;
   rows: number;
-  /** Server env vars, passed as `new-session -e KEY=VALUE`. */
+  /**
+   * Server env vars, passed as `new-session -e KEY=VALUE`, after `COLORTERM=truecolor` unless
+   * they set COLORTERM themselves (plan D-49).
+   */
   env?: Record<string, string>;
   /** Optional startup command run by the login shell (`$SHELL -lc '<startup>'`). */
   startupCommand?: string | null;
@@ -136,8 +151,12 @@ export function launchCommands(opts: LaunchOptions): string[] {
   }
   assertDimension('cols', opts.cols);
   assertDimension('rows', opts.rows);
+  const env = opts.env ?? {};
   const envArgs: string[] = [];
-  for (const [key, value] of Object.entries(opts.env ?? {})) {
+  // Protected sessions declare 24-bit color (plan D-49): tmux keeps it and so does the browser.
+  // A COLORTERM in the server's environment wins, whatever its value, the empty one included.
+  if (!Object.hasOwn(env, 'COLORTERM')) envArgs.push('-e', 'COLORTERM=truecolor');
+  for (const [key, value] of Object.entries(env)) {
     if (!ENV_KEY.test(key)) {
       throw new BadLaunchParamsError(`invalid environment variable name: ${key}`);
     }

@@ -295,6 +295,22 @@ describe('SessionRuntime integration with the drivers', () => {
     await rt.shutdown();
   });
 
+  it("tmux-control gets the session's terminal type (D-49)", async () => {
+    const seen: string[] = [];
+    const h = harness({
+      record: { tmuxTerm: 'xterm-256color' },
+      behavior: () => ({ probe: TMUX_PROBE }),
+      drivers: fakeTmuxDrivers(async (_ctx, opts) => {
+        seen.push(opts.tmuxTerm);
+      }),
+    });
+    const rt = h.runtime();
+    await rt.start();
+    expect(rt.state).toBe('ready');
+    expect(seen).toEqual(['xterm-256color']);
+    await rt.shutdown();
+  });
+
   it('start() rejecting after a confirmed shell exit has one outcome: ended (shell_exited)', async () => {
     const h = harness({
       record: protectedRecord,

@@ -4,6 +4,7 @@
  * restarts and network drops; on every (re)attach the emulator is rebuilt from `capture-pane`.
  */
 
+import type { TmuxTerm } from '@termavox/protocol';
 import { hostMessage, hostText } from '../../core/host-text.ts';
 import type {
   Dimensions,
@@ -17,6 +18,8 @@ import type { ProbeResult } from '../../probe/index.ts';
 import { OutputGate, type StreamEvent } from './boundary.ts';
 import {
   confirmEndedCommand,
+  type DefaultTerminal,
+  defaultTerminalFor,
   detachClient,
   displayFormat,
   killServer,
@@ -43,9 +46,10 @@ import {
 import {
   encodeInput,
   encodeInputItems,
+  homeEndByName,
   type InputItem,
+  inputItemOf,
   MAX_INPUT_BYTES_PER_COMMAND,
-  tmuxKeyOf,
 } from './input.ts';
 import { concatBytes, LineSplitter } from './lines.ts';
 import { type ControlEvent, ControlParser, paneSizeFromLayout } from './parser.ts';
@@ -58,6 +62,8 @@ export interface TmuxControlDriverOptions {
   socket: string;
   /** history-limit and emulator scrollback. */
   scrollbackLines: number;
+  /** The pane's terminal type: `auto` (tmux's own, from the probe) or `xterm-256color` (D-49). */
+  tmuxTerm: TmuxTerm;
   startupCommand: string | null;
   env: Record<string, string>;
   previousIdentity: RemoteIdentity | null;
@@ -202,6 +208,9 @@ async function exitCodeOf(transport: Transport, command: string): Promise<number
 export class TmuxControlDriver implements Driver {
   readonly protection = 'tmux-control' as const;
   readonly #opts: TmuxControlDriverOptions;
+  /** The pane's terminal type, and whether Home and End go to tmux by name for it (§6.5). */
+  readonly #terminal: DefaultTerminal;
+  readonly #homeEndByName: boolean;
   readonly #parser = new ControlParser();
   readonly #gate = new OutputGate('armed');
   #ctx: DriverContext | null = null;
@@ -252,6 +261,9 @@ export class TmuxControlDriver implements Driver {
 
   constructor(opts: TmuxControlDriverOptions) {
     this.#opts = opts;
+    // Known before start(): input() already queues keys while the launch is under way.
+    this.#terminal = defaultTerminalFor(opts.tmuxTerm, opts.probe.tiTmux256);
+    this.#homeEndByName = homeEndByName(this.#terminal);
   }
 
   get stats(): TmuxControlDriverStats {
@@ -281,7 +293,7 @@ export class TmuxControlDriver implements Driver {
       socket: this.#opts.socket,
       locale: probe.utf8Locale,
       historyLimit: this.#opts.scrollbackLines,
-      defaultTerminal: probe.tiTmux256 ? 'tmux-256color' : 'screen-256color',
+      defaultTerminal: this.#terminal,
       cols: dims.cols,
       rows: dims.rows,
       env: this.#opts.env,
@@ -341,7 +353,7 @@ export class TmuxControlDriver implements Driver {
 
   input(data: Uint8Array): void {
     if ((this.#phase !== 'running' && this.#phase !== 'starting') || data.byteLength === 0) return;
-    this.#input.push(tmuxKeyOf(data) ?? data.slice());
+    this.#input.push(inputItemOf(data, this.#homeEndByName));
     this.#inputBytes += data.byteLength;
     if (this.#phase !== 'running') return; // flushed once started
     if (this.#inputBytes >= MAX_INPUT_BYTES_PER_COMMAND) this.#flushInput();

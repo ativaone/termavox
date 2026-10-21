@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { BadLaunchParamsError } from '../../src/core/types.ts';
 import {
+  defaultTerminalFor,
   detachClient,
   hasSessionCommand,
   type LaunchOptions,
@@ -134,7 +135,8 @@ describe('launch command', () => {
         'set-option -g default-terminal tmux-256color \\; set-option -g aggressive-resize off \\; ' +
         'set-option -g detach-on-destroy on \\; set-option -g window-size latest \\; ' +
         'set-option -g status off \\; set-option -gqw scroll-on-clear off \\; ' +
-        'new-session -A -P -F tv-created -s main -x 120 -y 40 -e EDITOR=vim ' +
+        'new-session -A -P -F tv-created -s main -x 120 -y 40 -e COLORTERM=truecolor ' +
+        '-e EDITOR=vim ' +
         '\'exec env -u TMUX -u TMUX_PANE "$SHELL" -l\'',
     );
     expect(launchCommands(LAUNCH)).toHaveLength(9); // one flags-0 reply block each
@@ -158,7 +160,7 @@ describe('launch command', () => {
       ...['set-option', '-g', 'status', 'off', ';'],
       ...['set-option', '-gqw', 'scroll-on-clear', 'off', ';'],
       ...['new-session', '-A', '-P', '-F', 'tv-created', '-s', 'main', '-x', '120', '-y', '40'],
-      ...['-e', 'EDITOR=vim', '-e', "TV_X=a 'b' \\c $d"],
+      ...['-e', 'COLORTERM=truecolor', '-e', 'EDITOR=vim', '-e', "TV_X=a 'b' \\c $d"],
       // The pane command reaches tmux as ONE argument (else tmux would exec `exec` as a program).
       `exec env -u TMUX -u TMUX_PANE "$SHELL" -lc ${shQuote(startup)}`,
     ]);
@@ -179,6 +181,42 @@ describe('launch command', () => {
     expect(launchScript({ ...LAUNCH, defaultTerminal: 'screen-256color' })).toContain(
       'set-option -g default-terminal screen-256color',
     );
+  });
+
+  it("sets the pane's terminal type: tmux's own unless the server asks for xterm-256color (D-49)", () => {
+    expect(defaultTerminalFor('auto', true)).toBe('tmux-256color');
+    expect(defaultTerminalFor('auto', false)).toBe('screen-256color');
+    expect(defaultTerminalFor('xterm-256color', true)).toBe('xterm-256color');
+    expect(defaultTerminalFor('xterm-256color', false)).toBe('xterm-256color');
+    const argv = argvOf(
+      sh(
+        launchCommand({
+          ...LAUNCH,
+          tmuxPath: fakeArgvPrinter('tmux'),
+          defaultTerminal: 'xterm-256color',
+        }),
+      ),
+    );
+    const setOptions = tmuxCommands(argv).filter((command) => command[0] === 'set-option');
+    expect(setOptions).toContainEqual(['set-option', '-g', 'default-terminal', 'xterm-256color']);
+  });
+
+  it('declares COLORTERM=truecolor unless the server environment sets COLORTERM (D-49)', () => {
+    const envValues = (env: Record<string, string> | undefined): string[] => {
+      const argv = argvOf(sh(launchCommand({ ...LAUNCH, tmuxPath: fakeArgvPrinter('tmux'), env })));
+      const newSession = tmuxCommands(argv).at(-1)!;
+      return newSession.flatMap((arg, i) => (newSession[i - 1] === '-e' ? [arg] : []));
+    };
+    expect(envValues(undefined)).toEqual(['COLORTERM=truecolor']);
+    expect(envValues({})).toEqual(['COLORTERM=truecolor']);
+    expect(envValues({ EDITOR: 'vim' })).toEqual(['COLORTERM=truecolor', 'EDITOR=vim']);
+    // The server's own value wins, whatever it is, the empty one included.
+    expect(envValues({ COLORTERM: '24bit' })).toEqual(['COLORTERM=24bit']);
+    expect(envValues({ COLORTERM: '' })).toEqual(['COLORTERM=']);
+    // Names are case-sensitive: another variable.
+    expect(envValues({ colorterm: 'x' })).toEqual(['COLORTERM=truecolor', 'colorterm=x']);
+    // One reply block per command, as before.
+    expect(launchCommands({ ...LAUNCH, env: {} })).toHaveLength(9);
   });
 
   it('rejects unsafe inputs instead of quoting them', () => {
@@ -233,7 +271,13 @@ describe('launch command', () => {
     const newSession = commands.at(-1)!;
     expect(newSession[0]).toBe('new-session');
     const values = newSession.flatMap((arg, i) => (newSession[i - 1] === '-e' ? [arg] : []));
-    expect(values).toEqual(['TV_SEMI=value;', 'TV_ESCAPED=x\\;', 'TV_BARE=;', 'TV_MID=a;b']);
+    expect(values).toEqual([
+      'COLORTERM=truecolor',
+      'TV_SEMI=value;',
+      'TV_ESCAPED=x\\;',
+      'TV_BARE=;',
+      'TV_MID=a;b',
+    ]);
     // The pane command stays one argument, untouched.
     expect(newSession.at(-1)).toBe('exec env -u TMUX -u TMUX_PANE "$SHELL" -l');
   });

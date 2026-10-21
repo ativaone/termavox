@@ -250,7 +250,9 @@
         <li>A <strong>server</strong> holds everything an <code>ssh user@address</code> needs: the address, port, user name, credential and the session options. The same machine with another user is another server; <strong>Duplicate</strong> helps.</li>
         <li>Changes to a server apply to new sessions. The running ones keep the address they started with.</li>
         <li>To sign in, prefer <strong>Generate a new key</strong>: the private key never leaves Termavox, and you install the public key on the server. You can also paste a key, use a password, or choose <strong>None</strong> (the server asks for the password in the terminal).</li>
-        <li>Under <strong>Advanced</strong>: protection, startup command, environment variables, keepalive, scrollback lines and reopening unprotected sessions.</li>
+        <li>Under <strong>Advanced</strong>: protection, terminal type, startup command, environment variables, keepalive, scrollback lines and reopening unprotected sessions.</li>
+        <li><strong>Terminal type</strong> is for protected sessions. <strong>Automatic (recommended)</strong> uses tmux's own type, as tmux recommends. <strong>xterm-256color</strong> makes programs act as in a plain terminal (<kbd>Ctrl</kbd>+<kbd>End</kbd> in vim, for example), but the screen restored after a restart may come back imperfect. It applies to new sessions.</li>
+        <li>Protected sessions also set <code>COLORTERM=truecolor</code>, so programs use full 24-bit color. A <code>COLORTERM</code> among the server's environment variables takes its place, even an empty one.</li>
         <li>Termavox runs in Docker on the same machine you want to reach? Use <strong>Add this Docker host</strong>.</li>
       </ul>
       <aside class="note note-warning">

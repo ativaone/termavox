@@ -307,6 +307,7 @@ export function prefillFrom(
     'server.port': source.port === null ? '22' : String(source.port),
     'server.username': source.username ?? '',
     'server.protectionMode': source.protectionMode,
+    'server.tmuxTerm': source.tmuxTerm,
     'server.startupCommand': source.startupCommand ?? '',
     'server.keepaliveIntervalS': String(source.keepaliveIntervalS),
     'server.autoReopen': source.autoReopen ? 'on' : '',

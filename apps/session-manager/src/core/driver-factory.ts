@@ -1,3 +1,4 @@
+import type { TmuxTerm } from '@termavox/protocol';
 import { RawPtyDriver } from '../drivers/raw-pty/raw-pty-driver.ts';
 import type { ProbeResult } from '../probe/index.ts';
 import type { Driver, RemoteIdentity } from './types.ts';
@@ -8,6 +9,8 @@ export interface TmuxControlDriverOptions {
   /** Per-session tmux socket name (plan §6.3). */
   socket: string;
   scrollbackLines: number;
+  /** The session's terminal type inside tmux (plan D-49). */
+  tmuxTerm: TmuxTerm;
   startupCommand: string | null;
   env: Record<string, string>;
   previousIdentity: RemoteIdentity | null;

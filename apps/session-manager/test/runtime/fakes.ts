@@ -55,6 +55,7 @@ export function makeRecord(overrides: Partial<SessionRecord> = {}): SessionRecor
     },
     term: 'xterm-256color',
     scrollbackLines: 1000,
+    tmuxTerm: 'auto',
     policies: {
       protectionMode: 'auto',
       startupCommand: null,

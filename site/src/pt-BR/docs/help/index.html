@@ -250,7 +250,9 @@
         <li>Um <strong>servidor</strong> guarda tudo o que um <code>ssh usuário@endereço</code> precisa: endereço, porta, usuário, credencial e as opções da sessão. A mesma máquina com outro usuário é outro servidor; <strong>Duplicar</strong> ajuda.</li>
         <li>Mudanças num servidor valem para as sessões novas. As que estão rodando mantêm o endereço com que começaram.</li>
         <li>Para entrar, prefira <strong>Gerar uma chave nova</strong>: a chave privada nunca sai do Termavox, e você instala a pública no servidor. Também dá para colar uma chave, usar uma senha, ou <strong>Nenhuma</strong> (o servidor pede a senha no terminal).</li>
-        <li>Em <strong>Avançado</strong>: proteção, comando inicial, variáveis de ambiente, keepalive, linhas de histórico e a reabertura de sessões desprotegidas.</li>
+        <li>Em <strong>Avançado</strong>: proteção, tipo de terminal, comando inicial, variáveis de ambiente, keepalive, linhas de histórico e a reabertura de sessões desprotegidas.</li>
+        <li>O <strong>Tipo de terminal</strong> é para sessões protegidas. O <strong>Automático (recomendado)</strong> usa o tipo do próprio tmux, como o tmux recomenda. O <strong>xterm-256color</strong> faz os programas agirem como num terminal comum (<kbd>Ctrl</kbd>+<kbd>End</kbd> no vim, por exemplo), mas a tela restaurada depois de um reinício pode voltar imperfeita. Vale para novas sessões.</li>
+        <li>Sessões protegidas também definem <code>COLORTERM=truecolor</code>, para que os programas usem todas as cores (24 bits). Um <code>COLORTERM</code> nas variáveis de ambiente do servidor ocupa o lugar dele, mesmo vazio.</li>
         <li>O Termavox roda no Docker na mesma máquina que você quer acessar? Use <strong>Adicionar este host Docker</strong>.</li>
       </ul>
       <aside class="note note-warning">

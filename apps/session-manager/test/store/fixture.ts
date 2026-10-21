@@ -78,6 +78,7 @@ export interface ServerOptions {
   credentialId?: string | null;
   autoReopen?: boolean;
   protectionMode?: 'auto' | 'off';
+  tmuxTerm?: 'auto' | 'xterm-256color';
 }
 
 /**
@@ -91,8 +92,8 @@ export function insertServer(db: TermavoxDb, userId: string, opts: ServerOptions
   db.$client
     .prepare(
       `INSERT INTO servers (id, user_id, name, kind, hostname, port, username, credential_id,
-         protection_mode, auto_reopen, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         protection_mode, auto_reopen, tmux_term, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       id,
@@ -105,6 +106,7 @@ export function insertServer(db: TermavoxDb, userId: string, opts: ServerOptions
       local ? null : (opts.credentialId ?? null),
       opts.protectionMode ?? 'auto',
       opts.autoReopen === false ? 0 : 1,
+      opts.tmuxTerm ?? 'auto',
       now,
       now,
     );

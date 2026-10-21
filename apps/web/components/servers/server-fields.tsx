@@ -19,6 +19,7 @@ import { Checkbox } from '../ui/checkbox.tsx';
 import { DisclosureSummary } from '../ui/disclosure-summary.tsx';
 import { FieldError } from '../ui/field.tsx';
 import { radioClasses } from '../ui/radio.ts';
+import { Select } from '../ui/select.tsx';
 import { TextField } from '../ui/text-field.tsx';
 import { ChoiceCard } from './add-server-section.tsx';
 
@@ -33,6 +34,7 @@ import { ChoiceCard } from './add-server-section.tsx';
 /** Option inputs that live in the "Advanced" disclosure (it opens when one of them has an error). */
 export const ADVANCED_FIELDS = [
   'protectionMode',
+  'tmuxTerm',
   'startupCommand',
   'env',
   'keepaliveIntervalS',
@@ -264,8 +266,8 @@ function EnvEditor({
 }
 
 /**
- * How sessions from a server behave: tmux protection, startup command, environment, keepalive,
- * scrollback and auto-reopen, as three hairline-divided groups.
+ * How sessions from a server behave: tmux protection and the terminal type inside it, startup
+ * command, environment, keepalive, scrollback and auto-reopen, as three hairline-divided groups.
  */
 export function ServerOptionsFields({
   prefix = '',
@@ -285,46 +287,63 @@ export function ServerOptionsFields({
   );
   const echoedEnv = values[n('env')];
   const env = parseEnvValue(echoedEnv) ?? initial.env;
+  const echoedTerm = values[n('tmuxTerm')];
+  const tmuxTerm =
+    echoedTerm === 'auto' || echoedTerm === 'xterm-256color' ? echoedTerm : initial.tmuxTerm;
 
   return (
     <>
-      <fieldset className="flex flex-col gap-2.5 border-line border-t pt-5">
-        <legend className="float-left mb-2 w-full font-semibold text-ink text-sm">
-          {t('protection')}
-        </legend>
-        <label className="flex cursor-pointer items-start gap-3">
-          <input
-            type="radio"
-            name={n('protectionMode')}
-            value="auto"
-            checked={mode === 'auto'}
-            onChange={() => setMode('auto')}
-            className={radioClasses('md', 'mt-0.5')}
-          />
-          <span className="flex flex-col gap-0.5">
-            <span className="font-medium text-base text-ink">{t('protectionAuto')}</span>
-            <span className="max-w-[60ch] text-ink-muted text-sm">{t('protectionAutoHelp')}</span>
-          </span>
-        </label>
-        <label className="flex cursor-pointer items-start gap-3">
-          <input
-            type="radio"
-            name={n('protectionMode')}
-            value="off"
-            checked={mode === 'off'}
-            onChange={() => setMode('off')}
-            className={radioClasses('md', 'mt-0.5')}
-          />
-          <span className="flex flex-col gap-0.5">
-            <span className="font-medium text-base text-ink">{t('protectionOff')}</span>
-            <span className="max-w-[60ch] text-ink-muted text-sm">{t('protectionOffHelp')}</span>
-          </span>
-        </label>
-        {/* Outside the labels, so it never joins a choice's accessible name. */}
-        <p className="ps-8 text-sm">
-          <LearnMore section="protection" />
-        </p>
-      </fieldset>
+      <div className="flex flex-col gap-5 border-line border-t pt-5">
+        <fieldset className="flex flex-col gap-2.5">
+          <legend className="float-left mb-2 w-full font-semibold text-ink text-sm">
+            {t('protection')}
+          </legend>
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="radio"
+              name={n('protectionMode')}
+              value="auto"
+              checked={mode === 'auto'}
+              onChange={() => setMode('auto')}
+              className={radioClasses('md', 'mt-0.5')}
+            />
+            <span className="flex flex-col gap-0.5">
+              <span className="font-medium text-base text-ink">{t('protectionAuto')}</span>
+              <span className="max-w-[60ch] text-ink-muted text-sm">{t('protectionAutoHelp')}</span>
+            </span>
+          </label>
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="radio"
+              name={n('protectionMode')}
+              value="off"
+              checked={mode === 'off'}
+              onChange={() => setMode('off')}
+              className={radioClasses('md', 'mt-0.5')}
+            />
+            <span className="flex flex-col gap-0.5">
+              <span className="font-medium text-base text-ink">{t('protectionOff')}</span>
+              <span className="max-w-[60ch] text-ink-muted text-sm">{t('protectionOffHelp')}</span>
+            </span>
+          </label>
+          {/* Outside the labels, so it never joins a choice's accessible name. */}
+          <p className="ps-8 text-sm">
+            <LearnMore section="protection" />
+          </p>
+        </fieldset>
+        <Select
+          name={n('tmuxTerm')}
+          label={t('tmuxTerm')}
+          help={t('tmuxTermHelp')}
+          defaultValue={tmuxTerm}
+          error={fields?.[n('tmuxTerm')]}
+          errorPrefix={errorPrefix}
+          options={[
+            { value: 'auto', label: t('tmuxTermAuto') },
+            { value: 'xterm-256color', label: t('tmuxTermXterm') },
+          ]}
+        />
+      </div>
 
       <div className="flex flex-col gap-5 border-line border-t pt-5">
         <TextField

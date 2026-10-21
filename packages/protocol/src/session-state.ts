@@ -50,6 +50,13 @@ export type ProtectionNotice = z.infer<typeof ProtectionNotice>;
 export const ProtectionMode = z.enum(['auto', 'off']);
 export type ProtectionMode = z.infer<typeof ProtectionMode>;
 
+/**
+ * A server's `tmux_term` setting (plan D-49): the terminal type inside its protected sessions.
+ * `auto`: tmux's own type (`tmux-256color`, else `screen-256color`); `xterm-256color` on request.
+ */
+export const TmuxTerm = z.enum(['auto', 'xterm-256color']);
+export type TmuxTerm = z.infer<typeof TmuxTerm>;
+
 export const EndReason = z.enum([
   'user_terminated',
   'shell_exited',

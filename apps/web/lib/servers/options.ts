@@ -7,6 +7,8 @@
 
 export interface ServerOptionsValues {
   protectionMode: 'auto' | 'off';
+  /** The terminal type inside protected sessions (plan D-49). */
+  tmuxTerm: 'auto' | 'xterm-256color';
   startupCommand: string;
   env: Array<{ key: string; value: string }>;
   keepaliveIntervalS: number;
@@ -16,6 +18,7 @@ export interface ServerOptionsValues {
 
 export const SERVER_OPTION_DEFAULTS: ServerOptionsValues = {
   protectionMode: 'auto',
+  tmuxTerm: 'auto',
   startupCommand: '',
   env: [],
   keepaliveIntervalS: 15,
@@ -49,6 +52,7 @@ export function optionsDifferFromDefaults(
   };
   return (
     differs('protectionMode', defaults.protectionMode) ||
+    differs('tmuxTerm', defaults.tmuxTerm) ||
     differs('startupCommand', defaults.startupCommand) ||
     differs('keepaliveIntervalS', String(defaults.keepaliveIntervalS)) ||
     differs('scrollbackLines', String(defaults.scrollbackLines)) ||

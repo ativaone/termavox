@@ -111,6 +111,11 @@ upgraded: remove it together with its volumes and install fresh from a new clone
 - Adjustable widths: drag the line between the session list and the workspace to resize the
   list, and the terminal area's left or right edge to narrow it without a split (double-click an
   edge to put it back). The widths apply to every tab and are kept per browser.
+- Terminal type for protected sessions, under Advanced on a server's page: Automatic (the
+  default, tmux's own type, as tmux recommends) or xterm-256color, which makes programs act as in
+  a plain terminal (Ctrl+End in vim, for example) at the risk of an imperfect screen after a
+  restart. It applies to new sessions. Protected sessions now also set `COLORTERM=truecolor`, so
+  programs use 24-bit color, unless the server's environment variables set COLORTERM.
 
 ### Fixed
 

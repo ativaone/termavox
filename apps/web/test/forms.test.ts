@@ -48,6 +48,33 @@ describe('server form launch values (M1)', () => {
   });
 });
 
+describe('server form terminal type (plan D-49)', () => {
+  it('accepts Automatic and xterm-256color, and reads a missing one as Automatic', () => {
+    for (const value of ['auto', 'xterm-256color'] as const) {
+      const form = serverForm({});
+      form.set('tmuxTerm', value);
+      const { parsed, values } = readServerForm(form);
+      expect(parsed.success).toBe(true);
+      if (!parsed.success) return;
+      expect(parsed.data.tmuxTerm).toBe(value);
+      expect(values.tmuxTerm).toBe(value);
+      expect(toServerInput(parsed.data, null).tmuxTerm).toBe(value);
+    }
+    const { parsed, values } = readServerForm(serverForm({}));
+    expect(parsed.data?.tmuxTerm).toBe('auto');
+    expect(values.tmuxTerm).toBe('auto');
+  });
+
+  it('refuses any other value instead of guessing, and echoes it back', () => {
+    for (const bad of ['tmux-256color', 'screen-256color', 'XTERM-256COLOR', 'vt100', 'xterm']) {
+      const form = serverForm({});
+      form.set('tmuxTerm', bad);
+      expect(issues(form)).toEqual({ tmuxTerm: 'tmuxTerm' });
+      expect(readServerForm(form).values.tmuxTerm).toBe(bad);
+    }
+  });
+});
+
 describe('server form target (plan D-29)', () => {
   it('needs an address, a port and a user name for SSH', () => {
     const form = serverForm({});

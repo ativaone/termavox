@@ -232,9 +232,9 @@ session-manager also stores two keys of its own there, which are not settings: `
 (used in the names of the remote tmux sockets) and `vault_key_check`.
 
 Per-user preferences (language, theme, terminal font and colors, OSC 52 clipboard writes, link
-confirmation) are under `/settings`, and connection options (protection mode, startup command,
-`TERM`, environment, keepalive, auto-reopen, scrollback) are per server, under Advanced on its
-page.
+confirmation) are under `/settings`, and connection options (protection mode, terminal type,
+startup command, environment, keepalive, auto-reopen, scrollback) are per server, under Advanced
+on its page.
 
 ## Built-in limits
 

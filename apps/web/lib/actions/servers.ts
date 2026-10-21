@@ -279,6 +279,7 @@ export async function addDockerServer(
           username,
           credentialId,
           protectionMode: 'auto',
+          tmuxTerm: 'auto',
           startupCommand: null,
           env: {},
           keepaliveIntervalS: 15,

@@ -125,8 +125,10 @@ degrades to `none` with a banner and an event, never silently.
 **`tmux-control`** ([ADR-0002](adr/0002-tmux-control-protocol.md),
 [ADR-0003](adr/0003-tmux-control-driver.md)). The driver runs
 `tmux -u -L tv-<installation>-<token> -f /dev/null -C …` over an exec channel without a PTY:
-one invisible tmux server per session on its own socket, no status line, no prefix key. It
-parses the control protocol (`%output` → bytes → runtime), sends input with `send-keys -H`,
+one invisible tmux server per session on its own socket, no status line, no prefix key. The
+pane's terminal type is tmux's own (`tmux-256color`, else `screen-256color`) unless the server
+asks for `xterm-256color`, and the pane gets `COLORTERM=truecolor` unless the server's
+environment sets COLORTERM ([plan D-49](implementation-plan.md)). It parses the control protocol (`%output` → bytes → runtime), sends input with `send-keys -H`,
 resizes with `refresh-client -C` and uses `pause-after` flow control. On every attach (first
 start, reconnect, daemon restart, `%pause`) it captures history, screen and modes with
 `capture-pane` and format queries, and the runtime swaps in a freshly rebuilt emulator
@@ -245,7 +247,7 @@ with a 250 ms busy timeout plus retries, and web keeps a 5 s busy timeout: a lon
 transaction never stalls the data plane. session-manager also purges `audit_events` and
 `session_events` rows older than `TERMAVOX_EVENT_RETENTION_DAYS` (default 180) every 6 hours, in
 500-row chunks through the same writer. A session snapshots its server's target (hostname, port,
-user name, credential, `TERM`, scrollback) at creation, so later server edits only affect new
+user name, credential, `TERM`, scrollback, terminal type) at creation, so later server edits only affect new
 sessions; a deleted server leaves its sessions' history (`server_id` NULL) and nothing connects
 through those snapshots any more. `known_host_keys` has
 no foreign key to `servers` and nothing purges it: decisions outlive the servers, so deleting and
