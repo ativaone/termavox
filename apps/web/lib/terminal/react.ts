@@ -18,6 +18,8 @@ export interface UseTerminalChannelOptions {
   onBell?(): void;
   /** Default `webgl`, with DOM fallback. Changing it recreates the terminal. */
   renderer?: 'webgl' | 'dom';
+  /** A pasted image (clipboard without text, plan D-48). */
+  onImagePaste?(image: File): void;
   /**
    * Apply `layout.scale` as a CSS transform (origin top-left) on the xterm element when the
    * session is larger than the container (passive attachment). Default true. Set false to
@@ -98,6 +100,7 @@ export function useTerminalChannel(
         const bundle = createBrowserTerminal(container, {
           appearance: latest.current.appearance ?? {},
           confirmLink: (uri) => latest.current.confirmLink?.(uri) ?? false,
+          onImagePaste: (image) => latest.current.onImagePaste?.(image),
           ...(renderer ? { renderer } : {}),
         });
         try {

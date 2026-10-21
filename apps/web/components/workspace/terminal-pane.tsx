@@ -3,10 +3,14 @@
 import '@xterm/xterm/css/xterm.css';
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { pasteText } from '../../lib/terminal/paste.ts';
+import { sessionFiles } from '../../lib/files/client.ts';
+import { fileErrorCode, fileErrorKey } from '../../lib/files/errors.ts';
+import { savePastedImage } from '../../lib/files/paste-image.ts';
+import { PASTE_IMAGE_TYPES, pasteText } from '../../lib/terminal/paste.ts';
 import { useTerminalChannel } from '../../lib/terminal/react.ts';
 import { altChar, ctrlChar } from '../../lib/workspace/keys.ts';
 import { cleanTitle } from '../../lib/workspace/title.ts';
+import { filesAllowedFor } from '../files/files-toggle.tsx';
 import { cx } from '../ui/cx.ts';
 import { type LinkPrompt, PaneOverlays } from './pane-overlays.tsx';
 import { type PanePlace, useWorkspace } from './workspace-context.tsx';
@@ -98,6 +102,39 @@ export function TerminalPane({
     if (!activeRef.current || !document.hasFocus()) setPaneMeta(paneId, { bell: true });
   }, [setPaneMeta, paneId]);
 
+  // An image pasted without text goes to the session's server and its path is pasted (plan
+  // D-48), through the file panel's upload: only where that panel is allowed.
+  const tf = useTranslations('files');
+  const { connection, transfers, filesEnabled, sessions } = ws;
+  const filesAllowed = filesAllowedFor(filesEnabled, sessions.get(sessionId));
+  const terminalRef = useRef<{ paste(text: string): void } | null>(null);
+  const onImagePaste = useCallback(
+    (image: File) => {
+      const extension = PASTE_IMAGE_TYPES[image.type];
+      if (!extension) return;
+      if (!filesAllowed) {
+        setNotice(t('imagePasteUnavailable'));
+        return;
+      }
+      savePastedImage({
+        files: sessionFiles(connection, sessionId),
+        queue: transfers,
+        sessionId,
+        image,
+        extension,
+      }).then(
+        (path) => {
+          if (terminalRef.current) pasteText(terminalRef.current, path);
+        },
+        (err: unknown) =>
+          setNotice(
+            t('imagePasteFailed', { reason: tf(`error.${fileErrorKey(fileErrorCode(err))}`) }),
+          ),
+      );
+    },
+    [filesAllowed, connection, transfers, sessionId, t, tf],
+  );
+
   const { state, layout, channel, terminal, error } = useTerminalChannel(
     ws.appearance ? ws.connection : null,
     sessionId,
@@ -107,8 +144,12 @@ export function TerminalPane({
       confirmLink,
       onTitle,
       onBell,
+      onImagePaste,
     },
   );
+  useEffect(() => {
+    terminalRef.current = terminal;
+  }, [terminal]);
 
   // Cursor style and blink: the user's initial values (the stream may change them later, and a
   // snapshot restores what it set).

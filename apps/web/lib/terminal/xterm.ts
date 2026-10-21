@@ -45,6 +45,8 @@ export interface BrowserTerminalOptions {
   confirmLink?: LinkConfirm;
   /** `webgl` (default) falls back to the DOM renderer when WebGL is unavailable or lost. */
   renderer?: 'webgl' | 'dom';
+  /** A pasted image (clipboard without text); without it such a paste does nothing. */
+  onImagePaste?(image: File): void;
 }
 
 export interface BrowserTerminal extends Disposable {
@@ -85,7 +87,9 @@ export function createBrowserTerminal(
   terminal.unicode.activeVersion = UNICODE_VERSION;
   terminal.open(container);
   // Native pastes go through the same sanitizing as the UI's paste actions.
-  const pasteGuard = terminal.element ? interceptPaste(terminal.element, terminal) : null;
+  const pasteGuard = terminal.element
+    ? interceptPaste(terminal.element, terminal, options.onImagePaste)
+    : null;
   const fit = new FitAddon();
   terminal.loadAddon(fit);
   terminal.loadAddon(new WebLinksAddon((_event, uri) => openLink(uri, options.confirmLink)));

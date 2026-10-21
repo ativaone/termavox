@@ -201,6 +201,7 @@
         <li><strong>Colar com o botão direito</strong> (desligado): o botão direito cola em vez de abrir o menu do navegador.</li>
         <li><strong>Confirmar antes de abrir links</strong> (ligado): um link clicado no terminal mostra o endereço completo antes de abrir em uma nova aba.</li>
       </ul>
+      <p>Para colar uma imagem (um print, por exemplo), cole no terminal como de costume: o Termavox a envia ao servidor da sessão, para <code>~/.cache/termavox/paste</code>, e cola o caminho do arquivo, para que um programa de lá, como o Claude Code, consiga abri-la. Usa a transferência do <a href="#files">painel de arquivos</a>, então funciona onde ele funciona. Imagens com mais de 7 dias nessa pasta são apagadas quando você cola uma nova. Quando a área de transferência também tem texto, o texto é colado no lugar.</p>
       <aside class="note note-warning">
         <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#alert"/></svg>
         <div class="note-body"><p class="note-title">OSC 52 deixa programas remotos escreverem na sua área de transferência</p><p>Ligado, o <code>vim</code> ou o tmux do servidor conseguem sobrescrever o que você copiou, sem perguntar. Deixe desligado se não precisar.</p></div>

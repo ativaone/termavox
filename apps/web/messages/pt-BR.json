@@ -234,6 +234,8 @@
       "resize": "Redimensionar painéis",
       "resizeAreaStart": "Redimensionar a área do terminal pela esquerda",
       "resizeAreaEnd": "Redimensionar a área do terminal pela direita",
+      "imagePasteUnavailable": "Colar uma imagem a envia ao servidor pela transferência de arquivos, que esta sessão não tem.",
+      "imagePasteFailed": "Não foi possível enviar a imagem colada ao servidor. {reason}",
       "loading": "Sessão",
       "emptyPane": "Painel vazio",
       "emptyPaneBody": "Escolha uma sessão para este painel ou inicie uma nova aqui.",

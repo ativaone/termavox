@@ -201,6 +201,7 @@
         <li><strong>Paste with right click</strong> (off): right click pastes instead of opening the browser menu.</li>
         <li><strong>Confirm before opening links</strong> (on): a link clicked in the terminal shows its full address before it opens in a new tab.</li>
       </ul>
+      <p>To paste an image (a screenshot, for example), paste it into the terminal as usual: Termavox sends it to the session's server, into <code>~/.cache/termavox/paste</code>, and pastes the file's path, so a program there such as Claude Code can open it. It uses the <a href="#files">file panel</a>'s transfer, so it works where that panel does. Images older than 7 days in that folder are removed when you paste a new one. When the clipboard also has text, the text is pasted instead.</p>
       <aside class="note note-warning">
         <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#alert"/></svg>
         <div class="note-body"><p class="note-title">OSC 52 lets remote programs write to your clipboard</p><p>When it is on, <code>vim</code> or tmux on the server can overwrite what you copied, without asking. Leave it off unless you need it.</p></div>

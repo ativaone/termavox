@@ -234,6 +234,8 @@
       "resize": "Resize panes",
       "resizeAreaStart": "Resize the terminal area from the left",
       "resizeAreaEnd": "Resize the terminal area from the right",
+      "imagePasteUnavailable": "Pasting an image sends it to the server with file transfer, which this session does not have.",
+      "imagePasteFailed": "The pasted image could not be sent to the server. {reason}",
       "loading": "Session",
       "emptyPane": "Empty pane",
       "emptyPaneBody": "Pick a session for this pane, or start a new one here.",

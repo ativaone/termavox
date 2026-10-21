@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { interceptPaste, pasteText, sanitizePaste } from '../../lib/terminal/paste.ts';
+import {
+  clipboardImage,
+  interceptPaste,
+  PASTE_IMAGE_TYPES,
+  pasteText,
+  sanitizePaste,
+} from '../../lib/terminal/paste.ts';
 
 describe('paste sanitizing', () => {
   it('removes ESC, so clipboard text cannot end a bracketed paste early', () => {
@@ -63,5 +69,150 @@ describe('paste paths', () => {
 
     guard.dispose();
     expect(element.removeEventListener).toHaveBeenCalledWith('paste', listener, true);
+  });
+});
+
+interface FakeItem {
+  kind: string;
+  type: string;
+  getAsFile: () => File | null;
+}
+
+const fileItem = (type: string, file: File | null = new File(['x'], 'image', { type })) => ({
+  kind: 'file',
+  type,
+  getAsFile: vi.fn(() => file),
+});
+
+/** A DataTransferItemList as the browser hands it: array-like, not an Array. */
+function itemList(...items: FakeItem[]): DataTransferItemList {
+  const list: Record<number, FakeItem> & { length: number } = { length: items.length };
+  items.forEach((item, index) => {
+    list[index] = item;
+  });
+  return list as unknown as DataTransferItemList;
+}
+
+/** A paste event whose clipboard holds `text` (as getData returns it) and `items`. */
+function imagePasteEvent(text: string, ...items: FakeItem[]) {
+  return {
+    clipboardData: { getData: vi.fn(() => text), items: itemList(...items) },
+    preventDefault: vi.fn(),
+    stopPropagation: vi.fn(),
+  };
+}
+
+function intercept(onImage?: (image: File) => void) {
+  const element = { addEventListener: vi.fn(), removeEventListener: vi.fn() };
+  const terminal = { paste: vi.fn() };
+  interceptPaste(element, terminal, onImage);
+  const listener = element.addEventListener.mock.calls[0]![1] as (event: Event) => void;
+  return { terminal, paste: (event: unknown) => listener(event as Event) };
+}
+
+describe('image paste (plan D-48)', () => {
+  it('accepts PNG, JPEG, GIF and WebP, each with the extension it is saved under', () => {
+    expect(PASTE_IMAGE_TYPES).toEqual({
+      'image/png': 'png',
+      'image/jpeg': 'jpg',
+      'image/gif': 'gif',
+      'image/webp': 'webp',
+    });
+  });
+
+  it('pastes the text when the clipboard has text and an image; the image is never read', () => {
+    const onImage = vi.fn();
+    const { terminal, paste } = intercept(onImage);
+    const png = fileItem('image/png');
+    const event = imagePasteEvent('ls -la\r', png);
+    paste(event);
+    expect(terminal.paste).toHaveBeenCalledOnce();
+    expect(terminal.paste).toHaveBeenCalledWith('ls -la\r');
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(event.stopPropagation).toHaveBeenCalledOnce();
+
+    // Text wins even when sanitizing leaves nothing of it.
+    paste(imagePasteEvent('\x1b', png));
+    expect(terminal.paste).toHaveBeenCalledOnce();
+    expect(png.getAsFile).not.toHaveBeenCalled();
+    expect(onImage).not.toHaveBeenCalled();
+  });
+
+  it('hands an image-only paste to onImage once, and still takes the event', () => {
+    const onImage = vi.fn();
+    const { terminal, paste } = intercept(onImage);
+    const file = new File(['png bytes'], 'image.png', { type: 'image/png' });
+    const event = imagePasteEvent('', fileItem('image/png', file));
+    paste(event);
+    expect(onImage).toHaveBeenCalledOnce();
+    expect(onImage.mock.calls[0]![0]).toBe(file);
+    expect(terminal.paste).not.toHaveBeenCalled();
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(event.stopPropagation).toHaveBeenCalledOnce();
+  });
+
+  it('ignores image types it does not accept and items that are not files', () => {
+    const onImage = vi.fn();
+    const { terminal, paste } = intercept(onImage);
+    const ignored = [
+      fileItem('image/svg+xml'),
+      fileItem('image/bmp'),
+      fileItem('image/tiff'),
+      // Keys of Object.prototype are not accepted types.
+      fileItem('toString'),
+      fileItem('constructor'),
+      { kind: 'string', type: 'image/png', getAsFile: vi.fn(() => null) },
+      { kind: 'string', type: 'text/html', getAsFile: vi.fn(() => null) },
+    ];
+    const event = imagePasteEvent('', ...ignored);
+    paste(event);
+    expect(onImage).not.toHaveBeenCalled();
+    expect(terminal.paste).not.toHaveBeenCalled();
+    for (const item of ignored) expect(item.getAsFile).not.toHaveBeenCalled();
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(event.stopPropagation).toHaveBeenCalledOnce();
+  });
+
+  it('without onImage, an image-only paste pastes nothing and the event is still taken', () => {
+    const { terminal, paste } = intercept();
+    const png = fileItem('image/png');
+    const event = imagePasteEvent('', png);
+    paste(event);
+    expect(terminal.paste).not.toHaveBeenCalled();
+    expect(png.getAsFile).not.toHaveBeenCalled();
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(event.stopPropagation).toHaveBeenCalledOnce();
+  });
+
+  it('clipboardImage: null without data or items; the first accepted image otherwise', () => {
+    expect(clipboardImage(null)).toBeNull();
+    expect(clipboardImage(undefined)).toBeNull();
+    expect(clipboardImage({} as Pick<DataTransfer, 'items'>)).toBeNull();
+    expect(clipboardImage({ items: itemList() })).toBeNull();
+    expect(clipboardImage({ items: itemList(fileItem('image/svg+xml')) })).toBeNull();
+
+    const jpeg = new File(['jpeg bytes'], 'photo.jpg', { type: 'image/jpeg' });
+    const later = fileItem('image/png');
+    const items = itemList(
+      { kind: 'string', type: 'text/html', getAsFile: vi.fn(() => null) },
+      fileItem('image/svg+xml'),
+      fileItem('image/jpeg', jpeg),
+      later,
+    );
+    expect(clipboardImage({ items })).toBe(jpeg);
+    expect(later.getAsFile).not.toHaveBeenCalled();
+
+    for (const type of Object.keys(PASTE_IMAGE_TYPES)) {
+      const file = new File(['x'], 'image', { type });
+      expect(clipboardImage({ items: itemList(fileItem(type, file)) })).toBe(file);
+    }
+  });
+
+  it('clipboardImage: an accepted item that yields no file gives way to the next one', () => {
+    const png = new File(['png bytes'], 'shot.png', { type: 'image/png' });
+    const empty = { kind: 'file', type: 'image/jpeg', getAsFile: vi.fn(() => null) };
+    expect(clipboardImage({ items: itemList(empty, fileItem('image/png', png)) })).toBe(png);
+    expect(empty.getAsFile).toHaveBeenCalledOnce();
+    expect(clipboardImage({ items: itemList(empty) })).toBeNull();
   });
 });

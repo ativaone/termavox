@@ -22,6 +22,25 @@ export interface PasteTarget {
   paste(text: string): void;
 }
 
+/** Image types a paste can carry to the server (plan D-48), with the extension saved under. */
+export const PASTE_IMAGE_TYPES: Readonly<Record<string, string>> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/gif': 'gif',
+  'image/webp': 'webp',
+};
+
+/** The first image of one of PASTE_IMAGE_TYPES the clipboard carries, or null. */
+export function clipboardImage(data: Pick<DataTransfer, 'items'> | null | undefined): File | null {
+  for (const item of Array.from(data?.items ?? [])) {
+    if (item.kind === 'file' && Object.hasOwn(PASTE_IMAGE_TYPES, item.type)) {
+      const file = item.getAsFile();
+      if (file) return file;
+    }
+  }
+  return null;
+}
+
 /** Pastes through xterm (so bracketed paste is honoured), sanitized; nothing when empty. */
 export function pasteText(terminal: PasteTarget, text: string): void {
   const clean = sanitizePaste(text);
@@ -33,17 +52,25 @@ export function pasteText(terminal: PasteTarget, text: string): void {
  * terminal's element. xterm listens for `paste` on its textarea and on its element in the bubble
  * phase; this capture-phase listener on the element runs before both, keeps the event from
  * reaching them (and the browser from inserting the text), and pastes the sanitized text once.
+ * A clipboard with an image and no text goes to `onImage` instead (plan D-48).
  */
 export function interceptPaste(
   element: Pick<EventTarget, 'addEventListener' | 'removeEventListener'>,
   terminal: PasteTarget,
+  onImage?: (image: File) => void,
 ): Disposable {
   const onPaste = (event: Event): void => {
     // Always ours, even without text: falling through would reach xterm's unsanitized handler.
     event.preventDefault();
     event.stopPropagation();
-    const text = (event as ClipboardEvent).clipboardData?.getData('text/plain');
-    if (text) pasteText(terminal, text);
+    const data = (event as ClipboardEvent).clipboardData;
+    const text = data?.getData('text/plain');
+    if (text) {
+      pasteText(terminal, text);
+      return;
+    }
+    const image = onImage ? clipboardImage(data) : null;
+    if (image) onImage?.(image);
   };
   element.addEventListener('paste', onPaste, true);
   return { dispose: () => element.removeEventListener('paste', onPaste, true) };

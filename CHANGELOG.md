@@ -104,6 +104,10 @@ upgraded: remove it together with its volumes and install fresh from a new clone
   Retry. Until it first connects, a session uses its server's current address, so a mistyped
   server can be fixed on its page and retried.
 - Ended sessions can be removed from the list, one by one or all at once, with their history.
+- Image paste: an image pasted into a terminal (with no text in the clipboard) is sent to the
+  session's server, into `~/.cache/termavox/paste`, and its path is pasted, so a program there
+  (Claude Code, for one) can open it. It uses the file panel's transfer; pastes older than 7 days
+  are removed from that folder when a new one is saved.
 - Adjustable widths: drag the line between the session list and the workspace to resize the
   list, and the terminal area's left or right edge to narrow it without a split (double-click an
   edge to put it back). The widths apply to every tab and are kept per browser.

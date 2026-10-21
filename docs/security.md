@@ -299,7 +299,10 @@ Next.js. Details: [plan §7.1](implementation-plan.md#71-connection-and-authenti
 
 The Files panel ([plan §5.12](implementation-plan.md#512-file-panel-d-39)) reads and writes files
 on a session's server as the session's user, over an SFTP channel on the session's existing SSH
-connection: no second sign-in and no other credential use.
+connection: no second sign-in and no other credential use. An image pasted into a terminal
+(plan D-48, on trial) takes the same path: an upload into `~/.cache/termavox/paste` with the
+server's default permissions, then its path pasted as text; a paste also removes that folder's
+pastes older than 7 days.
 
 - Listings, renames, deletes and new folders are WebSocket requests: the daemon checks that the
   session belongs to the connection's user, as for an attach, and limits each connection to 8 in
