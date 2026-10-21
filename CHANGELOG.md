@@ -166,7 +166,7 @@ Hardening from the internal pre-release security review:
   environment values, tokens and cookies; `Permissions-Policy` and
   `Cross-Origin-Opener-Policy` headers are sent.
 
-From the second internal review (2026-10-19):
+From the internal review of 2026-10-19:
 
 - Sign-in is limited to 10 attempts per minute per client address, on top of the per-username
   lockout. Better Auth's own limiter never applied to the sign-in form. A lockout can no longer
