@@ -51,6 +51,12 @@ export type FilePath = z.infer<typeof FilePath>;
 /** A name as sent by the browser; the daemon checks it with `fileNameProblem`. */
 const FileName = z.string().min(1).max(1024);
 
+/**
+ * Permission bits a new folder or file is created with (`0o777` at most: no setuid, setgid or
+ * sticky bit). Without it, the server's default applies, as for any creation.
+ */
+const CreateMode = z.number().int().min(0).max(0o777);
+
 export const FileType = z.enum(['file', 'dir', 'link', 'other']);
 export type FileType = z.infer<typeof FileType>;
 
@@ -76,22 +82,35 @@ export const FileRequest = z.discriminatedUnion('op', [
   /** Opens the panel: the user's home and the terminal's current folder. */
   z.object({ op: z.literal('open') }),
   z.object({ op: z.literal('list'), path: FilePath }),
-  /** `path` is the new folder's full path. */
-  z.object({ op: z.literal('mkdir'), path: FilePath }),
+  /**
+   * `path` is the new folder's full path; `mode`, its permission bits (the server's umask applies,
+   * as to any mkdir). An existing name is CONFLICT and keeps its own bits.
+   */
+  z.object({ op: z.literal('mkdir'), path: FilePath, mode: CreateMode.optional() }),
   /** Never replaces an existing entry (CONFLICT). */
   z.object({ op: z.literal('rename'), from: FilePath, to: FilePath }),
-  /** Folders go with everything inside; links are removed as links, never followed. */
+  /**
+   * Folders go with everything inside; links are removed as links, never followed. With
+   * `filesOnly`, only regular files (lstat) are removed: a folder, a link or anything else named
+   * is skipped, never entered, and is no error.
+   */
   z.object({
     op: z.literal('remove'),
     paths: z.array(FilePath).min(1).max(FILES_LIMITS.removePaths),
+    filesOnly: z.boolean().optional(),
   }),
-  /** Mints an upload URL for one file into `dir`. Without `overwrite`, an existing name: CONFLICT. */
+  /**
+   * Mints an upload URL for one file into `dir`. Without `overwrite`, an existing name: CONFLICT.
+   * A new file gets exactly `mode` when given (the server's default otherwise); a replaced file
+   * always keeps its own bits.
+   */
   z.object({
     op: z.literal('upload'),
     dir: FilePath,
     name: FileName,
     size: z.number().int().nonnegative(),
     overwrite: z.boolean(),
+    mode: CreateMode.optional(),
   }),
   /** Mints a download URL for one file. */
   z.object({ op: z.literal('download'), path: FilePath }),

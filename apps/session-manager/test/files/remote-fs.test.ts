@@ -393,6 +393,33 @@ describe('remote file system: changes', () => {
     expect(await codeOf(makeFolder(sftp, namedPath('/missing/new')))).toBe(SftpStatus.NoSuchFile);
   });
 
+  it('creates a folder with the bits asked for (umask applied); an existing one keeps its own', async () => {
+    const sftp = fixture();
+    expect(await makeFolder(sftp, namedPath('/data/private'), 0o700)).toMatchObject({
+      name: 'private',
+      type: 'dir',
+      mode: 0o700,
+    });
+    expect(sftp.modeOf('/data/private')).toBe(0o700);
+    // Without a mode, the server's default; the umask narrows a requested one, like mkdir(2).
+    await makeFolder(sftp, namedPath('/data/plain'));
+    expect(sftp.modeOf('/data/plain')).toBe(0o755);
+    sftp.umask = 0o077;
+    await makeFolder(sftp, namedPath('/data/narrowed'), 0o750);
+    expect(sftp.modeOf('/data/narrowed')).toBe(0o700);
+    // No chmod: an existing folder is CONFLICT and keeps its bits.
+    sftp.addDir('/data/shared', 0o777);
+    expect(await codeOf(makeFolder(sftp, namedPath('/data/shared'), 0o700))).toBe(
+      ErrorCode.Conflict,
+    );
+    expect(sftp.modeOf('/data/shared')).toBe(0o777);
+    expect(sftp.ops.filter((op) => op.startsWith('mkdir '))).toEqual([
+      'mkdir /data/private',
+      'mkdir /data/plain',
+      'mkdir /data/narrowed',
+    ]);
+  });
+
   it('answers CONFLICT when the name appeared between the check and mkdir', async () => {
     const sftp = fixture();
     let raced = false;
@@ -512,6 +539,53 @@ describe('remote file system: removal', () => {
     expect(removed).toBe(2);
     expect(sftp.has('/work/to-outside')).toBe(false);
     expect(sftp.has('/outside/keep.txt')).toBe(true);
+  });
+
+  it('removes only regular files with filesOnly: folders and links are skipped, never entered', async () => {
+    const sftp = tree()
+      .addLink('/work/to-outside', '/outside')
+      .addLink('/work/to-file', '/outside/keep.txt')
+      .addFile('/work/plain');
+    const kept = sftp.under('/work').filter((path) => path !== '/work/plain');
+    const progress: number[] = [];
+    const removed = await remove(
+      sftp,
+      ['/work/tree', '/work/to-outside', '/work/to-file', '/work/missing', '/work/plain'].map(
+        namedPath,
+      ),
+      { filesOnly: true, onProgress: (n) => progress.push(n) },
+    );
+    expect(removed).toBe(1);
+    expect(progress).toEqual([1]);
+    expect(sftp.has('/work/plain')).toBe(false);
+    // The folder with everything in it, both links and what they point to are all still there.
+    expect(sftp.under('/work')).toEqual(kept);
+    expect(kept).toContain('/work/tree/sub/deeper/d');
+    expect(sftp.has('/outside/keep.txt')).toBe(true);
+    // One lstat per target and one unlink: nothing listed, entered or removed as a folder.
+    expect(sftp.ops).toEqual([
+      'lstat /work/tree',
+      'lstat /work/to-outside',
+      'lstat /work/to-file',
+      'lstat /work/missing',
+      'lstat /work/plain',
+      'unlink /work/plain',
+    ]);
+  });
+
+  it('stops a files-only removal between targets when cancelled', async () => {
+    const sftp = new MemorySftp().addDir('/p').addFile('/p/a').addFile('/p/b');
+    const abort = new AbortController();
+    sftp.delay = (op) => {
+      if (op === 'unlink') abort.abort();
+    };
+    const outcome = remove(sftp, [namedPath('/p/a'), namedPath('/p/b')], {
+      filesOnly: true,
+      signal: abort.signal,
+    });
+    expect(await codeOf(outcome)).toBe(ErrorCode.Cancelled);
+    expect(sftp.has('/p/a')).toBe(false);
+    expect(sftp.has('/p/b')).toBe(true);
   });
 
   it(`keeps at most ${FS_CONCURRENCY} requests in flight`, async () => {

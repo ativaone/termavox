@@ -49,7 +49,7 @@ export class MemorySftp implements SftpSession {
   readAnswerMax = Number.POSITIVE_INFINITY;
   /** Permission bits of a new file whose open names none (the server's default, umask applied). */
   newFileMode = 0o644;
-  /** The server's umask, applied to the permission bits an open names. */
+  /** The server's umask, applied to the permission bits an open or a mkdir names. */
   umask = 0o022;
   inFlight = 0;
   maxInFlight = 0;
@@ -245,12 +245,12 @@ export class MemorySftp implements SftpSession {
     });
   }
 
-  mkdir(path: string): Promise<void> {
+  mkdir(path: string, mode?: number): Promise<void> {
     return this.#op('mkdir', path, () => {
       const target = this.#resolve(path, false);
       if (this.nodes.has(target)) throw failure('Failure');
       this.#parentDir(target);
-      this.addDir(target);
+      this.addDir(target, mode === undefined ? 0o755 : mode & 0o7777 & ~this.umask);
     });
   }
 

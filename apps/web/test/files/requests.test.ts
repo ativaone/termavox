@@ -1,6 +1,7 @@
-import type { ClientMessage, ServerMessage } from '@termavox/protocol';
+import type { ClientMessage, FileRequest, ServerMessage } from '@termavox/protocol';
 import { afterEach, describe, expect, it } from 'vitest';
-import { FileRequests } from '../../lib/files/requests.ts';
+import { sessionFiles } from '../../lib/files/client.ts';
+import { type FileApi, type FileRequestOptions, FileRequests } from '../../lib/files/requests.ts';
 import { TermavoxConnection } from '../../lib/terminal/index.ts';
 import { FakeServer, sleep, until } from '../terminal/helpers.ts';
 
@@ -172,5 +173,36 @@ describe('FileRequests on its own', () => {
     const files = new FileRequests({ send: () => true });
     expect(files.handle({ type: 'files.progress', requestId: 'nope', removed: 1 })).toBe(true);
     expect(files.handle({ type: 'pong', t: 1 })).toBe(false);
+  });
+});
+
+describe('typed file operations on one session', () => {
+  it("sends a folder's mode and a files-only removal only when asked (plan D-48)", async () => {
+    const calls: Array<{ sessionId: string; request: FileRequest; options?: FileRequestOptions }> =
+      [];
+    const api = {
+      fileRequest: async (
+        sessionId: string,
+        request: FileRequest,
+        options?: FileRequestOptions,
+      ) => {
+        calls.push({ sessionId, request, ...(options ? { options } : {}) });
+        return {};
+      },
+      cancelTransfer: () => true,
+      subscribeTransfers: () => () => {},
+    } as unknown as FileApi;
+    const files = sessionFiles(api, 's1');
+    await files.mkdir('/a');
+    await files.mkdir('/b', 0o700);
+    const signal = new AbortController().signal;
+    await files.remove(['/c'], { signal });
+    await files.remove(['/d'], { filesOnly: true });
+    expect(calls).toEqual([
+      { sessionId: 's1', request: { op: 'mkdir', path: '/a' } },
+      { sessionId: 's1', request: { op: 'mkdir', path: '/b', mode: 0o700 } },
+      { sessionId: 's1', request: { op: 'remove', paths: ['/c'] }, options: { signal } },
+      { sessionId: 's1', request: { op: 'remove', paths: ['/d'], filesOnly: true }, options: {} },
+    ]);
   });
 });

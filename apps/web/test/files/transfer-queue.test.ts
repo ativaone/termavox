@@ -278,6 +278,27 @@ describe('transfer queue (plan §5.12)', () => {
     expect(job(id!).state).toBe('done');
   });
 
+  it('asks for the permission bits an upload names, on every attempt, and only then', async () => {
+    const { api, queue, job } = setup();
+    const [id] = queue.enqueueUploads('s1', '/srv', [{ ...file('p.png'), mode: 0o600 }]);
+    expect(api.calls[0]!.request).toEqual({
+      op: 'upload',
+      dir: '/srv',
+      name: 'p.png',
+      size: 100,
+      overwrite: false,
+      mode: 0o600,
+    });
+    api.calls[0]!.reject(new FileRequestError('SESSION_NOT_CONNECTED'));
+    await flush();
+    expect(job(id!).state).toBe('failed');
+    queue.retry(id!);
+    expect(api.calls[1]!.request).toMatchObject({ op: 'upload', name: 'p.png', mode: 0o600 });
+    // Without one, the request carries none (the server's default applies).
+    queue.enqueueUploads('s1', '/srv', [file('plain')]);
+    expect(api.calls.at(-1)!.request).not.toHaveProperty('mode');
+  });
+
   it('hands downloads to the browser and follows their progress', async () => {
     const { api, downloads, queue, job } = setup();
     const [id] = queue.enqueueDownloads('s1', '/var/log', [

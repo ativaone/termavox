@@ -4,9 +4,10 @@ import '@xterm/xterm/css/xterm.css';
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { sessionFiles } from '../../lib/files/client.ts';
+import { displayName } from '../../lib/files/display-name.ts';
 import { fileErrorCode, fileErrorKey } from '../../lib/files/errors.ts';
-import { savePastedImage } from '../../lib/files/paste-image.ts';
-import { PASTE_IMAGE_TYPES, pasteText } from '../../lib/terminal/paste.ts';
+import { type ImagePasteNotice, pasteImage, savePastedImage } from '../../lib/files/paste-image.ts';
+import { PASTE_IMAGE_TYPES, type PasteTarget, pasteText } from '../../lib/terminal/paste.ts';
 import { useTerminalChannel } from '../../lib/terminal/react.ts';
 import { altChar, ctrlChar } from '../../lib/workspace/keys.ts';
 import { cleanTitle } from '../../lib/workspace/title.ts';
@@ -103,36 +104,56 @@ export function TerminalPane({
   }, [setPaneMeta, paneId]);
 
   // An image pasted without text goes to the session's server and its path is pasted (plan
-  // D-48), through the file panel's upload: only where that panel is allowed.
+  // D-48), through the file panel's upload: only where that panel is allowed, one at a time,
+  // and only into the session and terminal it was pasted into.
   const tf = useTranslations('files');
   const { connection, transfers, filesEnabled, sessions } = ws;
   const filesAllowed = filesAllowedFor(filesEnabled, sessions.get(sessionId));
-  const terminalRef = useRef<{ paste(text: string): void } | null>(null);
+  const terminalRef = useRef<PasteTarget | null>(null);
+  const sessionRef = useRef(sessionId);
+  useEffect(() => {
+    sessionRef.current = sessionId;
+  }, [sessionId]);
+  const imagePasteBusy = useRef(false);
+  const imagePasteText = useCallback(
+    (notice: ImagePasteNotice): string => {
+      switch (notice.key) {
+        case 'imagePasteFailed':
+          return t('imagePasteFailed', {
+            reason: tf(`error.${fileErrorKey(fileErrorCode(notice.error))}`),
+          });
+        case 'imagePasteUnsafeFolder':
+        case 'imagePasteNotPasted':
+          // A server's path: its control and invisible characters are shown as U+FFFD.
+          return t(notice.key, { path: displayName(notice.path).text });
+        default:
+          return t(notice.key);
+      }
+    },
+    [t, tf],
+  );
   const onImagePaste = useCallback(
     (image: File) => {
       const extension = PASTE_IMAGE_TYPES[image.type];
       if (!extension) return;
-      if (!filesAllowed) {
-        setNotice(t('imagePasteUnavailable'));
-        return;
-      }
-      savePastedImage({
-        files: sessionFiles(connection, sessionId),
-        queue: transfers,
-        sessionId,
+      void pasteImage({
         image,
         extension,
-      }).then(
-        (path) => {
-          if (terminalRef.current) pasteText(terminalRef.current, path);
-        },
-        (err: unknown) =>
-          setNotice(
-            t('imagePasteFailed', { reason: tf(`error.${fileErrorKey(fileErrorCode(err))}`) }),
-          ),
-      );
+        allowed: filesAllowed,
+        busy: imagePasteBusy,
+        view: () => ({ sessionId: sessionRef.current, terminal: terminalRef.current }),
+        save: (blob, ext, id) =>
+          savePastedImage({
+            files: sessionFiles(connection, id),
+            queue: transfers,
+            sessionId: id,
+            image: blob,
+            extension: ext,
+          }),
+        notice: (notice) => setNotice(imagePasteText(notice)),
+      });
     },
-    [filesAllowed, connection, transfers, sessionId, t, tf],
+    [filesAllowed, connection, transfers, imagePasteText],
   );
 
   const { state, layout, channel, terminal, error } = useTerminalChannel(
@@ -149,6 +170,10 @@ export function TerminalPane({
   );
   useEffect(() => {
     terminalRef.current = terminal;
+    // Unmounted or replaced: a paste that ends later types into nothing.
+    return () => {
+      terminalRef.current = null;
+    };
   }, [terminal]);
 
   // Cursor style and blink: the user's initial values (the stream may change them later, and a

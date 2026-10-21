@@ -188,6 +188,28 @@ describe('file service operations', () => {
     });
   });
 
+  it('creates a folder with the mode asked for, and removes files only when asked', async () => {
+    const s = setup();
+    expect(await s.run({ op: 'mkdir', path: '/data/private', mode: 0o700 })).toMatchObject({
+      op: 'mkdir',
+      entry: { name: 'private', type: 'dir', mode: 0o700 },
+    });
+    expect(s.host.fs.modeOf('/data/private')).toBe(0o700);
+    s.host.fs.addFile('/data/private/p.png').addLink('/data/private/l', '/data/sub');
+    const paths = ['/data/private/p.png', '/data/private/l', '/data/sub', '/data/private'];
+    expect(await s.run({ op: 'remove', paths, filesOnly: true })).toEqual({
+      op: 'remove',
+      removed: 1,
+    });
+    expect(s.host.fs.under('/data/private')).toEqual(['/data/private/l']);
+    expect(s.host.fs.under('/data/sub')).toEqual(['/data/sub/b']);
+    // Without filesOnly, the same request removes folders with everything in them.
+    expect(await s.run({ op: 'remove', paths: ['/data/private'], filesOnly: false })).toEqual({
+      op: 'remove',
+      removed: 2,
+    });
+  });
+
   it('mints an upload URL once the folder and the name were checked', async () => {
     const s = setup();
     s.host.fs.addLink('/data/to-sub', '/data/sub').addLink('/data/dangling', '/nowhere');
@@ -217,6 +239,20 @@ describe('file service operations', () => {
       path: '/data/new.txt',
       overwrite: false,
       size: 3,
+    });
+    expect(grant).not.toHaveProperty('mode');
+    // The bits a new file gets travel with the URL.
+    const owned = (await s.run({
+      op: 'upload',
+      dir: '/data',
+      name: 'p.png',
+      size: 3,
+      overwrite: false,
+      mode: 0o600,
+    })) as { url: string };
+    expect(s.service.transfers.consume(owned.url.split('/').at(-1)!, 'upload')).toMatchObject({
+      path: '/data/p.png',
+      mode: 0o600,
     });
     // A folder through a link is a folder; a file is not.
     expect(await s.code(upload('/data/to-sub', 'x'))).toBe('resolved');
@@ -316,10 +352,16 @@ describe('file service audit', () => {
     const many = Array.from({ length: 25 }, (_, i) => `/data/renamed/f${i}`);
     for (const path of many) s.host.fs.addFile(path);
     await s.run({ op: 'remove', paths: many });
+    // An image paste's requests (plan D-48) write the same rows.
+    await s.run({ op: 'mkdir', path: '/data/private', mode: 0o700 });
+    s.host.fs.addFile('/data/private/old.png');
+    await s.run({ op: 'remove', paths: ['/data/private/old.png', '/data/sub'], filesOnly: true });
     expect(s.audits).toEqual([
       row('file.mkdir', { path: '/data/new' }),
       row('file.rename', { from: '/data/new', to: '/data/renamed' }),
       row('file.remove', { paths: many.slice(0, AUDIT_REMOVE_PATHS), removed: 25 }),
+      row('file.mkdir', { path: '/data/private' }),
+      row('file.remove', { paths: ['/data/private/old.png', '/data/sub'], removed: 1 }),
     ]);
   });
 

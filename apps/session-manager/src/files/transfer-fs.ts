@@ -67,8 +67,9 @@ export async function uploadTarget(
 /**
  * The permission bits an upload to `path` keeps: those of the file it replaces when the upload
  * starts, so that its temporary file never has wider ones (plan §5.12). Null when it replaces
- * nothing or a dangling link: the new file gets the server's default, like any file creation.
- * CONFLICT as at the commit (a name that appeared without `overwrite`, a folder).
+ * nothing or a dangling link: the new file gets the bits its request asked for, or else the
+ * server's default, like any file creation. CONFLICT as at the commit (a name that appeared
+ * without `overwrite`, a folder).
  */
 export async function keptMode(
   sftp: SftpSession,

@@ -35,6 +35,8 @@ export type TransferGrant = GrantBase &
         name: string;
         path: string;
         overwrite: boolean;
+        /** The permission bits a new file gets exactly; a replaced file keeps its own. */
+        mode?: number;
       }
   );
 

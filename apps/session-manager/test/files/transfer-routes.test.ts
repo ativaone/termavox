@@ -371,6 +371,71 @@ describe('uploads', () => {
     expect(host.fs.ops.filter((op) => op.startsWith('chmod '))).toEqual([]);
   });
 
+  it('give a new file exactly the bits its request asked for, from the first byte', async () => {
+    await connect();
+    host.fs.umask = 0o077;
+    const seen = watchModes(host.fs);
+    const minted = await mint({
+      op: 'upload',
+      dir: '/data',
+      name: 'paste.png',
+      size: 3,
+      overwrite: false,
+      mode: 0o640,
+    });
+    expect((await upload(minted.url, Buffer.from('png')).reply).status).toBe(200);
+    // Created narrower by the umask, set exactly on the handle before anything is written.
+    expect(seen).toEqual({ created: 0o600, firstWrite: 0o640 });
+    expect(host.fs.modeOf('/data/paste.png')).toBe(0o640);
+    expect(host.fs.ops.find((op) => op.startsWith('open '))).toMatch(/\.part$/);
+    expect(opIndex(host.fs, 'fchmod')).toBeLessThan(opIndex(host.fs, 'write'));
+    expect(host.fs.ops.filter((op) => op.startsWith('chmod '))).toEqual([]);
+
+    host.fs.umask = 0o022;
+    const owned = watchModes(host.fs);
+    const second = await mint({
+      op: 'upload',
+      dir: '/data',
+      name: 'own.png',
+      size: 3,
+      overwrite: false,
+      mode: 0o600,
+    });
+    expect((await upload(second.url, Buffer.from('png')).reply).status).toBe(200);
+    expect(owned).toEqual({ created: 0o600, firstWrite: 0o600 });
+    expect(host.fs.modeOf('/data/own.png')).toBe(0o600);
+  });
+
+  it("keep a replaced file's own bits whatever mode the request asked for", async () => {
+    await connect();
+    host.fs.addFile('/data/shared.txt', Buffer.from('old'), 0o644);
+    const seen = watchModes(host.fs);
+    const minted = await mint({
+      op: 'upload',
+      dir: '/data',
+      name: 'shared.txt',
+      size: 3,
+      overwrite: true,
+      mode: 0o600,
+    });
+    expect((await upload(minted.url, Buffer.from('new')).reply).status).toBe(200);
+    expect(seen).toEqual({ created: 0o644, firstWrite: 0o644 });
+    expect(host.fs.modeOf('/data/shared.txt')).toBe(0o644);
+
+    // A dangling link's name replaces nothing that has bits: the requested ones apply.
+    host.fs.addLink('/data/dangling', '/nowhere');
+    const relinked = await mint({
+      op: 'upload',
+      dir: '/data',
+      name: 'dangling',
+      size: 3,
+      overwrite: true,
+      mode: 0o600,
+    });
+    expect((await upload(relinked.url, Buffer.from('new')).reply).status).toBe(200);
+    expect(host.fs.modeOf('/data/dangling')).toBe(0o600);
+  });
+
   it('replace by removing the old file first where posix-rename is missing', async () => {
     await connect();
     host.fs.supportsPosixRename = false;

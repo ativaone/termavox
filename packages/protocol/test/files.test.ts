@@ -15,9 +15,12 @@ describe('file panel messages (plan §5.12)', () => {
       { op: 'open' },
       { op: 'list', path: '/home/tv' },
       { op: 'mkdir', path: '/home/tv/new' },
+      { op: 'mkdir', path: '/home/tv/private', mode: 0o700 },
       { op: 'rename', from: '/a', to: '/b' },
       { op: 'remove', paths: ['/a', '/b/c'] },
+      { op: 'remove', paths: ['/a'], filesOnly: true },
       { op: 'upload', dir: '/home/tv', name: 'report.pdf', size: 1024, overwrite: false },
+      { op: 'upload', dir: '/home/tv', name: 'a.png', size: 1, overwrite: false, mode: 0o600 },
       { op: 'download', path: '/var/log/syslog' },
     ];
     for (const request of requests) {
@@ -79,6 +82,15 @@ describe('file panel messages (plan §5.12)', () => {
     expect(() => parseClientMessage(request({ op: 'remove', paths: [] }))).toThrow();
     const tooMany = Array.from({ length: FILES_LIMITS.removePaths + 1 }, (_, i) => `/f${i}`);
     expect(() => parseClientMessage(request({ op: 'remove', paths: tooMany }))).toThrow();
+    // A creation mode is permission bits only: no setuid, setgid or sticky bit, no fraction.
+    for (const mode of [0o1000, 0o4755, -1, 1.5, '700']) {
+      expect(() => parseClientMessage(request({ op: 'mkdir', path: '/a', mode }))).toThrow();
+      const upload = { op: 'upload', dir: '/a', name: 'b', size: 1, overwrite: false, mode };
+      expect(() => parseClientMessage(request(upload))).toThrow();
+    }
+    expect(() =>
+      parseClientMessage(request({ op: 'remove', paths: ['/a'], filesOnly: 'yes' })),
+    ).toThrow();
     expect(() =>
       parseServerMessage(
         JSON.stringify({ type: 'files.result', requestId: 'r1', result: { op: 'chmod' } }),

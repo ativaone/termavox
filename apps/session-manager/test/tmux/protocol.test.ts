@@ -11,6 +11,7 @@ import {
   homeEndByName,
   inputItemOf,
   LineSplitter,
+  MAX_KEYS_PER_COMMAND,
   singlePaneLayout,
   TmuxDesyncError,
   tmuxKeyOf,
@@ -375,19 +376,55 @@ describe('Home and End by name', () => {
     expect(item).toEqual(enc('\x1b[F'));
   });
 
-  it('encodes queued input in order: byte runs as hex, keys by name', () => {
+  it('encodes queued input in order: byte runs as hex, runs of keys by name in one command', () => {
     expect(encodeInputItems(4, [enc('ab'), enc('c'), 'End', enc('\r'), 'Home', 'Home'])).toEqual([
       'send-keys -H -t %4 61 62 63',
       'send-keys -t %4 End',
       'send-keys -H -t %4 0d',
-      'send-keys -t %4 Home',
-      'send-keys -t %4 Home',
+      'send-keys -t %4 Home Home',
     ]);
     expect(encodeInputItems(4, [])).toEqual([]);
+    // Keys and bytes interleaved: every run keeps its place, keys never cross a byte run.
+    expect(
+      encodeInputItems(1, ['Home', 'End', enc('x'), 'End', enc('y'), enc('z'), 'Home']),
+    ).toEqual([
+      'send-keys -t %1 Home End',
+      'send-keys -H -t %1 78',
+      'send-keys -t %1 End',
+      'send-keys -H -t %1 79 7a',
+      'send-keys -t %1 Home',
+    ]);
     // A run longer than one command is still chunked at 1 KiB.
     const long = new Uint8Array(1500).fill(0x61);
     const commands = encodeInputItems(2, [long, 'End']);
     expect(commands.slice(0, 2).map((c) => c.split(' ').length - 4)).toEqual([1024, 476]);
     expect(commands[2]).toBe('send-keys -t %2 End');
+  });
+
+  it(`sends at most ${MAX_KEYS_PER_COMMAND} keys per command (a held key costs few commands)`, () => {
+    expect(MAX_KEYS_PER_COMMAND).toBe(64);
+    const held = Array.from({ length: 70 }, (_, i): 'Home' | 'End' => (i % 2 ? 'End' : 'Home'));
+    const commands = encodeInputItems(3, [enc('a'), ...held, enc('b')]);
+    expect(commands).toHaveLength(4);
+    expect(commands[0]).toBe('send-keys -H -t %3 61');
+    expect(commands[1]).toBe(`send-keys -t %3 ${held.slice(0, 64).join(' ')}`);
+    expect(commands[2]).toBe(`send-keys -t %3 ${held.slice(64).join(' ')}`);
+    expect(commands.slice(1, 3).map((c) => c.split(' ').length - 3)).toEqual([64, 6]);
+    expect(commands[3]).toBe('send-keys -H -t %3 62');
+    // Exactly a multiple of the cap: no empty command after it.
+    expect(encodeInputItems(3, held.slice(0, 64))).toHaveLength(1);
+    expect(encodeInputItems(3, ['End', 'End', 'End'], 2)).toEqual([
+      'send-keys -t %3 End End',
+      'send-keys -t %3 End',
+    ]);
+  });
+
+  it('refuses an invalid pane id, as encodeInput does, even for keys alone', () => {
+    for (const paneId of [-1, 1.5, Number.NaN]) {
+      expect(() => encodeInputItems(paneId, ['Home'])).toThrow(RangeError);
+      expect(() => encodeInputItems(paneId, [])).toThrow(RangeError);
+      expect(() => encodeInput(paneId, enc('a'))).toThrow(RangeError);
+    }
+    expect(() => encodeInputItems(1, ['Home'], 0)).toThrow(RangeError);
   });
 });

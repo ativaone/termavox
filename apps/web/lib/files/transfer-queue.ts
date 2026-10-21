@@ -77,6 +77,8 @@ export interface UploadInput {
   size: number;
   overwrite: boolean;
   body: Blob;
+  /** The permission bits a new file gets exactly (the server's default without them). */
+  mode?: number;
 }
 
 export interface DownloadInput {
@@ -96,6 +98,8 @@ interface Runtime {
   /** Bumped by every start and by cancel: late callbacks of an older attempt are ignored. */
   attempt: number;
   body: Blob | null;
+  /** Upload: the permission bits asked for a new file, if any. */
+  mode: number | undefined;
   /** Download: the remote path. */
   path: string | null;
   xhr: XhrLike | null;
@@ -183,6 +187,7 @@ export class TransferQueue {
       uploads.map((upload) => ({
         job: this.#newJob(sessionId, 'upload', upload.name, dir, upload.size, upload.overwrite),
         body: upload.body,
+        mode: upload.mode,
         path: null,
       })),
     );
@@ -193,6 +198,7 @@ export class TransferQueue {
       downloads.map((download) => ({
         job: this.#newJob(sessionId, 'download', download.name, dir, download.size, false),
         body: null,
+        mode: undefined,
         path: download.path,
       })),
     );
@@ -268,12 +274,20 @@ export class TransferQueue {
     };
   }
 
-  #enqueue(items: Array<{ job: TransferJob; body: Blob | null; path: string | null }>): string[] {
+  #enqueue(
+    items: Array<{
+      job: TransferJob;
+      body: Blob | null;
+      mode: number | undefined;
+      path: string | null;
+    }>,
+  ): string[] {
     if (items.length === 0) return [];
-    for (const { job, body, path } of items) {
+    for (const { job, body, mode, path } of items) {
       this.#runtime.set(job.id, {
         attempt: 0,
         body,
+        mode,
         path,
         xhr: null,
         transferId: null,
@@ -411,6 +425,7 @@ export class TransferQueue {
         name: job.name,
         size: job.size,
         overwrite: job.overwrite,
+        ...(rt.mode !== undefined ? { mode: rt.mode } : {}),
       }),
     );
     if (!got) return;

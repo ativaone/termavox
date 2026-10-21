@@ -441,6 +441,43 @@ describe.each(IMAGES)('file panel through the daemon (%s)', (image) => {
     ]);
   });
 
+  it('creates folders and new files with the exact bits asked for, and removes files only when asked', async () => {
+    const made = await ok({ op: 'mkdir', path: `${dir}/private`, mode: 0o700 });
+    expect(made.entry).toMatchObject({ name: 'private', type: 'dir', mode: 0o700 });
+    const content = Buffer.from('png');
+    const owned = await mintUrl({
+      op: 'upload',
+      dir: `${dir}/private`,
+      name: 'p.png',
+      size: content.length,
+      overwrite: false,
+      mode: 0o600,
+    });
+    expect((await upload(owned.url, content)).status).toBe(200);
+    // Bits the server's umask would narrow are still set exactly, on the open temporary file.
+    const wide = await mintUrl({
+      op: 'upload',
+      dir: `${dir}/private`,
+      name: 'w.png',
+      size: content.length,
+      overwrite: false,
+      mode: 0o664,
+    });
+    expect((await upload(wide.url, content)).status).toBe(200);
+    expect(await remote(`cd ${dir}/private && stat -c '%a %n' . p.png w.png`)).toBe(
+      '700 .\n600 p.png\n664 w.png',
+    );
+
+    await remote(`mkdir ${dir}/private/sub && ln -s p.png ${dir}/private/link`);
+    const removed = await ok({
+      op: 'remove',
+      paths: [`${dir}/private/w.png`, `${dir}/private/sub`, `${dir}/private/link`],
+      filesOnly: true,
+    });
+    expect(removed.removed).toBe(1);
+    expect(await remote(`ls -A ${dir}/private | sort`)).toBe('link\np.png\nsub');
+  });
+
   it('answers FILES_DISABLED once transfer is turned off, and SESSION_NOT_CONNECTED once ended', async () => {
     setSetting(SETTING_FILE_TRANSFER_ENABLED, false);
     await new Promise((resolve) => setTimeout(resolve, FILE_SETTINGS_CACHE_MS + 100));

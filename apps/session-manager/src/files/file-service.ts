@@ -46,10 +46,10 @@ interface Actor {
 type CheckedRequest =
   | { op: 'open' }
   | { op: 'list'; path: string }
-  | { op: 'mkdir'; target: NamedPath }
+  | { op: 'mkdir'; target: NamedPath; mode?: number }
   | { op: 'rename'; from: NamedPath; to: NamedPath }
-  | { op: 'remove'; targets: NamedPath[] }
-  | { op: 'upload'; dir: string; name: string; size: number; overwrite: boolean }
+  | { op: 'remove'; targets: NamedPath[]; filesOnly: boolean }
+  | { op: 'upload'; dir: string; name: string; size: number; overwrite: boolean; mode?: number }
   | { op: 'download'; target: NamedPath };
 
 /** Users of one session's SFTP channel, and the timer that closes it once there are none. */
@@ -196,7 +196,7 @@ export class FileService implements FileGateway, TransferBackend {
       case 'list':
         return { op: 'list', ...(await remote.list(await host.sftp(), checked.path, { signal })) };
       case 'mkdir': {
-        const entry = await remote.makeFolder(await host.sftp(), checked.target);
+        const entry = await remote.makeFolder(await host.sftp(), checked.target, checked.mode);
         this.#audit(host, context, 'file.mkdir', { path: checked.target.path });
         return { op: 'mkdir', entry };
       }
@@ -205,8 +205,10 @@ export class FileService implements FileGateway, TransferBackend {
         this.#audit(host, context, 'file.rename', { from: checked.from.path, to: checked.to.path });
         return { op: 'rename', entry };
       }
-      case 'remove':
-        return { op: 'remove', removed: await this.#remove(host, context, checked.targets) };
+      case 'remove': {
+        const removed = await this.#remove(host, context, checked.targets, checked.filesOnly);
+        return { op: 'remove', removed };
+      }
       case 'upload':
       case 'download':
         return this.#mintTransfer(host, context, checked);
@@ -221,6 +223,7 @@ export class FileService implements FileGateway, TransferBackend {
     host: FileHost,
     context: FileRequestContext,
     targets: NamedPath[],
+    filesOnly: boolean,
   ): Promise<number> {
     const sftp = await host.sftp();
     let removed = 0;
@@ -228,6 +231,7 @@ export class FileService implements FileGateway, TransferBackend {
     try {
       return await remote.remove(sftp, targets, {
         signal: context.signal,
+        filesOnly,
         onProgress: (count) => {
           removed = count;
           const at = this.#now();
@@ -273,6 +277,7 @@ export class FileService implements FileGateway, TransferBackend {
         name: target.name,
         path: target.path,
         overwrite: checked.overwrite,
+        ...(checked.mode !== undefined ? { mode: checked.mode } : {}),
         size: checked.size,
       });
       return {
@@ -326,11 +331,19 @@ function checkRequest(request: FileRequest): CheckedRequest {
     case 'list':
       return { op: 'list', path: normalizePath(request.path) };
     case 'mkdir':
-      return { op: 'mkdir', target: namedPath(request.path) };
+      return {
+        op: 'mkdir',
+        target: namedPath(request.path),
+        ...(request.mode !== undefined ? { mode: request.mode } : {}),
+      };
     case 'rename':
       return { op: 'rename', from: namedPath(request.from), to: namedPath(request.to) };
     case 'remove':
-      return { op: 'remove', targets: request.paths.map(namedPath) };
+      return {
+        op: 'remove',
+        targets: request.paths.map(namedPath),
+        filesOnly: request.filesOnly === true,
+      };
     case 'upload':
       checkName(request.name);
       return {
@@ -339,6 +352,7 @@ function checkRequest(request: FileRequest): CheckedRequest {
         name: request.name,
         size: request.size,
         overwrite: request.overwrite,
+        ...(request.mode !== undefined ? { mode: request.mode } : {}),
       };
     case 'download':
       return { op: 'download', target: namedPath(request.path) };

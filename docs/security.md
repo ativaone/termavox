@@ -300,9 +300,7 @@ Next.js. Details: [plan §7.1](implementation-plan.md#71-connection-and-authenti
 The Files panel ([plan §5.12](implementation-plan.md#512-file-panel-d-39)) reads and writes files
 on a session's server as the session's user, over an SFTP channel on the session's existing SSH
 connection: no second sign-in and no other credential use. An image pasted into a terminal
-(plan D-48, on trial) takes the same path: an upload into `~/.cache/termavox/paste` with the
-server's default permissions, then its path pasted as text; a paste also removes that folder's
-pastes older than 7 days.
+(plan D-48, on trial) takes the same path (the image paste item below).
 
 - Listings, renames, deletes and new folders are WebSocket requests: the daemon checks that the
   session belongs to the connection's user, as for an attach, and limits each connection to 8 in
@@ -335,7 +333,34 @@ pastes older than 7 days.
   exactly on its open handle before anything is written; setuid and setgid are set only after the
   last write, since a write clears them. A 0600 file being replaced is never readable more widely
   while it uploads, and no permission is ever changed by path. A new file gets the server's
-  default permissions, as `touch` would.
+  default permissions, as `touch` would, unless its request names exact bits (image paste,
+  below), which it then gets the same way.
+- Image paste (plan D-48, on trial): a paste whose clipboard holds an image and no text uploads
+  it with the requests above, under the same gates, setting and audit, into
+  `~/.cache/termavox/paste`, then types the file's path into the terminal.
+  - What it creates is the user's alone: each folder it makes (`.cache` when missing, `termavox`,
+    `paste`) is created 0700 (the server's umask can only narrow it), and the image 0600, set
+    exactly on its open temporary file like a replaced file's bits. A folder that already exists
+    keeps its bits: nothing changes a permission.
+  - Before anything is uploaded, the browser checks in the parents' listings (lstat) that
+    `termavox` and `paste` are folders that neither the group nor others can write. A link,
+    anything that is not a folder, or a folder others can write refuses the paste, and the notice
+    asks the user to make it theirs alone (`chmod 700`). The upload and the clean-up use the
+    folder's canonical path, as its listing reports it.
+  - The clean-up removes regular files with the generated names only
+    (`paste-<date>-<time>-<4 hex>.png|jpg|gif|webp`) older than 7 days relative to the new image's
+    modification time on the server, never the browser's clock, and skips it when the new image is
+    not in the listing. Its delete is files only: the daemon unlinks an entry only when `lstat`
+    calls it a regular file, never removing a folder or a link and never descending. It runs only
+    when an image is pasted on that server, so pasted images stay there for as long as nothing new
+    is pasted.
+  - The path comes from the server: before it is typed, the browser refuses one with a control
+    character, a format character (bidi controls, zero-width characters and the like) or a line or
+    paragraph separator, and single-quotes it for POSIX shells (`'` as `'\''`) when it holds any
+    character outside letters, digits and `_./@%+=:,~-`. It is typed only if the pane still shows
+    the session, and the terminal, the image was pasted into; otherwise the notice gives the path.
+  - Images over 32 MiB are refused before anything is sent, and while one image paste of a pane
+    is in flight, further image pastes in that pane are ignored.
 - The session's server is untrusted, so the daemon bounds what it keeps of its answers. A listing
   stops at 10,000 entries or 2 MiB (UTF-8) of names and link texts and says it is incomplete; a
   name the panel cannot carry is dropped as it arrives but still counts towards both limits, an
@@ -616,7 +641,9 @@ From [`deploy/compose.yaml`](../deploy/compose.yaml) and the Dockerfiles:
     written when it completes; a download's when it ends, once its response has started, with the
     bytes sent and whether it completed; a delete's whenever it removed something, even if it then
     failed or was cancelled, with the count removed. Other refused or failed file operations leave
-    no row.
+    no row. An image paste (plan D-48) writes the same rows as the user's own requests, under the
+    same setting: `file.mkdir` for each folder it creates, `file.upload` for the image, and
+    `file.remove` when its clean-up removed old pastes.
 - `session_events`, shown to each user at `/activity`: creation, state changes, attach and
   detach (with client IP and user agent), connection loss, protection selected or degraded,
   restore and reopen, host-key and prompt events, and remote tmux cleanups

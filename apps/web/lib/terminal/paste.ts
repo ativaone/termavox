@@ -41,6 +41,23 @@ export function clipboardImage(data: Pick<DataTransfer, 'items'> | null | undefi
   return null;
 }
 
+/** What a typed path may not carry: controls, format characters, line and paragraph separators. */
+const UNPASTABLE = /[\p{Cc}\p{Cf}\u2028\u2029]/u;
+/** Characters a shell reads as themselves in a word: a path made of them needs no quotes. */
+const SHELL_PLAIN = /^[A-Za-z0-9_./@%+=:,~-]+$/;
+
+/**
+ * A path from the server (plan D-48), as it may be typed into a shell: null when it holds a
+ * control character, a format character (bidi controls, zero-width characters…) or a line or
+ * paragraph separator, which no quoting makes safe to type. A path of plain characters only is
+ * returned as is; anything else is single-quoted for POSIX shells (`'` becomes `'\''`).
+ */
+export function pastablePath(path: string): string | null {
+  if (path.length === 0 || UNPASTABLE.test(path)) return null;
+  if (SHELL_PLAIN.test(path)) return path;
+  return `'${path.replaceAll("'", "'\\''")}'`;
+}
+
 /** Pastes through xterm (so bracketed paste is honoured), sanitized; nothing when empty. */
 export function pasteText(terminal: PasteTarget, text: string): void {
   const clean = sanitizePaste(text);

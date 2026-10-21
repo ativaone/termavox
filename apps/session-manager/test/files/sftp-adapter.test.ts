@@ -42,6 +42,9 @@ class FakeWrapper extends EventEmitter {
   fchmod(...args: unknown[]): void {
     this.#request('fchmod', args);
   }
+  mkdir(...args: unknown[]): void {
+    this.#request('mkdir', args);
+  }
   rename(...args: unknown[]): void {
     this.#request('rename', args);
   }
@@ -211,6 +214,18 @@ describe('the sftp session adapter', () => {
     expect(wrapper.last()).toMatchObject({ op: 'fchmod', args: [handle, 0o4755] });
     wrapper.last().cb(null);
     await set;
+  });
+
+  it('creates a folder with the permission bits asked for as its attributes, or none', async () => {
+    const { wrapper, sftp } = session();
+    const plain = sftp.mkdir('/a');
+    expect(wrapper.last()).toMatchObject({ op: 'mkdir', args: ['/a'] });
+    wrapper.last().cb(null);
+    await plain;
+    const owned = sftp.mkdir('/b', 0o700);
+    expect(wrapper.last()).toMatchObject({ op: 'mkdir', args: ['/b', { mode: 0o700 }] });
+    wrapper.last().cb(null);
+    await owned;
   });
 
   it('fails a request left unanswered as a lost connection, ending the stuck channel', async () => {

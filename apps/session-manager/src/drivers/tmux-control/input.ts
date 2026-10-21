@@ -3,6 +3,8 @@ import { concatBytes } from './lines.ts';
 
 /** Input bytes per `send-keys` command (plan §6.5: ≤ 1 KiB per command). */
 export const MAX_INPUT_BYTES_PER_COMMAND = 1024;
+/** Keys by name per `send-keys` command: a held Home key costs a few commands, not hundreds. */
+export const MAX_KEYS_PER_COMMAND = 64;
 
 /**
  * Keys sent to tmux by name: the browser's xterm encodes Home and End as `CSI H` / `CSI F`
@@ -70,24 +72,40 @@ export function encodeInput(
 }
 
 /**
- * Encodes queued input in order: runs of bytes as `send-keys -H` commands (encodeInput), keys
- * as `send-keys -t %<pane> <name>`.
+ * Encodes queued input in order: runs of bytes as `send-keys -H` commands (encodeInput), runs of
+ * keys as `send-keys -t %<pane> <name> <name> …`, at most MAX_KEYS_PER_COMMAND keys per command.
  */
-export function encodeInputItems(paneId: number, items: readonly InputItem[]): string[] {
+export function encodeInputItems(
+  paneId: number,
+  items: readonly InputItem[],
+  maxKeysPerCommand = MAX_KEYS_PER_COMMAND,
+): string[] {
+  if (!Number.isInteger(paneId) || paneId < 0) throw new RangeError(`invalid pane id: ${paneId}`);
+  if (!Number.isInteger(maxKeysPerCommand) || maxKeysPerCommand < 1) {
+    throw new RangeError(`invalid key count: ${maxKeysPerCommand}`);
+  }
   const commands: string[] = [];
   let run: Uint8Array[] = [];
+  let keys: TmuxKey[] = [];
   const flushRun = () => {
     if (run.length > 0) commands.push(...encodeInput(paneId, concatBytes(run)));
     run = [];
   };
+  const flushKeys = () => {
+    if (keys.length > 0) commands.push(`send-keys -t %${paneId} ${keys.join(' ')}`);
+    keys = [];
+  };
   for (const item of items) {
     if (typeof item === 'string') {
       flushRun();
-      commands.push(`send-keys -t %${paneId} ${item}`);
+      keys.push(item);
+      if (keys.length === maxKeysPerCommand) flushKeys();
     } else {
+      flushKeys();
       run.push(item);
     }
   }
+  flushKeys();
   flushRun();
   return commands;
 }

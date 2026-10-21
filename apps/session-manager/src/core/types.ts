@@ -139,7 +139,11 @@ export interface SftpSession {
   /** The next entries of an open folder (`.` and `..` may be among them), or null at its end. */
   readdir(handle: SftpHandle): Promise<SftpDirEntry[] | null>;
   close(handle: SftpHandle): Promise<void>;
-  mkdir(path: string): Promise<void>;
+  /**
+   * Creates a folder with `mode` (the server applies its umask), or without it the server's
+   * default permissions.
+   */
+  mkdir(path: string, mode?: number): Promise<void>;
   rmdir(path: string): Promise<void>;
   /** Removes a file or a link (never what a link points to). */
   unlink(path: string): Promise<void>;

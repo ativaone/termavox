@@ -3,6 +3,7 @@ import {
   clipboardImage,
   interceptPaste,
   PASTE_IMAGE_TYPES,
+  pastablePath,
   pasteText,
   sanitizePaste,
 } from '../../lib/terminal/paste.ts';
@@ -214,5 +215,54 @@ describe('image paste (plan D-48)', () => {
     expect(clipboardImage({ items: itemList(empty, fileItem('image/png', png)) })).toBe(png);
     expect(empty.getAsFile).toHaveBeenCalledOnce();
     expect(clipboardImage({ items: itemList(empty) })).toBeNull();
+  });
+});
+
+describe('a pasted image path, typed into the terminal (plan D-48)', () => {
+  it('types a path of plain characters as it is', () => {
+    const usual = '/home/tv/.cache/termavox/paste/paste-20261021-040506-a1b2.png';
+    expect(pastablePath(usual)).toBe(usual);
+    expect(pastablePath('/a/b@c%d+e=f:g,h~i-j_k.l/0-9/A-Z')).toBe(
+      '/a/b@c%d+e=f:g,h~i-j_k.l/0-9/A-Z',
+    );
+  });
+
+  it('single-quotes a path with any other character, a quote becoming a closed quote', () => {
+    expect(pastablePath('/home/my user/x.png')).toBe("'/home/my user/x.png'");
+    expect(pastablePath("/home/o'neil/x.png")).toBe("'/home/o'\\''neil/x.png'");
+    expect(pastablePath("/a/''")).toBe("'/a/'\\'''\\'''");
+    for (const ch of ['$', '`', '"', '\\', '*', '?', ';', '&', '|', '<', '>', '(', ')', '{', '}']) {
+      expect(pastablePath(`/a/b${ch}c`), ch).toBe(`'/a/b${ch}c'`);
+    }
+    for (const ch of ['[', ']', '!', '#', ' ', 'é', '漢', '🙂', '\u00a0']) {
+      expect(pastablePath(`/a/b${ch}c`), ch).toBe(`'/a/b${ch}c'`);
+    }
+  });
+
+  it('refuses a path with a control, format or separator character, wherever it is', () => {
+    const refused = [
+      '\n',
+      '\r',
+      '\t',
+      '\x00',
+      '\x1b',
+      '\x7f',
+      '\u0085',
+      '\u009b',
+      '\u00ad',
+      '\u200b',
+      '\u200e',
+      '\u202e',
+      '\u2066',
+      '\ufeff',
+      '\u{e0041}',
+      '\u2028',
+      '\u2029',
+    ];
+    for (const ch of refused) {
+      expect(pastablePath(`/home/tv/a${ch}b.png`), JSON.stringify(ch)).toBeNull();
+      expect(pastablePath(`${ch}/home/tv/b.png`), JSON.stringify(ch)).toBeNull();
+    }
+    expect(pastablePath('')).toBeNull();
   });
 });

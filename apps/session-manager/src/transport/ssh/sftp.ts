@@ -201,8 +201,11 @@ export class SshSftpSession implements SftpSession {
     return this.#call<void>((cb) => this.#wrapper.fchmod(asBuffer(handle), mode, cb));
   }
 
-  mkdir(path: string): Promise<void> {
-    return this.#call<void>((cb) => this.#wrapper.mkdir(path, cb));
+  mkdir(path: string, mode?: number): Promise<void> {
+    // SSH_FXP_MKDIR with the permission bits as its attributes, or none (the server's default).
+    return this.#call<void>((cb) =>
+      mode === undefined ? this.#wrapper.mkdir(path, cb) : this.#wrapper.mkdir(path, { mode }, cb),
+    );
   }
 
   rmdir(path: string): Promise<void> {

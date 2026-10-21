@@ -44,6 +44,11 @@ export interface RemoveOptions {
   signal?: AbortSignal;
   /** Entries removed so far, after each one. */
   onProgress?: (removed: number) => void;
+  /**
+   * Regular files only: a target that lstat does not call a file (a folder, a link, anything
+   * else) is skipped, never entered, and is no error.
+   */
+  filesOnly?: boolean;
 }
 
 /** The user's home folder: where the server's SFTP starts (`realpath .`). */
@@ -95,11 +100,18 @@ export async function entryAt(sftp: SftpSession, path: string, name: string): Pr
   return toEntry(name, attrs, link);
 }
 
-/** A new folder; an existing entry with that name is CONFLICT. */
-export async function makeFolder(sftp: SftpSession, target: NamedPath): Promise<FileEntry> {
+/**
+ * A new folder, with `mode` as its permission bits (the server's umask applies) or the server's
+ * default; an existing entry with that name is CONFLICT, and keeps its own bits.
+ */
+export async function makeFolder(
+  sftp: SftpSession,
+  target: NamedPath,
+  mode?: number,
+): Promise<FileEntry> {
   if (await exists(sftp, target.path)) throw conflict();
   try {
-    await sftp.mkdir(target.path);
+    await sftp.mkdir(target.path, mode);
   } catch (err) {
     // OpenSSH answers a generic FAILURE for an existing path: one created meanwhile.
     if (sftpStatus(err) === SftpStatus.Failure && (await exists(sftp, target.path))) {
@@ -137,14 +149,16 @@ export async function rename(
  * skipped, never joined to the path. Past REMOVE_DEPTH_MAX folder levels, or REMOVE_ENTRIES_MAX
  * entries or REMOVE_NAME_BYTES_MAX bytes of names read over the whole removal, it stops
  * (REMOVE_TOO_LARGE); what it removed stays removed. Resolves with the number of entries removed; an
- * abort stops it between requests (CANCELLED).
+ * abort stops it between requests (CANCELLED). With `filesOnly`, a target is unlinked only when its
+ * lstat says it is a regular file: nothing is listed, entered or removed as a folder, and a link is
+ * left as it is (an unlink never follows one, nor removes a folder that took the name meanwhile).
  */
 export async function remove(
   sftp: SftpSession,
   targets: readonly NamedPath[],
   options: RemoveOptions = {},
 ): Promise<number> {
-  const { signal, onProgress } = options;
+  const { signal, onProgress, filesOnly = false } = options;
   let removed = 0;
   // What the removal has read, over every folder of every level and target.
   let listed = 0;
@@ -186,7 +200,15 @@ export async function remove(
     throwIfCancelled(signal);
     count(await done(sftp.rmdir(path)));
   };
-  for (const target of targets) await removeTree(target.path, 1);
+  const removeFile = async (path: string): Promise<void> => {
+    throwIfCancelled(signal);
+    const attrs = await lstatOrNull(sftp, path);
+    if (attrs && fileType(attrs.mode) === 'file') count(await done(sftp.unlink(path)));
+  };
+  for (const target of targets) {
+    if (filesOnly) await removeFile(target.path);
+    else await removeTree(target.path, 1);
+  }
   return removed;
 }
 

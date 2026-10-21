@@ -235,9 +235,10 @@ export class TransferRoutes {
 
   /**
    * Writes the body to a temporary file next to the target (created exclusively), then puts it in
-   * place. A file it replaces keeps its permission bits, which the temporary file has from its
-   * first byte: created with them and set exactly on its handle (the umask narrowed the open's),
-   * setuid and setgid last (a write clears them). Whatever stops it first (the browser, an error,
+   * place. A file it replaces keeps its permission bits, and a new one gets the bits its request
+   * asked for (the server's default without them). The temporary file has them from its first
+   * byte: created with them and set exactly on its handle (the umask narrowed the open's), setuid
+   * and setgid last (a write clears them). Whatever stops it first (the browser, an error,
    * `transfer.cancel`, a sign-out, 60 s without data), the handle is closed and the temporary file
    * removed, over the same channel: a lost connection, or a channel given up on a server that
    * stopped answering, leaves it behind.
@@ -252,7 +253,9 @@ export class TransferRoutes {
     // Each request before the bytes flow stops with the transfer: a server that never answers
     // holds neither the slot nor the browser.
     const sftp = await abortable(host.sftp(), signal);
-    const mode = await abortable(keptMode(sftp, grant.path, grant.overwrite), signal);
+    const kept = await abortable(keptMode(sftp, grant.path, grant.overwrite), signal);
+    // A replaced file's bits win; the requested ones go to a new file (or over a dangling link).
+    const mode = kept ?? grant.mode ?? null;
     const temp = joinPath(grant.dir, tempName(grant.name));
     // setuid and setgid wait for the complete content (a half-written set-id file never exists).
     const bits = mode === null ? undefined : mode & ~SET_ID_BITS;
