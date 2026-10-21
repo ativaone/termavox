@@ -36,7 +36,7 @@ services:
   caddy:
     # The official Caddy image (pinned by digest in the Dockerfile) as UID/GID 10002, with no
     # capabilities and the Caddyfile baked in: changing deploy/Caddyfile means a rebuild.
-    image: ghcr.io/ativaone/termavox-caddy:0.1.0-rc.1
+    image: ghcr.io/ativaone/termavox-caddy:0.1.0-rc.2
     build:
       context: ..
       dockerfile: deploy/docker/caddy.Dockerfile
@@ -80,7 +80,7 @@ services:
         condition: service_healthy
 
   web:
-    image: ghcr.io/ativaone/termavox-web:0.1.0-rc.1
+    image: ghcr.io/ativaone/termavox-web:0.1.0-rc.2
     build:
       context: ..
       dockerfile: deploy/docker/web.Dockerfile
@@ -130,7 +130,7 @@ services:
       start_interval: 2s
 
   session-manager:
-    image: ghcr.io/ativaone/termavox-session-manager:0.1.0-rc.1
+    image: ghcr.io/ativaone/termavox-session-manager:0.1.0-rc.2
     build:
       context: ..
       dockerfile: deploy/docker/session-manager.Dockerfile
