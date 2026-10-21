@@ -196,19 +196,15 @@
     </section>
 
     <section class="sec" id="notifications" data-group="No dia a dia">
-      <h2>Notificações na área de trabalho</h2>
-      <p>O Termavox pode avisar quando uma sessão toca o sino do terminal, por exemplo quando um processo longo ou o Claude Code termina, enquanto você olha para outra coisa.</p>
+      <h2>Sino e notificações na área de trabalho</h2>
+      <p>O Termavox pode avisar quando uma sessão toca o sino do terminal, por exemplo quando um processo longo ou o Claude Code termina, enquanto você olha para outra coisa. Para fazer um programa tocar o sino, veja <a href="#tool-tips">Dicas para outras ferramentas</a>.</p>
       <ul>
+        <li>Em qualquer aba, uma sessão que toca o sino enquanto você não está olhando para ela ganha um sino na aba, até você olhar. Isso não precisa de configuração.</li>
         <li>No computador, ligue <strong>Notificações na área de trabalho</strong> no menu da sessão. Na primeira vez, o navegador pergunta se o Termavox pode mostrar notificações: permita. A escolha fica guardada na sessão, em qualquer navegador; um navegador que ainda não foi consultado mostra <strong>Permitir neste navegador</strong> no mesmo menu.</li>
         <li>Um sininho depois do nome da sessão, na lista, indica que as notificações dela estão ligadas.</li>
         <li>A notificação chega quando o terminal toca o sino e você não está olhando para aquela sessão: outra aba ou outro painel está na frente, ou a janela está em segundo plano ou minimizada. Ela mostra o nome da sessão e o título do terminal, nunca a saída. Um clique nela traz a janela e a sessão para a frente.</li>
         <li>Só as sessões abertas em uma aba avisam, e só enquanto uma página do Termavox estiver aberta no navegador (minimizada serve). O celular não mostra essas notificações.</li>
         <li>O título da janela do navegador acompanha a aba da frente: o nome da sessão e o título do terminal. Ele começa com 🔔 enquanto houver um sino que você ainda não viu.</li>
-      </ul>
-      <h3 id="ring-the-bell">Como fazer um programa tocar o sino</h3>
-      <ul>
-        <li><strong>Claude Code e Codex:</strong> cada um tem uma configuração para isso, em <a href="#tool-tips">Dicas para outras ferramentas</a>.</li>
-        <li><strong>Qualquer comando:</strong> acrescente <code>; tput bel</code> depois dele, como em <code>make release; tput bel</code>.</li>
       </ul>
       <aside class="note note-info">
         <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#info"/></svg>
@@ -269,7 +265,9 @@
 
     <section class="sec" id="tool-tips" data-group="No dia a dia">
       <h2>Dicas para outras ferramentas</h2>
-      <p>Configurações que fazem programas que você usa nas sessões funcionarem melhor no Termavox. Cada uma muda só aquele programa, no servidor onde ele roda.</p>
+      <p>Configurações e comandos que fazem os programas das suas sessões funcionarem melhor com o Termavox. Eles mudam só esses programas, no servidor onde eles rodam.</p>
+      <h3 id="shell">Shell</h3>
+      <p><strong>Tocar o sino quando um comando termina.</strong> Acrescente <code>; tput bel</code> depois dele, como em <code>make release; tput bel</code>: ele toca no fim, com o comando dando certo ou errado. Para testar as notificações, rode <code>sleep 10; tput bel</code> e mude para outra aba.</p>
       <h3 id="claude-code">Claude Code</h3>
       <p><strong>Tocar o sino quando termina.</strong> Acrescente <code>"preferredNotifChannel": "terminal_bell"</code> no nível principal do <code>~/.claude/settings.json</code>, ou escolha o sino do terminal em <strong>Local notifications</strong> no <code>/config</code>, e reinicie o Claude Code. Ele passa a tocar quando termina uma tarefa ou espera a sua permissão, que é o que as <a href="#notifications">notificações na área de trabalho</a> esperam.</p>
       <p><strong>Rolar a conversa com a roda do mouse.</strong> Quando a roda percorre os seus pedidos anteriores em vez de rolar (o Claude Code avisa que a roda está mandando setas), ele está desenhando no modo tela cheia, em que só <kbd>PgUp</kbd> e <kbd>PgDn</kbd> rolam. O modo clássico deixa a conversa no histórico do terminal, onde a roda e a barra de rolagem funcionam. Qualquer uma destas opções o ativa:</p>
@@ -295,6 +293,7 @@ notification_condition = "always"</code></pre>
         <li>Para entrar, prefira <strong>Gerar uma chave nova</strong>: a chave privada nunca sai do Termavox, e você instala a pública no servidor. Também dá para colar uma chave, usar uma senha, ou <strong>Nenhuma</strong> (o servidor pede a senha no terminal).</li>
         <li>Em <strong>Avançado</strong>: proteção, tipo de terminal, comando inicial, variáveis de ambiente, keepalive, linhas de histórico e a reabertura de sessões desprotegidas.</li>
         <li>O <strong>Tipo de terminal</strong> é para sessões protegidas. O <strong>Automático (recomendado)</strong> usa o tipo do próprio tmux, como o tmux recomenda. O <strong>xterm-256color</strong> faz os programas agirem como num terminal comum (<kbd>Ctrl</kbd>+<kbd>End</kbd> no vim, por exemplo), mas a tela restaurada depois de um reinício pode voltar imperfeita. Vale para novas sessões.</li>
+        <li>Com a proteção <strong>Desligada</strong>, o <strong>Tipo de terminal</strong> e as <strong>Variáveis de ambiente</strong> ficam desabilitados: eles precisam do tmux, e sem ele o servidor SSH costuma recusar as variáveis. Os valores ficam guardados para quando a proteção voltar.</li>
         <li>Sessões protegidas também definem <code>COLORTERM=truecolor</code>, para que os programas usem todas as cores (24 bits). Um <code>COLORTERM</code> nas variáveis de ambiente do servidor ocupa o lugar dele, mesmo vazio.</li>
         <li>O Termavox roda no Docker na mesma máquina que você quer acessar? Use <strong>Adicionar este host Docker</strong>.</li>
       </ul>

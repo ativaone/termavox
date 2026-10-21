@@ -13,10 +13,10 @@ import type { PaneBell, PaneMeta } from './workspace-context.tsx';
  *   bell) unless the user is looking at it, and, on the desktop, a bell in the active pane while
  *   the window is unfocused or hidden counts as unseen until the window regains focus (the window
  *   title's marker).
- * - `session.bell` from the daemon, for a session with desktop notifications on, attached here
- *   or not (only the active tab's panes are mounted): on the desktop, when a pane of any tab
- *   shows that session (`bellPane`) and the user is not looking at it, marks that pane and shows
- *   a desktop notification (`shouldNotify`). Clicking it brings the window and the session to the
+ * - `session.bell` from the daemon, for every session, attached here or not (only the active
+ *   tab's panes are mounted): on the desktop, when a pane of any tab shows that session
+ *   (`bellPane`) and the user is not looking at it, marks that pane and, when the session's
+ *   desktop notifications are on, shows a notification (`shouldNotify`). Clicking it brings the window and the session to the
  *   front; looking at that session's pane closes it. A session in no tab does nothing here.
  */
 export function useBellAlerts({

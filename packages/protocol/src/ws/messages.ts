@@ -122,9 +122,9 @@ export const ServerMessage = z.discriminatedUnion('type', [
   z.object({ type: z.literal('session.upsert'), session: SessionSummary }),
   z.object({ type: z.literal('session.removed'), sessionId: id }),
   /**
-   * The terminal of a session with desktop notifications on rang its bell. Sent to every
-   * connection of the owner, attached to it or not (browsers notify for a session in any of their
-   * tabs), at most once a second per session, with the terminal's current title (sanitized, null
+   * The terminal of a session rang its bell. Sent to every connection of the owner, attached to
+   * it or not (browsers mark a session in any of their tabs, and notify when its desktop
+   * notifications are on), at most once a second per session, with the terminal's current title (sanitized, null
    * when none was set); `terminal.bell` still goes to its attachments.
    */
   z.object({ type: z.literal('session.bell'), sessionId: id, title: z.string().nullable() }),

@@ -200,10 +200,10 @@ live in `packages/protocol` ([plan §7](implementation-plan.md#7-websocket-proto
   `terminal.title`, `terminal.bell`, `terminal.hint`, `hostkey.prompt`, `auth.prompt`,
   `files.result`, `files.progress`, `transfer.progress`, `server.shutting_down`, `error`, `pong`.
 - **The bell.** The daemon's emulator detects BEL (tmux control mode passes it through in
-  `%output`). `terminal.bell` goes to the session's attachments (the panes in view); for a
-  session with desktop notifications on, `session.bell` also goes to every connection of its
-  owner, attached or not, at most once a second per session, with the terminal's current title,
-  so a browser can notify for a session in a background tab. An attachment also gets the latest
+  `%output`). `terminal.bell` goes to the session's attachments (the panes in view);
+  `session.bell` also goes to every connection of its owner, attached or not, at most once a
+  second per session, with the terminal's current title, so a browser can mark a session's tab
+  in the background and, when its desktop notifications are on, notify. An attachment also gets the latest
   `terminal.title` right after `session.attached`: the snapshot holds no title, and a tab brought
   back to the front would otherwise show the one it last saw.
 - **Close codes.** `4400` bad request, `4401` unauthenticated or revoked, `4403` forbidden or bad

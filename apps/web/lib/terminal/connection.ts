@@ -64,7 +64,7 @@ export interface ConnectionError {
 export type HostKeyPrompt = Extract<ServerMessage, { type: 'hostkey.prompt' }>;
 export type AuthPromptRequest = Extract<ServerMessage, { type: 'auth.prompt' }>;
 export type ServerError = Extract<ServerMessage, { type: 'error' }>;
-/** A session's bell relayed to every connection of its owner (desktop notifications on). */
+/** A session's bell relayed to every connection of its owner, attached or not. */
 export type RelayedBell = Omit<Extract<ServerMessage, { type: 'session.bell' }>, 'type'>;
 /** Termavox tmux servers a session's connection found that this installation does not run. */
 export type RemoteSessionsNotice = Omit<
@@ -389,8 +389,7 @@ export class TermavoxConnection implements FileApi {
 
   /** `transfer.progress` of the uploads and downloads this tab minted, and socket drops. */
   /**
-   * `session.bell`: a session of the user with desktop notifications on rang its bell, attached
-   * in this tab or not. `listener` gets its id and the terminal's current title; the returned
+   * `session.bell`: a session of the user rang its bell, attached in this tab or not. `listener` gets its id and the terminal's current title; the returned
    * function unsubscribes.
    */
   subscribeBells(listener: (bell: RelayedBell) => void): () => void {

@@ -190,15 +190,24 @@ function parseEnvValue(json: string | undefined): Array<{ key: string; value: st
   }
 }
 
-/** Environment variables as key/value rows (sent as parallel `envKey` / `envValue` fields). */
+const ENV_INPUT =
+  'h-11 min-w-0 rounded-control border border-line-strong bg-field px-3 font-mono text-ink text-md placeholder:text-ink-muted focus-visible:border-focus focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-1 aria-disabled:cursor-not-allowed aria-disabled:border-line aria-disabled:text-ink-faint';
+
+/**
+ * Environment variables as key/value rows (sent as parallel `envKey` / `envValue` fields).
+ * `off` (protection Off: an SSH server refuses them without tmux) shows the rows read-only, so
+ * they are still posted and kept for when protection is back on.
+ */
 function EnvEditor({
   initial,
   prefix,
+  off,
   error,
   errorPrefix,
 }: {
   initial: Array<{ key: string; value: string }>;
   prefix: string;
+  off: boolean;
   error?: string;
   errorPrefix: string;
 }) {
@@ -211,7 +220,7 @@ function EnvEditor({
         {t('env')}
       </legend>
       <p id={`${legendId}-help`} className="text-ink-muted text-sm">
-        {t('envHelp')}
+        {off ? t('envOff') : t('envHelp')}
       </p>
       {rows.length > 0 ? (
         <ul className="flex flex-col gap-2">
@@ -222,19 +231,23 @@ function EnvEditor({
                 aria-label={t('envKey', { n: index + 1 })}
                 placeholder={t('envKeyPlaceholder')}
                 defaultValue={row.key}
+                readOnly={off}
+                aria-disabled={off || undefined}
                 autoComplete="off"
                 autoCapitalize="characters"
                 spellCheck={false}
-                className="h-11 min-w-0 rounded-control border border-line-strong bg-field px-3 font-mono text-ink text-md placeholder:text-ink-muted focus-visible:border-focus focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-1"
+                className={ENV_INPUT}
               />
               <input
                 name={`${prefix}envValue`}
                 aria-label={t('envValue', { n: index + 1 })}
                 placeholder={t('envValuePlaceholder')}
                 defaultValue={row.value}
+                readOnly={off}
+                aria-disabled={off || undefined}
                 autoComplete="off"
                 spellCheck={false}
-                className="h-11 min-w-0 rounded-control border border-line-strong bg-field px-3 font-mono text-ink text-md placeholder:text-ink-muted focus-visible:border-focus focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-1"
+                className={ENV_INPUT}
               />
               <Button
                 variant="quiet"
@@ -242,6 +255,7 @@ function EnvEditor({
                 iconOnly
                 aria-label={t('envRemove', { n: index + 1 })}
                 title={t('envRemove', { n: index + 1 })}
+                disabled={off}
                 onClick={() => setRows((all) => all.filter((r) => r.id !== row.id))}
                 icon={<CloseIcon size={16} />}
               />
@@ -254,7 +268,7 @@ function EnvEditor({
         <Button
           variant="secondary"
           size="sm"
-          disabled={rows.length >= ENV_MAX}
+          disabled={off || rows.length >= ENV_MAX}
           onClick={() => setRows((all) => [...all, { id: nextRowId++, key: '', value: '' }])}
           icon={<PlusIcon size={16} />}
         >
@@ -288,8 +302,12 @@ export function ServerOptionsFields({
   const echoedEnv = values[n('env')];
   const env = parseEnvValue(echoedEnv) ?? initial.env;
   const echoedTerm = values[n('tmuxTerm')];
-  const tmuxTerm =
-    echoedTerm === 'auto' || echoedTerm === 'xterm-256color' ? echoedTerm : initial.tmuxTerm;
+  const [tmuxTerm, setTmuxTerm] = useState<'auto' | 'xterm-256color'>(
+    echoedTerm === 'auto' || echoedTerm === 'xterm-256color' ? echoedTerm : initial.tmuxTerm,
+  );
+  // Terminal type and environment apply only inside tmux: Off disables them but keeps their
+  // values, which are still posted (a disabled select is not, hence the hidden copy).
+  const off = mode === 'off';
 
   return (
     <>
@@ -334,8 +352,12 @@ export function ServerOptionsFields({
         <Select
           name={n('tmuxTerm')}
           label={t('tmuxTerm')}
-          help={t('tmuxTermHelp')}
-          defaultValue={tmuxTerm}
+          help={off ? t('tmuxTermOff') : t('tmuxTermHelp')}
+          value={tmuxTerm}
+          onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+            setTmuxTerm(event.target.value === 'xterm-256color' ? 'xterm-256color' : 'auto')
+          }
+          disabled={off}
           error={fields?.[n('tmuxTerm')]}
           errorPrefix={errorPrefix}
           options={[
@@ -343,6 +365,7 @@ export function ServerOptionsFields({
             { value: 'xterm-256color', label: t('tmuxTermXterm') },
           ]}
         />
+        {off ? <input type="hidden" name={n('tmuxTerm')} value={tmuxTerm} /> : null}
       </div>
 
       <div className="flex flex-col gap-5 border-line border-t pt-5">
@@ -363,6 +386,7 @@ export function ServerOptionsFields({
           key={echoedEnv ?? 'initial'}
           initial={env}
           prefix={prefix}
+          off={off}
           error={fields?.[n('env')]}
           errorPrefix={errorPrefix}
         />

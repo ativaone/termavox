@@ -116,21 +116,9 @@ describe.each(CASES)(
       await fixture?.cleanup();
     });
 
-    it('with notifications off, only the attachment hears the bell', async () => {
-      await ring('off');
-      await sleep(300);
-      for (const client of [attached, watcher, stranger]) {
-        expect(client.messages.some(isBell(sessionId))).toBe(false);
-      }
-    });
-
-    it('with notifications on, every connection of the owner gets session.bell, attached or not', async () => {
-      const on = await fixture.api(daemon, 'PATCH', `/sessions/${sessionId}`, {
-        actingUserId: userId,
-        notify: true,
-      });
-      expect(on.json).toMatchObject({ notify: true });
-      await ring('on');
+    it('every connection of the owner gets session.bell, attached or not, notifications off', async () => {
+      expect(daemon.plane.registry.host(sessionId)?.notify).toBe(false);
+      await ring('relay');
       // The title is whatever the server's shell set (none under tmux, `user@host: dir` from
       // Ubuntu's .bashrc without it).
       const bell = (await watcher.next(isBell(sessionId), 10_000)) as { title?: unknown };

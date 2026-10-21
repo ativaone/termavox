@@ -257,7 +257,7 @@ describe('browser terminal client against the real daemon (no-tmux)', () => {
     expect(channel.getSnapshot().phase).toBe('live');
   });
 
-  it('the bell of a notify-on session reaches the browser as session.bell, attached or not', async () => {
+  it("a session's bell reaches the browser as session.bell, attached or not", async () => {
     const heard: string[] = [];
     const stop = connection.subscribeBells((bell) => heard.push(bell.sessionId));
     // Another connection of the user that shows no pane of it (a session in a background tab).

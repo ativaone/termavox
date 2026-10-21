@@ -115,17 +115,21 @@ upgraded: remove it together with its volumes and install fresh from a new clone
   default, tmux's own type, as tmux recommends) or xterm-256color, which makes programs act as in
   a plain terminal (Ctrl+End in vim, for example) at the risk of an imperfect screen after a
   restart. It applies to new sessions. Protected sessions now also set `COLORTERM=truecolor`, so
-  programs use 24-bit color, unless the server's environment variables set COLORTERM.
+  programs use 24-bit color, unless the server's environment variables set COLORTERM. With
+  protection Off, the terminal type and the environment variables are disabled and say why: an
+  unprotected session cannot use the first, and SSH servers usually refuse the second without
+  tmux. Their values are kept for when protection is back on.
 - Tabs can be reordered: drag a tab along the tab row (the row scrolls near its ends, Esc puts
   it back), or press Ctrl+Shift+← or → with the tab focused. The order is saved with the layout
   and comes back in any browser.
+- The bell of a session in a tab that is not in front now marks that tab too, for every session.
 - Desktop notifications per session: turn on "Desktop notifications" in a session's menu (on a
   computer), and when its terminal rings the bell while you are looking elsewhere, the browser
   shows a notification with the session's name and terminal title; clicking it brings the
   session to the front. The choice is stored on the session; only sessions open in a tab notify,
   while a Termavox page is open. Tips for other tools, a new section of the user help, say how
-  to make Claude Code and Codex ring it, and how to scroll Claude Code's conversation with the
-  mouse wheel.
+  to make a shell command, Claude Code and Codex ring it, and how to scroll Claude Code's
+  conversation with the mouse wheel.
 - The browser window's title follows the tab in front (the session's name and terminal title),
   and starts with 🔔 while a bell you have not seen is waiting.
 

@@ -99,8 +99,8 @@ export function TerminalPane({
     (title: string) => setPaneMeta(paneId, { title: cleanTitle(title) }),
     [setPaneMeta, paneId],
   );
-  // The shell decides what a bell does (tab mark, window title); desktop notifications come from
-  // the daemon's `session.bell` instead, which also reaches sessions in background tabs.
+  // The shell decides what a bell does (tab mark, window title); the daemon's `session.bell` also
+  // reaches sessions in background tabs (their tab mark) and drives desktop notifications.
   const onBell = useCallback(
     () => ringBell({ paneId, sessionId, active: activeRef.current }),
     [ringBell, paneId, sessionId],

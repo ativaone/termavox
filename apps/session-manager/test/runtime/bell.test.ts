@@ -13,9 +13,9 @@ function terminalBells(attachment: FakeAttachment): number {
 }
 
 describe('the bell relayed to the owner (session.bell)', () => {
-  it('goes to every connection of the owner when notifications are on, at most once a second', async () => {
+  it('goes to every connection of the owner, at most once a second', async () => {
     let now = 1_000_000;
-    const h = harness({ record: { notify: true } });
+    const h = harness();
     const rt = h.runtime({ now: () => now });
     await rt.start();
     const pty = h.factory.last.pty;
@@ -52,7 +52,7 @@ describe('the bell relayed to the owner (session.bell)', () => {
     await rt.shutdown();
   });
 
-  it('is never sent with notifications off, and follows the flag as the owner changes it', async () => {
+  it('does not depend on the desktop notifications flag (the browser decides what to show)', async () => {
     let now = 1_000_000;
     const h = harness();
     const rt = h.runtime({ now: () => now });
@@ -69,15 +69,15 @@ describe('the bell relayed to the owner (session.bell)', () => {
     };
 
     await ring();
-    await ring();
-    expect(relayed()).toEqual([]);
-    rt.setDisplay({ notify: true });
-    await ring();
     expect(relayed()).toHaveLength(1);
+    rt.setDisplay({ notify: true });
+    now += BELL_RELAY_INTERVAL_MS;
+    await ring();
+    expect(relayed()).toHaveLength(2);
     rt.setDisplay({ notify: false });
     now += BELL_RELAY_INTERVAL_MS;
     await ring();
-    expect(relayed()).toHaveLength(1);
+    expect(relayed()).toHaveLength(3);
     await rt.shutdown();
   });
 });

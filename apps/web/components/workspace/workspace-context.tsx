@@ -72,7 +72,7 @@ export interface WorkspaceContextValue {
   setPaneMeta(paneId: string, patch: Partial<PaneMeta>): void;
   /**
    * The bell rang in a mounted pane (`terminal.bell`): its tab mark and the window title follow.
-   * Desktop notifications come from the daemon's `session.bell` (any tab).
+   * Background tabs and desktop notifications follow the daemon's `session.bell` (any tab).
    */
   ringBell(bell: PaneBell): void;
   closePane(place: PanePlace): void;

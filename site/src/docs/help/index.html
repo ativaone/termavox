@@ -196,19 +196,15 @@
     </section>
 
     <section class="sec" id="notifications" data-group="Day to day">
-      <h2>Desktop notifications</h2>
-      <p>Termavox can tell you when a session rings the terminal bell, for example when a long job or Claude Code finishes, while you are looking at something else.</p>
+      <h2>Bell and desktop notifications</h2>
+      <p>Termavox can tell you when a session rings the terminal bell, for example when a long job or Claude Code finishes, while you are looking at something else. To make a program ring it, see <a href="#tool-tips">Tips for other tools</a>.</p>
       <ul>
+        <li>In any tab, a session that rings the bell while you are not looking at it gets a bell on its tab, until you look. This needs no setting.</li>
         <li>On a computer, turn on <strong>Desktop notifications</strong> in the session's menu. The first time, the browser asks whether Termavox may show notifications: allow it. The choice is kept with the session, in every browser; a browser that was never asked shows <strong>Allow in this browser</strong> in the same menu.</li>
         <li>A small bell after the session's name in the list says its notifications are on.</li>
         <li>A notification comes when the terminal rings its bell and you are not looking at that session: another tab or pane is in front, or the window is in the background or minimized. It shows the session's name and the terminal's title, never its output. Clicking it brings the window and the session to the front.</li>
         <li>Only sessions open in a tab notify, and only while a Termavox page is open in the browser (minimized is fine). Phones don't show them.</li>
         <li>The browser window's title follows the tab in front: the session's name and the terminal's title. It starts with 🔔 while a bell you have not seen is waiting.</li>
-      </ul>
-      <h3 id="ring-the-bell">Making a program ring the bell</h3>
-      <ul>
-        <li><strong>Claude Code and Codex:</strong> each has a setting for it, in <a href="#tool-tips">Tips for other tools</a>.</li>
-        <li><strong>Any command:</strong> add <code>; tput bel</code> after it, as in <code>make release; tput bel</code>.</li>
       </ul>
       <aside class="note note-info">
         <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#info"/></svg>
@@ -269,7 +265,9 @@
 
     <section class="sec" id="tool-tips" data-group="Day to day">
       <h2>Tips for other tools</h2>
-      <p>Settings that make programs you run in your sessions work better in Termavox. Each one changes only that program, on the server where it runs.</p>
+      <p>Settings and commands that make the programs in your sessions work better with Termavox. They change only those programs, on the server where they run.</p>
+      <h3 id="shell">Shell</h3>
+      <p><strong>Ring the bell when a command finishes.</strong> Add <code>; tput bel</code> after it, as in <code>make release; tput bel</code>: it rings at the end, whether the command worked or failed. To try the notifications, run <code>sleep 10; tput bel</code> and switch to another tab.</p>
       <h3 id="claude-code">Claude Code</h3>
       <p><strong>Ring the bell when it finishes.</strong> Add <code>"preferredNotifChannel": "terminal_bell"</code> at the top level of <code>~/.claude/settings.json</code>, or pick the terminal bell under <strong>Local notifications</strong> in <code>/config</code>, and restart Claude Code. It then rings when it finishes a task or waits for your permission, which is what <a href="#notifications">desktop notifications</a> listen for.</p>
       <p><strong>Scroll the conversation with the mouse wheel.</strong> When the wheel walks through your earlier prompts instead of scrolling (Claude Code says the wheel is sending arrow keys), Claude Code is drawing in its fullscreen mode, where only <kbd>PgUp</kbd> and <kbd>PgDn</kbd> scroll. Its classic mode keeps the conversation in the terminal's scrollback, where the wheel and the scrollbar work. Any of these switches to it:</p>
@@ -295,6 +293,7 @@ notification_condition = "always"</code></pre>
         <li>To sign in, prefer <strong>Generate a new key</strong>: the private key never leaves Termavox, and you install the public key on the server. You can also paste a key, use a password, or choose <strong>None</strong> (the server asks for the password in the terminal).</li>
         <li>Under <strong>Advanced</strong>: protection, terminal type, startup command, environment variables, keepalive, scrollback lines and reopening unprotected sessions.</li>
         <li><strong>Terminal type</strong> is for protected sessions. <strong>Automatic (recommended)</strong> uses tmux's own type, as tmux recommends. <strong>xterm-256color</strong> makes programs act as in a plain terminal (<kbd>Ctrl</kbd>+<kbd>End</kbd> in vim, for example), but the screen restored after a restart may come back imperfect. It applies to new sessions.</li>
+        <li>With protection <strong>Off</strong>, <strong>Terminal type</strong> and <strong>Environment variables</strong> are disabled: they need tmux, and without it SSH servers usually refuse the variables. Their values are kept for when protection is back on.</li>
         <li>Protected sessions also set <code>COLORTERM=truecolor</code>, so programs use full 24-bit color. A <code>COLORTERM</code> among the server's environment variables takes its place, even an empty one.</li>
         <li>Termavox runs in Docker on the same machine you want to reach? Use <strong>Add this Docker host</strong>.</li>
       </ul>
