@@ -37,6 +37,8 @@ export const DIMS: Dimensions = { cols: 80, rows: 24 };
 export const SCROLLBACK = 5_000;
 /** Keeps the pane silent until Enter, so a pipe-pane reference can start before its first byte. */
 export const BLOCKED_STARTUP = 'read -r _; exec "$SHELL" -l';
+/** Waits while a test session comes up (tmux server, login shell, first prompt). */
+const SETUP_TIMEOUT_MS = 30_000;
 const HIGH_WATER = 8 * 1024 * 1024;
 
 export const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
@@ -316,11 +318,16 @@ export async function observedSession(
   const observer = new TestControlClient(
     await env.transport.exec(launchCommand(launchOptions(env, socket, BLOCKED_STARTUP))),
   );
-  await observer.waitFor((e) => e.type === 'sessionChanged');
+  // A new tmux server and login shell on a loaded CI runner can take longer than the client's
+  // 10 s default to come up (the tmux-edge S3 flood timed out here once, at setup, on CI).
+  await observer.waitFor((e) => e.type === 'sessionChanged', SETUP_TIMEOUT_MS);
   const rawPath = await startPipe(env, socket);
   await observer.input(0, '\r');
-  await observer.waitFor((e) => e.type === 'output' && Buffer.from(e.data).includes('$ '));
-  await observer.waitIdle(300);
+  await observer.waitFor(
+    (e) => e.type === 'output' && Buffer.from(e.data).includes('$ '),
+    SETUP_TIMEOUT_MS,
+  );
+  await observer.waitIdle(300, SETUP_TIMEOUT_MS);
   return { observer, rawPath };
 }
 
