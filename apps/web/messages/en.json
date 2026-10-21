@@ -232,6 +232,7 @@
       "noSessionsTitle": "Start a session",
       "noSessionsBody": "Your servers are ready. Start a session and it will appear in the bay.",
       "resize": "Resize panes",
+      "resizeArea": "Resize the terminal area",
       "loading": "Session",
       "emptyPane": "Empty pane",
       "emptyPaneBody": "Pick a session for this pane, or start a new one here.",

@@ -6,6 +6,7 @@ import {
   Fragment,
   type KeyboardEvent,
   type PointerEvent,
+  type ReactNode,
   type RefObject,
   useEffect,
   useId,
@@ -27,11 +28,14 @@ import { Button } from '../ui/button.tsx';
 import { cx } from '../ui/cx.ts';
 import { Panel } from '../ui/panel.tsx';
 import { StateLamp, StatusChip } from '../ui/status-chip.tsx';
+import { FULL_WIDTH, usePaneWidth } from './pane-width-preference.ts';
 import { TerminalPane } from './terminal-pane.tsx';
 import { type PaneMeta, type PanePlace, useWorkspace } from './workspace-context.tsx';
 
 /** Smallest pane, in CSS px, when dragging or nudging a divider. */
 const MIN_PANE_PX = { row: 160, column: 96 } as const;
+/** Narrowest pane area, in CSS px, when dragging or nudging its trailing edge. */
+const MIN_AREA_PX = 320;
 const KEY_STEP = 2;
 const KEY_STEP_LARGE = 10;
 
@@ -375,7 +379,108 @@ function TreeNode(props: TreeProps & { node: PaneNode }) {
   );
 }
 
+/**
+ * The pane area at the width its trailing edge was dragged to (per browser, every tab), so a
+ * lone pane can be narrowed without a split; the ground shows beyond it. The edge is a divider
+ * in the area's gutter, so at full width it takes nothing from the panes. Double-click restores
+ * the full width.
+ */
+function AreaFrame({ children }: { children: ReactNode }) {
+  const t = useTranslations('workspace.pane');
+  const [stored, setStored] = usePaneWidth();
+  const [preview, setPreview] = useState<number | null>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const drag = useRef<{
+    start: number;
+    extent: number;
+    from: number;
+    min: number;
+    value: number | null;
+  } | null>(null);
+  const width = preview ?? stored;
+
+  const minWidth = (): number => {
+    const extent = frameRef.current?.getBoundingClientRect().width;
+    return extent ? Math.min(FULL_WIDTH, (MIN_AREA_PX / extent) * 100) : 10;
+  };
+  const clamp = (value: number, min: number): number => Math.min(FULL_WIDTH, Math.max(min, value));
+  const min = minWidth();
+
+  const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    const extent = frameRef.current?.getBoundingClientRect().width;
+    if (!extent) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    drag.current = { start: event.clientX, extent, from: width, min: minWidth(), value: null };
+  };
+  const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    const state = drag.current;
+    if (!state) return;
+    const delta = ((event.clientX - state.start) / state.extent) * 100;
+    state.value = clamp(state.from + delta, state.min);
+    setPreview(state.value);
+  };
+  const finish = () => {
+    const value = drag.current?.value ?? null;
+    drag.current = null;
+    setPreview(null);
+    if (value !== null) setStored(value);
+  };
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const step = event.shiftKey ? KEY_STEP_LARGE : KEY_STEP;
+    let next: number;
+    if (event.key === 'ArrowLeft') next = width - step;
+    else if (event.key === 'ArrowRight') next = width + step;
+    else if (event.key === 'Home') next = min;
+    else if (event.key === 'End') next = FULL_WIDTH;
+    else return;
+    event.preventDefault();
+    setStored(clamp(next, min));
+  };
+
+  return (
+    <div ref={frameRef} className="flex h-full w-full min-h-0 min-w-0">
+      <div className="relative flex h-full min-h-0 min-w-0" style={{ width: `${width}%` }}>
+        {children}
+        {/* biome-ignore lint/a11y/useSemanticElements: a focusable, draggable separator has no native element (<hr> cannot take focus or a value) */}
+        <div
+          role="separator"
+          tabIndex={0}
+          aria-orientation="vertical"
+          aria-label={t('resizeArea')}
+          aria-valuenow={Math.round(width)}
+          aria-valuemin={Math.round(min)}
+          aria-valuemax={FULL_WIDTH}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={finish}
+          onPointerCancel={finish}
+          onDoubleClick={() => setStored(FULL_WIDTH)}
+          onKeyDown={onKeyDown}
+          className={cx(
+            'group/divider absolute inset-y-0 -end-2 z-10 flex w-2 cursor-col-resize touch-none flex-col items-center justify-center',
+            'focus-visible:outline-2 focus-visible:outline-focus focus-visible:-outline-offset-1',
+          )}
+        >
+          <span
+            aria-hidden="true"
+            className={cx(
+              'h-10 w-0.5 rounded-pill bg-transparent transition-colors duration-(--duration-step) ease-(--ease-out)',
+              'group-hover/divider:bg-line-strong group-active/divider:bg-accent group-focus-visible/divider:bg-accent',
+            )}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** The active tab's split tree (only the active tab is mounted: one channel per pane). */
 export function PaneTree(props: TreeProps) {
-  return <TreeNode {...props} node={props.tab.root} />;
+  return (
+    <AreaFrame>
+      <TreeNode {...props} node={props.tab.root} />
+    </AreaFrame>
+  );
 }

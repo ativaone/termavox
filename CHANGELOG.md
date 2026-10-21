@@ -104,6 +104,8 @@ upgraded: remove it together with its volumes and install fresh from a new clone
   Retry. Until it first connects, a session uses its server's current address, so a mistyped
   server can be fixed on its page and retried.
 - Ended sessions can be removed from the list, one by one or all at once, with their history.
+- The terminal area can be narrowed without a split: drag its right edge (double-click restores
+  the full width). The width applies to every tab and is kept per browser.
 
 ### Security
 

@@ -232,6 +232,7 @@
       "noSessionsTitle": "Inicie uma sessão",
       "noSessionsBody": "Seus servidores estão prontos. Inicie uma sessão e ela aparecerá no quadro.",
       "resize": "Redimensionar painéis",
+      "resizeArea": "Redimensionar a área do terminal",
       "loading": "Sessão",
       "emptyPane": "Painel vazio",
       "emptyPaneBody": "Escolha uma sessão para este painel ou inicie uma nova aqui.",
