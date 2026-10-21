@@ -40,7 +40,13 @@ import {
   type CommandResult,
   TmuxDesyncError,
 } from './correlator.ts';
-import { encodeInput, MAX_INPUT_BYTES_PER_COMMAND } from './input.ts';
+import {
+  encodeInput,
+  encodeInputItems,
+  type InputItem,
+  MAX_INPUT_BYTES_PER_COMMAND,
+  tmuxKeyOf,
+} from './input.ts';
 import { concatBytes, LineSplitter } from './lines.ts';
 import { type ControlEvent, ControlParser, paneSizeFromLayout } from './parser.ts';
 import { type PaneCapture, parseCapture, rebuild, snapshotCommands } from './rebuild.ts';
@@ -218,7 +224,7 @@ export class TmuxControlDriver implements Driver {
   #paneInMode = false;
   /** Pane output to deliver at the end of the current stdout chunk (one ctx.output per chunk). */
   #forward: Uint8Array[] = [];
-  #input: Uint8Array[] = [];
+  #input: InputItem[] = [];
   #inputBytes = 0;
   #inputTimer: NodeJS.Timeout | null = null;
   #foregroundTimer: NodeJS.Timeout | null = null;
@@ -335,7 +341,7 @@ export class TmuxControlDriver implements Driver {
 
   input(data: Uint8Array): void {
     if ((this.#phase !== 'running' && this.#phase !== 'starting') || data.byteLength === 0) return;
-    this.#input.push(data.slice());
+    this.#input.push(tmuxKeyOf(data) ?? data.slice());
     this.#inputBytes += data.byteLength;
     if (this.#phase !== 'running') return; // flushed once started
     if (this.#inputBytes >= MAX_INPUT_BYTES_PER_COMMAND) this.#flushInput();
@@ -812,10 +818,9 @@ export class TmuxControlDriver implements Driver {
     }
     const paneId = this.#paneId;
     if (this.#input.length === 0 || this.#phase !== 'running' || paneId === null) return;
-    const bytes = concatBytes(this.#input, this.#inputBytes);
+    const commands = encodeInputItems(paneId, this.#input);
     this.#input = [];
     this.#inputBytes = 0;
-    const commands = encodeInput(paneId, bytes);
     if (this.#paneInMode) {
       commands.unshift(sendKeysCancel(paneId));
       this.#paneInMode = false;

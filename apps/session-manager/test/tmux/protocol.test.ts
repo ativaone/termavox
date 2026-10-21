@@ -7,9 +7,11 @@ import {
   DEFAULT_MAX_BLOCK_BYTES,
   DEFAULT_MAX_UNSOLICITED_BLOCK_BYTES,
   encodeInput,
+  encodeInputItems,
   LineSplitter,
   singlePaneLayout,
   TmuxDesyncError,
+  tmuxKeyOf,
   unescapeOutput,
 } from '../../src/drivers/tmux-control/index.ts';
 
@@ -336,5 +338,37 @@ describe('encodeInput', () => {
     const commands = encodeInput(7, data);
     expect(commands.map((c) => c.split(' ').length - 4)).toEqual([1024, 1024, 452]);
     expect(commands[0]!.startsWith('send-keys -H -t %7 61 61')).toBe(true);
+  });
+});
+
+describe('Home and End by name', () => {
+  it('names a whole input event that is exactly Home or End, in either cursor mode', () => {
+    expect(tmuxKeyOf(enc('\x1b[H'))).toBe('Home');
+    expect(tmuxKeyOf(enc('\x1bOH'))).toBe('Home');
+    expect(tmuxKeyOf(enc('\x1b[F'))).toBe('End');
+    expect(tmuxKeyOf(enc('\x1bOF'))).toBe('End');
+    // Modified Home/End, the pane terminal's own encodings, other keys and longer events stay bytes.
+    for (const other of ['\x1b[1;5F', '\x1b[4~', '\x1b[1~', '\x1b[A', '\x1bOP', '\x1bO', 'F']) {
+      expect(tmuxKeyOf(enc(other))).toBeNull();
+    }
+    expect(tmuxKeyOf(enc('x\x1b[F'))).toBeNull();
+    expect(tmuxKeyOf(enc('\x1b[Fx'))).toBeNull();
+    expect(tmuxKeyOf(new Uint8Array())).toBeNull();
+  });
+
+  it('encodes queued input in order: byte runs as hex, keys by name', () => {
+    expect(encodeInputItems(4, [enc('ab'), enc('c'), 'End', enc('\r'), 'Home', 'Home'])).toEqual([
+      'send-keys -H -t %4 61 62 63',
+      'send-keys -t %4 End',
+      'send-keys -H -t %4 0d',
+      'send-keys -t %4 Home',
+      'send-keys -t %4 Home',
+    ]);
+    expect(encodeInputItems(4, [])).toEqual([]);
+    // A run longer than one command is still chunked at 1 KiB.
+    const long = new Uint8Array(1500).fill(0x61);
+    const commands = encodeInputItems(2, [long, 'End']);
+    expect(commands.slice(0, 2).map((c) => c.split(' ').length - 4)).toEqual([1024, 476]);
+    expect(commands[2]).toBe('send-keys -t %2 End');
   });
 });

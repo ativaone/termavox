@@ -646,7 +646,7 @@ Notes and rules:
 
 ### 6.5 Input
 
-- Input bytes → `send-keys -H -t %<pane> <hex> <hex> …` (one byte per argument). This is safe for C0, ESC, DEL, UTF-8 and bracketed-paste markers, and it bypasses `escape-time`.
+- Input bytes → `send-keys -H -t %<pane> <hex> <hex> …` (one byte per argument). This is safe for C0, ESC, DEL, UTF-8 and bracketed-paste markers, and it bypasses `escape-time`. One exception: an input event that is exactly Home or End (`CSI H`/`CSI F`, `SS3 H`/`SS3 F`) goes as `send-keys -t %<pane> Home|End`, since the pane's terminal (`tmux-256color`/`screen-256color`) reads them as `CSI 1 ~`/`CSI 4 ~` and nothing else translates them in control mode (vim took `SS3 F` for Escape, `O`, `F`). Every other key the browser sends reads the same in both terminals.
 - Coalesce keystrokes for 2–5 ms. Chunk large pastes at ≤ 1 KiB of input per command. Pipeline commands without waiting for replies.
 - If the pane is in a mode (`#{pane_in_mode}` / `%pane-mode-changed`), first send `send-keys -X -t %<pane> cancel`.
 - Bracketed paste is applied by the browser's xterm.js (it saw `?2004h` in the raw output); the bytes pass through unchanged.

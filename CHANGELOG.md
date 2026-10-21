@@ -112,6 +112,12 @@ upgraded: remove it together with its volumes and install fresh from a new clone
   list, and the terminal area's left or right edge to narrow it without a split (double-click an
   edge to put it back). The widths apply to every tab and are kept per browser.
 
+### Fixed
+
+- Home and End in protected sessions: programs inside the session's tmux now get them as their
+  terminal reads them. Before, vim in insert mode took End for a new line with an "F" in it, and
+  Home for one with an "H".
+
 ### Security
 
 - Caddy runs as a non-root user (UID/GID 10002, apart from web and session-manager's 10001) with
