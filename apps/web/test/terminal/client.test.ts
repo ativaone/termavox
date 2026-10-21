@@ -651,6 +651,24 @@ describe('TermavoxConnection', () => {
     expect(channel.getSnapshot().error).toBeNull();
   });
 
+  it('hands session.bell to its subscribers, attached to the session or not', async () => {
+    const server = new FakeServer();
+    server.sessions = [summary(SESSION, { notify: true })];
+    const { connection } = setup(server);
+    const heard: Array<{ sessionId: string; title: string | null }> = [];
+    const stop = connection.subscribeBells((bell) => heard.push(bell));
+    connection.connect();
+    await until(() => connection.getSnapshot().status === 'open');
+    const bell = { type: 'session.bell', sessionId: SESSION, title: 'build: done' };
+    server.last.deliver(JSON.stringify(bell));
+    await until(() => heard.length === 1);
+    expect(heard).toEqual([{ sessionId: SESSION, title: 'build: done' }]);
+    stop();
+    server.last.deliver(JSON.stringify(bell));
+    await sleep(20);
+    expect(heard).toHaveLength(1);
+  });
+
   it('allocates at most 32 channels per connection', () => {
     const { connection } = setup(new FakeServer());
     const noop = { dispose() {} };

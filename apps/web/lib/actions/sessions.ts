@@ -11,13 +11,14 @@ import type {
   RenameSessionResult,
   SessionActionFailure,
   SessionActionResult,
+  SessionNotifyResult,
   TerminateAllResult,
 } from '../sessions/action-result.ts';
 
 /**
- * Session lifecycle Server Actions (plan §8.2): create, rename, terminate (one or all, D-30), retry,
- * stop (D-31), reopen and remove (one or all ended, D-32) go to the daemon's internal API as the signed-in user (`actingUserId`), which
- * re-validates ownership.
+ * Session lifecycle Server Actions (plan §8.2): create, rename, desktop notifications, terminate
+ * (one or all, D-30), retry, stop (D-31), reopen and remove (one or all ended, D-32) go to the
+ * daemon's internal API as the signed-in user (`actingUserId`), which re-validates ownership.
  * The UI then follows the session through `session.upsert` / `session.status` on the WebSocket.
  * Called programmatically by the workspace (palette, sidebar menu, pane overlays).
  *
@@ -122,6 +123,33 @@ export async function renameSession(
   try {
     const renamed = await getInternalApi().renameSession(sessionId, user.id, label);
     return { ok: true, sessionId: renamed.sessionId, label: renamed.label };
+  } catch (err) {
+    return failure(err);
+  }
+}
+
+/**
+ * Turns the desktop notifications of a session of the signed-in user on or off, in any state.
+ * Stored on the session, so the choice holds in every browser of the user; each of them gets it
+ * through `session.upsert`, and `useSetSessionNotify` (components/workspace/hooks.ts) applies the
+ * result at once in this tab. The browser's own permission is the caller's business: the flag is
+ * saved whatever the browser allows.
+ *
+ * @param sessionId The session.
+ * @param notify On (`true`) or off.
+ * @returns `{ ok: true, sessionId, notify }` with the flag as stored, or a failure: `NOT_FOUND`
+ *   (missing or another user's session), `FORBIDDEN` (acting user disabled), `BAD_REQUEST`
+ *   (malformed id or a flag that is not a boolean), `UNAVAILABLE` / `TIMEOUT` / `BAD_RESPONSE`.
+ */
+export async function setSessionNotify(
+  sessionId: string,
+  notify: boolean,
+): Promise<SessionNotifyResult> {
+  const { user } = await requireSession();
+  if (!SessionId.safeParse(sessionId).success || typeof notify !== 'boolean') return invalid();
+  try {
+    const stored = await getInternalApi().setSessionNotify(sessionId, user.id, notify);
+    return { ok: true, sessionId: stored.sessionId, notify: stored.notify };
   } catch (err) {
     return failure(err);
   }

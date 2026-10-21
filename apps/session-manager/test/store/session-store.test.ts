@@ -228,6 +228,74 @@ describe('SqliteSessionStore', () => {
     expect((await store.get(a.id))?.tmuxTerm).toBe('auto');
   });
 
+  it('edits the notification flag of the owner only; it starts off and survives a reopen', async () => {
+    const { db, writer, store } = setup();
+    const userId = insertUser(db);
+    const otherId = insertUser(db);
+    const serverId = insertServer(db, userId, { name: 'box' });
+    const created = await store.createFromServer({
+      actingUserId: userId,
+      serverId,
+      viewport: VIEWPORT,
+      enableLocalShell: false,
+    });
+    const { id } = created;
+    expect(created.notify).toBe(false);
+    const listed = async () => (await store.listForUser(userId)).find((s) => s.id === id);
+    expect(await listed()).toMatchObject({ notify: false });
+    const audits = () =>
+      (db.$client.prepare('SELECT COUNT(*) AS n FROM audit_events').get() as { n: number }).n;
+    const auditsBefore = audits();
+
+    // On: stored, listed and loaded; the label is left as it was, nothing audited.
+    expect(await store.edit(userId, id, { notify: true })).toEqual({
+      label: 'box',
+      notify: true,
+      labelChanged: false,
+      notifyChanged: true,
+    });
+    expect(await listed()).toMatchObject({ notify: true, label: 'box' });
+    expect((await store.get(id))?.notify).toBe(true);
+    expect(audits()).toBe(auditsBefore);
+    // Unchanged: reported as such.
+    expect(await store.edit(userId, id, { notify: true })).toMatchObject({ notifyChanged: false });
+    // A label alone leaves the flag; both at once change both.
+    expect(await store.edit(userId, id, { label: 'renamed' })).toEqual({
+      label: 'renamed',
+      notify: true,
+      labelChanged: true,
+      notifyChanged: false,
+    });
+    expect(await store.edit(userId, id, { label: 'box', notify: false })).toMatchObject({
+      labelChanged: true,
+      notifyChanged: true,
+    });
+    expect(await listed()).toMatchObject({ notify: false, label: 'box' });
+
+    // Another user's session, or a missing one: NOT_FOUND, nothing written.
+    await expect(store.edit(otherId, id, { notify: true })).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
+    await expect(store.edit(userId, 'missing', { notify: true })).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
+    expect((await store.get(id))?.notify).toBe(false);
+
+    // Reopen reuses the row (plan §5.7): ended and started again, the flag stays.
+    await store.edit(userId, id, { notify: true });
+    store.update(id, { state: 'ended', status: 'ended', desiredState: 'terminated', endedAt: 1 });
+    await writer.flush();
+    expect(await listed()).toMatchObject({ status: 'ended', notify: true });
+    store.update(id, {
+      state: 'new',
+      status: 'connecting',
+      desiredState: 'running',
+      endedAt: null,
+    });
+    await writer.flush();
+    expect(await store.get(id)).toMatchObject({ state: 'new', notify: true });
+  });
+
   it('applies the running-session cap to create and reopen alike, never counting the reopened row', async () => {
     const { db, store } = setup();
     const userId = insertUser(db);

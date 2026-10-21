@@ -77,7 +77,9 @@ describe('output pipeline', () => {
       expect(attachment.client.snapshots).toHaveLength(1);
       expect(attachment.client.resizes.length).toBeGreaterThan(2);
     }
-    expect(frameTypes(b!).slice(0, 2)).toEqual(['session.attached', 'SNAPSHOT']);
+    // The latest terminal title may come with the attach (it is not in the snapshot); no output does.
+    const leading = frameTypes(b!).filter((type) => type !== 'terminal.title');
+    expect(leading.slice(0, 2)).toEqual(['session.attached', 'SNAPSHOT']);
     const bSnapshot = b!.client.snapshots[0]!.seq;
     expect(bSnapshot).toBeGreaterThan(0);
     expect(b!.client.outputSeqs[0]).toBeGreaterThan(bSnapshot);

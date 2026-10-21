@@ -102,6 +102,12 @@ describe('bay repository (user-scoped)', () => {
         serverDeleted: true, // inserted without a server: as after the server's deletion
       });
       expect(bay.sessions.find((s) => s.label === 'api')?.serverDeleted).toBe(false);
+      // Desktop notifications: off unless the owner turned them on.
+      expect(bay.sessions.find((s) => s.label === 'api')?.notify).toBe(false);
+      sqlite.prepare("UPDATE sessions SET notify = 1 WHERE label = 'odd'").run();
+      expect(listBaySessions(t.rt.db, alice).sessions.find((s) => s.label === 'odd')?.notify).toBe(
+        true,
+      );
       expect(JSON.stringify(bay)).not.toContain('bob');
       expect(countServers(t.rt.db, alice)).toBe(1);
       expect(listBaySessions(t.rt.db, randomUUID()).sessions).toEqual([]);
@@ -153,6 +159,7 @@ describe('lanes', () => {
   const s = (id: string, status: 'connected' | 'action_required' | 'ended' | 'reconnecting') => ({
     id,
     label: id,
+    notify: false,
     status,
     protection: null,
     kind: 'ssh' as const,

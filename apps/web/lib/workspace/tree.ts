@@ -26,6 +26,11 @@ export type LayoutAction =
   | { type: 'openTab'; tabId: string; paneId: string; sessionId: string | null }
   | { type: 'closeTab'; tabId: string }
   | { type: 'activateTab'; tabId: string }
+  /**
+   * Moves a tab to `toIndex` in the resulting order (clamped to the row); the active tab and
+   * every split tree stay as they are.
+   */
+  | { type: 'moveTab'; tabId: string; toIndex: number }
   | { type: 'focusPane'; tabId: string; paneId: string }
   /** Moves the focus to the next (+1) or previous (−1) pane of the active tab, wrapping. */
   | { type: 'focusAdjacent'; offset: 1 | -1 }
@@ -287,6 +292,17 @@ function closeTab(layout: WorkspaceLayout, tabId: string): WorkspaceLayout {
   return { ...layout, tabs, activeTabId };
 }
 
+/** An unknown tab, or one already at that place, leaves the same layout (nothing to save). */
+function moveTab(layout: WorkspaceLayout, tabId: string, toIndex: number): WorkspaceLayout {
+  const from = layout.tabs.findIndex((t) => t.id === tabId);
+  if (from < 0 || Number.isNaN(toIndex)) return layout;
+  const to = Math.min(layout.tabs.length - 1, Math.max(0, Math.trunc(toIndex)));
+  if (to === from) return layout;
+  const tabs = layout.tabs.filter((t) => t.id !== tabId);
+  tabs.splice(to, 0, layout.tabs[from]!);
+  return { ...layout, tabs };
+}
+
 function focusPane(layout: WorkspaceLayout, tabId: string, paneId: string): WorkspaceLayout {
   const tab = layout.tabs.find((t) => t.id === tabId);
   if (!tab || !findLeaf(tab.root, paneId)) return layout;
@@ -321,6 +337,8 @@ export function layoutReducer(layout: WorkspaceLayout, action: LayoutAction): Wo
       return layout.activeTabId !== action.tabId && layout.tabs.some((t) => t.id === action.tabId)
         ? { ...layout, activeTabId: action.tabId }
         : layout;
+    case 'moveTab':
+      return moveTab(layout, action.tabId, action.toIndex);
     case 'focusPane':
       return focusPane(layout, action.tabId, action.paneId);
     case 'focusAdjacent': {

@@ -175,7 +175,8 @@
         <li>Divida uma aba com <strong>Dividir à direita</strong> e <strong>Dividir abaixo</strong>, e arraste a divisória para ajustar. <strong>Abrir em uma nova aba</strong> fica no menu da sessão.</li>
         <li>Arraste a linha entre a lista de sessões e a área de trabalho para alargar ou estreitar a lista. Para estreitar o terminal sem dividir a aba, arraste a borda esquerda ou direita da área do terminal. Um duplo clique em qualquer uma dessas bordas a devolve ao lugar. Essas larguras valem para todas as abas e ficam guardadas só neste navegador.</li>
         <li>Renomeie pelo menu da sessão ou com clique duplo na aba. Todos que veem a sessão veem o nome novo.</li>
-        <li>Abas, divisões e tamanhos ficam guardados no Termavox e voltam em qualquer navegador em que você entrar.</li>
+        <li>Arraste uma aba para o lado para mudar a ordem das abas; perto das pontas, a fileira rola sozinha. <kbd>Esc</kbd> devolve a aba ao lugar.</li>
+        <li>Abas, a ordem delas, divisões e tamanhos ficam guardados no Termavox e voltam em qualquer navegador em que você entrar.</li>
       </ul>
       <div class="table table-stack keys">
         <table>
@@ -184,12 +185,34 @@
             <tr><th scope="row"><span class="combo"><kbd>Ctrl</kbd>+<kbd>K</kbd> ou <kbd>⌘</kbd>+<kbd>K</kbd></span></th><td><span class="cell-label">Faz</span>Buscar uma sessão ou iniciar uma nova (com o foco fora do terminal).</td></tr>
             <tr><th scope="row"><span class="combo"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> ou <kbd>⌘</kbd>+<kbd>⇧</kbd>+<kbd>K</kbd></span></th><td><span class="cell-label">Faz</span>O mesmo, de dentro do terminal, onde <kbd>Ctrl</kbd>+<kbd>K</kbd> pertence ao shell.</td></tr>
             <tr><th scope="row"><span class="combo"><kbd>↑</kbd> <kbd>↓</kbd> <kbd>Enter</kbd> <kbd>Esc</kbd></span></th><td><span class="cell-label">Faz</span>Na busca: mover, abrir, fechar.</td></tr>
+            <tr><th scope="row"><span class="combo"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>←</kbd> ou <kbd>→</kbd></span></th><td><span class="cell-label">Faz</span>Com uma aba em foco: mover a aba uma posição para a esquerda ou para a direita.</td></tr>
           </tbody>
         </table>
       </div>
       <aside class="note note-info">
         <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#info"/></svg>
         <div class="note-body"><p class="note-title">Com o terminal em foco, as teclas são do terminal</p><p>Fora o atalho da busca, nada do Termavox intercepta o teclado dentro de um terminal.</p></div>
+      </aside>
+    </section>
+
+    <section class="sec" id="notifications" data-group="No dia a dia">
+      <h2>Notificações na área de trabalho</h2>
+      <p>O Termavox pode avisar quando uma sessão toca o sino do terminal, por exemplo quando um processo longo ou o Claude Code termina, enquanto você olha para outra coisa.</p>
+      <ul>
+        <li>No computador, ligue <strong>Notificações na área de trabalho</strong> no menu da sessão. Na primeira vez, o navegador pergunta se o Termavox pode mostrar notificações: permita. A escolha fica guardada na sessão, em qualquer navegador; um navegador que ainda não foi consultado mostra <strong>Permitir neste navegador</strong> no mesmo menu.</li>
+        <li>Um sininho depois do nome da sessão, na lista, indica que as notificações dela estão ligadas.</li>
+        <li>A notificação chega quando o terminal toca o sino e você não está olhando para aquela sessão: outra aba ou outro painel está na frente, ou a janela está em segundo plano ou minimizada. Ela mostra o nome da sessão e o título do terminal, nunca a saída. Um clique nela traz a janela e a sessão para a frente.</li>
+        <li>Só as sessões abertas em uma aba avisam, e só enquanto uma página do Termavox estiver aberta no navegador (minimizada serve). O celular não mostra essas notificações.</li>
+        <li>O título da janela do navegador acompanha a aba da frente: o nome da sessão e o título do terminal. Ele começa com 🔔 enquanto houver um sino que você ainda não viu.</li>
+      </ul>
+      <h3 id="ring-the-bell">Como fazer um programa tocar o sino</h3>
+      <ul>
+        <li><strong>Claude Code:</strong> no servidor onde ele roda, acrescente <code>"preferredNotifChannel": "terminal_bell"</code> ao <code>~/.claude/settings.json</code>, ou escolha o sino do terminal em <strong>Local notifications</strong> no <code>/config</code>. Assim ele toca quando termina uma tarefa ou espera a sua permissão.</li>
+        <li><strong>Qualquer comando:</strong> acrescente <code>; tput bel</code> depois dele, como em <code>make release; tput bel</code>.</li>
+      </ul>
+      <aside class="note note-info">
+        <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#info"/></svg>
+        <div class="note-body"><p class="note-title">O menu diz que o navegador bloqueia as notificações</p><p>Permita as notificações deste site nas configurações do site do navegador, pelo ícone ao lado do endereço, e recarregue a página.</p></div>
       </aside>
     </section>
 

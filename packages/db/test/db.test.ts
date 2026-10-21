@@ -134,3 +134,48 @@ describe('tmux_term (plan D-49)', () => {
     ]);
   });
 });
+
+describe('sessions.notify', () => {
+  it('is NOT NULL DEFAULT false, added by migration 0003: existing and new rows read off', () => {
+    const db = withUser();
+    const columns = db.$client.prepare('PRAGMA table_info(sessions)').all() as Array<{
+      name: string;
+      type: string;
+      notnull: number;
+      dflt_value: unknown;
+    }>;
+    const column = columns.find((c) => c.name === 'notify');
+    expect(column).toEqual(expect.objectContaining({ notnull: 1, dflt_value: 'false' }));
+    expect(column?.type.toLowerCase()).toBe('integer');
+    db.insert(schema.servers).values(server({})).run();
+    const session = {
+      userId: 'u1',
+      serverId: 's1',
+      targetKind: 'ssh' as const,
+      targetHostname: 'example',
+      targetPort: 22,
+      targetUsername: 'deploy',
+      term: 'xterm-256color',
+      scrollbackLines: 5000,
+      label: 'x',
+      desiredState: 'running' as const,
+      state: 'new',
+      status: 'connecting',
+      tmuxToken: 'abcdefghijkl',
+      cols: 80,
+      rows: 24,
+      createdAt: new Date(),
+    };
+    db.insert(schema.sessions)
+      .values({ ...session, id: 'x1' })
+      .run();
+    db.insert(schema.sessions)
+      .values({ ...session, id: 'x2', notify: true })
+      .run();
+    const rows = db.$client.prepare('SELECT id, notify FROM sessions ORDER BY id').all();
+    expect(rows).toEqual([
+      { id: 'x1', notify: 0 },
+      { id: 'x2', notify: 1 },
+    ]);
+  });
+});

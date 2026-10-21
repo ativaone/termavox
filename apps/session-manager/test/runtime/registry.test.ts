@@ -85,6 +85,32 @@ describe('SessionRegistry session.upsert', () => {
     await registry.shutdown();
   });
 
+  it('publishes an edit (label, notify) to the owner; the live runtime follows it', async () => {
+    const { store, notifier, registry } = registryWith();
+    const upserts = (): SessionSummary[] => notifier.ofType('session.upsert').map((m) => m.session);
+    registry.create(store.add(makeRecord({ id: 's1' })));
+    // Not in the store: its runtime's copy follows the edit, and the summaries it publishes
+    // itself (the record fallback) carry the new values.
+    registry.create(makeRecord({ id: 'unlisted' }));
+    await registry.updated('unlisted', 'user-1', { label: 'renamed', notify: true });
+    expect(registry.host('unlisted')?.label).toBe('renamed');
+    expect(registry.host('unlisted')?.notify).toBe(true);
+    await until(() =>
+      upserts().some((s) => s.id === 'unlisted' && s.label === 'renamed' && s.notify),
+    );
+    // Another user's edit never reaches the runtime.
+    await registry.updated('unlisted', 'user-2', { notify: false });
+    expect(registry.host('unlisted')?.notify).toBe(true);
+
+    await until(() => registry.host('s1')?.state === 'ready');
+    // The store committed the change first (internal API edit); the registry publishes it.
+    store.records.get('s1')!.notify = true;
+    await registry.updated('s1', 'user-1', { notify: true });
+    expect(SessionSummary.parse(upserts().at(-1))).toMatchObject({ id: 's1', notify: true });
+    expect(notifier.messages.at(-1)?.userId).toBe('user-1');
+    await registry.shutdown();
+  });
+
   it("keeps a failed session's reason in the list (statusDetail), also after a restart", async () => {
     const { store, registry } = registryWith(() => ({
       connect: async () => {

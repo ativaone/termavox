@@ -14,6 +14,7 @@ import type { BayData, BaySession } from '../sessions/types.ts';
 interface SessionRow {
   id: string;
   label: string;
+  notify: number;
   status: string;
   protection: string | null;
   kind: string;
@@ -26,7 +27,8 @@ interface SessionRow {
 }
 
 const SELECT = `
-  SELECT s.id, s.label, s.status, s.protection_effective AS protection, s.target_kind AS kind,
+  SELECT s.id, s.label, s.notify, s.status, s.protection_effective AS protection,
+         s.target_kind AS kind,
          s.target_username AS username, s.target_hostname AS hostname, s.target_port AS port,
          s.server_id IS NULL AS server_deleted, s.created_at, s.ended_at
   FROM sessions s`;
@@ -37,6 +39,7 @@ function toBaySession(row: SessionRow): BaySession {
   return {
     id: row.id,
     label: row.label,
+    notify: row.notify !== 0,
     // An unknown status is shown as Disconnected rather than overstated as healthy.
     status: status.success ? status.data : 'disconnected',
     protection: protection.success ? protection.data : null,

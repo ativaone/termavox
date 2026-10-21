@@ -116,9 +116,23 @@ upgraded: remove it together with its volumes and install fresh from a new clone
   a plain terminal (Ctrl+End in vim, for example) at the risk of an imperfect screen after a
   restart. It applies to new sessions. Protected sessions now also set `COLORTERM=truecolor`, so
   programs use 24-bit color, unless the server's environment variables set COLORTERM.
+- Tabs can be reordered: drag a tab along the tab row (the row scrolls near its ends, Esc puts
+  it back), or press Ctrl+Shift+← or → with the tab focused. The order is saved with the layout
+  and comes back in any browser.
+- Desktop notifications per session: turn on "Desktop notifications" in a session's menu (on a
+  computer), and when its terminal rings the bell while you are looking elsewhere, the browser
+  shows a notification with the session's name and terminal title; clicking it brings the
+  session to the front. The choice is stored on the session; only sessions open in a tab notify,
+  while a Termavox page is open. Claude Code rings the bell when it finishes or waits for you
+  with `"preferredNotifChannel": "terminal_bell"` in its settings on the server.
+- The browser window's title follows the tab in front (the session's name and terminal title),
+  and starts with 🔔 while a bell you have not seen is waiting.
 
 ### Fixed
 
+- A tab brought back to the front shows the terminal's current title: a title set while the tab
+  was in the background (Claude Code's status, for one) no longer stays stale until the program
+  sets it again.
 - Home and End in protected sessions: programs inside the session's tmux now get them as their
   terminal reads them. Before, vim in insert mode took End for a new line with an "F" in it, and
   Home for one with an "H".

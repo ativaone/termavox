@@ -12,7 +12,6 @@ import {
   ListSessionsQuery,
   RemoveEndedSessionsRequest,
   RenameCredentialRequest,
-  RenameSessionRequest,
   ReplaceHostKeyRequest,
   RevokeAuthSessionsRequest,
   RevokeHostKeyRequest,
@@ -23,6 +22,7 @@ import {
   TerminateRemoteSessionRequest,
   TerminateUserSessionsRequest,
   TrustHostKeyRequest,
+  UpdateSessionRequest,
 } from '@termavox/protocol';
 import { ErrorCode, normalizeHostname, TermavoxError } from '@termavox/shared';
 import type { z } from 'zod';
@@ -33,6 +33,7 @@ import type {
   CredentialProvider,
   HostKeyTarget,
   OwnershipCheck,
+  SessionDisplayChange,
   SessionRecord,
 } from '../core/types.ts';
 import { isAdmin, requireActingUser } from '../store/access.ts';
@@ -77,8 +78,8 @@ export interface SessionControl {
   /** Deletes every ended session of the user (plan D-32); resolves with how many. */
   removeEnded(userId: string): Promise<number>;
   reopen(sessionId: string, actingUserId: string): Promise<{ sessionId: string }>;
-  /** The stored label changed: update the live runtime and publish it to the owner. */
-  renamed(sessionId: string, userId: string, label: string): Promise<void>;
+  /** The stored label or notification flag changed: update the live runtime, publish it. */
+  updated(sessionId: string, userId: string, change: SessionDisplayChange): Promise<void>;
   listForUser(userId: string): Promise<SessionSummary[]>;
   host(sessionId: string): { readonly attachmentCount: number } | undefined;
   readonly size: number;
@@ -378,7 +379,7 @@ export class InternalApi {
       {
         method: 'PATCH',
         pattern: path(`/sessions/${ID}`),
-        handler: (c) => this.#renameSession(c),
+        handler: (c) => this.#updateSession(c),
       },
       {
         method: 'POST',
@@ -497,19 +498,32 @@ export class InternalApi {
   }
 
   /**
-   * Rename (D-28): `{ actingUserId, label }` → `200 { sessionId, label }` with the label as
-   * stored. Any state, ended included. LABEL_INVALID (400) when the cleaned label is empty or too
-   * long; a foreign session is 404. Every connection of the owner gets a `session.upsert`.
+   * Edit: `{ actingUserId, label?, notify? }` (at least one, else 400 BAD_REQUEST) →
+   * `200 { sessionId, label, notify }` as stored. Any state, ended included; a missing or foreign
+   * session is 404. `label` renames it (D-28): cleaned, LABEL_INVALID (400) when empty or too
+   * long once cleaned (checked before anything is written), audited as `session.rename`.
+   * `notify` turns the session's desktop notifications on or off (browser-side, for the bell):
+   * a display preference, not audited. When something actually changed, every connection of the
+   * owner gets a `session.upsert`.
    */
-  async #renameSession(ctx: RequestContext): Promise<Reply> {
-    const body = parse(RenameSessionRequest, ctx.body);
-    const label = sessionLabel(body.label);
+  async #updateSession(ctx: RequestContext): Promise<Reply> {
+    const body = parse(UpdateSessionRequest, ctx.body);
+    const label = body.label === undefined ? undefined : sessionLabel(body.label);
     const sessionId = ctx.params[0]!;
-    const { previous } = await this.#options.sessions.rename(body.actingUserId, sessionId, label);
-    if (previous !== label) {
-      await this.#options.registry.renamed(sessionId, body.actingUserId, label);
+    const stored = await this.#options.sessions.edit(body.actingUserId, sessionId, {
+      label,
+      notify: body.notify,
+    });
+    if (stored.labelChanged || stored.notifyChanged) {
+      await this.#options.registry.updated(sessionId, body.actingUserId, {
+        ...(stored.labelChanged ? { label: stored.label } : {}),
+        ...(stored.notifyChanged ? { notify: stored.notify } : {}),
+      });
     }
-    return { status: 200, body: { sessionId, label } };
+    return {
+      status: 200,
+      body: { sessionId, label: stored.label, notify: stored.notify },
+    };
   }
 
   async #sessionAction(

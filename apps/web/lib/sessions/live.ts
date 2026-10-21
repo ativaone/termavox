@@ -20,6 +20,7 @@ export function toBaySession(summary: LiveSummary): BaySession {
   return {
     id: summary.id,
     label: summary.label,
+    notify: summary.notify,
     status: retrying && attempting ? 'reconnecting' : summary.status,
     protection: summary.protection,
     kind: summary.kind,

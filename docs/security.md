@@ -540,6 +540,13 @@ Remote programs control what they print, so the browser treats terminal output a
   change of the terminal, and focus-out only by the active viewer.
 - **Titles.** Window titles are stripped of control characters and invisible formatting and cut
   to 256 characters by the daemon, and cleaned again by the browser.
+- **Bell and desktop notifications.** A bell only marks a tab, unless the session's desktop
+  notifications are on: then the browser shows a system notification holding the session's
+  label and its cleaned terminal title, never output, at most once per session every 5 seconds,
+  and clicking it only brings that session to the front. For such a session the daemon relays
+  the bell, with the terminal's sanitized title, to its owner's connections only, once a second
+  at most. The browser asks for permission only when the user turns the option on. OSC 9, 99 and 777 notifications, whose text the remote
+  chooses, are not shown. The operating system may keep the notification's text in its list.
 - Terminal output is never interpreted as HTML; no escape sequence reaches the DOM.
 
 ### Content-Security-Policy and headers

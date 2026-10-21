@@ -228,7 +228,7 @@ describe('browser terminal client against the real daemon (no-tmux)', () => {
       actingUserId: userId,
       label: ' web\u202E box\u200B ',
     });
-    expect(renamed).toEqual({ status: 200, json: { sessionId, label: 'web box' } });
+    expect(renamed).toEqual({ status: 200, json: { sessionId, label: 'web box', notify: false } });
     const label = () => connection.getSnapshot().sessions.find((s) => s.id === sessionId)?.label;
     await until(() => label() === 'web box', 5_000, 'renamed in the client store');
     await second.next(
@@ -239,5 +239,35 @@ describe('browser terminal client against the real daemon (no-tmux)', () => {
     // Same socket, still attached and live: a rename touches nothing but the name.
     expect(connection.getSnapshot().status).toBe('open');
     expect(channel.getSnapshot().phase).toBe('live');
+  });
+
+  it('turning desktop notifications on reaches the client store and the other connection (D-52)', async () => {
+    const changed = await fixture.api(daemon, 'PATCH', `/sessions/${sessionId}`, {
+      actingUserId: userId,
+      notify: true,
+    });
+    expect(changed).toEqual({ status: 200, json: { sessionId, label: 'web box', notify: true } });
+    const notify = () => connection.getSnapshot().sessions.find((s) => s.id === sessionId)?.notify;
+    await until(() => notify() === true, 5_000, 'notify on in the client store');
+    await second.next(
+      (m) =>
+        m.type === 'session.upsert' &&
+        (m as { session?: { id: string; notify: boolean } }).session?.notify === true,
+    );
+    expect(channel.getSnapshot().phase).toBe('live');
+  });
+
+  it('the bell of a notify-on session reaches the browser as session.bell, attached or not', async () => {
+    const heard: string[] = [];
+    const stop = connection.subscribeBells((bell) => heard.push(bell.sessionId));
+    // Another connection of the user that shows no pane of it (a session in a background tab).
+    const watcher = await fixture.connect(daemon, userId, asid);
+    channel.input("printf 'web-%s\\a\\n' bell\r");
+    await shows(/^web-bell$/m);
+    await until(() => heard.includes(sessionId), 5_000, 'session.bell in the browser');
+    await watcher.next(
+      (m) => m.type === 'session.bell' && (m as { sessionId?: string }).sessionId === sessionId,
+    );
+    stop();
   });
 });

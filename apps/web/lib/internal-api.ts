@@ -15,8 +15,6 @@ import {
   RemoveEndedSessionsRequest,
   RemoveEndedSessionsResponse,
   RenameCredentialRequest,
-  RenameSessionRequest,
-  RenameSessionResponse,
   ReplaceHostKeyRequest,
   RevokeAuthSessionsRequest,
   RevokeHostKeyRequest,
@@ -29,6 +27,8 @@ import {
   TerminateUserSessionsRequest,
   TerminateUserSessionsResponse,
   TrustHostKeyRequest,
+  UpdateSessionRequest,
+  UpdateSessionResponse,
 } from '@termavox/protocol';
 import type { z } from 'zod';
 import { loadWebConfig, readSecretFileSync } from './config.ts';
@@ -120,6 +120,8 @@ export type ServerTestResult = z.infer<typeof ServerTestResponse>;
 export type LiveSessions = z.infer<typeof ListSessionsResponse>;
 export type RemoteSessionInfo = z.infer<typeof RemoteSession>;
 export type RemoteSessionList = z.infer<typeof ListRemoteSessionsResponse>;
+/** A session as stored after an edit: its label and whether its bell notifies. */
+export type StoredSession = z.infer<typeof UpdateSessionResponse>;
 
 export class InternalApiClient {
   readonly #base: string;
@@ -178,9 +180,19 @@ export class InternalApiClient {
     sessionId: string,
     actingUserId: string,
     label: string,
-  ): Promise<{ sessionId: string; label: string }> {
-    const body = request(RenameSessionRequest, { actingUserId, label });
-    return this.#call('PATCH', `/sessions/${seg(sessionId)}`, body, RenameSessionResponse);
+  ): Promise<StoredSession> {
+    const body = request(UpdateSessionRequest, { actingUserId, label });
+    return this.#call('PATCH', `/sessions/${seg(sessionId)}`, body, UpdateSessionResponse);
+  }
+
+  /** Turns a session's desktop notifications on or off (any state); resolves with the session. */
+  async setSessionNotify(
+    sessionId: string,
+    actingUserId: string,
+    notify: boolean,
+  ): Promise<StoredSession> {
+    const body = request(UpdateSessionRequest, { actingUserId, notify });
+    return this.#call('PATCH', `/sessions/${seg(sessionId)}`, body, UpdateSessionResponse);
   }
 
   async listSessions(actingUserId: string): Promise<LiveSessions> {

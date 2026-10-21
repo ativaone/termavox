@@ -10,7 +10,14 @@ import {
   type UserNotifier,
 } from './session-runtime.ts';
 import type { TransportFactory } from './transport-factory.ts';
-import type { FileHost, HostKeyStore, SessionHost, SessionRecord, SessionStore } from './types.ts';
+import type {
+  FileHost,
+  HostKeyStore,
+  SessionDisplayChange,
+  SessionHost,
+  SessionRecord,
+  SessionStore,
+} from './types.ts';
 
 /** Boot restore (plan §5.8): at most 4 connects at once, spaced per host. */
 export const RESTORE_CONCURRENCY = 4;
@@ -383,14 +390,15 @@ export class SessionRegistry {
   }
 
   /**
-   * The stored label of a session changed (internal API rename; the store checked ownership and
-   * committed it): its loaded runtime, if any, takes the new label, and every connection of the
-   * owner gets a `session.upsert`, so lists and tabs follow without a reload. A session with no
-   * runtime (ended and evicted, or never attached since boot) is only published.
+   * The stored label or notification flag of a session changed (internal API edit; the store
+   * checked ownership and committed it, and `change` holds only what changed): its loaded
+   * runtime, if any, takes the new values, and every connection of the owner gets a
+   * `session.upsert`, so lists, tabs and every browser's notifications follow without a reload.
+   * A session with no runtime (ended and evicted, or never attached since boot) is only published.
    */
-  async renamed(sessionId: string, userId: string, label: string): Promise<void> {
+  async updated(sessionId: string, userId: string, change: SessionDisplayChange): Promise<void> {
     const runtime = this.#runtimes.get(sessionId);
-    if (runtime?.userId === userId) runtime.setLabel(label);
+    if (runtime?.userId === userId) runtime.setDisplay(change);
     await this.#publish(sessionId, userId, null);
   }
 
@@ -605,8 +613,9 @@ export class SessionRegistry {
     const runtime = this.#runtimes.get(record.id);
     return {
       id: record.id,
-      // The runtime's copy follows renames; `record` is the one the runtime was spawned from.
+      // The runtime's copy follows edits; `record` is the one the runtime was spawned from.
       label: runtime?.label ?? record.label,
+      notify: runtime?.notify ?? record.notify,
       serverId: record.serverId,
       // The server's name is not part of the record: the snapshotted hostname stands in, as for
       // a session whose server is gone.

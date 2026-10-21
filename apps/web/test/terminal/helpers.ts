@@ -185,6 +185,7 @@ export function summary(id: string, extra: Partial<SessionSummary> = {}): Sessio
   return {
     id,
     label: `session ${id}`,
+    notify: false,
     serverId: null,
     serverName: 'host',
     kind: 'ssh',

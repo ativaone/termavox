@@ -215,6 +215,9 @@
       "bell": "bell rang",
       "closeLabel": "Close tab {label}. Sessions keep running.",
       "renameHint": "Double-click to rename",
+      "renameMoveHint": "Double-click to rename. Drag to reorder.",
+      "moveHint": "Drag to reorder",
+      "moved": "Tab moved to position {position} of {count}",
       "renameLabel": "Rename {label}",
       "splitRight": "Split right",
       "splitDown": "Split down"
@@ -444,6 +447,14 @@
       "tabLimit": "You have 32 tabs open. Close one to open another.",
       "paneLimit": "This tab can't hold more panes. Open the session in a new tab instead.",
       "actionFailed": "Couldn't reach Termavox. Reload the page and try again."
+    },
+    "notify": {
+      "menuItem": "Desktop notifications",
+      "on": "Desktop notifications on",
+      "blocked": "Your browser blocks notifications from Termavox. To get them, allow notifications in the site settings, next to the address bar.",
+      "unsupported": "This browser can't show desktop notifications.",
+      "allowHere": "Allow in this browser",
+      "bellBody": "The terminal rang its bell."
     },
     "remoteSessions": {
       "title": "Sessions found on {server}",

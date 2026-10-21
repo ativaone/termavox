@@ -138,6 +138,8 @@ export const sessions = sqliteTable(
       .notNull()
       .default('auto'),
     label: text('label').notNull(),
+    // Desktop notifications when the terminal rings its bell (a display preference of the owner).
+    notify: integer('notify', { mode: 'boolean' }).notNull().default(false),
     desiredState: text('desired_state', { enum: ['running', 'terminated'] }).notNull(),
     state: text('state').notNull(),
     status: text('status').notNull(),

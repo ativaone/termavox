@@ -346,6 +346,52 @@ describe('workspace layout reducer', () => {
     expect(layoutReducer(tabs, { type: 'closeTab', tabId: 't3' }).activeTabId).toBe('t1');
   });
 
+  describe('moving a tab', () => {
+    /** Tabs t1…t5 in order, t3 active. */
+    const row = apply(
+      [
+        { type: 'openTab', tabId: 't2', paneId: 'p2', sessionId: 's2' },
+        { type: 'openTab', tabId: 't3', paneId: 'p3', sessionId: 's3' },
+        { type: 'openTab', tabId: 't4', paneId: 'p4', sessionId: null },
+        { type: 'openTab', tabId: 't5', paneId: 'p5', sessionId: 's5' },
+        { type: 'activateTab', tabId: 't3' },
+      ],
+      single,
+    );
+    const order = (layout: WorkspaceLayout) => layout.tabs.map((t) => t.id);
+    const move = (tabId: string, toIndex: number) =>
+      layoutReducer(row, { type: 'moveTab', tabId, toIndex });
+
+    it('moves forward and backward to the index in the resulting order', () => {
+      expect(order(row)).toEqual(['t1', 't2', 't3', 't4', 't5']);
+      expect(order(move('t2', 3))).toEqual(['t1', 't3', 't4', 't2', 't5']);
+      expect(order(move('t4', 0))).toEqual(['t4', 't1', 't2', 't3', 't5']);
+      expect(order(move('t3', 3))).toEqual(['t1', 't2', 't4', 't3', 't5']);
+      expect(WorkspaceLayout.safeParse(move('t2', 3)).success).toBe(true);
+    });
+
+    it('clamps the index to both ends of the row', () => {
+      expect(order(move('t2', 99))).toEqual(['t1', 't3', 't4', 't5', 't2']);
+      expect(order(move('t4', -3))).toEqual(['t4', 't1', 't2', 't3', 't5']);
+      expect(order(move('t3', Number.POSITIVE_INFINITY))).toEqual(['t1', 't2', 't4', 't5', 't3']);
+    });
+
+    it('keeps the active tab and every tab untouched', () => {
+      const moved = move('t3', 0);
+      expect(moved.activeTabId).toBe('t3');
+      expect(move('t1', 4).activeTabId).toBe('t3');
+      for (const tab of moved.tabs) expect(tab).toBe(row.tabs.find((t) => t.id === tab.id));
+    });
+
+    it('returns the same layout for an unknown tab or an unchanged place (nothing to save)', () => {
+      expect(move('nope', 2)).toBe(row);
+      expect(move('t3', 2)).toBe(row);
+      expect(move('t5', 7)).toBe(row); // clamped to its own place
+      expect(move('t1', -1)).toBe(row);
+      expect(move('t2', Number.NaN)).toBe(row);
+    });
+  });
+
   it('normalizes stored layouts: dangling active ids, sizes, single-child splits', () => {
     const stored: WorkspaceLayout = {
       version: 1,

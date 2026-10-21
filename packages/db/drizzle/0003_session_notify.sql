@@ -1,0 +1,1 @@
+ALTER TABLE `sessions` ADD `notify` integer DEFAULT false NOT NULL;

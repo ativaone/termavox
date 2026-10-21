@@ -94,14 +94,17 @@ export function TerminalPane({
   useEffect(() => {
     activeRef.current = active;
   }, [active]);
-  const { setPaneMeta } = ws;
+  const { setPaneMeta, ringBell } = ws;
   const onTitle = useCallback(
     (title: string) => setPaneMeta(paneId, { title: cleanTitle(title) }),
     [setPaneMeta, paneId],
   );
-  const onBell = useCallback(() => {
-    if (!activeRef.current || !document.hasFocus()) setPaneMeta(paneId, { bell: true });
-  }, [setPaneMeta, paneId]);
+  // The shell decides what a bell does (tab mark, window title); desktop notifications come from
+  // the daemon's `session.bell` instead, which also reaches sessions in background tabs.
+  const onBell = useCallback(
+    () => ringBell({ paneId, sessionId, active: activeRef.current }),
+    [ringBell, paneId, sessionId],
+  );
 
   // An image pasted without text goes to the session's server and its path is pasted (plan
   // D-48), through the file panel's upload: only where that panel is allowed, one at a time,

@@ -16,6 +16,11 @@ export type RenameSessionResult =
   | { ok: true; sessionId: string; label: string }
   | SessionActionFailure;
 
+/** Outcome of `setSessionNotify`: on success, the flag as the daemon stored it. */
+export type SessionNotifyResult =
+  | { ok: true; sessionId: string; notify: boolean }
+  | SessionActionFailure;
+
 /** Outcome of `terminateAllSessions` ("End all sessions", D-30): how many started ending. */
 export type TerminateAllResult = { ok: true; terminated: number } | SessionActionFailure;
 

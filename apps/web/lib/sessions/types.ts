@@ -4,6 +4,8 @@ import type { Protection, SessionStatus } from '@termavox/protocol/client';
 export interface BaySession {
   id: string;
   label: string;
+  /** The owner turned on desktop notifications for its bell (stored on the session). */
+  notify: boolean;
   status: SessionStatus;
   /** Effective protection; null until the session has started once. */
   protection: Protection | null;

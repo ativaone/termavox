@@ -53,7 +53,10 @@ describe('session rename through the daemon wiring (D-28)', () => {
       actingUserId: owner,
       label: ' deploy⁦ watcher ',
     });
-    expect(renamed).toEqual({ status: 200, json: { sessionId, label: 'deploy watcher' } });
+    expect(renamed).toEqual({
+      status: 200,
+      json: { sessionId, label: 'deploy watcher', notify: false },
+    });
     // Both open connections get it on the socket they already had: no reconnect, no reload.
     for (const client of [first, second]) {
       const upsert = await client.next(
@@ -89,5 +92,46 @@ describe('session rename through the daemon wiring (D-28)', () => {
     const later = await connect(owner);
     const list = await later.next((m): m is List => m.type === 'sessions.list');
     expect(list.sessions.find((s) => s.id === sessionId)?.label).toBe('deploy watcher');
+  });
+
+  it("publishes the desktop notification flag the same way, to the owner's connections only", async () => {
+    const { db } = daemon;
+    const owner = insertUser(db);
+    const other = insertUser(db);
+    const serverId = insertServer(db, owner, { name: 'claude box' });
+    const created = await fixture.api(daemon, 'POST', '/sessions', {
+      actingUserId: owner,
+      serverId,
+      viewport: VIEWPORT,
+    });
+    const sessionId = created.json?.sessionId as string;
+    const runtime = () => daemon.plane.registry.host(sessionId);
+    await until(() => runtime()?.state === 'failed', 5_000);
+    expect(runtime()?.notify).toBe(false);
+
+    const connect = (userId: string) =>
+      fixture.connect(daemon, userId, insertAuthSession(db, userId, Date.now() + 3_600_000));
+    const first = await connect(owner);
+    const second = await connect(owner);
+    const stranger = await connect(other);
+
+    const on = await fixture.api(daemon, 'PATCH', `/sessions/${sessionId}`, {
+      actingUserId: owner,
+      notify: true,
+    });
+    expect(on).toEqual({ status: 200, json: { sessionId, label: 'claude box', notify: true } });
+    for (const client of [first, second]) {
+      const upsert = await client.next(
+        (m): m is Upsert =>
+          m.type === 'session.upsert' && m.session.id === sessionId && m.session.notify,
+      );
+      expect(upsert.session).toMatchObject({ label: 'claude box', state: 'failed' });
+    }
+    expect(runtime()?.notify).toBe(true);
+    expect(stranger.messages.some((m) => m.type === 'session.upsert')).toBe(false);
+
+    const later = await connect(owner);
+    const list = await later.next((m): m is List => m.type === 'sessions.list');
+    expect(list.sessions.find((s) => s.id === sessionId)?.notify).toBe(true);
   });
 });

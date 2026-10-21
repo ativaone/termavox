@@ -5,6 +5,7 @@ import type { BaySession, SessionLabel } from '../lib/sessions/types.ts';
 const bay = (id: string, label: string, status: BaySession['status']): BaySession => ({
   id,
   label,
+  notify: false,
   status,
   protection: null,
   kind: 'ssh',

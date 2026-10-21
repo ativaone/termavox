@@ -215,6 +215,9 @@
       "bell": "sinal sonoro",
       "closeLabel": "Fechar a aba {label}. As sessões continuam rodando.",
       "renameHint": "Clique duas vezes para renomear",
+      "renameMoveHint": "Clique duas vezes para renomear. Arraste para reordenar.",
+      "moveHint": "Arraste para reordenar",
+      "moved": "Aba movida para a posição {position} de {count}",
       "renameLabel": "Renomear {label}",
       "splitRight": "Dividir à direita",
       "splitDown": "Dividir abaixo"
@@ -444,6 +447,14 @@
       "tabLimit": "Você tem 32 abas abertas. Feche uma para abrir outra.",
       "paneLimit": "Esta aba não comporta mais painéis. Abra a sessão em uma nova aba.",
       "actionFailed": "Não foi possível falar com o Termavox. Recarregue a página e tente de novo."
+    },
+    "notify": {
+      "menuItem": "Notificações na área de trabalho",
+      "on": "Notificações na área de trabalho ativadas",
+      "blocked": "O navegador está bloqueando as notificações do Termavox. Para recebê-las, permita as notificações nas configurações do site, ao lado da barra de endereço.",
+      "unsupported": "Este navegador não consegue mostrar notificações na área de trabalho.",
+      "allowHere": "Permitir neste navegador",
+      "bellBody": "O terminal tocou o sino."
     },
     "remoteSessions": {
       "title": "Sessões encontradas em {server}",

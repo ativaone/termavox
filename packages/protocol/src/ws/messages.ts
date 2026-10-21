@@ -71,6 +71,8 @@ export type ClientMessage = z.infer<typeof ClientMessage>;
 export const SessionSummary = z.object({
   id,
   label: z.string(),
+  // The owner turned on desktop notifications for the bell (browser-side, open tabs only).
+  notify: z.boolean(),
   serverId: id.nullable(), // null after the server was deleted (history)
   // The server's current name, or the snapshotted hostname once the server is gone.
   serverName: z.string(),
@@ -119,6 +121,13 @@ export const ServerMessage = z.discriminatedUnion('type', [
   z.object({ type: z.literal('sessions.list'), sessions: z.array(SessionSummary) }),
   z.object({ type: z.literal('session.upsert'), session: SessionSummary }),
   z.object({ type: z.literal('session.removed'), sessionId: id }),
+  /**
+   * The terminal of a session with desktop notifications on rang its bell. Sent to every
+   * connection of the owner, attached to it or not (browsers notify for a session in any of their
+   * tabs), at most once a second per session, with the terminal's current title (sanitized, null
+   * when none was set); `terminal.bell` still goes to its attachments.
+   */
+  z.object({ type: z.literal('session.bell'), sessionId: id, title: z.string().nullable() }),
   z.object({
     type: z.literal('session.status'),
     sessionId: id,

@@ -126,6 +126,9 @@ export function SessionList({
                     status={session.status}
                     protection={session.protection}
                     protectionLabel={t(`protection.${session.protection ?? 'pending'}`)}
+                    // Desktop only, like the notifications; an ended session cannot ring.
+                    notify={desktop && !ended && session.notify}
+                    notifyLabel={t('notify.on')}
                     time={ended ? formatAgoShort(endedAt, now, td) : uptime}
                     timeLabel={
                       ended

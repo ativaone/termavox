@@ -2,13 +2,13 @@
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
-import { renameSession } from '../../lib/actions/sessions.ts';
+import { renameSession, setSessionNotify } from '../../lib/actions/sessions.ts';
 import {
   TERMINAL_FONT_STACKS,
   TERMINAL_THEMES,
   type TerminalPreferences,
 } from '../../lib/preferences/terminal.ts';
-import type { RenameSessionResult } from '../../lib/sessions/action-result.ts';
+import type { RenameSessionResult, SessionNotifyResult } from '../../lib/sessions/action-result.ts';
 import type { TerminalAppearance } from '../../lib/terminal/xterm.ts';
 import { useWorkspace } from './workspace-context.tsx';
 
@@ -200,6 +200,36 @@ export function useRenameSession(): (
       if (result.ok) {
         if (previous !== undefined) connection.applyRename(sessionId, result.label, previous);
         else router.refresh();
+      }
+      return result;
+    },
+    [connection, router],
+  );
+}
+
+/**
+ * Turns a session's desktop notifications on or off from the workspace: calls the
+ * `setSessionNotify` Server Action (see its contract) and resolves with its result. On success
+ * this tab shows the stored flag at once (the menu's check, the row's mark, whether its bell
+ * notifies); every other browser of the user gets it through the daemon's `session.upsert`.
+ * Before the live session list has arrived, the server-rendered summaries are refreshed instead.
+ * The browser's permission is asked by the caller, inside the click (see the session menu).
+ */
+export function useSetSessionNotify(): (
+  sessionId: string,
+  notify: boolean,
+) => Promise<SessionNotifyResult> {
+  const { connection } = useWorkspace();
+  const router = useRouter();
+  return useCallback(
+    async (sessionId: string, notify: boolean) => {
+      const result = await setSessionNotify(sessionId, notify);
+      if (result.ok) {
+        if (connection.getSnapshot().sessions.some((s) => s.id === sessionId)) {
+          connection.applyNotify(sessionId, result.notify);
+        } else {
+          router.refresh();
+        }
       }
       return result;
     },

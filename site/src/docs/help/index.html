@@ -175,7 +175,8 @@
         <li>Split a tab with <strong>Split right</strong> and <strong>Split down</strong>, and drag the divider to adjust. <strong>Open in a new tab</strong> is in the session's menu.</li>
         <li>Drag the line between the session list and the workspace to widen or narrow the list. To narrow the terminal without a split, drag the left or right edge of the terminal area. Double-click any of these edges to put it back. These widths apply to every tab and are kept in this browser only.</li>
         <li>Rename a session from its menu, or double-click its tab. Everyone who sees the session sees the new name.</li>
-        <li>Tabs, splits and sizes are stored in Termavox and come back in any browser you sign in to.</li>
+        <li>Drag a tab sideways to change the order of the tabs; near either end the row scrolls. <kbd>Esc</kbd> puts it back.</li>
+        <li>Tabs, their order, splits and sizes are stored in Termavox and come back in any browser you sign in to.</li>
       </ul>
       <div class="table table-stack keys">
         <table>
@@ -184,12 +185,34 @@
             <tr><th scope="row"><span class="combo"><kbd>Ctrl</kbd>+<kbd>K</kbd> or <kbd>⌘</kbd>+<kbd>K</kbd></span></th><td><span class="cell-label">Does</span>Find a session or start a new one (with the focus outside the terminal).</td></tr>
             <tr><th scope="row"><span class="combo"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> or <kbd>⌘</kbd>+<kbd>⇧</kbd>+<kbd>K</kbd></span></th><td><span class="cell-label">Does</span>The same, from inside a terminal, where <kbd>Ctrl</kbd>+<kbd>K</kbd> belongs to the shell.</td></tr>
             <tr><th scope="row"><span class="combo"><kbd>↑</kbd> <kbd>↓</kbd> <kbd>Enter</kbd> <kbd>Esc</kbd></span></th><td><span class="cell-label">Does</span>In the finder: move, open, close.</td></tr>
+            <tr><th scope="row"><span class="combo"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>←</kbd> or <kbd>→</kbd></span></th><td><span class="cell-label">Does</span>With a tab focused: move it one place left or right.</td></tr>
           </tbody>
         </table>
       </div>
       <aside class="note note-info">
         <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#info"/></svg>
         <div class="note-body"><p class="note-title">With a terminal focused, the keys belong to the terminal</p><p>Apart from the finder shortcut, nothing in Termavox intercepts the keyboard inside a terminal.</p></div>
+      </aside>
+    </section>
+
+    <section class="sec" id="notifications" data-group="Day to day">
+      <h2>Desktop notifications</h2>
+      <p>Termavox can tell you when a session rings the terminal bell, for example when a long job or Claude Code finishes, while you are looking at something else.</p>
+      <ul>
+        <li>On a computer, turn on <strong>Desktop notifications</strong> in the session's menu. The first time, the browser asks whether Termavox may show notifications: allow it. The choice is kept with the session, in every browser; a browser that was never asked shows <strong>Allow in this browser</strong> in the same menu.</li>
+        <li>A small bell after the session's name in the list says its notifications are on.</li>
+        <li>A notification comes when the terminal rings its bell and you are not looking at that session: another tab or pane is in front, or the window is in the background or minimized. It shows the session's name and the terminal's title, never its output. Clicking it brings the window and the session to the front.</li>
+        <li>Only sessions open in a tab notify, and only while a Termavox page is open in the browser (minimized is fine). Phones don't show them.</li>
+        <li>The browser window's title follows the tab in front: the session's name and the terminal's title. It starts with 🔔 while a bell you have not seen is waiting.</li>
+      </ul>
+      <h3 id="ring-the-bell">Making a program ring the bell</h3>
+      <ul>
+        <li><strong>Claude Code:</strong> on the server where it runs, add <code>"preferredNotifChannel": "terminal_bell"</code> to <code>~/.claude/settings.json</code>, or pick the terminal bell under <strong>Local notifications</strong> in <code>/config</code>. It then rings when it finishes a task or waits for your permission.</li>
+        <li><strong>Any command:</strong> add <code>; tput bel</code> after it, as in <code>make release; tput bel</code>.</li>
+      </ul>
+      <aside class="note note-info">
+        <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#info"/></svg>
+        <div class="note-body"><p class="note-title">The menu says the browser blocks them</p><p>Allow notifications for this site in the browser's site settings, from the icon next to the address, and reload the page.</p></div>
       </aside>
     </section>
 

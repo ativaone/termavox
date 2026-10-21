@@ -31,10 +31,21 @@ export const CreateSessionRequest = z.object({
 });
 export const CreateSessionResponse = z.object({ sessionId: id });
 
-/** Renames a session of the acting user, in any state (ended included): it is only a name. */
-export const RenameSessionRequest = z.object({ actingUserId, label: SessionLabelInput });
-/** The label as stored (cleaned and trimmed). */
-export const RenameSessionResponse = z.object({ sessionId: id, label: z.string() });
+/**
+ * Changes a session of the acting user, in any state (ended included): its label (a rename, D-28)
+ * and/or whether its bell shows desktop notifications. At least one of the two.
+ */
+export const UpdateSessionRequest = z
+  .object({ actingUserId, label: SessionLabelInput.optional(), notify: z.boolean().optional() })
+  .refine((body) => body.label !== undefined || body.notify !== undefined, {
+    message: 'label or notify is required',
+  });
+/** The session as stored: the label cleaned and trimmed, and the notification flag. */
+export const UpdateSessionResponse = z.object({
+  sessionId: id,
+  label: z.string(),
+  notify: z.boolean(),
+});
 
 /** Body of terminate / retry / stop / reopen, of session removal, and of credential deletion. */
 export const ActingUserRequest = z.object({ actingUserId });

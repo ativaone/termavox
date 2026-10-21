@@ -88,6 +88,7 @@ describe('live bay', () => {
   ): SessionSummary => ({
     id,
     label: id,
+    notify: false,
     serverId: 'server-1',
     serverName: 'alpha',
     kind: 'ssh',

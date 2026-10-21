@@ -44,6 +44,7 @@ import {
   type HostKeyStore,
   type PresentedHostKey,
   type RemoteIdentity,
+  type SessionDisplayChange,
   type SessionHost,
   type SessionRecord,
   type SessionStore,
@@ -62,6 +63,8 @@ export const PROMPT_TIMEOUT_MS = 100_000;
 /** Emulator ingest backpressure (plan §5.5). */
 export const INGEST_HIGH_WATER = 8 * 1024 * 1024;
 export const INGEST_LOW_WATER = 1024 * 1024;
+/** A notify-on session's bell reaches the owner's connections at most this often (`session.bell`). */
+export const BELL_RELAY_INTERVAL_MS = 1_000;
 const INGEST_POLL_MS = 10;
 const PROBE_TIMEOUT_MS = 15_000;
 /** The terminal's folder is asked for this long at most (a rebuild may hold tmux's replies). */
@@ -226,6 +229,10 @@ export class SessionRuntime implements SessionHost, FileHost {
   #protection: Protection | null;
   #closed = false;
   #started = false;
+  /** When the last `session.bell` went to the owner (the relay's throttle). */
+  #bellRelayedAt: number | null = null;
+  /** The terminal's latest title (sanitized), relayed with the bell: no browser may be attached. */
+  #title: string | null = null;
   /** The terminate of this runtime, once requested (a second request shares it). */
   #terminateRun: Promise<void> | null = null;
   /** terminate() is still tearing the remote down. */
@@ -329,9 +336,17 @@ export class SessionRuntime implements SessionHost, FileHost {
     return this.#record.label;
   }
 
-  /** The stored label changed (rename, already persisted): only the in-memory record follows. */
-  setLabel(label: string): void {
-    this.#record.label = label;
+  get notify(): boolean {
+    return this.#record.notify;
+  }
+
+  /**
+   * The stored label or notification flag changed (internal API edit, already persisted): only
+   * the in-memory record follows.
+   */
+  setDisplay(change: SessionDisplayChange): void {
+    if (change.label !== undefined) this.#record.label = change.label;
+    if (change.notify !== undefined) this.#record.notify = change.notify;
   }
 
   get state(): SessionState {
@@ -694,6 +709,10 @@ export class SessionRuntime implements SessionHost, FileHost {
       }),
     );
     if (this.#hint) handle.send(encodeChannelMessage({ type: 'terminal.hint', hint: this.#hint }));
+    // A title set while nobody watched (a background tab) is not in the snapshot: send the latest.
+    if (this.#title !== null) {
+      handle.send(encodeChannelMessage({ type: 'terminal.title', title: this.#title }));
+    }
     this.#resync(attachment);
     // An expired keyboard-interactive prompt waits for someone who can answer (§5.10).
     if (this.#state === 'awaiting_user_input' && !this.#authPrompt) this.#kick();
@@ -1494,12 +1513,32 @@ export class SessionRuntime implements SessionHost, FileHost {
     });
     emulator.onTitle((title) => {
       if (this.#emulator !== emulator) return;
-      this.#toAttachments({ type: 'terminal.title', title: sanitizeTitle(title) });
+      const clean = sanitizeTitle(title);
+      this.#title = clean || null;
+      this.#toAttachments({ type: 'terminal.title', title: clean });
     });
     emulator.onBell(() => {
-      if (this.#emulator === emulator) this.#toAttachments({ type: 'terminal.bell' });
+      if (this.#emulator !== emulator) return;
+      this.#toAttachments({ type: 'terminal.bell' });
+      this.#relayBell();
     });
     return emulator;
+  }
+
+  /**
+   * The bell of a session with desktop notifications on also goes to every connection of its
+   * owner (`session.bell`), attached to it or not: a browser notifies for a session in any of its
+   * tabs, and only the panes in view are attached. At most once per BELL_RELAY_INTERVAL_MS
+   * (leading edge), so a remote ringing on repeat cannot flood the user's channel. It carries the
+   * terminal's current title: a browser that shows the session in a background tab has not seen
+   * the titles set since it was last in view.
+   */
+  #relayBell(): void {
+    if (!this.#record.notify) return;
+    const now = this.#now();
+    if (this.#bellRelayedAt !== null && now - this.#bellRelayedAt < BELL_RELAY_INTERVAL_MS) return;
+    this.#bellRelayedAt = now;
+    this.#notify({ type: 'session.bell', sessionId: this.sessionId, title: this.#title });
   }
 
   /** Assigns the seq, writes the emulator, fans out (§5.4). */

@@ -64,6 +64,8 @@ export interface ConnectionError {
 export type HostKeyPrompt = Extract<ServerMessage, { type: 'hostkey.prompt' }>;
 export type AuthPromptRequest = Extract<ServerMessage, { type: 'auth.prompt' }>;
 export type ServerError = Extract<ServerMessage, { type: 'error' }>;
+/** A session's bell relayed to every connection of its owner (desktop notifications on). */
+export type RelayedBell = Omit<Extract<ServerMessage, { type: 'session.bell' }>, 'type'>;
 /** Termavox tmux servers a session's connection found that this installation does not run. */
 export type RemoteSessionsNotice = Omit<
   Extract<ServerMessage, { type: 'server.remote_sessions' }>,
@@ -236,6 +238,7 @@ export class TermavoxConnection implements FileApi {
   #nextChannel = 1;
   /** Servers whose `server.remote_sessions` notice the user dismissed in this tab. */
   readonly #dismissedServers = new Set<string>();
+  readonly #bellListeners = new Set<(bell: RelayedBell) => void>();
   readonly #files: FileRequests;
 
   constructor(options: TermavoxConnectionOptions = {}) {
@@ -339,6 +342,16 @@ export class TermavoxConnection implements FileApi {
     );
   }
 
+  /**
+   * Shows a notification flag this tab just saved (the action's stored value) without waiting for
+   * the daemon's `session.upsert`, which carries the same flag to every tab.
+   */
+  applyNotify(sessionId: string, notify: boolean): void {
+    this.#patchSession(sessionId, (entry) =>
+      entry.notify === notify ? entry : { ...entry, notify },
+    );
+  }
+
   /** Clears the latched "remote host restarted" notice of a session. */
   acknowledgeRemoteReboot(sessionId: string): void {
     this.#patchSession(sessionId, (entry) =>
@@ -375,6 +388,18 @@ export class TermavoxConnection implements FileApi {
   }
 
   /** `transfer.progress` of the uploads and downloads this tab minted, and socket drops. */
+  /**
+   * `session.bell`: a session of the user with desktop notifications on rang its bell, attached
+   * in this tab or not. `listener` gets its id and the terminal's current title; the returned
+   * function unsubscribes.
+   */
+  subscribeBells(listener: (bell: RelayedBell) => void): () => void {
+    this.#bellListeners.add(listener);
+    return () => {
+      this.#bellListeners.delete(listener);
+    };
+  }
+
   subscribeTransfers(listener: TransferListener): () => void {
     return this.#files.subscribeTransfers(listener);
   }
@@ -578,6 +603,11 @@ export class TermavoxConnection implements FileApi {
         this.#store.update({ sessions });
         return;
       }
+      case 'session.bell':
+        for (const listener of [...this.#bellListeners]) {
+          listener({ sessionId: message.sessionId, title: message.title });
+        }
+        return;
       case 'session.removed':
         this.#store.update({
           sessions: state.sessions.filter((s) => s.id !== message.sessionId),

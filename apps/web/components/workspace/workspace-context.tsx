@@ -32,6 +32,14 @@ export interface PaneMeta {
   bell: boolean;
 }
 
+/** A pane's terminal rang its bell. */
+export interface PaneBell {
+  paneId: string;
+  sessionId: string;
+  /** The pane is the active one (its tab's focused pane; the phone's single pane). */
+  active: boolean;
+}
+
 export type SessionActionKind = 'retry' | 'stop' | 'reopen' | 'terminate' | 'remove';
 
 /** Where a pane sits: in a tab of the saved layout, or the phone's single pane (`tabId` null). */
@@ -62,6 +70,11 @@ export interface WorkspaceContextValue {
   /** Focus moved into a pane: it becomes the tab's active pane. */
   onPaneFocus(place: PanePlace): void;
   setPaneMeta(paneId: string, patch: Partial<PaneMeta>): void;
+  /**
+   * The bell rang in a mounted pane (`terminal.bell`): its tab mark and the window title follow.
+   * Desktop notifications come from the daemon's `session.bell` (any tab).
+   */
+  ringBell(bell: PaneBell): void;
   closePane(place: PanePlace): void;
   bindPane(place: PanePlace, sessionId: string): void;
   openPalette(target?: PanePlace): void;

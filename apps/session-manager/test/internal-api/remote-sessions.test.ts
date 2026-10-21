@@ -121,7 +121,7 @@ class FakeRegistry implements SessionControl {
   async reopen(id: string) {
     return { sessionId: id };
   }
-  async renamed() {}
+  async updated() {}
   listForUser(userId: string): Promise<SessionSummary[]> {
     return this.store.listForUser(userId);
   }

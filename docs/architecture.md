@@ -23,7 +23,7 @@ flowchart LR
 | Component | Responsibilities |
 |---|---|
 | **Caddy** | TLS, the only public listener. `/ws` and `/transfer/*` → session-manager, everything else → web. |
-| **web** (`apps/web`) | UI, sign-in and TOTP (Better Auth), users and admin, servers, workspace layout, preferences, audit view. Issues WebSocket tickets. Asks the daemon to create, terminate, rename, retry or reopen sessions and to manage credentials and host keys. |
+| **web** (`apps/web`) | UI, sign-in and TOTP (Better Auth), users and admin, servers, workspace layout, preferences, audit view. Issues WebSocket tickets. Asks the daemon to create, terminate, rename, retry or reopen sessions and turn their desktop notifications on or off, and to manage credentials and host keys. |
 | **session-manager** (`apps/session-manager`) | Owns every session: SSH connections, drivers, the authoritative server-side emulators, reconnection and restore. Serves the browsers' WebSockets, the file panel's transfers and web's internal API. The only holder of the vault master key. |
 | **SQLite** | One database file shared by both processes. session-manager applies the migrations at boot. |
 
@@ -196,9 +196,16 @@ live in `packages/protocol` ([plan §7](implementation-plan.md#7-websocket-proto
   `terminal.activate`, `terminal.resync`, `hostkey.decision`, `auth.response`, `files.request`,
   `files.cancel`, `transfer.cancel`, `ping`.
 - **Server messages.** `hello.ok`, `sessions.list`, `session.upsert`, `session.removed`,
-  `session.status`, `session.attached` (then a `SNAPSHOT`), `terminal.resized`, `terminal.title`,
-  `terminal.bell`, `terminal.hint`, `hostkey.prompt`, `auth.prompt`, `files.result`,
-  `files.progress`, `transfer.progress`, `server.shutting_down`, `error`, `pong`.
+  `session.bell`, `session.status`, `session.attached` (then a `SNAPSHOT`), `terminal.resized`,
+  `terminal.title`, `terminal.bell`, `terminal.hint`, `hostkey.prompt`, `auth.prompt`,
+  `files.result`, `files.progress`, `transfer.progress`, `server.shutting_down`, `error`, `pong`.
+- **The bell.** The daemon's emulator detects BEL (tmux control mode passes it through in
+  `%output`). `terminal.bell` goes to the session's attachments (the panes in view); for a
+  session with desktop notifications on, `session.bell` also goes to every connection of its
+  owner, attached or not, at most once a second per session, with the terminal's current title,
+  so a browser can notify for a session in a background tab. An attachment also gets the latest
+  `terminal.title` right after `session.attached`: the snapshot holds no title, and a tab brought
+  back to the front would otherwise show the one it last saw.
 - **Close codes.** `4400` bad request, `4401` unauthenticated or revoked, `4403` forbidden or bad
   origin, `4409` unsupported protocol, `4429` rate limited, `4500` internal.
 - Additive changes stay in v1 (receivers ignore unknown fields and types); breaking changes bump
@@ -213,7 +220,7 @@ call carries `actingUserId`, and the daemon re-checks ownership in the database.
 
 | Area | Routes under `/internal/v1` |
 |---|---|
-| Sessions | `POST /sessions`, `GET /sessions`, `PATCH /sessions/:id` (rename), `POST /sessions/:id/terminate`, `…/retry`, `…/reopen`, `POST /sessions/terminate-all` |
+| Sessions | `POST /sessions`, `GET /sessions`, `PATCH /sessions/:id` (rename, desktop notifications), `POST /sessions/:id/terminate`, `…/retry`, `…/reopen`, `POST /sessions/terminate-all` |
 | Credentials | `POST /credentials`, `PATCH /credentials/:id` (rename), `DELETE /credentials/:id` |
 | Servers | `POST /servers/:id/test`, `…/trust-key`, `…/replace-key`, `…/revoke-key`, `…/remote-sessions`, `…/remote-sessions/terminate`, `…/remote-sessions/adopt` |
 | Admin | `POST /users/:id/terminate-sessions`, `POST /auth-sessions/revoke` |

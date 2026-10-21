@@ -46,6 +46,7 @@ export function makeRecord(overrides: Partial<SessionRecord> = {}): SessionRecor
     userId: 'user-1',
     serverId: 'server-1',
     label: 'test',
+    notify: false,
     target: {
       kind: 'ssh',
       hostname: '127.0.0.1',
@@ -109,6 +110,7 @@ export class MemorySessionStore implements SessionStore {
       .map((r) => ({
         id: r.id,
         label: r.label,
+        notify: r.notify,
         serverId: r.serverId,
         serverName: 'test server',
         kind: r.target.kind,

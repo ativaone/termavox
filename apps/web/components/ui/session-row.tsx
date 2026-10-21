@@ -2,6 +2,7 @@ import type { Protection, SessionStatus } from '@termavox/protocol/client';
 import Link from 'next/link';
 import type { CSSProperties, MouseEventHandler, ReactNode } from 'react';
 import {
+  BellIcon,
   ShieldIcon,
   ShieldOffIcon,
   ShieldOutlineIcon,
@@ -23,6 +24,12 @@ export interface SessionRowProps {
   time: string;
   /** Full sentence for assistive tech ("Running for 3 hours 42 minutes"). */
   timeLabel: string;
+  /**
+   * Desktop notifications are on for the session: a quiet bell after the label, `notifyLabel` as
+   * its tooltip and screen-reader text. Never the attention bell (magenta, a bell that rang).
+   */
+  notify?: boolean;
+  notifyLabel?: string;
   /** The session this browser follows: lit by the reading light (fill and ring), never moved. */
   followed?: boolean;
   /** Stable view-transition name so a group change slides the row (signature move). */
@@ -58,7 +65,8 @@ export function FollowedLight({ className }: { className?: string }) {
 }
 
 /**
- * A session row: state lamp, label over `user@host`, protection mark, time, and the actions cell.
+ * A session row: state lamp, label (with a quiet bell when its desktop notifications are on) over
+ * `user@host`, protection mark, time, and the actions cell.
  * The row is one link; the followed row carries the reading light (a fill and a cyan ring) and
  * keeps exactly the place and size of its siblings.
  */
@@ -71,6 +79,8 @@ export function SessionRow({
   protectionLabel,
   time,
   timeLabel,
+  notify = false,
+  notifyLabel,
   followed = false,
   transitionName,
   onClick,
@@ -107,13 +117,22 @@ export function SessionRow({
       >
         <StateLamp status={status} />
         <span className="flex min-w-0 flex-col justify-center gap-px">
-          <span
-            className={cx(
-              'truncate font-semibold text-[0.8125rem] leading-4',
-              ended ? 'text-ink-muted' : 'text-ink',
-            )}
-          >
-            {label}
+          <span className="flex min-w-0 items-center gap-1">
+            <span
+              className={cx(
+                'truncate font-semibold text-[0.8125rem] leading-4',
+                ended ? 'text-ink-muted' : 'text-ink',
+              )}
+            >
+              {label}
+            </span>
+            {notify ? (
+              // A setting, not an event: muted, smaller than the tabs' attention bell.
+              <span className="flex shrink-0 text-ink-muted" title={notifyLabel}>
+                <BellIcon size={12} />
+                {notifyLabel ? <span className="sr-only">{notifyLabel}</span> : null}
+              </span>
+            ) : null}
           </span>
           <span className="truncate text-ink-muted text-xs leading-4">{target}</span>
         </span>

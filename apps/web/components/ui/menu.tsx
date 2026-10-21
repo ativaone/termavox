@@ -14,7 +14,9 @@ import {
   useRef,
   useState,
 } from 'react';
+import { CheckIcon } from '../icons/index.tsx';
 import { cx } from './cx.ts';
+import { Spinner } from './spinner.tsx';
 
 const GAP = 6;
 const MARGIN = 8;
@@ -214,6 +216,47 @@ export function MenuItem({
         <span className="flex w-4 shrink-0 justify-center text-ink-muted">{icon}</span>
       ) : null}
       <span className="min-w-0 flex-1 truncate">{children}</span>
+    </button>
+  );
+}
+
+/**
+ * A menu row that turns something on or off (`menuitemcheckbox`): the label, which wraps rather
+ * than being cut, and a trailing 16 px check well, the file list's checkbox, filled with the
+ * accent when on (decorative: `aria-checked` carries the state). `busy` swaps the well for a
+ * spinner while the change is saved.
+ */
+export function MenuCheckboxItem({
+  checked,
+  busy = false,
+  className,
+  children,
+  ...props
+}: Omit<ComponentProps<'button'>, 'role'> & { checked: boolean; busy?: boolean }) {
+  return (
+    <button
+      type="button"
+      role="menuitemcheckbox"
+      aria-checked={checked}
+      tabIndex={-1}
+      className={cx(MENU_ROW_CLASSES, 'min-h-9 py-2 text-base text-ink', className)}
+      {...props}
+    >
+      <span className="min-w-0 flex-1 text-pretty">{children}</span>
+      {busy ? (
+        <Spinner size={14} />
+      ) : (
+        <span
+          aria-hidden="true"
+          className={cx(
+            'inline-flex size-4 shrink-0 items-center justify-center rounded-xs border',
+            'transition-[background-color,border-color] duration-(--duration-step) ease-(--ease-out)',
+            checked ? 'border-accent bg-accent' : 'border-line-strong bg-field',
+          )}
+        >
+          {checked ? <CheckIcon size={13} strokeWidth={2.5} className="text-on-accent" /> : null}
+        </span>
+      )}
     </button>
   );
 }

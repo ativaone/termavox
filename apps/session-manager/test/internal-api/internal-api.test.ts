@@ -70,8 +70,8 @@ class FakeRegistry implements SessionControl {
     this.actions.push(`reopen ${id} ${user}`);
     return { sessionId: id };
   }
-  async renamed(id: string, user: string, label: string) {
-    this.actions.push(`renamed ${id} ${user} ${label}`);
+  async updated(id: string, user: string, change: { label?: string; notify?: boolean }) {
+    this.actions.push(`updated ${id} ${user} ${JSON.stringify(change)}`);
   }
   listForUser(userId: string): Promise<SessionSummary[]> {
     return this.store.listForUser(userId);
@@ -401,9 +401,12 @@ describe('internal API session labels (D-28)', () => {
 
     // Control, bidi and zero-width characters are dropped before the length check, then trimmed.
     const renamed = await rename(` \u202Ebuild\u200D box\x00\u2069 ${'\u200B'.repeat(200)}`);
-    expect(renamed).toEqual({ status: 200, json: { sessionId, label: 'build box' } });
+    expect(renamed).toEqual({
+      status: 200,
+      json: { sessionId, label: 'build box', notify: false },
+    });
     expect(labelOf(sessionId)).toBe('build box');
-    expect(registry.actions).toEqual([`renamed ${sessionId} ${userA} build box`]);
+    expect(registry.actions).toEqual([`updated ${sessionId} ${userA} {"label":"build box"}`]);
     expect(renameAudits()).toEqual([
       {
         actor_user_id: userA,
@@ -436,13 +439,95 @@ describe('internal API session labels (D-28)', () => {
     fixture.db.$client.prepare("UPDATE sessions SET state = 'ended' WHERE id = ?").run(sessionId);
     expect(await rename('archived')).toEqual({
       status: 200,
-      json: { sessionId, label: 'archived' },
+      json: { sessionId, label: 'archived', notify: false },
     });
     expect(renameAudits().map((a) => a.detail_json)).toEqual([
       { previousLabel: 'alpha', label: 'build box' },
       { previousLabel: 'build box', label: 'z'.repeat(120) },
       { previousLabel: 'z'.repeat(120), label: 'archived' },
     ]);
+  });
+});
+
+describe('internal API session notifications', () => {
+  const notifyOf = (sessionId: string) =>
+    (
+      fixture.db.$client.prepare('SELECT notify FROM sessions WHERE id = ?').get(sessionId) as {
+        notify: number;
+      }
+    ).notify;
+  const audits = () =>
+    (fixture.db.$client.prepare('SELECT type FROM audit_events').all() as Array<{ type: string }>)
+      .map((a) => a.type)
+      .filter((type) => type.startsWith('session.'));
+
+  async function created(): Promise<string> {
+    const res = await call('POST', '/sessions', {
+      actingUserId: userA,
+      serverId: serverA,
+      viewport: { cols: 80, rows: 24 },
+    });
+    return res.json?.sessionId as string;
+  }
+
+  it('turns notifications on and off without an audit row, publishing real changes only', async () => {
+    const sessionId = await created();
+    expect(notifyOf(sessionId)).toBe(0);
+    const patch = (body: Record<string, unknown>) =>
+      call('PATCH', `/sessions/${sessionId}`, { actingUserId: userA, ...body });
+
+    expect(await patch({ notify: true })).toEqual({
+      status: 200,
+      json: { sessionId, label: 'alpha', notify: true },
+    });
+    expect(notifyOf(sessionId)).toBe(1);
+    expect(registry.actions).toEqual([`updated ${sessionId} ${userA} {"notify":true}`]);
+    // The same value again: nothing to write or publish.
+    expect((await patch({ notify: true })).json).toMatchObject({ notify: true });
+    expect(registry.actions).toHaveLength(1);
+
+    // Both at once: one answer, one publication with both changes, the rename audited alone.
+    expect(await patch({ label: ' deploy ', notify: false })).toEqual({
+      status: 200,
+      json: { sessionId, label: 'deploy', notify: false },
+    });
+    expect(registry.actions.at(-1)).toBe(
+      `updated ${sessionId} ${userA} {"label":"deploy","notify":false}`,
+    );
+    expect(audits()).toEqual(['session.rename']);
+    // A label that is refused writes nothing, the flag included.
+    expect(await patch({ label: '​', notify: true })).toMatchObject({
+      status: 400,
+      json: { code: 'LABEL_INVALID' },
+    });
+    expect(notifyOf(sessionId)).toBe(0);
+
+    // Neither field, or a flag that is not a boolean: the invalid-request error.
+    for (const body of [{}, { notify: 'yes' }, { notify: null }]) {
+      expect(await patch(body)).toMatchObject({ status: 400, json: { code: 'BAD_REQUEST' } });
+    }
+    expect(registry.actions).toHaveLength(2);
+
+    // Ended sessions keep the flag and can still change it.
+    fixture.db.$client.prepare("UPDATE sessions SET state = 'ended' WHERE id = ?").run(sessionId);
+    expect((await patch({ notify: true })).json).toMatchObject({ notify: true });
+    expect(registry.actions).toHaveLength(3);
+  });
+
+  it('answers 404 for a foreign or missing session and 403 for an unknown actor', async () => {
+    const sessionId = await created();
+    expect(
+      await call('PATCH', `/sessions/${sessionId}`, { actingUserId: userB, notify: true }),
+    ).toMatchObject({ status: 404, json: { code: 'NOT_FOUND' } });
+    expect(
+      (await call('PATCH', '/sessions/missing', { actingUserId: userA, notify: true })).status,
+    ).toBe(404);
+    expect(
+      (await call('PATCH', `/sessions/${sessionId}`, { actingUserId: 'ghost', notify: true }))
+        .status,
+    ).toBe(403);
+    expect(notifyOf(sessionId)).toBe(0);
+    expect(registry.actions).toEqual([]);
   });
 });
 

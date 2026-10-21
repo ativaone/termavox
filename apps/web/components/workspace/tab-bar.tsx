@@ -4,7 +4,9 @@ import type { Tab, WorkspaceLayout } from '@termavox/protocol/client';
 import { useTranslations } from 'next-intl';
 import {
   type MouseEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
+  type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -13,6 +15,14 @@ import {
   type WheelEvent,
 } from 'react';
 import type { SessionLabel } from '../../lib/sessions/types.ts';
+import {
+  autoScrollStep,
+  clampStart,
+  DRAG_THRESHOLD,
+  landingIndex,
+  type Slot,
+  shiftOf,
+} from '../../lib/workspace/tab-drag.ts';
 import { findLeaf, leaves } from '../../lib/workspace/tree.ts';
 import {
   BellIcon,
@@ -32,6 +42,45 @@ import type { PaneMeta } from './workspace-context.tsx';
 const REVEAL_MARGIN = 36;
 /** A wheel line (Firefox `deltaMode` 1) in pixels. */
 const WHEEL_LINE = 16;
+/**
+ * A tab sliding to its place at the move step, its colours still easing at the step as the
+ * classes' own transition does (both instant under reduced motion: the tokens are 0).
+ */
+const SLIDE = [
+  'transform var(--duration-move) var(--ease-out)',
+  'background-color var(--duration-step) var(--ease-out)',
+  'color var(--duration-step) var(--ease-out)',
+].join(', ');
+/** Longer than a slide: then the inline transitions go and the classes' own apply again. */
+const SLIDE_CLEAR_MS = 250;
+
+/** A press on a tab's label, from the pointer going down to its release. */
+interface Press {
+  pointerId: number;
+  tabId: string;
+  button: HTMLButtonElement;
+  /** Where the keyboard focus was before the press: a drag gives it back. */
+  focus: Element | null;
+  /** The pointer at the press, in px: on screen and in the strip's content. */
+  downX: number;
+  downContentX: number;
+  /** The pointer's latest horizontal position on screen. */
+  x: number;
+  /** `pressed` until the pointer travels far enough; `cancelled` still swallows the release. */
+  phase: 'pressed' | 'dragging' | 'cancelled';
+  // Measured when the drag begins: the order, every tab's resting slot and the dragged one's.
+  ids: string[];
+  slots: Slot[];
+  from: number;
+  /** Where the dragged tab lands now, and where it is drawn (its start in the content). */
+  to: number;
+  start: number;
+  /** The strip's scroll position the drawing last followed. */
+  scroll: number;
+  frame: number;
+  /** Ends the press at once: a drag in progress goes back and nothing is moved. */
+  abort(): void;
+}
 
 interface TabView {
   tab: Tab;
@@ -103,6 +152,12 @@ function fullyVisible(strip: HTMLElement, item: HTMLElement): boolean {
  * The active tab is scrolled into view whenever it changes or is followed again, and kept
  * there when the strip or the tabs change size; an edge that has tabs scrolled under it shows a
  * chevron cue whose shadow falls on them.
+ *
+ * Tabs reorder by dragging a label sideways (past a few px of travel; less is a click) or with
+ * Ctrl+Shift+←/→ on a focused tab. The dragged tab is lifted and follows the pointer along the
+ * strip while its neighbours slide aside to open the slot it lands in; near either end the strip
+ * scrolls. Escape, a lost pointer or the window losing focus put it back. The drop reports the
+ * new index once (`onMove`), and the strip stays where the drop left it.
  */
 export function TabBar({
   layout,
@@ -110,6 +165,7 @@ export function TabBar({
   paneMeta,
   onSelect,
   onClose,
+  onMove,
   onSplit,
   canSplit,
   revealKey = 0,
@@ -123,6 +179,8 @@ export function TabBar({
   paneMeta: Readonly<Record<string, PaneMeta>>;
   onSelect(tabId: string): void;
   onClose(tabId: string): void;
+  /** Puts a tab at `toIndex` of the resulting order (a drop or Ctrl+Shift+←/→). */
+  onMove(tabId: string, toIndex: number): void;
   onSplit(direction: 'row' | 'column'): void;
   canSplit: boolean;
   /** Changes whenever a session is followed or a tab selected, even the already active one. */
@@ -172,6 +230,11 @@ export function TabBar({
    * chip hiding and coming back between two frames), not the user scrolling.
    */
   const handledWidth = useRef<number | null>(null);
+  /**
+   * Set from a press on a tab until its drag has settled: nothing reveals a tab or scrolls the
+   * strip under the user's hand meanwhile (auto-scroll aside).
+   */
+  const holdStrip = useRef(false);
   const fallback = { empty: t('pane.emptyPane'), loading: t('pane.loading') };
   const views = layout.tabs.map((tab) => viewOf(tab, sessions, paneMeta, fallback));
 
@@ -200,7 +263,7 @@ export function TabBar({
   const onResize = useCallback(() => {
     const strip = stripRef.current;
     const item = strip ? activeItem(strip) : null;
-    if (strip && item && keepActive.current && !fullyVisible(strip, item)) {
+    if (strip && item && keepActive.current && !holdStrip.current && !fullyVisible(strip, item)) {
       reveal(strip, item, 'instant');
     }
     if (strip) handledWidth.current = strip.clientWidth;
@@ -235,7 +298,7 @@ export function TabBar({
   useEffect(() => {
     const strip = stripRef.current;
     const item = activeTabId ? items.current.get(activeTabId) : undefined;
-    if (!strip || !item) return;
+    if (!strip || !item || holdStrip.current) return;
     const behavior = painted.current ? smoothUnlessReduced() : 'instant';
     painted.current = true;
     keepActive.current = true;
@@ -261,16 +324,273 @@ export function TabBar({
     }
   };
 
+  // ── reordering ─────────────────────────────────────────────────────────────
+  const press = useRef<Press | null>(null);
+  /** The tab being dragged: lifted, while its neighbours slide (transforms are set directly). */
+  const [dragged, setDragged] = useState<string | null>(null);
+  /** A drag that just ended: its tab slides from where it was drawn into its slot. */
+  const settle = useRef<{ tabId: string; start: number; focus: Element | null } | null>(null);
+  /** The click that follows a drag's release selects nothing. */
+  const swallowClick = useRef(false);
+  const slideTimer = useRef<number | null>(null);
+  const [announcement, setAnnouncement] = useState('');
+
+  const onLabelPointerDown = (event: ReactPointerEvent<HTMLButtonElement>, tabId: string) => {
+    swallowClick.current = false;
+    const strip = stripRef.current;
+    if (event.button !== 0 || event.pointerType === 'touch' || !strip) return;
+    // A press whose release never came (let go outside the window) ends with this one.
+    press.current?.abort();
+    if (editing || layout.tabs.length < 2) return;
+    const p: Press = {
+      pointerId: event.pointerId,
+      tabId,
+      button: event.currentTarget,
+      focus: document.activeElement,
+      downX: event.clientX,
+      downContentX: event.clientX - strip.getBoundingClientRect().left + strip.scrollLeft,
+      x: event.clientX,
+      phase: 'pressed',
+      ids: [],
+      slots: [],
+      from: -1,
+      to: -1,
+      start: 0,
+      scroll: strip.scrollLeft,
+      frame: 0,
+      abort: () => {
+        endDrag(false);
+        release();
+      },
+    };
+    press.current = p;
+    holdStrip.current = true;
+
+    // Draws the dragged tab under the pointer and opens its landing slot.
+    function follow() {
+      const strip = stripRef.current;
+      const item = items.current.get(p.tabId);
+      if (!strip || !item) return;
+      const own = p.slots[p.from]!;
+      p.scroll = strip.scrollLeft;
+      const pointer = p.x - strip.getBoundingClientRect().left + strip.scrollLeft;
+      p.start = clampStart(p.slots, p.from, own.start + pointer - p.downContentX, {
+        start: strip.scrollLeft,
+        end: strip.scrollLeft + strip.clientWidth,
+      });
+      item.style.transform = `translateX(${p.start - own.start}px)`;
+      const to = landingIndex(p.slots, p.from, p.start);
+      if (to === p.to) return;
+      p.to = to;
+      p.ids.forEach((id, index) => {
+        const element = items.current.get(id);
+        if (index === p.from || !element) return;
+        const shift = shiftOf(p.slots, p.from, to, index);
+        element.style.transform = shift ? `translateX(${shift}px)` : '';
+      });
+    }
+    // Every frame of a drag: scroll near an end, and follow any scroll (the wheel's too).
+    function tick() {
+      const strip = stripRef.current;
+      if (press.current !== p || p.phase !== 'dragging' || !strip) return;
+      const rect = strip.getBoundingClientRect();
+      const step = autoScrollStep(p.x, rect.left, rect.right);
+      if (step !== 0) strip.scrollLeft += step;
+      if (strip.scrollLeft !== p.scroll) follow();
+      p.frame = requestAnimationFrame(tick);
+    }
+    function begin(): boolean {
+      const ids = layout.tabs.map((tab) => tab.id);
+      const from = ids.indexOf(p.tabId);
+      const elements = ids.map((id) => items.current.get(id));
+      if (from < 0 || !elements.every((element) => element !== undefined)) return false;
+      try {
+        p.button.setPointerCapture(p.pointerId);
+      } catch {
+        return false; // the pointer is gone
+      }
+      if (slideTimer.current !== null) window.clearTimeout(slideTimer.current);
+      slideTimer.current = null;
+      for (const element of elements) {
+        element.style.transform = '';
+        element.style.transition = '';
+      }
+      p.ids = ids;
+      p.slots = elements.map((element) => ({
+        start: element.offsetLeft,
+        size: element.offsetWidth,
+      }));
+      p.from = from;
+      p.to = from;
+      p.phase = 'dragging';
+      elements.forEach((element, index) => {
+        if (index !== from) element.style.transition = SLIDE;
+      });
+      setDragged(p.tabId);
+      follow();
+      p.frame = requestAnimationFrame(tick);
+      return true;
+    }
+    // A drop reorders the tabs right where they slid to, so they stop there; anything else
+    // slides them home. The dragged tab settles after the commit (see the layout effect below).
+    function endDrag(drop: boolean) {
+      if (p.phase !== 'dragging') return;
+      p.phase = 'cancelled';
+      cancelAnimationFrame(p.frame);
+      const moved = drop && p.to !== p.from;
+      p.ids.forEach((id, index) => {
+        const element = items.current.get(id);
+        if (index === p.from || !element) return;
+        element.style.transition = moved ? 'none' : SLIDE;
+        element.style.transform = '';
+      });
+      settle.current = { tabId: p.tabId, start: p.start, focus: p.focus };
+      setDragged(null);
+      if (moved) onMove(p.tabId, p.to);
+    }
+    function release() {
+      if (press.current !== p) return;
+      press.current = null;
+      cancelAnimationFrame(p.frame);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerCancel);
+      window.removeEventListener('keydown', onKeyDown, true);
+      window.removeEventListener('blur', p.abort);
+      p.button.removeEventListener('lostpointercapture', onLostCapture);
+      if (p.button.hasPointerCapture(p.pointerId)) p.button.releasePointerCapture(p.pointerId);
+      // A plain click lets the strip go now; a drag lets it go once it has settled.
+      if (p.phase === 'pressed') holdStrip.current = false;
+    }
+    function onPointerMove(move: PointerEvent) {
+      if (move.pointerId !== p.pointerId) return;
+      if ((move.buttons & 1) === 0) {
+        p.abort(); // released where this page could not hear it
+        return;
+      }
+      p.x = move.clientX;
+      if (p.phase === 'pressed' && Math.abs(p.x - p.downX) >= DRAG_THRESHOLD && !begin()) {
+        release();
+      } else if (p.phase === 'dragging') {
+        follow();
+      }
+    }
+    function onPointerUp(up: PointerEvent) {
+      if (up.pointerId !== p.pointerId) return;
+      const dragging = p.phase !== 'pressed';
+      endDrag(true);
+      release();
+      if (dragging) {
+        swallowClick.current = true;
+        window.setTimeout(() => {
+          swallowClick.current = false;
+        }, 0);
+      }
+    }
+    function onPointerCancel(cancel: PointerEvent) {
+      if (cancel.pointerId === p.pointerId) p.abort();
+    }
+    function onLostCapture() {
+      if (p.phase === 'dragging') p.abort();
+    }
+    // Escape puts the tab back; the pointer is still down, so its release is swallowed too.
+    function onKeyDown(key: KeyboardEvent) {
+      if (key.key !== 'Escape' || p.phase !== 'dragging') return;
+      key.preventDefault();
+      key.stopPropagation();
+      endDrag(false);
+    }
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerCancel);
+    window.addEventListener('keydown', onKeyDown, true);
+    window.addEventListener('blur', p.abort);
+    p.button.addEventListener('lostpointercapture', onLostCapture);
+  };
+
+  // After a drag ends: the dragged tab slides from where it was drawn into its slot (wherever the
+  // reorder put it), the strip stays where it is, and the focus goes back where it was.
+  useLayoutEffect(() => {
+    const done = settle.current;
+    if (!done) return;
+    settle.current = null;
+    const item = items.current.get(done.tabId);
+    if (item) {
+      item.style.transition = 'none';
+      item.style.transform = `translateX(${done.start - item.offsetLeft}px)`;
+      void item.offsetWidth; // commit that start before sliding from it
+      item.style.transition = SLIDE;
+      item.style.transform = '';
+    }
+    if (slideTimer.current !== null) window.clearTimeout(slideTimer.current);
+    slideTimer.current = window.setTimeout(() => {
+      slideTimer.current = null;
+      for (const element of items.current.values()) element.style.transition = '';
+    }, SLIDE_CLEAR_MS);
+    const strip = stripRef.current;
+    const active = strip ? activeItem(strip) : null;
+    if (strip && active) keepActive.current = fullyVisible(strip, active);
+    const focus = done.focus;
+    if (focus instanceof HTMLElement && focus.isConnected && focus !== document.body) {
+      focus.focus({ preventScroll: true });
+    }
+    holdStrip.current = false;
+  });
+
+  // A drag whose tabs change under it (closed elsewhere, another browser's layout) is put back.
+  const order = layout.tabs.map((tab) => tab.id).join(' ');
+  useEffect(() => {
+    const p = press.current;
+    if (p?.phase === 'dragging' && p.ids.join(' ') !== order) p.abort();
+  }, [order]);
+  useEffect(
+    () => () => {
+      press.current?.abort();
+      if (slideTimer.current !== null) window.clearTimeout(slideTimer.current);
+    },
+    [],
+  );
+
+  // Ctrl+Shift+←/→ on a focused tab moves it one place; the focus stays on it.
+  const onLabelKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>, index: number) => {
+    const step = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : 0;
+    if (step === 0 || !event.ctrlKey || !event.shiftKey || event.altKey || event.metaKey) return;
+    event.preventDefault();
+    const tab = layout.tabs[index];
+    const to = index + step;
+    if (!tab || press.current || to < 0 || to >= layout.tabs.length) return;
+    onMove(tab.id, to);
+    setAnnouncement(t('tabs.moved', { position: to + 1, count: layout.tabs.length }));
+    // Moving its item in the page can take the focus away: give it back, and keep it in view.
+    requestAnimationFrame(() => {
+      const button = refs.current.get(tab.id);
+      const strip = stripRef.current;
+      const item = items.current.get(tab.id);
+      if (button && (document.activeElement === null || document.activeElement === document.body)) {
+        button.focus({ preventScroll: true });
+      }
+      if (strip && item) reveal(strip, item, smoothUnlessReduced());
+    });
+  };
+
   // A 20 px fade over the clipped end of the strip: a muted chevron points at the hidden tabs,
-  // and its shadow falls on the tabs that slide under it.
+  // and its shadow falls on the tabs that slide under it (a dragged one included).
   const edgeClass = cx(
-    'pointer-events-none absolute inset-y-0 flex w-5 items-center justify-center text-ink-muted',
+    'pointer-events-none absolute inset-y-0 z-20 flex w-5 items-center justify-center text-ink-muted',
     'transition-opacity duration-(--duration-step) ease-(--ease-out)',
   );
+  const movable = views.length > 1;
+  const hint = (view: TabView): string | undefined => {
+    if (!movable) return view.sessionId ? t('tabs.renameHint') : undefined;
+    return view.sessionId ? t('tabs.renameMoveHint') : t('tabs.moveHint');
+  };
 
   return (
     <div className="flex h-(--tabbar-height) shrink-0 items-center gap-3 ps-2 pe-2">
-      <nav aria-label={t('tabs.label')} className="relative flex min-w-0 flex-1 self-stretch">
+      <nav
+        aria-label={t('tabs.label')}
+        className="relative isolate flex min-w-0 flex-1 self-stretch"
+      >
         {views.length === 0 ? (
           <p className="self-center px-2 text-ink-muted text-xs">{t('tabs.empty')}</p>
         ) : (
@@ -283,6 +603,7 @@ export function TabBar({
             >
               {views.map((view, index) => {
                 const active = view.tab.id === layout.activeTabId;
+                const lifted = view.tab.id === dragged;
                 const status = view.session?.status;
                 return (
                   <li
@@ -298,17 +619,26 @@ export function TabBar({
                         items.current.delete(id);
                       }
                     }}
-                    // Keyboard focus never rests under an edge.
+                    // Keyboard focus never rests under an edge. A press on a label focuses it
+                    // too; then the strip holds still (a click reveals the tab it selects).
                     onFocus={(event) => {
                       const strip = stripRef.current;
-                      if (strip) reveal(strip, event.currentTarget, smoothUnlessReduced());
+                      if (strip && !holdStrip.current) {
+                        reveal(strip, event.currentTarget, smoothUnlessReduced());
+                      }
                     }}
                     className={cx(
                       'relative flex h-8 min-w-28 max-w-60 shrink-0 items-stretch overflow-hidden rounded-control',
                       'transition-colors duration-(--duration-step) ease-(--ease-out)',
-                      active
-                        ? 'bg-surface-raised text-ink after:absolute after:inset-x-2.5 after:bottom-0 after:h-0.5 after:rounded-pill after:bg-accent'
-                        : 'text-ink-muted hover:bg-surface hover:text-ink',
+                      // Dragged, the tab is lifted over its neighbours: solid, casting the
+                      // row's sideways Edge shadow on both of them (the strip clips any other).
+                      lifted
+                        ? 'z-10 cursor-grabbing bg-surface-solid text-ink [box-shadow:var(--shadow-edge-start),var(--shadow-edge-end)]'
+                        : active
+                          ? 'bg-surface-raised text-ink'
+                          : 'text-ink-muted hover:bg-surface hover:text-ink',
+                      active &&
+                        'after:absolute after:inset-x-2.5 after:bottom-0 after:h-0.5 after:rounded-pill after:bg-accent',
                     )}
                   >
                     {editing?.tabId === view.tab.id ? (
@@ -349,10 +679,23 @@ export function TabBar({
                         }}
                         type="button"
                         aria-current={active ? 'true' : undefined}
-                        onClick={() => onSelect(view.tab.id)}
-                        onDoubleClick={() => startEdit(view)}
-                        title={view.sessionId ? t('tabs.renameHint') : undefined}
-                        className="flex min-w-0 flex-1 items-center gap-2 ps-2.5 pe-1 text-start focus-visible:outline-2 focus-visible:outline-focus focus-visible:-outline-offset-2"
+                        aria-keyshortcuts={
+                          movable ? 'Control+Shift+ArrowLeft Control+Shift+ArrowRight' : undefined
+                        }
+                        onPointerDown={(event) => onLabelPointerDown(event, view.tab.id)}
+                        onKeyDown={(event) => onLabelKeyDown(event, index)}
+                        onClick={() => {
+                          if (!swallowClick.current) onSelect(view.tab.id);
+                        }}
+                        onDoubleClick={() => {
+                          if (!swallowClick.current) startEdit(view);
+                        }}
+                        title={hint(view)}
+                        className={cx(
+                          'flex min-w-0 flex-1 select-none items-center gap-2 ps-2.5 pe-1 text-start',
+                          'focus-visible:outline-2 focus-visible:outline-focus focus-visible:-outline-offset-2',
+                          lifted && 'cursor-grabbing',
+                        )}
                       >
                         {status ? (
                           <StateLamp status={status} />
@@ -430,6 +773,10 @@ export function TabBar({
             </span>
           </>
         )}
+        {/* Where a moved tab now sits, for screen readers (Ctrl+Shift+←/→). */}
+        <p aria-live="polite" className="sr-only">
+          {announcement}
+        </p>
       </nav>
       <div className="flex shrink-0 items-center gap-1 self-center whitespace-nowrap">
         {trailing}

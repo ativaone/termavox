@@ -71,6 +71,7 @@ interface RecordRow {
   scrollback_lines: number;
   tmux_term: string;
   label: string;
+  notify: number;
   desired_state: string;
   state: string;
   status: string;
@@ -104,7 +105,8 @@ interface RecordRow {
 const SELECT_RECORD = `
   SELECT s.id, s.user_id, s.server_id, s.target_kind, s.target_hostname, s.target_port,
          s.target_username, s.target_credential_id, s.term, s.scrollback_lines, s.tmux_term,
-         s.label, s.desired_state, s.state, s.status, s.protection_effective, s.tmux_token, s.tmux_socket,
+         s.label, s.notify, s.desired_state, s.state, s.status, s.protection_effective, s.tmux_token,
+         s.tmux_socket,
          s.tmux_version, s.remote_identity_json, s.probe_json, s.cols, s.rows, s.created_at,
          s.last_ready_at, s.ended_at, s.end_reason,
          sv.id AS sv_id, sv.protection_mode AS sv_protection_mode,
@@ -132,6 +134,20 @@ const PATCH_COLUMNS: Record<string, [column: string, encode?: (value: unknown) =
 };
 
 export const sessionWriteKey = (sessionId: string): string => `session:${sessionId}`;
+
+/** What `PATCH sessions/:id` changes (at least one); `label` is already cleaned and checked. */
+export interface SessionEdit {
+  label?: string | undefined;
+  notify?: boolean | undefined;
+}
+
+/** The session as stored after an edit, and which fields actually changed. */
+export interface SessionEditResult {
+  label: string;
+  notify: boolean;
+  labelChanged: boolean;
+  notifyChanged: boolean;
+}
 
 export interface CreateSessionInput {
   actingUserId: string;
@@ -377,6 +393,7 @@ export class SqliteSessionStore implements SessionStore, RemoteSessionLookup {
     const rows = allRows<{
       id: string;
       label: string;
+      notify: number;
       server_id: string | null;
       server_name: string;
       target_kind: string;
@@ -393,7 +410,7 @@ export class SqliteSessionStore implements SessionStore, RemoteSessionLookup {
       status_detail: unknown;
     }>(
       this.#sqlite,
-      `SELECT s.id, s.label, s.server_id, COALESCE(sv.name, s.target_hostname) AS server_name,
+      `SELECT s.id, s.label, s.notify, s.server_id, COALESCE(sv.name, s.target_hostname) AS server_name,
               s.target_kind, s.target_hostname, s.target_port, s.target_username, s.state, s.status,
               s.protection_effective, s.created_at, s.last_ready_at, s.ended_at, s.end_reason,
               CASE WHEN s.state = 'failed' THEN (
@@ -410,6 +427,7 @@ export class SqliteSessionStore implements SessionStore, RemoteSessionLookup {
     return rows.map((r) => ({
       id: r.id,
       label: r.label,
+      notify: r.notify !== 0,
       serverId: r.server_id,
       serverName: r.server_name,
       kind: r.target_kind === 'local' ? 'local' : 'ssh',
@@ -604,6 +622,8 @@ export class SqliteSessionStore implements SessionStore, RemoteSessionLookup {
         userId: user.id,
         serverId: server.id,
         label: input.label ?? server.name,
+        // Off until the owner turns it on (the column's default).
+        notify: false,
         target,
         term: server.term,
         scrollbackLines: server.scrollback_lines,
@@ -688,24 +708,30 @@ export class SqliteSessionStore implements SessionStore, RemoteSessionLookup {
   }
 
   /**
-   * Internal API `PATCH sessions/:id` (D-28): renames a session of the acting user in any state
-   * (ended included: it is only a name), with a `session.rename` audit row in the same
-   * transaction. A missing or foreign session is NOT_FOUND. Renaming to the current label writes
-   * nothing. `label` is already cleaned and checked (internal-api `sessionLabel`). Resolves with
-   * the label it replaced once committed.
+   * Internal API `PATCH sessions/:id`: changes a session of the acting user in any state (ended
+   * included), in one transaction. `label` renames it (D-28) with a `session.rename` audit row;
+   * `label` is already cleaned and checked (internal-api `sessionLabel`). `notify` turns its
+   * desktop notifications on or off: a display preference, not audited. A missing or foreign
+   * session is NOT_FOUND. A value equal to the stored one writes nothing. Resolves once
+   * committed with the session as stored and what changed.
    */
-  rename(actingUserId: string, sessionId: string, label: string): Promise<{ previous: string }> {
-    return this.#writer.run('session.rename', (sqlite) => {
+  edit(actingUserId: string, sessionId: string, change: SessionEdit): Promise<SessionEditResult> {
+    return this.#writer.run('session.edit', (sqlite) => {
       const now = this.#now();
       requireActingUser(sqlite, actingUserId, now);
-      const row = getRow<{ label: string }>(
+      const row = getRow<{ label: string; notify: number }>(
         sqlite,
-        'SELECT label FROM sessions WHERE id = ? AND user_id = ?',
+        'SELECT label, notify FROM sessions WHERE id = ? AND user_id = ?',
         sessionId,
         actingUserId,
       );
       if (!row) throw new TermavoxError(ErrorCode.NotFound, 'session not found');
-      if (row.label !== label) {
+      const stored = row.notify !== 0;
+      const label = change.label ?? row.label;
+      const notify = change.notify ?? stored;
+      const labelChanged = label !== row.label;
+      const notifyChanged = notify !== stored;
+      if (labelChanged) {
         execute(sqlite, 'UPDATE sessions SET label = ? WHERE id = ?', label, sessionId);
         insertAudit(sqlite, {
           type: 'session.rename',
@@ -716,7 +742,10 @@ export class SqliteSessionStore implements SessionStore, RemoteSessionLookup {
           at: now,
         });
       }
-      return { previous: row.label };
+      if (notifyChanged) {
+        execute(sqlite, 'UPDATE sessions SET notify = ? WHERE id = ?', notify ? 1 : 0, sessionId);
+      }
+      return { label, notify, labelChanged, notifyChanged };
     });
   }
 
@@ -814,6 +843,7 @@ function toRecord(row: RecordRow): SessionRecord {
     userId: row.user_id,
     serverId: row.server_id,
     label: row.label,
+    notify: row.notify !== 0,
     target: {
       kind: row.target_kind === 'local' ? 'local' : 'ssh',
       hostname: row.target_hostname,

@@ -82,6 +82,7 @@ import { useSidebarMode } from './sidebar-preference.ts';
 import { TabBar } from './tab-bar.tsx';
 import { isPaletteShortcut, TerminalPane } from './terminal-pane.tsx';
 import { withViewTransition } from './transitions.ts';
+import { useBellAlerts, useWindowTitle } from './use-bell-alerts.ts';
 import { useSidebarWidth } from './view-preferences.ts';
 import {
   type PaneHandle,
@@ -426,6 +427,37 @@ export function WorkspaceShell({
     [sync, phoneOpen, requestFocus, t],
   );
 
+  // ── the bell: tab marks, desktop notifications (per session), the window title ──
+  const activeSessionId = isDesktop ? (current?.leaf.sessionId ?? null) : null;
+  const { ringBell, activeBellUnseen } = useBellAlerts({
+    connection,
+    isDesktop,
+    layout,
+    activeSessionId,
+    sessions,
+    paneMeta,
+    setPaneMeta,
+    follow,
+    lang: locale,
+    bellBody: t('notify.bellBody'),
+  });
+  const anyTabBell = layout.tabs.some((tab) =>
+    leaves(tab.root).some((leaf) => paneMeta[leaf.id]?.bell),
+  );
+  const activeLeafId = current?.leaf.id ?? null;
+  useWindowTitle(
+    isDesktop,
+    activeLeafId === null
+      ? null
+      : {
+          label: activeSessionId
+            ? (labels.get(activeSessionId)?.label ?? t('pane.loading'))
+            : t('pane.emptyPane'),
+          title: paneMeta[activeLeafId]?.title ?? null,
+        },
+    anyTabBell || activeBellUnseen,
+  );
+
   // A session that already has a tab (alone or in a split) is switched to, never opened twice.
   const openInNewTab = useCallback(
     (sessionId: string | null) => {
@@ -706,6 +738,7 @@ export function WorkspaceShell({
       registerPane,
       onPaneFocus,
       setPaneMeta,
+      ringBell,
       closePane,
       bindPane,
       openPalette,
@@ -730,6 +763,7 @@ export function WorkspaceShell({
       registerPane,
       onPaneFocus,
       setPaneMeta,
+      ringBell,
       closePane,
       bindPane,
       openPalette,
@@ -920,6 +954,7 @@ export function WorkspaceShell({
               paneMeta={paneMeta}
               onSelect={selectTab}
               onClose={(tabId) => dispatch({ type: 'closeTab', tabId })}
+              onMove={(tabId, toIndex) => dispatch({ type: 'moveTab', tabId, toIndex })}
               onSplit={(direction) => splitActive(direction, null)}
               canSplit={current !== null}
               revealKey={focusRequest?.seq ?? 0}

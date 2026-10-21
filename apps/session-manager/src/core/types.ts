@@ -377,6 +377,8 @@ export interface SessionRecord {
   /** The server the session was opened from; null once that server was deleted (history). */
   serverId: string | null;
   label: string;
+  /** The owner's desktop notifications for the bell (a display preference; browser-side only). */
+  notify: boolean;
   target: SessionTarget;
   /** TERM of an unprotected session's PTY. */
   term: string;
@@ -429,6 +431,12 @@ export type SessionRecordPatch = Partial<
     | 'endReason'
   >
 > & { probe?: Record<string, string> | null };
+
+/** What the owner changed of a session's display (internal API edit): only the changed fields. */
+export interface SessionDisplayChange {
+  label?: string | undefined;
+  notify?: boolean | undefined;
+}
 
 export interface SessionEventInput {
   type: string;
