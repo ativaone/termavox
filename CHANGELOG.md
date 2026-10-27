@@ -160,6 +160,11 @@ upgraded: remove it together with its volumes and install fresh from a new clone
 
 ### Security
 
+- Next.js 16.4.1 (from 16.4.0), which fixes three advisories published on 2026-10-22:
+  GHSA-p3m5-59mp-jv5r (CVE-2026-94482, a denial of service through Server Actions, which the web
+  app uses), and GHSA-2464-fhr4-w9xw and GHSA-673q-mjm6-r5xr (remote code execution through the
+  image optimizer with SVG and through `use cache`, features Termavox does not use). Images built
+  from 0.1.0-rc.4 or earlier carry 16.4.0.
 - Caddy runs as a non-root user (UID/GID 10002, apart from web and session-manager's 10001) with
   every capability dropped. Its binary no longer carries the `cap_net_bind_service` file
   capability; it binds ports 80 and 443 (TCP and UDP) through its own container's
