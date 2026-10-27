@@ -17,7 +17,7 @@ const KEY_CLASSES =
   'font-semibold text-sm transition-colors duration-(--duration-step) ease-(--ease-out) ' +
   'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus';
 const KEY_RESTING = 'bg-surface-raised text-ink active:bg-surface-pressed';
-const KEY_ARMED = 'bg-accent text-on-accent active:bg-accent-strong';
+const KEY_ARMED = 'bg-accent-fill text-on-accent-fill active:bg-accent-fill-strong';
 
 function Key({
   label,

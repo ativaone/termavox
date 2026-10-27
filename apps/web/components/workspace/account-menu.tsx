@@ -13,6 +13,7 @@ import {
   SettingsIcon,
   SignOutIcon,
   TerminalIcon,
+  ThemeIcon,
   UserIcon,
   UsersIcon,
 } from '../icons/index.tsx';
@@ -29,14 +30,16 @@ import {
   usePopoverMenu,
 } from '../ui/menu.tsx';
 import { LanguageDialog } from './language-dialog.tsx';
+import { ThemeDialog } from './theme-dialog.tsx';
 
 const MENU_WIDTH = 248;
 
 /**
  * The account menu (plan D-28): the user's name with a gear opens settings (account, terminal,
- * and "Language…", which opens the language dialog), Admin for administrators, and Sign out,
- * then a smaller, quieter row to the source code on GitHub in a new tab (plan D-40) and, under it,
- * the running version as plain text (not a menu item). A native popover, placed above or below its
+ * "Language…" and "Theme…", which open their dialogs, plan D-55), Admin for administrators, and
+ * Sign out, then a smaller, quieter row to the source code on GitHub in a new tab (plan D-40)
+ * and, under it, the running version as plain text (not a menu item). A native popover, placed
+ * above or below its
  * control; sign-out stays a form post. `compact` shows the avatar alone (the rail, the phone
  * header). `version` comes from a server component that required a session (lib/version.ts), so
  * it never reaches a signed-out visitor.
@@ -66,12 +69,13 @@ export function AccountMenu({
   const th = useTranslations('help');
   const menu = usePopoverMenu({ width: MENU_WIDTH, align: compact ? 'start' : 'end' });
   const languageRef = useRef<HTMLDialogElement>(null);
+  const themeRef = useRef<HTMLDialogElement>(null);
 
-  const openLanguage = () => {
+  const openDialog = (dialog: HTMLDialogElement | null) => {
     menu.hide();
     // The anchor takes the focus first, so closing the dialog gives it back there.
     menu.anchorRef.current?.focus();
-    languageRef.current?.showModal();
+    dialog?.showModal();
   };
 
   return (
@@ -124,8 +128,11 @@ export function AccountMenu({
           <MenuLink Component={Link} href="/settings/terminal" icon={<TerminalIcon size={16} />}>
             {t('terminalSettings')}
           </MenuLink>
-          <MenuItem icon={<GlobeIcon size={16} />} onClick={openLanguage}>
+          <MenuItem icon={<GlobeIcon size={16} />} onClick={() => openDialog(languageRef.current)}>
             {t('language')}
+          </MenuItem>
+          <MenuItem icon={<ThemeIcon size={16} />} onClick={() => openDialog(themeRef.current)}>
+            {t('theme')}
           </MenuItem>
           {isAdmin ? (
             <>
@@ -173,6 +180,7 @@ export function AccountMenu({
         </div>
       </MenuPopover>
       <LanguageDialog dialogRef={languageRef} locale={locale} />
+      <ThemeDialog dialogRef={themeRef} />
     </>
   );
 }

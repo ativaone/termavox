@@ -10,7 +10,7 @@ export function radioClasses(size: 'md' | 'sm' = 'md', className?: string): stri
     size === 'md' ? 'size-5' : 'size-4',
     'shrink-0 cursor-pointer appearance-none rounded-pill border border-line-strong bg-field',
     'transition-[background-color,border-color,box-shadow] duration-(--duration-step) ease-(--ease-out)',
-    'hover:border-white/50 checked:border-accent checked:bg-accent',
+    'hover:border-line-hover checked:border-accent checked:bg-accent',
     size === 'md'
       ? 'checked:shadow-[inset_0_0_0_4px_var(--color-ground)]'
       : 'checked:shadow-[inset_0_0_0_3px_var(--color-ground)]',

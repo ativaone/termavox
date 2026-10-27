@@ -10,7 +10,9 @@ import { changePassword, signOutSession } from '../auth/account.ts';
 import { completeSetup, getAuthRuntime } from '../auth/server.ts';
 import { type AuthErrorInfo, authErrorInfo } from '../auth-errors.ts';
 import { revokeConnections } from '../internal-api.ts';
+import { THEME_COOKIE, THEME_COOKIE_MAX_AGE_S } from '../preferences/theme.ts';
 import { qrPath } from '../qr.ts';
+import { getTheme } from '../repo/preferences.ts';
 import { setUserLocale } from '../repo/users.ts';
 import { ROUTES } from '../routes.ts';
 import type { EnrollState, FormState } from './form-state.ts';
@@ -33,6 +35,22 @@ function text(formData: FormData, name: string): string {
 async function syncLocaleFromCookie(userId: string): Promise<void> {
   const value = (await cookies()).get(LOCALE_COOKIE)?.value;
   if (isLocale(value)) setUserLocale(getAuthRuntime().db, userId, value);
+}
+
+/**
+ * The other way round for the theme (plan D-55), which is only chosen while signed in: the
+ * account's stored theme becomes this browser's cookie, so its sign-in page opens in it next time.
+ */
+async function syncThemeCookie(userId: string): Promise<void> {
+  const theme = getTheme(getAuthRuntime().db, userId);
+  if (!theme) return;
+  (await cookies()).set(THEME_COOKIE, theme, {
+    path: '/',
+    maxAge: THEME_COOKIE_MAX_AGE_S,
+    sameSite: 'lax',
+    secure: true,
+    httpOnly: true,
+  });
 }
 
 function userIdOf(result: unknown): string | undefined {
@@ -95,7 +113,10 @@ export async function signIn(_prev: FormState, formData: FormData): Promise<Form
     redirect(ROUTES.twoFactor);
   }
   const userId = userIdOf(result);
-  if (userId) await syncLocaleFromCookie(userId);
+  if (userId) {
+    await syncLocaleFromCookie(userId);
+    await syncThemeCookie(userId);
+  }
   redirect(ROUTES.workspace);
 }
 
@@ -139,7 +160,10 @@ export async function verifyTwoFactor(_prev: FormState, formData: FormData): Pro
   }
   if (expired) redirect(`${ROUTES.login}?notice=expired`);
   const userId = userIdOf(result);
-  if (userId) await syncLocaleFromCookie(userId);
+  if (userId) {
+    await syncLocaleFromCookie(userId);
+    await syncThemeCookie(userId);
+  }
   redirect(ROUTES.workspace);
 }
 

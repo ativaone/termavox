@@ -19,6 +19,16 @@
       "en": "English",
       "pt-BR": "Português (Brasil)"
     },
+    "theme": {
+      "label": "Tema",
+      "apply": "Aplicar",
+      "system": "Sistema",
+      "systemHint": "Claro ou escuro, como o seu dispositivo",
+      "light": "Claro",
+      "lightHint": "Para ambientes iluminados",
+      "dark": "Escuro",
+      "darkHint": "Para ambientes com pouca luz"
+    },
     "field": {
       "errorPrefix": "Erro:"
     }
@@ -276,6 +286,7 @@
       "accountSettings": "Configurações da conta",
       "terminalSettings": "Configurações do terminal",
       "language": "Idioma…",
+      "theme": "Tema…",
       "cancel": "Cancelar",
       "version": "Termavox <data>{version}</data>"
     },
@@ -1104,6 +1115,10 @@
       "language": {
         "title": "Idioma",
         "intro": "Usado na interface e nos avisos escritos nos seus terminais."
+      },
+      "theme": {
+        "title": "Tema",
+        "intro": "A aparência do Termavox em todos os navegadores em que você entrar. Os terminais mantêm o esquema de cores das Configurações do terminal."
       }
     },
     "terminal": {

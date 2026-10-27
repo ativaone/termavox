@@ -3,7 +3,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DEFAULT_TERMINAL_PREFERENCES } from '../lib/preferences/terminal.ts';
 import { insertAuditEvent, listAuditEvents, listAuditTypes } from '../lib/repo/audit.ts';
 import { listCredentials } from '../lib/repo/credentials.ts';
-import { getTerminalPreferences, saveTerminalPreferences } from '../lib/repo/preferences.ts';
+import {
+  getTerminalPreferences,
+  getTheme,
+  saveTerminalPreferences,
+  saveTheme,
+} from '../lib/repo/preferences.ts';
 import {
   countServers,
   countServersAtAddress,
@@ -191,6 +196,25 @@ describe('repository isolation (user B never reads or changes user A’s rows)',
       .prepare('UPDATE user_preferences SET terminal_json = ? WHERE user_id = ?')
       .run('{"fontSize": 99, "allowOsc52Write": "yes"}', alice);
     expect(getTerminalPreferences(db, alice)).toEqual(DEFAULT_TERMINAL_PREFERENCES);
+  });
+
+  it('theme (plan D-55), beside the terminal preferences', () => {
+    const { db } = t.rt;
+    saveTheme(db, alice, 'light');
+    expect(getTheme(db, alice)).toBe('light');
+    expect(getTheme(db, bob)).toBe('system');
+    // A first save creates the row with the default terminal preferences; the theme never
+    // touches them.
+    const carol = uuidv7();
+    expect(getTheme(db, carol)).toBeNull();
+    saveTheme(db, bob, 'dark');
+    expect(getTerminalPreferences(db, bob)).toMatchObject({ colorScheme: 'buff' });
+    expect(getTheme(db, alice)).toBe('light');
+    db.$client
+      .prepare('UPDATE user_preferences SET theme = ? WHERE user_id = ?')
+      .run('sepia', alice);
+    expect(getTheme(db, alice)).toBeNull();
+    expect(() => saveTheme(db, alice, 'sepia' as never)).toThrow();
   });
 
   it('audit events (admins only)', () => {

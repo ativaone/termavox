@@ -34,7 +34,7 @@ export function Checkbox({
           className={cx(
             'peer size-5 cursor-pointer appearance-none rounded-xs border border-line-strong bg-field',
             'transition-[background-color,border-color] duration-(--duration-step) ease-(--ease-out)',
-            'hover:border-white/50 checked:border-accent checked:bg-accent',
+            'hover:border-line-hover checked:border-accent checked:bg-accent',
             'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
             'aria-invalid:border-danger disabled:cursor-not-allowed disabled:border-line disabled:bg-surface',
           )}

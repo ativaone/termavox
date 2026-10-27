@@ -39,12 +39,12 @@ const ICON_SIZE: Record<ButtonSize, string> = {
 };
 
 /*
- * Primary is the accent: the one filled control on a screen. Secondary and quiet are translucent
+ * Primary is the accent fill: the one filled control on a screen. Secondary and quiet are translucent
  * light fills. Destructive is isolated by deliberate space (margin) from the actions beside it.
  */
 const VARIANT: Record<ButtonVariant, string> = {
   primary:
-    'bg-accent text-on-accent hover:brightness-110 active:bg-accent-strong active:brightness-100 ' +
+    'bg-accent-fill text-on-accent-fill hover:brightness-110 active:bg-accent-fill-strong active:brightness-100 ' +
     'disabled:bg-surface-raised disabled:text-ink-faint disabled:brightness-100',
   secondary:
     'bg-surface-raised text-ink hover:bg-surface-pressed active:bg-surface-pressed ' +

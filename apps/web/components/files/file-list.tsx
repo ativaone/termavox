@@ -153,7 +153,7 @@ export function FileList({
               className={cx(
                 'peer size-full cursor-pointer appearance-none rounded-xs border border-line-strong bg-field',
                 'transition-[background-color,border-color] duration-(--duration-step) ease-(--ease-out)',
-                'hover:border-white/50 checked:border-accent checked:bg-accent indeterminate:border-accent indeterminate:bg-accent',
+                'hover:border-line-hover checked:border-accent checked:bg-accent indeterminate:border-accent indeterminate:bg-accent',
                 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
                 'disabled:cursor-not-allowed disabled:border-line disabled:bg-surface',
               )}

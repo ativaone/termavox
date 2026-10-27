@@ -78,7 +78,7 @@ export function FieldError({
 export const CONTROL_BASE =
   'w-full min-w-0 rounded-control border border-line-strong bg-field text-ink ' +
   'transition-[border-color,box-shadow,background-color] duration-(--duration-step) ease-(--ease-out) ' +
-  'placeholder:text-ink-muted hover:border-white/50 ' +
+  'placeholder:text-ink-muted hover:border-line-hover ' +
   'focus-visible:border-accent focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus ' +
   'aria-invalid:border-danger aria-invalid:shadow-[inset_0_0_0_1px_var(--color-danger)] ' +
   'disabled:cursor-not-allowed disabled:border-line disabled:text-ink-faint';

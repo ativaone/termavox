@@ -63,6 +63,11 @@ upgraded: remove it together with its volumes and install fresh from a new clone
   server and restored in any browser. Several browsers can attach to one session at once.
 - Session names: give a session a name when you open it and rename it later from its menu or by
   double-clicking its tab; every attached browser sees the new name.
+- A light theme beside the dark one: "Theme…" in the account menu, and the account settings
+  page, offer System, Light and Dark. System, the default, follows the device's light or dark
+  setting, so a device set to light shows the light theme until you choose Dark. The choice
+  follows you to every browser. Terminals keep the colour scheme and font from terminal
+  settings in every theme.
 - Servers: one entry holds the address, the user name, the credential and the connection
   options (tmux protection, startup command, environment, keepalive, scrollback, auto-reopen),
   like an `ssh user@host` command line. Duplicate copies a server to change its user or key.

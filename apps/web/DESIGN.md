@@ -12,6 +12,7 @@ colors:
   field: "rgb(12 10 24 / 0.55)"
   line: "rgb(255 255 255 / 0.09)"
   line-strong: "rgb(255 255 255 / 0.36)"
+  line-hover: "rgb(255 255 255 / 0.5)"
   ink: "#f2f0fb"
   ink-muted: "#aba7cb"
   ink-faint: "#7a76a0"
@@ -20,6 +21,9 @@ colors:
   accent-soft: "rgb(76 201 255 / 0.14)"
   accent-ring: "rgb(76 201 255 / 0.55)"
   on-accent: "#0a1226"
+  accent-fill: "#4cc9ff"
+  accent-fill-strong: "#22b5f2"
+  on-accent-fill: "#0a1226"
   attention: "#ff5fae"
   attention-soft: "rgb(255 95 174 / 0.18)"
   state-connected: "#3ddc97"
@@ -110,14 +114,14 @@ spacing:
   3xl: "32px"
 components:
   button-primary:
-    backgroundColor: "{colors.accent}"
-    textColor: "{colors.on-accent}"
+    backgroundColor: "{colors.accent-fill}"
+    textColor: "{colors.on-accent-fill}"
     rounded: "{rounded.control}"
     padding: "0 14px"
     height: "36px"
   button-primary-active:
-    backgroundColor: "{colors.accent-strong}"
-    textColor: "{colors.on-accent}"
+    backgroundColor: "{colors.accent-fill-strong}"
+    textColor: "{colors.on-accent-fill}"
   button-secondary:
     backgroundColor: "{colors.surface-raised}"
     textColor: "{colors.ink}"
@@ -231,8 +235,8 @@ components:
     rounded: "{rounded.control}"
     height: "44px"
   key-armed:
-    backgroundColor: "{colors.accent}"
-    textColor: "{colors.on-accent}"
+    backgroundColor: "{colors.accent-fill}"
+    textColor: "{colors.on-accent-fill}"
   kbd:
     backgroundColor: "{colors.surface-raised}"
     textColor: "{colors.ink-muted}"
@@ -250,7 +254,7 @@ Termavox is used in dim rooms, at night, next to near-black terminals. The inter
 
 The system refuses two category defaults. It is not the neon hacker console (near-black, glowing edges, monospace as a costume): the terminal keeps its own near-black pane and the chrome around it is calm, sentence-case and proportional. It is not the white SaaS dashboard either (grey ground, blue buttons, a card for everything): there is one ground, one accent, and cards hold forms, tables and overlays, never the page's structure.
 
-Density is operator density on a compact fixed scale: 48 px session rows, 36 px navigation rows, 32 px tabs, one or two type sizes per component with hierarchy carried by weight and ink level. Motion is two crisp steps on an exponential ease-out (120 ms to recolour or press, 180 ms to move) and stills completely under reduced motion. Dark only (plan D-26).
+Density is operator density on a compact fixed scale: 48 px session rows, 36 px navigation rows, 32 px tabs, one or two type sizes per component with hierarchy carried by weight and ink level. Motion is two crisp steps on an exponential ease-out (120 ms to recolour or press, 180 ms to move) and stills completely under reduced motion. Dark by default (plan D-26), with a light theme of the same tokens, the cabin by day (plan D-55; see Colors → Light theme).
 
 **Key Characteristics:**
 - One ground (#171431) with two static edge glows; opaque near-black panes (#0c0b16) for terminals.
@@ -262,10 +266,10 @@ Density is operator density on a compact fixed scale: 48 px session rows, 36 px 
 
 ## Colors
 
-A dark restrained palette: violet-tinted neutrals, one cyan accent, magenta for attention, and six state lamps.
+A dark restrained palette: violet-tinted neutrals, one cyan accent, magenta for attention, and six state lamps. The values below are the dark theme, the default; the light theme redefines the same tokens (Light theme, below).
 
 ### Primary
-- **Sky Cyan** (`accent` #4cc9ff): the one filled control on a screen (primary buttons, the armed Ctrl key), links, the search mark, the active tab's underline, the focused pane's top rule and the followed session's ring (`accent-ring`) and fill (`accent-soft`, 14 %). Pressed is `accent-strong` (#22b5f2); text on it is `on-accent` (#0a1226, 9.9:1).
+- **Sky Cyan** (`accent` #4cc9ff): the one filled control on a screen (primary buttons and the armed Ctrl key, through `accent-fill`, `accent-fill-strong` and `on-accent-fill`, equal to the accent here and kept sky cyan in the light theme), links, the search mark, the active tab's underline, the focused pane's top rule and the followed session's ring (`accent-ring`) and fill (`accent-soft`, 14 %). Pressed is `accent-strong` (#22b5f2); text on it is `on-accent` (#0a1226, 9.9:1).
 
 ### Secondary
 - **Attention Magenta** (`attention` #ff5fae): the Action required lamp and group count, the bell mark. It is also the top-right edge glow at 24 % (`glow-magenta`), where it sits behind nothing that must be read.
@@ -278,9 +282,19 @@ A dark restrained palette: violet-tinted neutrals, one cyan accent, magenta for 
 ### Neutral
 - **Ground** (`ground` #171431): the page, the sidebar and the tab row. `ground-deep` (#110f24) is the phone key bar. `pane` (#0c0b16) is the terminal.
 - **Surfaces**: `surface` (white 4.5 %) is a resting card, `surface-raised` (8 %) a hover or a lit control, `surface-pressed` (12 %) a press; `surface-solid` (#221e42, the card composited on the ground) is for anything that floats over a live terminal (menus, the palette, in-pane overlays), because nothing translucent may sit over a terminal. `field` (rgb(12 10 24 / 0.55)) is the dark well of an input.
-- **Lines**: `line` (white 9 %) for hairlines and card edges; `line-strong` (white 36 %, 3.3:1 on a card) for control borders.
+- **Lines**: `line` (white 9 %) for hairlines and card edges; `line-strong` (white 36 %, 3.3:1 on a card) for control borders; `line-hover` (white 50 %) for a control's border under the pointer.
 - **Ink**: `ink` (#f2f0fb, 14:1 on a card), `ink-muted` (#aba7cb, 6.9:1 on a card and 4.9:1 on the brightest notice), `ink-faint` (#7a76a0) for disabled text only.
 - **Focus** (`focus` #7fd9ff): a 2 px outline 2 px off the element, everywhere.
+
+### Light theme (plan D-55)
+The same cabin by day, chosen per user (System, Light or Dark; System follows the device and a device that states neither stays dark). It covers the chrome only: **terminals keep their own colour scheme** (Terminal settings), so a light interface still shows the user's terminal scheme, Night by default. `globals.css` redefines the same tokens under `:root[data-theme="light"]` and, for System on a light device, under `@media (prefers-color-scheme: light) :root[data-theme="system"]`; the two blocks are identical (a test keeps them so). Components never pick a colour per theme.
+- **Ground** `#f3f1fa` (lavender white), `ground-deep` `#e8e5f3`, `pane` `#fbfaff` (the pane's frame, captions and empty states; the terminal paints its own scheme inside). Edge glows soften to 10 % magenta and 12 % violet.
+- **Surfaces**: `surface` white 72 % (a card reads `#fcfbfe`), `surface-raised` ink 6 %, `surface-pressed` ink 10 %, `surface-solid` and `field` white. **Lines**: ink 10 %, `line-strong` ink 46 % (3:1 on a card), `line-hover` ink 62 %.
+- **Ink**: `ink` `#171431` (the night ground, 17:1 on a card), `ink-muted` `#565277` (7.1:1 on a card, 5.9:1 on the followed row and the notices), `ink-faint` `#8f8bab` (disabled only).
+- **The accent splits in two.** Sky cyan stays the fill of primary controls (`accent-fill` #4cc9ff with `on-accent-fill` #0a1226, 9.9:1), so the brand still reads; a deep cyan `accent` `#0073ad` takes every text and stroke role (links 4.6:1 on the ground, focus, `accent-ring` at 60 %, the tab underline, the pane rule, checked boxes with white `on-accent`, 5.2:1), where sky cyan would read at 1.7:1 on white. The followed session's fill (`accent-soft`) is sky cyan at 18 %.
+- **Lamps keep their hues, darkened**: connected `#0c8656`, progress `#2a74d6`, reconnecting `#a06a00`, action and attention `#cc2d78` (white count text 5:1), disconnected `#d92f48`, ended `#7a75a0`; each 3.3:1 or better on the followed row, the hardest surface, and 4.2:1 or better on a card. `danger` text `#c22d46` (5.4:1); `danger-fill` stays. Notice fills are the lamp hues at 9 to 14 %.
+- **Shadows** are violet-ink at 10 to 22 % instead of near-black at 50 to 75 %; the followed session's halo is sky cyan at 60 % around the deep ring.
+- The browser's bar colour (`theme-color`) is the ground of the theme in force (both, by media query, for System). The project site and the README's screenshots stay dark.
 
 ### Named Rules
 **The Reading Light Rule.** The accent owns selection: the followed session, the active tab, the focused pane, the highlighted palette row and the chosen choice card all use `accent-soft` and `accent-ring`. Nothing else is cyan but primary actions, links and focus.
@@ -379,7 +393,7 @@ An 8 px lamp beside the status word in data size and `ink-muted` (Connecting…,
 - **Sidebar rows:** 36 px, 10 px corners, icon and label in `ink-muted`; hover fills `surface-raised`; the current row is lit (`surface-raised`, ink text, the icon in the accent) and carries no stripe. The rail shows the icon alone, named by its tooltip and accessible name.
 - **Collapse toggle (plans D-37, D-38):** a 36 px quiet icon button on its own row under New session, drawn at exactly the same spot expanded and collapsed: the head's rows keep their heights in both modes (mark 40 px, New session 44 px with the rail's round button centred in it, toggle 36 px, 12 px then 4 px apart) and the expanded toggle sits in the rail's centred column, so the pointer stays on it and a second click undoes the first. Never on the mark's row, whose prompt glyph already reads like a chevron, and never beside New session. The glyph is the panel with its left column and a chevron inside the frame pointing where a click sends the column: in to collapse, out to expand (never a bare arrow, which reads as "back"). Hidden on phones; `aria-expanded` and `aria-controls` point at the session list.
 - **Help button (plan D-40):** a 36 px quiet icon button drawn like the collapse toggle (the question mark in a circle at 18 px, `ink-muted`, hover `surface-raised` and ink) that opens the documentation on the project site, in the interface's language, in a new tab; its tooltip says Help and its accessible name adds that it opens a new tab. It sits in the same place in the workspace and on the management pages: at the end of the account row (the account menu takes the rest of the width), over the avatar on the rail, and just before the avatar in the phone header.
-- **Account menu:** the avatar (a cyan-to-violet pill with the user's initial), the name and a gear open a 248 px solid card: Settings (Account settings, Terminal settings, and Language…, which opens a small modal dialog with the languages as choice cards and Apply), Admin for administrators, and Sign out (a form post), then, under a separator, one discreet row a step smaller than the others (32 px, small type, `ink-muted` until hovered or focused): "Source code on GitHub" with GitHub's mark (the icon set's one filled glyph, from Octicons) and a trailing new-tab arrow, opening the repository in a new tab. Under it, the menu's last line is information, not an action: "Termavox 0.1.0" in 12 px `ink-muted` with the version in the Data role, aligned with the text of the row above, never focused or hovered and skipped by the arrow keys, so a bug report can cite it. Only signed-in pages carry it (the server passes it to the menu); the sign-in and setup pages, error pages and `/api/health` never show the version. The language is a rare setting: it never gets its own group or inline choices in the menu. The rail and the phone header show the avatar alone.
+- **Account menu:** the avatar (a cyan-to-violet pill with the user's initial), the name and a gear open a 248 px solid card: Settings (Account settings, Terminal settings, Language…, which opens a small modal dialog with the languages as choice cards and Apply, and Theme…, the same dialog with System, Light and Dark, each card carrying a 56 × 36 miniature of the interface in that theme, System split on the diagonal, plan D-55), Admin for administrators, and Sign out (a form post), then, under a separator, one discreet row a step smaller than the others (32 px, small type, `ink-muted` until hovered or focused): "Source code on GitHub" with GitHub's mark (the icon set's one filled glyph, from Octicons) and a trailing new-tab arrow, opening the repository in a new tab. Under it, the menu's last line is information, not an action: "Termavox 0.1.0" in 12 px `ink-muted` with the version in the Data role, aligned with the text of the row above, never focused or hovered and skipped by the arrow keys, so a bug report can cite it. Only signed-in pages carry it (the server passes it to the menu); the sign-in and setup pages, error pages and `/api/health` never show the version. The language is a rare setting: it never gets its own group or inline choices in the menu. The rail and the phone header show the avatar alone.
 - **Tabs:** 32 px, 10 px-cornered segments with the lamp, the label, the OSC title in muted ink, a pane-count pill and a magenta bell when a hidden pane rang; the active tab is `surface-raised` with ink text and a 2 px cyan underline. Tabs scroll in their own strip; the split controls and the connection state sit outside it, and an edge with tabs under it shows a chevron cue with the Edge shadow. Only the user reorders tabs, and the order is the saved layout's, so it follows them to every browser. Dragging a label sideways past 5 px (less is a click; touch scrolls the strip instead) lifts the tab: `surface-solid` with ink text and the Edge shadow on both sides, the grabbing cursor, kept within the strip's visible part; its neighbours slide aside at the move step to open the slot it will land in (instantly under reduced motion), the slot changing once its leading edge passes a neighbour's middle. Within 32 px of either end the strip scrolls, faster nearer the edge, and the slot follows. The drop slides the tab into its slot and selects nothing; the strip stays where it is and the focus goes back where it was. Escape, a lost pointer or the window losing focus slide everything back. With a tab focused, Ctrl+Shift+← / → moves it one place (no wrap), keeps the focus on it and announces "Tab moved to position 2 of 5"; the label's tooltip says it can be dragged.
 - **Section tabs** (Settings, Admin, Activity views): 40 px links under the page heading with the cyan underline on the current one.
 - **Phone extra-key bar:** Esc, Tab, sticky Ctrl, sticky Alt, four arrows, pipe and paste as 44 px `surface-raised` keys on `ground-deep` that share the width (ten keys fit 390 px); an armed modifier turns cyan. Ctrl masks the next key into its control byte, Alt sends it behind an ESC prefix (D-17).

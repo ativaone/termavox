@@ -19,6 +19,16 @@
       "en": "English",
       "pt-BR": "Português (Brasil)"
     },
+    "theme": {
+      "label": "Theme",
+      "apply": "Apply",
+      "system": "System",
+      "systemHint": "Light or dark, as your device is set",
+      "light": "Light",
+      "lightHint": "For bright rooms",
+      "dark": "Dark",
+      "darkHint": "For dim rooms"
+    },
     "field": {
       "errorPrefix": "Error:"
     }
@@ -276,6 +286,7 @@
       "accountSettings": "Account settings",
       "terminalSettings": "Terminal settings",
       "language": "Language…",
+      "theme": "Theme…",
       "cancel": "Cancel",
       "version": "Termavox <data>{version}</data>"
     },
@@ -1104,6 +1115,10 @@
       "language": {
         "title": "Language",
         "intro": "Used for the interface and for notices written into your terminals."
+      },
+      "theme": {
+        "title": "Theme",
+        "intro": "How Termavox looks in every browser you sign in to. Terminals keep the colour scheme set in Terminal settings."
       }
     },
     "terminal": {

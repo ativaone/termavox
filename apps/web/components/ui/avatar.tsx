@@ -20,7 +20,7 @@ export function Avatar({
     <span
       aria-hidden="true"
       className={cx(
-        'inline-flex shrink-0 select-none items-center justify-center rounded-pill font-bold text-on-accent',
+        'inline-flex shrink-0 select-none items-center justify-center rounded-pill font-bold text-on-accent-fill',
         'bg-[linear-gradient(135deg,#4cc9ff,#8b6cff)]',
         size === 'sm' ? 'size-6 text-2xs' : 'size-7 text-xs',
         className,

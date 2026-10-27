@@ -2,10 +2,14 @@
 
 /*
  * Termavox tokens: the night cabin.
- * One dark world: a deep violet-navy ground with a static glow at two frame edges, translucent
- * cards drawn with a faint light fill and a 1 px light line, one sky-cyan accent that owns
- * actions, selection, focus and the followed session, magenta for attention, small state lamps
- * beside their words, and near-black terminal panes. Dark only (plan D-26).
+ * A deep violet-navy ground with a static glow at two frame edges, translucent cards drawn with a
+ * faint light fill and a 1 px light line, one sky-cyan accent that owns actions, selection, focus
+ * and the followed session, magenta for attention, small state lamps beside their words, and
+ * near-black terminal panes (plan D-26). These are the dark values, and the default.
+ *
+ * The light theme (plan D-55) is the same cabin by day: it redefines the same tokens below, for
+ * `data-theme="light"` and for `data-theme="system"` when the system asks for light. Terminals
+ * keep their own colour scheme in both.
  */
 
 @theme static {
@@ -26,6 +30,8 @@
   --color-field: rgb(12 10 24 / 0.55);
   --color-line: rgb(255 255 255 / 0.09);
   --color-line-strong: rgb(255 255 255 / 0.36);
+  /* A control's border under the pointer (checkboxes, radios, fields). */
+  --color-line-hover: rgb(255 255 255 / 0.5);
 
   /* Ink levels. Faint is for disabled text only (it does not reach 4.5:1 on tinted cards). */
   --color-ink: #f2f0fb;
@@ -38,6 +44,11 @@
   --color-accent-soft: rgb(76 201 255 / 0.14);
   --color-accent-ring: rgb(76 201 255 / 0.55);
   --color-on-accent: #0a1226;
+  /* The filled primary controls (primary button, armed key). The same sky cyan in both themes;
+     in the dark one it is the accent itself. */
+  --color-accent-fill: #4cc9ff;
+  --color-accent-fill-strong: #22b5f2;
+  --color-on-accent-fill: #0a1226;
 
   /* Attention: magenta. Action required and bells, never decoration. */
   --color-attention: #ff5fae;
@@ -111,6 +122,7 @@
 
 :root {
   color-scheme: dark;
+  --scrollbar-thumb: rgb(255 255 255 / 0.18);
   /* Motion: step = recolour or press, move = slide. */
   --duration-step: 120ms;
   --duration-move: 180ms;
@@ -118,6 +130,109 @@
   --rail-width: 3.5rem;
   --tabbar-height: 2.75rem;
   --keybar-height: 3rem;
+}
+
+/*
+ * The light theme (plan D-55): a lavender-white ground, white cards with a fine violet-ink line,
+ * the night ground as the ink, softer edge glows and lighter shadows. The sky cyan stays the fill
+ * of primary controls (accent-fill); a deep cyan takes the accent's text and strokes (links,
+ * focus, rings, the tab underline, checked boxes), where sky cyan would not read on white. Lamps
+ * keep their hues, darkened to 3:1 or better on every surface, the followed row included.
+ * The two blocks are identical (a test keeps them so): one for an explicit choice, one for
+ * "System" when the system asks for light.
+ */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --scrollbar-thumb: rgb(23 20 49 / 0.22);
+  --color-ground: #f3f1fa;
+  --color-ground-deep: #e8e5f3;
+  --color-pane: #fbfaff;
+  --color-surface: rgb(255 255 255 / 0.72);
+  --color-surface-raised: rgb(23 20 49 / 0.06);
+  --color-surface-pressed: rgb(23 20 49 / 0.1);
+  --color-surface-solid: #ffffff;
+  --color-field: #ffffff;
+  --color-line: rgb(23 20 49 / 0.1);
+  --color-line-strong: rgb(23 20 49 / 0.46);
+  --color-line-hover: rgb(23 20 49 / 0.62);
+  --color-ink: #171431;
+  --color-ink-muted: #565277;
+  --color-ink-faint: #8f8bab;
+  --color-accent: #0073ad;
+  --color-accent-strong: #005e8f;
+  --color-accent-soft: rgb(76 201 255 / 0.18);
+  --color-accent-ring: rgb(0 115 173 / 0.6);
+  --color-on-accent: #ffffff;
+  --color-attention: #cc2d78;
+  --color-attention-soft: rgb(204 45 120 / 0.12);
+  --color-state-connected: #0c8656;
+  --color-state-progress: #2a74d6;
+  --color-state-reconnecting: #a06a00;
+  --color-state-action: #cc2d78;
+  --color-state-disconnected: #d92f48;
+  --color-state-ended: #7a75a0;
+  --color-danger: #c22d46;
+  --color-danger-soft: rgb(201 48 75 / 0.1);
+  --color-warning-soft: rgb(208 144 15 / 0.14);
+  --color-info-soft: rgb(0 115 173 / 0.09);
+  --color-success-soft: rgb(12 134 86 / 0.11);
+  --color-focus: #0073ad;
+  --color-selection: rgb(0 115 173 / 0.2);
+  --color-glow-magenta: rgb(255 79 163 / 0.1);
+  --color-glow-violet: rgb(124 92 255 / 0.12);
+  --shadow-float: 0 12px 32px -8px rgb(40 30 90 / 0.18), 0 2px 6px -2px rgb(40 30 90 / 0.1);
+  --shadow-card: 0 18px 48px -16px rgb(40 30 90 / 0.22), 0 2px 8px -4px rgb(40 30 90 / 0.1);
+  --shadow-light: 0 0 0 1px rgb(0 115 173 / 0.6), 0 0 18px -6px rgb(76 201 255 / 0.6);
+  --shadow-edge-start: 8px 0 12px -5px rgb(40 30 90 / 0.18);
+  --shadow-edge-end: -8px 0 12px -5px rgb(40 30 90 / 0.18);
+}
+
+@media (prefers-color-scheme: light) {
+  :root[data-theme="system"] {
+    color-scheme: light;
+    --scrollbar-thumb: rgb(23 20 49 / 0.22);
+    --color-ground: #f3f1fa;
+    --color-ground-deep: #e8e5f3;
+    --color-pane: #fbfaff;
+    --color-surface: rgb(255 255 255 / 0.72);
+    --color-surface-raised: rgb(23 20 49 / 0.06);
+    --color-surface-pressed: rgb(23 20 49 / 0.1);
+    --color-surface-solid: #ffffff;
+    --color-field: #ffffff;
+    --color-line: rgb(23 20 49 / 0.1);
+    --color-line-strong: rgb(23 20 49 / 0.46);
+    --color-line-hover: rgb(23 20 49 / 0.62);
+    --color-ink: #171431;
+    --color-ink-muted: #565277;
+    --color-ink-faint: #8f8bab;
+    --color-accent: #0073ad;
+    --color-accent-strong: #005e8f;
+    --color-accent-soft: rgb(76 201 255 / 0.18);
+    --color-accent-ring: rgb(0 115 173 / 0.6);
+    --color-on-accent: #ffffff;
+    --color-attention: #cc2d78;
+    --color-attention-soft: rgb(204 45 120 / 0.12);
+    --color-state-connected: #0c8656;
+    --color-state-progress: #2a74d6;
+    --color-state-reconnecting: #a06a00;
+    --color-state-action: #cc2d78;
+    --color-state-disconnected: #d92f48;
+    --color-state-ended: #7a75a0;
+    --color-danger: #c22d46;
+    --color-danger-soft: rgb(201 48 75 / 0.1);
+    --color-warning-soft: rgb(208 144 15 / 0.14);
+    --color-info-soft: rgb(0 115 173 / 0.09);
+    --color-success-soft: rgb(12 134 86 / 0.11);
+    --color-focus: #0073ad;
+    --color-selection: rgb(0 115 173 / 0.2);
+    --color-glow-magenta: rgb(255 79 163 / 0.1);
+    --color-glow-violet: rgb(124 92 255 / 0.12);
+    --shadow-float: 0 12px 32px -8px rgb(40 30 90 / 0.18), 0 2px 6px -2px rgb(40 30 90 / 0.1);
+    --shadow-card: 0 18px 48px -16px rgb(40 30 90 / 0.22), 0 2px 8px -4px rgb(40 30 90 / 0.1);
+    --shadow-light: 0 0 0 1px rgb(0 115 173 / 0.6), 0 0 18px -6px rgb(76 201 255 / 0.6);
+    --shadow-edge-start: 8px 0 12px -5px rgb(40 30 90 / 0.18);
+    --shadow-edge-end: -8px 0 12px -5px rgb(40 30 90 / 0.18);
+  }
 }
 
 @layer base {
@@ -139,7 +254,7 @@
 
   * {
     scrollbar-width: thin;
-    scrollbar-color: rgb(255 255 255 / 0.18) transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
   }
 
   /*
