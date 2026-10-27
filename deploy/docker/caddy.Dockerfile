@@ -10,7 +10,7 @@
 # Changing deploy/Caddyfile means rebuilding this image.
 
 # caddy:2 (official Docker Hub image; v2.11.7 when pinned), pinned by digest.
-FROM caddy:2@sha256:685ae3d7c34d9b5f8caeddc5d14051db7bbd88ff1f5a2fa0c16bd8ca328fb7af
+FROM caddy:2@sha256:504a44d7d74bd2bc28a66afc4774912fc21223ca8a67734af1c54ab2f999b489
 # One layer: the binary is copied up once (capability removed, owned by root like every other
 # program file), and /data and /config (certificates, the local CA, the autosaved config) belong
 # to the Caddy user. A new named volume takes that owner and mode from the image.
