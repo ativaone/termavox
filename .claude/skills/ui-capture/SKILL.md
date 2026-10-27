@@ -70,3 +70,9 @@ whoever builds last decides which daemon every page talks to.
 - **Wait for hydration** (`page.waitHydrated`) before clicking anything React handles; a click on
   server-rendered markup does nothing.
 - **Blur before a shot** (`c.blur()`), or a focus ring or tooltip lands in the picture.
+- **`c.shot()` leaves the page at its frame's size** (`c.shots()` resets to the 1x desktop). After
+  a phone shot, `c.setFrame(FRAMES.desktop1x)` before the next desktop step: the phone layout
+  has no sidebar, so desktop selectors time out.
+- **The Chromium profile lives in the data dir and survives a run.** Cookies of an earlier run with
+  the same `name` (theme, language) carry over while the database starts fresh; give a run that
+  checks defaults a new `name`.
