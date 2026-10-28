@@ -157,6 +157,11 @@ upgraded: remove it together with its volumes and install fresh from a new clone
   inside its card.
 - Audit log: short targets (user and server names, addresses) no longer break in the middle
   ("rc2a" over "dmin"); only a value longer than the column wraps.
+- Choices stay as you left them after a form is sent. Saving terminal settings put the colour
+  scheme, cursor and font fields back to the values the page opened with while the screen showed
+  the new ones, so the next save stored the old ones again; a new credential or server refused
+  for a missing field went back to "Generate key" while still showing the choice you made; and
+  the language dialog, opened again after a switch, marked the previous language.
 
 ### Security
 

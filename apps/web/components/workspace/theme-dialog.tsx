@@ -1,12 +1,13 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { type RefObject, useId, useState, useSyncExternalStore } from 'react';
+import { type RefObject, useId, useRef, useState, useSyncExternalStore } from 'react';
 import { setTheme } from '../../lib/actions/theme.ts';
 import { DEFAULT_THEME, isTheme, type Theme } from '../../lib/preferences/theme.ts';
 import { ThemeChoices } from '../theme-choices.tsx';
 import { Button } from '../ui/button.tsx';
 import { SubmitButton } from '../ui/submit-button.tsx';
+import { useKeepChoicesOnReset } from '../ui/use-keep-choices.ts';
 
 /**
  * The theme picker behind the account menu's "Theme…" item (plan D-55), built like the language
@@ -22,6 +23,8 @@ export function ThemeDialog({ dialogRef }: { dialogRef: RefObject<HTMLDialogElem
   // Null until the user picks: the dialog then shows the theme in force, whatever it became.
   const [chosen, setChosen] = useState<Theme | null>(null);
   const shown = chosen ?? current;
+  const formRef = useRef<HTMLFormElement>(null);
+  useKeepChoicesOnReset(formRef);
 
   const apply = async (formData: FormData) => {
     await setTheme(formData);
@@ -35,7 +38,7 @@ export function ThemeDialog({ dialogRef }: { dialogRef: RefObject<HTMLDialogElem
       onClose={() => setChosen(null)}
       className="card-solid m-auto w-[min(26rem,calc(100vw-2rem))] p-0 text-ink shadow-float backdrop:bg-ground-deep/70"
     >
-      <form action={apply} className="flex flex-col gap-4 px-5 py-4">
+      <form ref={formRef} action={apply} className="flex flex-col gap-4 px-5 py-4">
         <div className="flex flex-col gap-1">
           <h2 id={titleId} className="font-semibold text-ink text-md">
             {t('label')}

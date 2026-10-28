@@ -15,6 +15,7 @@ import { Select } from '../ui/select.tsx';
 import { SubmitButton } from '../ui/submit-button.tsx';
 import { Tag } from '../ui/tag.tsx';
 import { TextField } from '../ui/text-field.tsx';
+import { useKeepChoicesOnReset } from '../ui/use-keep-choices.ts';
 import { AddServerDone } from './add-server-result.tsx';
 import { AddServerSection, ChoiceCard } from './add-server-section.tsx';
 import { AdvancedOptions, ServerTargetFields } from './server-fields.tsx';
@@ -88,6 +89,7 @@ function AddServerFields({
 
   // After a refused submit, take the keyboard to the first field that needs attention.
   const formRef = useRef<HTMLFormElement>(null);
+  useKeepChoicesOnReset(formRef);
   useEffect(() => {
     if (!state.fields || Object.keys(state.fields).length === 0) return;
     formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();

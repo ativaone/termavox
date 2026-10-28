@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { useActionState, useState } from 'react';
+import { useActionState, useRef, useState } from 'react';
 import type { CredentialCreateState, CredentialKind } from '../../lib/actions/credential-states.ts';
 import { createCredential } from '../../lib/actions/credentials.ts';
 import { installCommand } from '../../lib/manage/install-command.ts';
@@ -15,6 +15,7 @@ import { PasswordField } from '../ui/password-field.tsx';
 import { radioClasses } from '../ui/radio.ts';
 import { SubmitButton } from '../ui/submit-button.tsx';
 import { TextField } from '../ui/text-field.tsx';
+import { useKeepChoicesOnReset } from '../ui/use-keep-choices.ts';
 
 const KINDS: CredentialKind[] = ['generate', 'private_key', 'password'];
 
@@ -28,6 +29,8 @@ export function CreateCredential({ back }: { back?: { href: string; label: strin
   const t = useTranslations('credentials.create');
   const tf = useTranslations('common.field');
   const [state, action] = useActionState(createCredential, {} as CredentialCreateState);
+  const formRef = useRef<HTMLFormElement>(null);
+  useKeepChoicesOnReset(formRef);
   const [kind, setKind] = useState<CredentialKind>(
     (state.values?.kind as CredentialKind | undefined) ?? 'generate',
   );
@@ -92,7 +95,13 @@ export function CreateCredential({ back }: { back?: { href: string; label: strin
   const privateKeyId = 'credential-private-key';
   const keyIds = fieldIds(privateKeyId, t('privateKeyHelp'), state.fields?.privateKey);
   return (
-    <form action={action} noValidate className="flex flex-col gap-5" autoComplete="off">
+    <form
+      ref={formRef}
+      action={action}
+      noValidate
+      className="flex flex-col gap-5"
+      autoComplete="off"
+    >
       <FormMessage message={state.message} />
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-1.5 font-semibold text-ink text-sm">{t('kind')}</legend>

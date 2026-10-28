@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { useActionState, useState } from 'react';
+import { useActionState, useRef, useState } from 'react';
 import { saveTerminalPreferences } from '../../lib/actions/settings.ts';
 import type { ManageState } from '../../lib/manage/forms.ts';
 import {
@@ -24,6 +24,7 @@ import { radioClasses } from '../ui/radio.ts';
 import { Select } from '../ui/select.tsx';
 import { SubmitButton } from '../ui/submit-button.tsx';
 import { TextField } from '../ui/text-field.tsx';
+import { useKeepChoicesOnReset } from '../ui/use-keep-choices.ts';
 
 /** A few lines of a shell, drawn with the chosen scheme, font and cursor (no terminal needed). */
 function Preview({
@@ -88,6 +89,8 @@ export function TerminalForm({ initial }: { initial: TerminalPreferences }) {
   const t = useTranslations('settings.terminal');
   const tf = useTranslations('common.field');
   const [state, action] = useActionState(saveTerminalPreferences, {} as ManageState);
+  const formRef = useRef<HTMLFormElement>(null);
+  useKeepChoicesOnReset(formRef);
   const [scheme, setScheme] = useState<TerminalScheme>(initial.colorScheme);
   const [font, setFont] = useState<TerminalFont>(initial.fontFamily);
   const [size, setSize] = useState<number>(initial.fontSize);
@@ -95,7 +98,7 @@ export function TerminalForm({ initial }: { initial: TerminalPreferences }) {
   const errorPrefix = tf('errorPrefix');
 
   return (
-    <form action={action} noValidate className="flex flex-col gap-6">
+    <form ref={formRef} action={action} noValidate className="flex flex-col gap-6">
       <FormMessage message={state.message} />
       {state.notice ? <Notice tone="success">{state.notice}</Notice> : null}
 
