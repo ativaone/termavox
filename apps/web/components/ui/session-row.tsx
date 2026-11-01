@@ -115,7 +115,7 @@ export function SessionRow({
         aria-current={followed ? 'true' : undefined}
         className="relative grid min-w-0 grid-cols-[0.5rem_minmax(0,1fr)_auto_auto] items-center gap-x-2.5 ps-2.5 pe-1 outline-none"
       >
-        <StateLamp status={status} />
+        <StateLamp status={status} size="sm" className="justify-self-center" />
         <span className="flex min-w-0 flex-col justify-center gap-px">
           <span className="flex min-w-0 items-center gap-1">
             <span

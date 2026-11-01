@@ -140,8 +140,8 @@ upgraded: remove it together with its volumes and install fresh from a new clone
 
 ### Changed
 
-- The session list's groups share one accordion shape, each with its own icon and all open from
-  the start. Ended is no longer collapsed by default. Connected and Ended are the everyday areas;
+- The session list's groups share one accordion shape, a filled bar with its own icon over
+  smaller-lamped rows, all open from the start. Ended is no longer collapsed by default. Connected and Ended are the everyday areas;
   the others, such as Reconnecting, appear above them only while a session is in that status.
 
 ### Fixed

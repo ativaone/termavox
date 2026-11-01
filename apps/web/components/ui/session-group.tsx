@@ -41,8 +41,9 @@ export interface SessionGroupProps {
 
 /**
  * A state group of the session list, one shape for every state: a native disclosure, open from
- * the start, whose header has the chevron over the rows' lamps, the state's icon and word over
- * their labels, and the count at the end. Closing it lasts until the list is drawn again.
+ * the start, whose header is a filled bar that ranks above its rows: the chevron over their lamps,
+ * the state's icon and word over their labels, and the count at the end. Closing it lasts until
+ * the list is drawn again.
  */
 export function SessionGroup({
   status,
@@ -64,17 +65,13 @@ export function SessionGroup({
   }, [followedHere]);
 
   return (
-    <details
-      ref={details}
-      open
-      aria-labelledby={headingId}
-      className="group/section flex flex-col border-line not-first:border-t not-first:pt-2"
-    >
+    <details ref={details} open aria-labelledby={headingId} className="group/section flex flex-col">
       <summary
         className={cx(
           // The same columns as a session row, so the header lines up with the rows under it.
-          'grid h-8 cursor-pointer list-none grid-cols-[0.5rem_minmax(0,1fr)_auto] items-center gap-x-2.5 rounded-sm px-2.5',
-          'transition-colors duration-(--duration-step) ease-(--ease-out) hover:bg-surface-raised',
+          'grid h-9 cursor-pointer list-none grid-cols-[0.5rem_minmax(0,1fr)_auto] items-center gap-x-2.5 rounded-control bg-surface-pressed px-2.5',
+          // Already on the strongest fill, so the pointer draws a line instead of a lighter fill.
+          'hover:outline-1 hover:outline-line-strong hover:-outline-offset-1',
           'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus [&::-webkit-details-marker]:hidden',
         )}
       >
@@ -84,16 +81,16 @@ export function SessionGroup({
         />
         <h2
           id={headingId}
-          className="flex min-w-0 items-center gap-2 font-semibold text-ink-muted text-xs"
+          className="flex min-w-0 items-center gap-2 font-semibold text-base text-ink"
         >
-          <Icon size={15} className="shrink-0" />
+          <Icon size={16} className="shrink-0" />
           <span className="truncate">{title}</span>
         </h2>
         <span
           aria-hidden="true"
           className={cx(
             'min-w-5 rounded-pill px-1.5 text-center font-data font-semibold text-2xs leading-4.5',
-            attention ? 'bg-attention text-on-accent' : 'bg-surface-raised text-ink-muted',
+            attention ? 'bg-attention text-on-accent' : 'bg-ground text-ink-muted',
           )}
         >
           {count}
