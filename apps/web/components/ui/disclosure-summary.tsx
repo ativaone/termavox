@@ -3,7 +3,7 @@ import { ChevronRightIcon } from '../icons/index.tsx';
 import { cx } from './cx.ts';
 
 /**
- * The summary of a native disclosure, drawn like the Ended group: the browser's marker is hidden
+ * The summary of a native disclosure, drawn like a session group: the browser's marker is hidden
  * and a chevron turns a quarter when it opens. The parent `<details>` carries `group/disclosure`.
  */
 export function DisclosureSummary({

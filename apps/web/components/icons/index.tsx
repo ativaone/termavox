@@ -306,6 +306,68 @@ export function RetryIcon(props: IconProps) {
   );
 }
 
+/** The Connected group: a plug. */
+export function PlugIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M9 3v5" />
+      <path d="M15 3v5" />
+      <path d="M6 8h12v3.5a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5V8Z" />
+      <path d="M12 16.5V21" />
+    </Icon>
+  );
+}
+
+/** The Disconnected group: the plug, struck through. */
+export function PlugOffIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M9 3v5" />
+      <path d="M15 3v5" />
+      <path d="M6 8h12v3.5a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5V8Z" />
+      <path d="M12 16.5V21" />
+      <path d="M3.5 3.5l17 17" />
+    </Icon>
+  );
+}
+
+/** The Ended group: a power symbol. */
+export function PowerIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 3.5V12" />
+      <path d="M17.3 6.7a7.5 7.5 0 1 1-10.6 0" />
+    </Icon>
+  );
+}
+
+/** The Restoring group: the retry arc turned back, around clock hands. */
+export function RestoreIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3" />
+      <path d="M4.5 4.5v4h4" />
+      <path d="M12 8v4l2.5 1.5" />
+    </Icon>
+  );
+}
+
+/** The Connecting group: a still loader (the motion belongs to the spinner). */
+export function ConnectingIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 3.5v3" />
+      <path d="M12 17.5v3" />
+      <path d="M3.5 12h3" />
+      <path d="M17.5 12h3" />
+      <path d="m6 6 2.1 2.1" />
+      <path d="m15.9 15.9 2.1 2.1" />
+      <path d="m6 18 2.1-2.1" />
+      <path d="m15.9 8.1 2.1-2.1" />
+    </Icon>
+  );
+}
+
 /** A terminal window (empty panes, the palette's session rows). */
 export function TerminalIcon(props: IconProps) {
   return (

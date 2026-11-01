@@ -138,6 +138,12 @@ upgraded: remove it together with its volumes and install fresh from a new clone
 - The browser window's title follows the tab in front (the session's name and terminal title),
   and starts with 🔔 while a bell you have not seen is waiting.
 
+### Changed
+
+- The session list's groups share one accordion shape, each with its own icon and all open from
+  the start. Ended is no longer collapsed by default. Connected and Ended are the everyday areas;
+  the others, such as Reconnecting, appear above them only while a session is in that status.
+
 ### Fixed
 
 - A tab brought back to the front shows the terminal's current title: a title set while the tab

@@ -71,7 +71,10 @@ export interface SessionListProps {
   desktop?: boolean;
 }
 
-/** The sessions grouped by state, most urgent first; the Ended group is collapsed. */
+/**
+ * The sessions grouped by state, most urgent first. Connected and Ended are the everyday groups;
+ * the others show only while a session is in that state.
+ */
 export function SessionList({
   data,
   followedId,
@@ -101,8 +104,7 @@ export function SessionList({
             title={t(`lane.${group.status}`)}
             count={count}
             countLabel={t('lane.count', { count })}
-            collapsible={ended}
-            defaultOpen={ended && group.sessions.some((s) => s.id === followedId)}
+            holdsFollowed={group.sessions.some((s) => s.id === followedId)}
             note={
               ended && data.endedTotal > group.sessions.length
                 ? t('lane.endedShown', { shown: group.sessions.length, total: data.endedTotal })
