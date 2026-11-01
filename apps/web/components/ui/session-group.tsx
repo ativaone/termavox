@@ -30,8 +30,8 @@ export interface SessionGroupProps {
   count: number;
   /** Screen-reader count ("3 sessions"). */
   countLabel: string;
-  /** Holds the followed session: the group opens if it was closed, so the lit row shows. */
-  holdsFollowed?: boolean;
+  /** The followed session, when it is in this group: each new one opens a closed group, so the lit row shows. */
+  followedHere?: string | null;
   /** Small print under the header (e.g. "Latest 20 of 57"). */
   note?: string;
   /** Under the rows, inside the group (e.g. "Remove all ended…"). */
@@ -49,7 +49,7 @@ export function SessionGroup({
   title,
   count,
   countLabel,
-  holdsFollowed = false,
+  followedHere = null,
   note,
   footer,
   children,
@@ -60,8 +60,8 @@ export function SessionGroup({
   const Icon = GROUP_ICON[status];
 
   useEffect(() => {
-    if (holdsFollowed && details.current) details.current.open = true;
-  }, [holdsFollowed]);
+    if (followedHere && details.current) details.current.open = true;
+  }, [followedHere]);
 
   return (
     <details

@@ -104,7 +104,7 @@ export function SessionList({
             title={t(`lane.${group.status}`)}
             count={count}
             countLabel={t('lane.count', { count })}
-            holdsFollowed={group.sessions.some((s) => s.id === followedId)}
+            followedHere={group.sessions.find((s) => s.id === followedId)?.id ?? null}
             note={
               ended && data.endedTotal > group.sessions.length
                 ? t('lane.endedShown', { shown: group.sessions.length, total: data.endedTotal })
