@@ -6,9 +6,17 @@ They are refreshed when a release changes the UI significantly (`docs/release-ch
 ## Workspace
 
 Named sessions grouped by state on the left, the active one lit in place; a live shell on the
-right. Sessions keep running on the server when the browser closes.
+right, under the session's strip (name, server, protection, state, Files and Notes). Sessions keep
+running on the server when the browser closes.
 
 ![The workspace with four named sessions](workspace.png)
+
+## Notes
+
+A session's notes sit in tabs beside its Terminal tab and cover the terminal, which stays connected
+at its size. Plain text, saved as you type.
+
+![A note over the terminal](notes.png)
 
 ## First use
 

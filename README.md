@@ -31,14 +31,16 @@ A self-hosted, persistent terminal-session runtime for SSH, accessible from the 
 </p>
 
 <details>
-<summary><b>More screenshots</b> (first use, adding a server, a server's page, the phone)</summary>
+<summary><b>More screenshots</b> (notes, first use, adding a server, a server's page, the phone)</summary>
 <br>
 
-| First use | Add server |
+| Notes on a session | First use |
 |---|---|
-| <img src="docs/screenshots/first-run.png" alt="First use: connect your first server" width="440"> | <img src="docs/screenshots/add-server.png" alt="Add server: the server and its credential on one page" width="440"> |
-| **Server added** | **A server's page** |
-| <img src="docs/screenshots/add-server-done.png" alt="Server added: the public key and the command that installs it" width="440"> | <img src="docs/screenshots/server.png" alt="A server's page: details, diagnostics and host keys" width="440"> |
+| <img src="docs/screenshots/notes.png" alt="A session's note over its terminal, with the Terminal tab and the note tabs in the pane's strip" width="440"> | <img src="docs/screenshots/first-run.png" alt="First use: connect your first server" width="440"> |
+| **Add server** | **Server added** |
+| <img src="docs/screenshots/add-server.png" alt="Add server: the server and its credential on one page" width="440"> | <img src="docs/screenshots/add-server-done.png" alt="Server added: the public key and the command that installs it" width="440"> |
+| **A server's page** | |
+| <img src="docs/screenshots/server.png" alt="A server's page: details, diagnostics and host keys" width="440"> | |
 
 | On the phone | |
 |---|---|
@@ -153,7 +155,7 @@ Three containers behind a single origin: **Caddy** (TLS), **web** and **session-
 
 ```bash
 git clone https://github.com/ativaone/termavox.git && cd termavox
-git checkout v0.1.0                                  # the release to install (see Releases)
+git checkout v0.1.0-rc.8                             # the release to install (see Releases)
 deploy/scripts/init-secrets.sh                       # generate the secrets; back up deploy/secrets/master_key
 cp deploy/.env.example deploy/.env                   # the settings: edit them before starting (below)
 docker compose -f deploy/compose.yaml pull           # the release's images from ghcr.io
@@ -189,7 +191,7 @@ pnpm test:release                              # pre-release routine: T0, all T1
 
 The test containers listen on `127.0.0.1:2201–2204` and use **test-only** keys from [`test/sshd/keys/`](test/sshd/keys/). Never reuse them anywhere else.
 
-Work happens on the `develop` branch; `main` receives it at each final release, so a clone is the latest release (plan D-47). CI runs `pnpm check` on pull requests and, with the whole `pnpm test:release` routine (its smoke drives the real UI in a headless Chromium over the DevTools protocol), on every push to `main` and on demand. A `vX.Y.Z` tag builds the images on a native amd64 runner (arm64 coming soon), tests those exact images, publishes them with build provenance and creates the GitHub release; the manual half is the [release checklist](docs/release-checklist.md) (plan §15.4, D-41).
+Work happens on the `develop` branch; `main` receives it at each release, candidates included, so a clone and the project site are the latest release (plan D-47, D-61). CI runs `pnpm check` on pull requests and, with the whole `pnpm test:release` routine (its smoke drives the real UI in a headless Chromium over the DevTools protocol), on every push to `main` and on demand. A `vX.Y.Z` tag builds the images on a native amd64 runner (arm64 coming soon), tests those exact images, publishes them with build provenance and creates the GitHub release; the manual half is the [release checklist](docs/release-checklist.md) (plan §15.4, D-41).
 
 ### Repository layout
 

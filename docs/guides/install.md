@@ -33,7 +33,7 @@ This guide runs the whole system on one Linux host with a single command: **Cadd
 ```bash
 git clone https://github.com/ativaone/termavox.git termavox
 cd termavox
-git checkout v0.1.0
+git checkout v0.1.0-rc.8
 ```
 
 Check out the release you install: its tag, `vX.Y.Z`, from the [releases page](https://github.com/ativaone/termavox/releases). The checkout holds `deploy/compose.yaml`, which names that release's images, and the scripts below. Run every command from the repository root.

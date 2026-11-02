@@ -124,6 +124,10 @@
     </div>
     <div class="gallery">
       <figure class="shot">
+        <img src="assets/screenshots/notes.png" width="1440" height="900" loading="lazy" alt="A session's note over its terminal, with the Terminal tab and the note tabs in the pane's strip">
+        <figcaption><strong>Notes on a session.</strong> Tabs beside the terminal's own: write down what you are doing there, and switch back with one click.</figcaption>
+      </figure>
+      <figure class="shot">
         <img src="assets/screenshots/first-run.png" width="1440" height="900" loading="lazy" alt="First use: the workspace explains the three steps to connect a first server">
         <figcaption><strong>First use.</strong> With no server yet, the workspace explains the three steps and offers one action.</figcaption>
       </figure>
@@ -176,7 +180,7 @@
       <h3>A release</h3>
       <p class="run-after">With the images it publishes for amd64 (arm64 coming soon).</p>
       <pre class="code"><code>git clone https://github.com/ativaone/termavox.git termavox &amp;&amp; cd termavox
-git checkout v0.1.0                            # the release to install (see Releases)
+git checkout v0.1.0-rc.8                       # the release to install (see Releases)
 deploy/scripts/init-secrets.sh                 # generate the secrets; back up deploy/secrets/master_key
 cp deploy/.env.example deploy/.env             # the settings: edit them before starting (below)
 docker compose -f deploy/compose.yaml pull     # the release's images from ghcr.io

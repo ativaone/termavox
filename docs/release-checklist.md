@@ -4,9 +4,10 @@ How a release is cut ([plan §15.4](implementation-plan.md#154-pre-release-routi
 The images people install are built, tested and published by
 [`.github/workflows/release.yml`](../.github/workflows/release.yml) when a `vX.Y.Z` or
 `vX.Y.Z-rc.N` tag is pushed; this list is the manual half around it. Record the results in the
-delivery report. A release is the owner's call (D-47): work happens on `develop`, a release
-candidate is tagged there, and a final release fast-forwards `main` to `develop` and is tagged on
-`main`, so `main` and the project site always show the latest final release.
+delivery report. A release is the owner's call (D-47, D-61): work happens on `develop`, a release
+candidate is tagged there and then fast-forwards `main`, and a final release fast-forwards `main`
+and is tagged on it, so `main`, the README GitHub shows and the project site always show the
+latest release, candidates included.
 
 Every release starts as a release candidate. The manual checks run against the candidate's
 published images; when nothing but the version and the CHANGELOG changed after the candidate,
@@ -33,13 +34,15 @@ the final release needs only step 11.
 ## The candidate
 
 4. **Version and tag.** `node scripts/set-version.ts X.Y.Z-rc.N` (every `package.json` and the
-   image tags in `deploy/compose.yaml`), commit, push to `develop`, then create the annotated tag
+   image tags in `deploy/compose.yaml`), point the install snippets at the new tag (`git checkout`
+   in `README.md`, both site home pages and `docs/guides/install.md`), commit, push to `develop`, then create the annotated tag
    `vX.Y.Z-rc.N` on that commit and push it. Watch the Release workflow (`gh run watch`): every
    architecture in its `ARCHES` (amd64 only while arm64 is suspended, D-41) builds and passes its
    tests, the images are pushed, attested, and a GitHub prerelease appears with the image
    digests. Images reach the registry only after their tests pass, but a run that fails in its
    publish job can leave them there without a release. Either way, fix, and tag the next
-   `-rc.N` (release tags cannot be moved or deleted).
+   `-rc.N` (release tags cannot be moved or deleted). Once it has passed, fast-forward `main` to
+   `develop` (`git push origin develop:main`; D-61) and watch the Pages workflow publish the site.
 5. **The published images.** The three packages under https://github.com/orgs/ativaone/packages
    are public (a package's first push can land private: Package settings → Change visibility);
    `gh attestation verify oci://ghcr.io/ativaone/termavox-web:X.Y.Z-rc.N --repo ativaone/termavox`
@@ -76,7 +79,8 @@ on a throwaway install, or upgrade the trial install to it. Then:
 11. **CHANGELOG, version and tag.** On `develop`, `CHANGELOG.md` moves `[Unreleased]` to
     `## [X.Y.Z] - YYYY-MM-DD` (the workflow refuses a final release without it) and updates the
     compare links at the bottom; the upgrade notes mention anything operators must do.
-    `node scripts/set-version.ts X.Y.Z`, commit and push. Then fast-forward `main` to it
+    `node scripts/set-version.ts X.Y.Z` and the install snippets' `git checkout` (step 4), commit
+    and push. Then fast-forward `main` to it
     (`git push origin develop:main`; anything but a fast-forward is refused), wait for CI on
     `main` and for the Pages workflow (https://ativaone.github.io/termavox shows the new help and
     guides), then tag `vX.Y.Z` on that commit and push it. The workflow publishes `X.Y.Z`, `X.Y`
