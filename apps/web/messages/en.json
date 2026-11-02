@@ -48,6 +48,7 @@
     "activity": "Activity",
     "settingsAccount": "Account settings",
     "settingsTerminal": "Terminal settings",
+    "settingsNotes": "Notes settings",
     "adminUsers": "Users",
     "adminUser": "User",
     "adminSettings": "Instance settings",
@@ -1168,6 +1169,47 @@
       "saved": "Terminal settings saved. Open terminals pick them up when they reconnect.",
       "error": {
         "fontSize": "Use a font size from 10 to 24.",
+        "generic": "The settings could not be saved. Check the fields and try again."
+      }
+    },
+    "notes": {
+      "tab": "Notes",
+      "title": "Notes",
+      "intro": "How the notes of your sessions look, in any browser. The terminal has its own, under Terminal.",
+      "paper": "Paper",
+      "papers": {
+        "auto": {
+          "name": "Automatic",
+          "hint": "Today's look: violet or white, following the interface"
+        },
+        "paper": {
+          "name": "Light paper",
+          "hint": "Cream with dark ink, in both themes"
+        },
+        "slate": {
+          "name": "Slate",
+          "hint": "Mid blue-grey, without the violet"
+        },
+        "contrast": {
+          "name": "High contrast",
+          "hint": "Black ink on white"
+        }
+      },
+      "font": "Font",
+      "fonts": {
+        "mono": "Monospace",
+        "sans": "Text"
+      },
+      "fontHelp": "Monospace lines up commands and code. Text reads better in long prose.",
+      "size": "Font size",
+      "sizeHelp": "From {min} to {max} px, independent of the terminal.",
+      "preview": "Preview",
+      "sampleTitle": "Move api-1",
+      "sample": "Friday: move api-1 to the new box\n$ git pull && pnpm install\n$ systemctl restart api\nCheck /health, then tell the team.",
+      "submit": "Save notes settings",
+      "saved": "Notes settings saved. The workspace uses them the next time it loads.",
+      "error": {
+        "fontSize": "Use a font size from {min} to {max}.",
         "generic": "The settings could not be saved. Check the fields and try again."
       }
     }

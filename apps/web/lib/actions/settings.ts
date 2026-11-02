@@ -10,14 +10,23 @@ import { getAuthRuntime, requireSession } from '../auth/server.ts';
 import { authErrorInfo } from '../auth-errors.ts';
 import { revokeConnections } from '../internal-api.ts';
 import { checked, integer, type ManageState, text } from '../manage/forms.ts';
+import {
+  NOTE_FONT_SIZE_MAX,
+  NOTE_FONT_SIZE_MIN,
+  NotesPreferencesInput,
+} from '../preferences/notes.ts';
 import { TerminalPreferencesInput } from '../preferences/terminal.ts';
 import {
   getTerminalPreferences,
+  saveNotesPreferences as saveNotesRow,
   saveTerminalPreferences as savePreferencesRow,
 } from '../repo/preferences.ts';
 import { ROUTES } from '../routes.ts';
 
-/** The user's own settings (plan §8.1 /settings/account and /settings/terminal). */
+/**
+ * The user's own settings (plan §8.1 /settings/account and /settings/terminal, D-59
+ * /settings/notes).
+ */
 
 export async function saveTerminalPreferences(
   _prev: ManageState,
@@ -45,6 +54,37 @@ export async function saveTerminalPreferences(
   }
   savePreferencesRow(getAuthRuntime().db, user.id, parsed.data);
   revalidatePath('/settings/terminal');
+  return { notice: t('saved'), savedAt: Date.now() };
+}
+
+/**
+ * How notes look (plan D-59). Applies the next time the workspace page loads; open notes keep
+ * what they loaded with.
+ */
+export async function saveNotesPreferences(
+  _prev: ManageState,
+  formData: FormData,
+): Promise<ManageState> {
+  const { user } = await requireSession();
+  const t = await getTranslations('settings.notes');
+  const parsed = NotesPreferencesInput.safeParse({
+    paper: text(formData, 'paper'),
+    font: text(formData, 'font'),
+    fontSize: integer(formData, 'fontSize'),
+  });
+  if (!parsed.success) {
+    const field = String(parsed.error.issues[0]?.path[0] ?? '');
+    return field === 'fontSize'
+      ? {
+          fields: {
+            fontSize: t('error.fontSize', { min: NOTE_FONT_SIZE_MIN, max: NOTE_FONT_SIZE_MAX }),
+          },
+        }
+      : { message: t('error.generic') };
+  }
+  saveNotesRow(getAuthRuntime().db, user.id, parsed.data);
+  revalidatePath('/settings/notes');
+  revalidatePath(ROUTES.workspace);
   return { notice: t('saved'), savedAt: Date.now() };
 }
 

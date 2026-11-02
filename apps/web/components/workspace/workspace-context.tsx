@@ -6,6 +6,7 @@ import type { PaneFilesStore } from '../../lib/files/pane-state.ts';
 import type { TransferQueue } from '../../lib/files/transfer-queue.ts';
 import type { PaneNotesStore } from '../../lib/notes/pane-view.ts';
 import type { NotesStore } from '../../lib/notes/store.ts';
+import type { NotesPreferences } from '../../lib/preferences/notes.ts';
 import type { TerminalPreferences } from '../../lib/preferences/terminal.ts';
 import type { SessionActionResult } from '../../lib/sessions/action-result.ts';
 import type { SessionLabel } from '../../lib/sessions/types.ts';
@@ -93,6 +94,8 @@ export interface WorkspaceContextValue {
   notes: NotesStore;
   /** Which of its session's notes each pane shows, in this tab's memory only. */
   paneNotes: PaneNotesStore;
+  /** How notes look (plan D-59): paper, font and size, as of this page's load. */
+  notePreferences: NotesPreferences;
   /** Gives the keyboard to a pane (its terminal, or the note over it). */
   focusPane(paneId: string): void;
 }

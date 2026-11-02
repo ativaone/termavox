@@ -46,7 +46,9 @@ upgraded: remove it together with its volumes and install fresh from a new clone
   connected at its size, so switching never makes a program redraw. They are saved by themselves,
   ask before overwriting a change from another window, and stay with the session when it ends or
   reopens; removing it from the list removes them, and the confirmation says how many. They are
-  not encrypted, in the database or in its backups, so don't put secrets in them.
+  not encrypted, in the database or in its backups, so don't put secrets in them. Settings → Notes
+  sets their look apart from the terminal's: the paper (Automatic, Light paper, Slate or High
+  contrast), a monospace or text font, and its size.
 - `deploy/scripts/reset-password.sh <username>` sets a temporary password from the host when no
   admin can sign in, for example when the only admin forgot their password. The user must choose
   a new password at the next sign-in. `--reset-totp` also resets TOTP, for a lost authenticator

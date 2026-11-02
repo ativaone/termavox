@@ -242,6 +242,8 @@ export const userPreferences = sqliteTable('user_preferences', {
     .references(() => user.id, { onDelete: 'cascade' }),
   theme: text('theme').notNull().default('system'),
   terminalJson: text('terminal_json').notNull().default('{}'),
+  /** How notes look (plan D-59): paper, font and size; lib/preferences/notes.ts reads it. */
+  notesJson: text('notes_json').notNull().default('{}'),
   updatedAt: updatedAt(),
 });
 

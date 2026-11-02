@@ -18,6 +18,7 @@ import {
 } from '../../lib/notes/limits.ts';
 import { shownNoteId } from '../../lib/notes/pane-view.ts';
 import { type NoteState, noteCharacters } from '../../lib/notes/store.ts';
+import { notePaperAttribute, noteTextLook } from '../../lib/preferences/notes.ts';
 import { NoteIcon, PlusIcon } from '../icons/index.tsx';
 import { Button } from '../ui/button.tsx';
 import { cx } from '../ui/cx.ts';
@@ -264,6 +265,7 @@ function NoteEditor({
   const note = useNote(sessionId, noteId);
   const state = usePaneNotes(paneId, sessionId);
   const textRef = useRef<HTMLTextAreaElement>(null);
+  const look = noteTextLook(ws.notePreferences, phone);
   const ready = note?.body === 'ready';
   const body = note?.body ?? 'idle';
 
@@ -328,11 +330,12 @@ function NoteEditor({
             event.preventDefault();
             goToTerminal(ws, paneId, sessionId);
           }}
+          style={look.style}
           className={cx(
-            'terminal-text block min-h-0 w-full flex-1 resize-none border-0 bg-transparent px-5 py-4 font-mono text-ink outline-none',
+            'block min-h-0 w-full flex-1 resize-none border-0 bg-transparent px-5 py-4 text-ink outline-none',
             'placeholder:text-ink-muted disabled:text-ink-muted',
             'focus:shadow-[inset_0_0_0_1px_var(--color-accent-ring)]',
-            phone ? 'text-md' : 'text-base leading-[1.5]',
+            look.className,
           )}
         />
       )}
@@ -471,7 +474,7 @@ export function NotesView({
 }) {
   const t = useTranslations('notes');
   const tw = useTranslations('workspace');
-  const { notes, paneNotes, focusRequest, labels, onPaneFocus } = useWorkspace();
+  const { notes, paneNotes, focusRequest, labels, onPaneFocus, notePreferences } = useWorkspace();
   const { paneId } = place;
   const phone = variant === 'phone';
   const session = useSessionNotes(sessionId);
@@ -544,6 +547,8 @@ export function NotesView({
       tabIndex={-1}
       aria-label={title ?? t('title')}
       onFocusCapture={() => onPaneFocus(place)}
+      // The note's paper (plan D-59): everything inside takes its tokens.
+      data-note-paper={notePaperAttribute(notePreferences.paper)}
       className="@container flex h-full min-h-0 w-full flex-col bg-note text-ink"
     >
       {phone && session.notes.length > 0 ? (

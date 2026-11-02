@@ -12,10 +12,12 @@ import {
 } from 'react';
 import { NOTE_TITLE_MAX } from '../../lib/notes/limits.ts';
 import { shownNoteId } from '../../lib/notes/pane-view.ts';
+import { notePaperAttribute } from '../../lib/preferences/notes.ts';
 import { BellIcon, CloseIcon, NoteIcon, PlusIcon, TerminalIcon } from '../icons/index.tsx';
 import { cx } from '../ui/cx.ts';
 import type { PanePlace } from '../workspace/workspace-context.tsx';
 import { useWorkspace } from '../workspace/workspace-context.tsx';
+import { NOTE_TAB_FOCUS_RING, NOTE_TAB_RULE, noteTabFrame, noteTabLabel } from './note-tab-look.ts';
 import {
   createNote,
   goToTerminal,
@@ -24,32 +26,6 @@ import {
   usePaneNotes,
   useSessionNotes,
 } from './notes-toggle.tsx';
-
-const FOCUS_RING =
-  'focus-visible:outline-2 focus-visible:outline-focus focus-visible:-outline-offset-2';
-const UNDERLINE =
-  'after:pointer-events-none after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-pill after:bg-accent';
-
-/**
- * The Terminal tab lights like a workspace tab; a note's tab takes the note's own page colour with
- * a hairline, so the selected tab reads as the top of the page under it.
- */
-function tabFrame(selected: boolean, phone: boolean, kind: 'terminal' | 'note'): string {
-  return cx(
-    'relative flex shrink-0 items-stretch rounded-sm',
-    'transition-colors duration-(--duration-step) ease-(--ease-out)',
-    phone ? 'h-11' : 'h-7',
-    selected
-      ? cx(
-          'text-ink',
-          kind === 'note'
-            ? 'bg-note shadow-[inset_0_0_0_1px_var(--color-line-strong)]'
-            : 'bg-surface-raised',
-          UNDERLINE,
-        )
-      : 'text-ink-muted hover:bg-surface hover:text-ink',
-  );
-}
 
 /** Scrolls the strip, and only the strip, just enough to show a tab. */
 function reveal(strip: HTMLElement, tab: Element): void {
@@ -145,6 +121,8 @@ export function NoteTabs({
   const { notes, paneNotes } = ws;
   const { paneId } = place;
   const phone = variant === 'phone';
+  // The open note's tab is the top of its page: the note's paper (plan D-59).
+  const paper = notePaperAttribute(ws.notePreferences.paper);
   const session = useSessionNotes(sessionId);
   const state = usePaneNotes(paneId, sessionId);
   const on = state?.on ?? false;
@@ -202,17 +180,14 @@ export function NoteTabs({
         className="flex min-w-0 items-center gap-0.5 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {phone ? null : (
-          <div className={tabFrame(!on, false, 'terminal')}>
+          <div className={noteTabFrame(!on, false, 'terminal')}>
             <button
               type="button"
               role="tab"
               aria-selected={!on}
               tabIndex={on ? -1 : 0}
               onClick={() => goToTerminal(ws, paneId, sessionId)}
-              className={cx(
-                'flex items-center gap-1.5 rounded-sm px-2 font-semibold text-sm leading-4',
-                FOCUS_RING,
-              )}
+              className={cx(noteTabLabel('terminal'), NOTE_TAB_FOCUS_RING)}
             >
               <TerminalIcon size={14} className="shrink-0" />
               {t('terminalTab')}
@@ -223,13 +198,17 @@ export function NoteTabs({
         )}
         {phone ? null : (
           // The terminal on one side, the notes on the other.
-          <span aria-hidden="true" className="mx-1 h-4 w-px shrink-0 bg-line-strong" />
+          <span aria-hidden="true" className={NOTE_TAB_RULE} />
         )}
         {session.notes.map((note) => {
           const selected = shown === note.id;
           if (state?.renaming === note.id) {
             return (
-              <div key={note.id} className={tabFrame(selected, phone, 'note')}>
+              <div
+                key={note.id}
+                data-note-paper={selected ? paper : undefined}
+                className={noteTabFrame(selected, phone, 'note')}
+              >
                 <RenameField
                   title={note.title}
                   label={t('renameLabel', { title: note.title })}
@@ -247,7 +226,11 @@ export function NoteTabs({
             );
           }
           return (
-            <div key={note.id} className={cx('group/tab', tabFrame(selected, phone, 'note'))}>
+            <div
+              key={note.id}
+              data-note-paper={selected ? paper : undefined}
+              className={cx('group/tab', noteTabFrame(selected, phone, 'note'))}
+            >
               <button
                 type="button"
                 role="tab"
@@ -261,10 +244,7 @@ export function NoteTabs({
                 onDoubleClick={() => {
                   if (!phone) paneNotes.startRename(paneId, sessionId, note.id);
                 }}
-                className={cx(
-                  'flex min-w-0 max-w-44 items-center gap-1.5 rounded-sm ps-2 font-semibold text-sm leading-4',
-                  FOCUS_RING,
-                )}
+                className={cx(noteTabLabel('note'), NOTE_TAB_FOCUS_RING)}
               >
                 <NoteIcon size={14} className="shrink-0" />
                 <span className="truncate">{note.title}</span>
@@ -278,7 +258,7 @@ export function NoteTabs({
                 className={cx(
                   'mx-1 flex size-5 shrink-0 items-center justify-center self-center rounded-xs text-ink-muted',
                   'transition-colors duration-(--duration-step) ease-(--ease-out) hover:bg-surface-pressed hover:text-ink',
-                  FOCUS_RING,
+                  NOTE_TAB_FOCUS_RING,
                   !selected &&
                     (phone
                       ? 'hidden'
@@ -301,7 +281,7 @@ export function NoteTabs({
           'flex shrink-0 items-center justify-center rounded-sm text-ink-muted',
           'transition-colors duration-(--duration-step) ease-(--ease-out) hover:bg-surface-raised hover:text-ink',
           'disabled:text-ink-faint disabled:hover:bg-transparent',
-          FOCUS_RING,
+          NOTE_TAB_FOCUS_RING,
           phone ? 'size-11' : 'size-7',
         )}
       >

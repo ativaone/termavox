@@ -27,6 +27,7 @@ import { PaneFilesStore } from '../../lib/files/pane-state.ts';
 import { withReturnPath } from '../../lib/manage/return-to.ts';
 import { PaneNotesStore } from '../../lib/notes/pane-view.ts';
 import { sharedNotesStore } from '../../lib/notes/shared-store.ts';
+import type { NotesPreferences } from '../../lib/preferences/notes.ts';
 import type { TerminalPreferences } from '../../lib/preferences/terminal.ts';
 import { ROUTES } from '../../lib/routes.ts';
 import type { SessionActionResult } from '../../lib/sessions/action-result.ts';
@@ -131,6 +132,8 @@ export interface WorkspaceShellProps {
   initialLayout: StoredLayout;
   servers: PaletteServer[];
   preferences: TerminalPreferences;
+  /** How notes look (plan D-59); a change in settings applies at the next load. */
+  notePreferences: NotesPreferences;
   /** Instance setting `file_transfer_enabled` (plan D-39): the file panel's toggles show. */
   filesEnabled: boolean;
 }
@@ -292,6 +295,7 @@ export function WorkspaceShell({
   initialLayout,
   servers,
   preferences,
+  notePreferences,
   filesEnabled,
 }: WorkspaceShellProps) {
   const t = useTranslations('workspace');
@@ -837,6 +841,7 @@ export function WorkspaceShell({
       transfers,
       notes,
       paneNotes,
+      notePreferences,
       focusPane: requestFocus,
     }),
     [
@@ -864,6 +869,7 @@ export function WorkspaceShell({
       transfers,
       notes,
       paneNotes,
+      notePreferences,
       requestFocus,
     ],
   );

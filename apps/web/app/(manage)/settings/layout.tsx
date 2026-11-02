@@ -14,6 +14,7 @@ export default async function SettingsLayout({ children }: { children: ReactNode
           items={[
             { href: '/settings/account', label: t('account.tab') },
             { href: '/settings/terminal', label: t('terminal.tab') },
+            { href: '/settings/notes', label: t('notes.tab') },
           ]}
         />
       </div>

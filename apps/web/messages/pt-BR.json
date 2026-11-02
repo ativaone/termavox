@@ -48,6 +48,7 @@
     "activity": "Atividade",
     "settingsAccount": "Configurações da conta",
     "settingsTerminal": "Configurações do terminal",
+    "settingsNotes": "Configurações das notas",
     "adminUsers": "Usuários",
     "adminUser": "Usuário",
     "adminSettings": "Configurações da instância",
@@ -1170,6 +1171,47 @@
         "fontSize": "Use um tamanho de fonte de 10 a 24.",
         "generic": "Não foi possível salvar as configurações. Confira os campos e tente de novo."
       }
+    },
+    "notes": {
+      "tab": "Notas",
+      "title": "Notas",
+      "intro": "A aparência das notas das suas sessões em qualquer navegador. O terminal tem a dele, na aba Terminal.",
+      "paper": "Papel",
+      "papers": {
+        "auto": {
+          "name": "Automático",
+          "hint": "O visual de hoje: violeta ou branco, conforme a interface"
+        },
+        "paper": {
+          "name": "Papel claro",
+          "hint": "Creme com tinta escura, nos dois temas"
+        },
+        "slate": {
+          "name": "Ardósia",
+          "hint": "Cinza-azulado médio, sem o violeta"
+        },
+        "contrast": {
+          "name": "Alto contraste",
+          "hint": "Branco com tinta preta"
+        }
+      },
+      "font": "Fonte",
+      "fonts": {
+        "mono": "Monoespaçada",
+        "sans": "Texto"
+      },
+      "fontHelp": "Monoespaçada alinha comandos e código. Texto lê melhor em prosa longa.",
+      "size": "Tamanho da fonte",
+      "sizeHelp": "De {min} a {max} px, independente do terminal.",
+      "preview": "Prévia",
+      "sampleTitle": "Mover api-1",
+      "sample": "Sexta: mover o api-1 para a máquina nova\n$ git pull && pnpm install\n$ systemctl restart api\nConferir o /health e avisar o time.",
+      "submit": "Salvar configurações das notas",
+      "saved": "Configurações das notas salvas. A área de trabalho passa a usá-las na próxima vez que carregar.",
+      "error": {
+        "fontSize": "Use um tamanho de fonte de {min} a {max}.",
+        "generic": "Não foi possível salvar as configurações. Confira os campos e tente de novo."
+      }
     }
   },
   "admin": {
@@ -1654,7 +1696,7 @@
       "retrying": "Não salva, tentando de novo",
       "notSaved": "Não salva"
     },
-    "characters": "{count, plural, one {# caractere} other {# caracteres}}",
+    "characters": "{count, plural, =0 {# caracteres} one {# caractere} other {# caracteres}}",
     "limitUsed": "{percent}% do limite",
     "copy": "Copiar",
     "copied": "Copiado",

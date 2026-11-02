@@ -1,11 +1,14 @@
 import { ErrorCode, uuidv7 } from '@termavox/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { DEFAULT_NOTES_PREFERENCES } from '../lib/preferences/notes.ts';
 import { DEFAULT_TERMINAL_PREFERENCES } from '../lib/preferences/terminal.ts';
 import { insertAuditEvent, listAuditEvents, listAuditTypes } from '../lib/repo/audit.ts';
 import { listCredentials } from '../lib/repo/credentials.ts';
 import {
+  getNotesPreferences,
   getTerminalPreferences,
   getTheme,
+  saveNotesPreferences,
   saveTerminalPreferences,
   saveTheme,
 } from '../lib/repo/preferences.ts';
@@ -215,6 +218,50 @@ describe('repository isolation (user B never reads or changes user A’s rows)',
       .run('sepia', alice);
     expect(getTheme(db, alice)).toBeNull();
     expect(() => saveTheme(db, alice, 'sepia' as never)).toThrow();
+  });
+
+  it('notes preferences (plan D-59), beside the terminal preferences and the theme', async () => {
+    const { db } = t.rt;
+    const dave = (await createUser(t.rt, 'dave')).id;
+    expect(getNotesPreferences(db, dave)).toEqual(DEFAULT_NOTES_PREFERENCES);
+    saveNotesPreferences(db, alice, { paper: 'paper', font: 'sans', fontSize: 18 });
+    expect(getNotesPreferences(db, alice)).toEqual({ paper: 'paper', font: 'sans', fontSize: 18 });
+    // Each user reads their own row only.
+    expect(getNotesPreferences(db, bob)).toEqual(DEFAULT_NOTES_PREFERENCES);
+    saveNotesPreferences(db, bob, { ...DEFAULT_NOTES_PREFERENCES, paper: 'slate' });
+    expect(getNotesPreferences(db, alice)).toMatchObject({ paper: 'paper' });
+    // Saving notes leaves the terminal and the theme alone, and the other way round.
+    const terminal = getTerminalPreferences(db, alice);
+    const theme = getTheme(db, alice);
+    saveNotesPreferences(db, alice, { paper: 'contrast', font: 'mono', fontSize: 20 });
+    expect(getTerminalPreferences(db, alice)).toEqual(terminal);
+    expect(getTheme(db, alice)).toBe(theme);
+    saveTerminalPreferences(db, alice, { ...terminal, fontSize: 12 });
+    saveTheme(db, alice, 'dark');
+    expect(getNotesPreferences(db, alice)).toEqual({
+      paper: 'contrast',
+      font: 'mono',
+      fontSize: 20,
+    });
+    // A first save of anything else creates the row with the default note look.
+    saveTheme(db, dave, 'light');
+    expect(getNotesPreferences(db, dave)).toEqual(DEFAULT_NOTES_PREFERENCES);
+    // Stored JSON is validated: unreadable falls back to the defaults, a bad field to its own.
+    const corrupt = db.$client.prepare(
+      'UPDATE user_preferences SET notes_json = ? WHERE user_id = ?',
+    );
+    corrupt.run('{not json', alice);
+    expect(getNotesPreferences(db, alice)).toEqual(DEFAULT_NOTES_PREFERENCES);
+    corrupt.run('{"paper": "velvet", "fontSize": 99, "font": "sans"}', alice);
+    expect(getNotesPreferences(db, alice)).toEqual({ ...DEFAULT_NOTES_PREFERENCES, font: 'sans' });
+    expect(getNotesPreferences(db, bob)).toMatchObject({ paper: 'slate' });
+    // Saving refuses what the form would refuse.
+    expect(() =>
+      saveNotesPreferences(db, alice, { ...DEFAULT_NOTES_PREFERENCES, fontSize: 21 }),
+    ).toThrow();
+    expect(() =>
+      saveNotesPreferences(db, alice, { ...DEFAULT_NOTES_PREFERENCES, paper: 'velvet' as never }),
+    ).toThrow();
   });
 
   it('audit events (admins only)', () => {

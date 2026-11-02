@@ -239,6 +239,102 @@
   }
 }
 
+/*
+ * A note's paper (plan D-59): a local token scope on the notes view and on the active note's tab,
+ * so everything inside a note follows it without colours of its own. Automatic sets no attribute
+ * and keeps the interface's note page. These rules set the tokens on the scoped element itself,
+ * so the theme blocks above, which set them on the root, never reach inside: the papers look the
+ * same in both interface themes. Light paper and High contrast take the light palette, Slate the
+ * dark one, each with its own page, ink, muted ink and line (lib/preferences/notes.ts; a test
+ * keeps them equal and checks the contrast).
+ */
+[data-note-paper="paper"] {
+  color-scheme: light;
+  --color-note: #fbf6e6;
+  --color-ink: #241f14;
+  --color-ink-muted: #5f5640;
+  --color-ink-faint: #8f8bab;
+  --color-line: rgb(36 31 20 / 0.14);
+  --color-line-strong: rgb(23 20 49 / 0.46);
+  --color-line-hover: rgb(23 20 49 / 0.62);
+  --color-surface: rgb(255 255 255 / 0.72);
+  --color-surface-raised: rgb(23 20 49 / 0.06);
+  --color-surface-pressed: rgb(23 20 49 / 0.1);
+  --color-surface-solid: #ffffff;
+  --color-field: #ffffff;
+  --color-accent: #0073ad;
+  --color-accent-strong: #005e8f;
+  --color-accent-soft: rgb(76 201 255 / 0.18);
+  --color-accent-ring: rgb(0 115 173 / 0.6);
+  --color-on-accent: #ffffff;
+  --color-focus: #0073ad;
+  --color-selection: rgb(0 115 173 / 0.2);
+  --color-danger: #c22d46;
+  --color-danger-soft: rgb(201 48 75 / 0.1);
+  --color-warning-soft: rgb(208 144 15 / 0.14);
+  --color-info-soft: rgb(0 115 173 / 0.09);
+  --color-success-soft: rgb(12 134 86 / 0.11);
+  --color-attention: #cc2d78;
+}
+
+[data-note-paper="slate"] {
+  color-scheme: dark;
+  --color-note: #2c3340;
+  --color-ink: #e8ecf2;
+  --color-ink-muted: #aab3c2;
+  --color-ink-faint: #7a76a0;
+  --color-line: rgb(255 255 255 / 0.1);
+  --color-line-strong: rgb(255 255 255 / 0.36);
+  --color-line-hover: rgb(255 255 255 / 0.5);
+  --color-surface: rgb(255 255 255 / 0.045);
+  --color-surface-raised: rgb(255 255 255 / 0.08);
+  --color-surface-pressed: rgb(255 255 255 / 0.12);
+  --color-surface-solid: #221e42;
+  --color-field: rgb(12 10 24 / 0.55);
+  --color-accent: #4cc9ff;
+  --color-accent-strong: #22b5f2;
+  --color-accent-soft: rgb(76 201 255 / 0.14);
+  --color-accent-ring: rgb(76 201 255 / 0.55);
+  --color-on-accent: #0a1226;
+  --color-focus: #7fd9ff;
+  --color-selection: rgb(76 201 255 / 0.32);
+  --color-danger: #ff8a98;
+  --color-danger-soft: rgb(255 107 125 / 0.16);
+  --color-warning-soft: rgb(245 184 74 / 0.16);
+  --color-info-soft: rgb(76 201 255 / 0.14);
+  --color-success-soft: rgb(61 220 151 / 0.14);
+  --color-attention: #ff5fae;
+}
+
+[data-note-paper="contrast"] {
+  color-scheme: light;
+  --color-note: #ffffff;
+  --color-ink: #000000;
+  --color-ink-muted: #3d3d3d;
+  --color-ink-faint: #8f8bab;
+  --color-line: rgb(0 0 0 / 0.18);
+  --color-line-strong: rgb(23 20 49 / 0.46);
+  --color-line-hover: rgb(23 20 49 / 0.62);
+  --color-surface: rgb(255 255 255 / 0.72);
+  --color-surface-raised: rgb(23 20 49 / 0.06);
+  --color-surface-pressed: rgb(23 20 49 / 0.1);
+  --color-surface-solid: #ffffff;
+  --color-field: #ffffff;
+  --color-accent: #0073ad;
+  --color-accent-strong: #005e8f;
+  --color-accent-soft: rgb(76 201 255 / 0.18);
+  --color-accent-ring: rgb(0 115 173 / 0.6);
+  --color-on-accent: #ffffff;
+  --color-focus: #0073ad;
+  --color-selection: rgb(0 115 173 / 0.2);
+  --color-danger: #c22d46;
+  --color-danger-soft: rgb(201 48 75 / 0.1);
+  --color-warning-soft: rgb(208 144 15 / 0.14);
+  --color-info-soft: rgb(0 115 173 / 0.09);
+  --color-success-soft: rgb(12 134 86 / 0.11);
+  --color-attention: #cc2d78;
+}
+
 @layer base {
   html {
     background-color: var(--color-ground);
