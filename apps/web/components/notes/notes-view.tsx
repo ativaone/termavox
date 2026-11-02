@@ -544,7 +544,7 @@ export function NotesView({
       tabIndex={-1}
       aria-label={title ?? t('title')}
       onFocusCapture={() => onPaneFocus(place)}
-      className="@container flex h-full min-h-0 w-full flex-col bg-ground-deep text-ink"
+      className="@container flex h-full min-h-0 w-full flex-col bg-note text-ink"
     >
       {phone && session.notes.length > 0 ? (
         <div className="flex shrink-0 border-line border-b px-1">

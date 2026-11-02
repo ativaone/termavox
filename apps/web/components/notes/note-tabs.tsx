@@ -12,7 +12,7 @@ import {
 } from 'react';
 import { NOTE_TITLE_MAX } from '../../lib/notes/limits.ts';
 import { shownNoteId } from '../../lib/notes/pane-view.ts';
-import { BellIcon, CloseIcon, PlusIcon } from '../icons/index.tsx';
+import { BellIcon, CloseIcon, NoteIcon, PlusIcon, TerminalIcon } from '../icons/index.tsx';
 import { cx } from '../ui/cx.ts';
 import type { PanePlace } from '../workspace/workspace-context.tsx';
 import { useWorkspace } from '../workspace/workspace-context.tsx';
@@ -30,13 +30,23 @@ const FOCUS_RING =
 const UNDERLINE =
   'after:pointer-events-none after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-pill after:bg-accent';
 
-function tabFrame(selected: boolean, phone: boolean): string {
+/**
+ * The Terminal tab lights like a workspace tab; a note's tab takes the note's own page colour with
+ * a hairline, so the selected tab reads as the top of the page under it.
+ */
+function tabFrame(selected: boolean, phone: boolean, kind: 'terminal' | 'note'): string {
   return cx(
     'relative flex shrink-0 items-stretch rounded-sm',
     'transition-colors duration-(--duration-step) ease-(--ease-out)',
     phone ? 'h-11' : 'h-7',
     selected
-      ? cx('bg-surface-raised text-ink', UNDERLINE)
+      ? cx(
+          'text-ink',
+          kind === 'note'
+            ? 'bg-note shadow-[inset_0_0_0_1px_var(--color-line-strong)]'
+            : 'bg-surface-raised',
+          UNDERLINE,
+        )
       : 'text-ink-muted hover:bg-surface hover:text-ink',
   );
 }
@@ -192,7 +202,7 @@ export function NoteTabs({
         className="flex min-w-0 items-center gap-0.5 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {phone ? null : (
-          <div className={tabFrame(!on, false)}>
+          <div className={tabFrame(!on, false, 'terminal')}>
             <button
               type="button"
               role="tab"
@@ -204,17 +214,22 @@ export function NoteTabs({
                 FOCUS_RING,
               )}
             >
+              <TerminalIcon size={14} className="shrink-0" />
               {t('terminalTab')}
               {bell ? <BellIcon size={14} className="shrink-0 text-attention" /> : null}
               {bell ? <span className="sr-only">{`, ${tw('tabs.bell')}`}</span> : null}
             </button>
           </div>
         )}
+        {phone ? null : (
+          // The terminal on one side, the notes on the other.
+          <span aria-hidden="true" className="mx-1 h-4 w-px shrink-0 bg-line-strong" />
+        )}
         {session.notes.map((note) => {
           const selected = shown === note.id;
           if (state?.renaming === note.id) {
             return (
-              <div key={note.id} className={tabFrame(selected, phone)}>
+              <div key={note.id} className={tabFrame(selected, phone, 'note')}>
                 <RenameField
                   title={note.title}
                   label={t('renameLabel', { title: note.title })}
@@ -232,7 +247,7 @@ export function NoteTabs({
             );
           }
           return (
-            <div key={note.id} className={cx('group/tab', tabFrame(selected, phone))}>
+            <div key={note.id} className={cx('group/tab', tabFrame(selected, phone, 'note'))}>
               <button
                 type="button"
                 role="tab"
@@ -247,10 +262,11 @@ export function NoteTabs({
                   if (!phone) paneNotes.startRename(paneId, sessionId, note.id);
                 }}
                 className={cx(
-                  'flex min-w-0 max-w-44 items-center rounded-sm ps-2 font-semibold text-sm leading-4',
+                  'flex min-w-0 max-w-44 items-center gap-1.5 rounded-sm ps-2 font-semibold text-sm leading-4',
                   FOCUS_RING,
                 )}
               >
+                <NoteIcon size={14} className="shrink-0" />
                 <span className="truncate">{note.title}</span>
               </button>
               <button

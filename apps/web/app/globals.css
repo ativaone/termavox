@@ -27,6 +27,8 @@
   --color-surface-raised: rgb(255 255 255 / 0.08);
   --color-surface-pressed: rgb(255 255 255 / 0.12);
   --color-surface-solid: #221e42;
+  /* A note's page (plan D-58): well lighter than the terminal it covers, so the two never blur. */
+  --color-note: #363066;
   --color-field: rgb(12 10 24 / 0.55);
   --color-line: rgb(255 255 255 / 0.09);
   --color-line-strong: rgb(255 255 255 / 0.36);
@@ -151,6 +153,7 @@
   --color-surface-raised: rgb(23 20 49 / 0.06);
   --color-surface-pressed: rgb(23 20 49 / 0.1);
   --color-surface-solid: #ffffff;
+  --color-note: #ffffff;
   --color-field: #ffffff;
   --color-line: rgb(23 20 49 / 0.1);
   --color-line-strong: rgb(23 20 49 / 0.46);
@@ -198,6 +201,7 @@
     --color-surface-raised: rgb(23 20 49 / 0.06);
     --color-surface-pressed: rgb(23 20 49 / 0.1);
     --color-surface-solid: #ffffff;
+    --color-note: #ffffff;
     --color-field: #ffffff;
     --color-line: rgb(23 20 49 / 0.1);
     --color-line-strong: rgb(23 20 49 / 0.46);
