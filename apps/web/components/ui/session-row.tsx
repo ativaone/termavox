@@ -3,6 +3,7 @@ import Link from 'next/link';
 import type { CSSProperties, MouseEventHandler, ReactNode } from 'react';
 import {
   BellIcon,
+  NoteIcon,
   ShieldIcon,
   ShieldOffIcon,
   ShieldOutlineIcon,
@@ -30,6 +31,9 @@ export interface SessionRowProps {
    */
   notify?: boolean;
   notifyLabel?: string;
+  /** The session has notes: a quiet note glyph after the label, `notesLabel` as its name. */
+  hasNotes?: boolean;
+  notesLabel?: string;
   /** The session this browser follows: lit by the reading light (fill and ring), never moved. */
   followed?: boolean;
   /** Stable view-transition name so a group change slides the row (signature move). */
@@ -81,6 +85,8 @@ export function SessionRow({
   timeLabel,
   notify = false,
   notifyLabel,
+  hasNotes = false,
+  notesLabel,
   followed = false,
   transitionName,
   onClick,
@@ -131,6 +137,12 @@ export function SessionRow({
               <span className="flex shrink-0 text-ink-muted" title={notifyLabel}>
                 <BellIcon size={12} />
                 {notifyLabel ? <span className="sr-only">{notifyLabel}</span> : null}
+              </span>
+            ) : null}
+            {hasNotes ? (
+              <span className="flex shrink-0 text-ink-muted" title={notesLabel}>
+                <NoteIcon size={12} />
+                {notesLabel ? <span className="sr-only">{notesLabel}</span> : null}
               </span>
             ) : null}
           </span>

@@ -306,6 +306,7 @@
       "open": "Remover todas as encerradas…",
       "title": "Remover todas as sessões encerradas?",
       "body": "{count, plural, one {# sessão encerrada sai da lista, com o histórico dela.} other {# sessões encerradas saem da lista, com o histórico delas.}} Isso não pode ser desfeito.",
+      "bodyNotes": "{count, plural, one {# sessão encerrada sai da lista, com o histórico dela} other {# sessões encerradas saem da lista, com o histórico delas}} e {notes, plural, one {# nota} other {# notas}}. Isso não pode ser desfeito.",
       "confirm": "{count, plural, one {Remover # sessão} other {Remover # sessões}}"
     },
     "sidebar": {
@@ -417,6 +418,7 @@
       "terminate": "Encerrar…",
       "remove": "Remover da lista…",
       "removeQuestion": "Remover {label} da lista? O histórico dela vai junto. Isso não pode ser desfeito.",
+      "removeQuestionNotes": "Remover {label} da lista? O histórico dela e {notes, plural, one {a nota dela vão} other {as # notas dela vão}} junto. Isso não pode ser desfeito.",
       "removeConfirm": "Remover sessão",
       "terminateQuestion": "Encerrar {label}? O shell e todos os programas que rodam nele param no servidor. Isso não pode ser desfeito.",
       "terminateConfirm": "Encerrar sessão",
@@ -1628,5 +1630,63 @@
     "newTab": "(abre em uma nova aba)",
     "learnMore": "Saiba mais",
     "source": "Código-fonte no GitHub"
+  },
+  "notes": {
+    "title": "Notas",
+    "toggle": "Notas",
+    "toggleLabel": "Notas de {label}, {count, plural, =0 {nenhuma ainda} one {# nota} other {# notas}}",
+    "tabsLabel": "Terminal e notas de {label}",
+    "terminalTab": "Terminal",
+    "defaultTitle": "Nota {n}",
+    "add": "Nova nota",
+    "delete": "Excluir nota",
+    "deleteLabel": "Excluir {title}",
+    "deleteQuestion": "Excluir \"{title}\"? Isso não pode ser desfeito.",
+    "deleteConfirm": "Excluir",
+    "cancel": "Cancelar",
+    "renameLabel": "Novo nome para {title}",
+    "textLabel": "Texto de {title}",
+    "placeholder": "Escreva aqui. Salva enquanto você digita. Não coloque senhas ou chaves em notas.",
+    "loading": "Carregando…",
+    "save": {
+      "saving": "Salvando…",
+      "saved": "Salva às {time}",
+      "retrying": "Não salva, tentando de novo",
+      "notSaved": "Não salva"
+    },
+    "characters": "{count, plural, one {# caractere} other {# caracteres}}",
+    "limitUsed": "{percent}% do limite",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "copyFailed": "O navegador não deixou o Termavox copiar a nota. Selecione o texto e copie por lá.",
+    "conflict": {
+      "body": "Esta nota mudou em outra janela.",
+      "loadFailed": "Esta nota mudou em outra janela, e a outra versão não pôde ser carregada. Verifique sua conexão e tente de novo.",
+      "loadOther": "Carregar a outra versão",
+      "keepMine": "Manter a minha"
+    },
+    "gone": {
+      "body": "Esta nota não existe mais: foi excluída em outra janela, ou a sessão dela foi removida.",
+      "saveNew": "Salvar como nova nota"
+    },
+    "tooLarge": "Esta nota passou do limite de {limit}, então não está sendo salva. Encurte o texto para salvar; ele continua aqui.",
+    "signIn": "Seu login expirou, então isso não pode ser salvo. Copie o texto antes de sair desta página.",
+    "limit": "Uma sessão guarda até {limit} notas. Exclua uma para criar outra.",
+    "titleInvalid": "O nome de uma nota não pode ficar vazio nem passar de {max} caracteres.",
+    "createFailed": "Não foi possível criar a nota. Verifique sua conexão e tente de novo.",
+    "deleteFailed": "Não foi possível excluir a nota. Verifique sua conexão e tente de novo.",
+    "loadFailed": "Não foi possível carregar a nota.",
+    "listFailed": "Não foi possível carregar as notas.",
+    "tryAgain": "Tentar de novo",
+    "empty": {
+      "title": "Nenhuma nota nesta sessão",
+      "body": "As notas são desta sessão e ficam com ela: reabrir a sessão as mantém, e removê-la da lista as remove.",
+      "warning": "As notas são guardadas sem criptografia, então não coloque senhas ou chaves nelas.",
+      "create": "Nova nota"
+    },
+    "has": "Tem notas",
+    "phone": {
+      "back": "Terminal"
+    }
   }
 }

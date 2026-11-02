@@ -3,6 +3,7 @@ import { WorkspaceLayout } from '@termavox/protocol';
 import { ErrorCode } from '@termavox/shared';
 import { authGate } from './auth/gate.ts';
 import type { AuthRuntime } from './auth/runtime.ts';
+import { readLimitedBody } from './read-limited-body.ts';
 import { getLayout, saveLayout } from './repo/layouts.ts';
 
 type LayoutDeps = Pick<AuthRuntime, 'auth' | 'db' | 'publicOrigin'>;
@@ -45,10 +46,8 @@ export async function putLayoutResponse(deps: LayoutDeps, request: Request): Pro
   if (expected === null) {
     return reply(428, { code: ErrorCode.BadRequest, message: 'If-Match: <version> required' });
   }
-  const declared = Number(request.headers.get('content-length') ?? '0');
-  if (declared > MAX_LAYOUT_BYTES) return tooLarge();
-  const text = await request.text();
-  if (new TextEncoder().encode(text).length > MAX_LAYOUT_BYTES) return tooLarge();
+  const text = await readLimitedBody(request, MAX_LAYOUT_BYTES);
+  if (text === null) return tooLarge();
   let json: unknown;
   try {
     json = JSON.parse(text);

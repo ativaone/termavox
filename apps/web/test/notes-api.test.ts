@@ -1,15 +1,16 @@
 import { uuidv7 } from '@termavox/shared';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { NOTE_BODY_MAX_BYTES, NOTE_TITLE_MAX, NOTES_PER_SESSION_MAX } from '../lib/notes/limits.ts';
 import {
   deleteNoteResponse,
+  getNoteCountsResponse,
   getNoteResponse,
   getNotesResponse,
   MAX_PATCH_BYTES,
   patchNoteResponse,
   postNoteResponse,
 } from '../lib/notes-api.ts';
-import { createNote, getNote } from '../lib/repo/notes.ts';
+import { createNote, getNote, updateNote } from '../lib/repo/notes.ts';
 import {
   createUser,
   type Jar,
@@ -352,6 +353,37 @@ describe('PATCH /api/sessions/:sessionId/notes/:noteId', () => {
     expect(getNote(t.rt.db, ann.id, annSession, id)?.revision).toBe(1);
   });
 
+  it('answers 413 to a chunked body with no Content-Length, cancelling the stream', async () => {
+    const id = seedNote();
+    let pulled = 0;
+    const cancelled = vi.fn();
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulled += 1024 * 1024;
+        controller.enqueue(new Uint8Array(1024 * 1024));
+      },
+      cancel: cancelled,
+    });
+    const headers = ann.jar.headers();
+    headers.set('origin', PUBLIC_URL);
+    headers.set('if-match', '"1"');
+    const res = await patchNoteResponse(
+      t.rt,
+      new Request(url(annSession, id), {
+        method: 'PATCH',
+        headers,
+        body,
+        duplex: 'half',
+      } as RequestInit),
+      annSession,
+      id,
+    );
+    expect(res.status).toBe(413);
+    expect(cancelled).toHaveBeenCalledOnce();
+    expect(pulled).toBeLessThan(MAX_PATCH_BYTES + 3 * 1024 * 1024);
+    expect(getNote(t.rt.db, ann.id, annSession, id)?.revision).toBe(1);
+  });
+
   it('answers 404 for a note that does not exist', async () => {
     const res = await patch(annSession, 'nope', { body: 'x' });
     expect(res.status).toBe(404);
@@ -370,6 +402,74 @@ describe('DELETE /api/sessions/:sessionId/notes/:noteId', () => {
     expect(again.status).toBe(404);
     expect(await again.json()).toEqual(NOT_FOUND);
     expect((await read(annSession, id, ann.jar)).status).toBe(404);
+  });
+
+  it('deletes at the If-Match revision', async () => {
+    const id = seedNote();
+    expect((await remove(annSession, id, { ifMatch: '"1"' })).status).toBe(204);
+    expect(getNote(t.rt.db, ann.id, annSession, id)).toBeNull();
+  });
+
+  it('answers a stale If-Match with 409 and the current revision, and deletes nothing', async () => {
+    const id = seedNote();
+    updateNote(t.rt.db, ann.id, annSession, id, { body: 'from another window' }, 1);
+    const res = await remove(annSession, id, { ifMatch: '"1"' });
+    expect(res.status).toBe(409);
+    expect(res.headers.get('cache-control')).toBe('no-store');
+    expect(await res.json()).toMatchObject({ reason: 'stale', revision: 2 });
+    expect(getNote(t.rt.db, ann.id, annSession, id)?.body).toBe('from another window');
+  });
+
+  it('answers 428 to an If-Match it cannot read, and deletes nothing', async () => {
+    const id = seedNote();
+    expect((await remove(annSession, id, { ifMatch: '*' })).status).toBe(428);
+    expect(getNote(t.rt.db, ann.id, annSession, id)).not.toBeNull();
+  });
+
+  it("answers 404 with an If-Match for another user's note", async () => {
+    const id = seedNote();
+    const res = await remove(annSession, id, { jar: ben.jar, ifMatch: '"1"' });
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual(NOT_FOUND);
+    expect(getNote(t.rt.db, ann.id, annSession, id)).not.toBeNull();
+  });
+});
+
+describe('GET /api/sessions/note-counts', () => {
+  const counts = (jar?: Jar, extra: Record<string, string> = {}) =>
+    getNoteCountsResponse(
+      t.rt,
+      new Request(`${PUBLIC_URL}/api/sessions/note-counts`, {
+        headers: jar?.headers(extra) ?? new Headers(extra),
+      }),
+    );
+
+  it('counts the notes of every session of the user, in any state, with no-store', async () => {
+    const owner = await createUser(t.rt, 'cleo');
+    const jar = (await signIn(t.rt, 'cleo')).jar;
+    const ended = addSession(owner.id, 'ended');
+    const live = addSession(owner.id);
+    addSession(owner.id);
+    createNote(t.rt.db, owner.id, ended, 'one');
+    createNote(t.rt.db, owner.id, ended, 'two');
+    createNote(t.rt.db, owner.id, live, 'three');
+    const res = await counts(jar);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('cache-control')).toBe('no-store');
+    expect(await res.json()).toEqual({ counts: { [ended]: 2, [live]: 1 } });
+  });
+
+  it("never counts another user's notes", async () => {
+    seedNote();
+    const res = await counts(ben.jar);
+    expect(await res.json()).toEqual({ counts: {} });
+  });
+
+  it('passes the same gate as the other reads', async () => {
+    expect((await counts()).status).toBe(401);
+    expect((await counts(ann.jar, { origin: 'https://evil.example' })).status).toBe(403);
+    expect((await counts(ann.jar, { 'sec-fetch-site': 'cross-site' })).status).toBe(403);
+    expect((await counts(ann.jar, { 'sec-fetch-site': 'same-origin' })).status).toBe(200);
   });
 });
 

@@ -6,6 +6,7 @@ import { useRef } from 'react';
 import type { Locale } from '../../i18n/locales.ts';
 import { signOut } from '../../lib/actions/auth.ts';
 import { REPOSITORY_URL } from '../../lib/links.ts';
+import { leaveNotesOnSignOut } from '../../lib/notes/shared-store.ts';
 import {
   ExternalLinkIcon,
   GitHubIcon,
@@ -143,7 +144,7 @@ export function AccountMenu({
             </>
           ) : null}
           <MenuSeparator spaced />
-          <form action={signOut} className="contents">
+          <form action={signOut} onSubmit={leaveNotesOnSignOut} className="contents">
             <button type="submit" role="menuitem" tabIndex={-1} className={MENU_ITEM_CLASSES}>
               <span className="flex w-4 shrink-0 justify-center text-ink-muted">
                 <SignOutIcon size={16} />

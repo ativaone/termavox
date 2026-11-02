@@ -44,6 +44,7 @@ export default async function WorkspacePage() {
       bay={listBaySessions(db, user.id)}
       serverCount={servers.length}
       renderedAt={Date.now()}
+      userId={user.id}
       username={user.username ?? user.name}
       locale={isLocale(locale) ? locale : 'en'}
       version={VERSION}

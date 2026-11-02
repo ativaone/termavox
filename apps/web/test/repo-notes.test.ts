@@ -187,7 +187,7 @@ describe('note repository', () => {
     expect(updateNote(t.rt.db, bob, session, note.id, { body: 'x' }, 1)).toEqual({
       outcome: 'not-found',
     });
-    expect(deleteNote(t.rt.db, bob, session, note.id)).toBe(false);
+    expect(deleteNote(t.rt.db, bob, session, note.id)).toEqual({ outcome: 'not-found' });
     expect(getNote(t.rt.db, alice, session, note.id)).toMatchObject({
       title: 'private',
       body: 'secret',
@@ -204,9 +204,24 @@ describe('note repository', () => {
     expect(updateNote(t.rt.db, alice, other, note.id, { body: 'x' }, 1)).toEqual({
       outcome: 'not-found',
     });
-    expect(deleteNote(t.rt.db, alice, other, note.id)).toBe(false);
-    expect(deleteNote(t.rt.db, alice, session, note.id)).toBe(true);
-    expect(deleteNote(t.rt.db, alice, session, note.id)).toBe(false);
+    expect(deleteNote(t.rt.db, alice, other, note.id)).toEqual({ outcome: 'not-found' });
+    expect(deleteNote(t.rt.db, alice, session, note.id)).toEqual({ outcome: 'ok' });
+    expect(deleteNote(t.rt.db, alice, session, note.id)).toEqual({ outcome: 'not-found' });
+  });
+
+  it('deletes at an expected revision only, and says which one is current when it differs', () => {
+    const session = addSession(alice);
+    const note = addNote(alice, session);
+    updateNote(t.rt.db, alice, session, note.id, { body: 'written elsewhere' }, 1);
+    expect(deleteNote(t.rt.db, alice, session, note.id, 1)).toEqual({
+      outcome: 'stale',
+      revision: 2,
+    });
+    expect(getNote(t.rt.db, alice, session, note.id)?.body).toBe('written elsewhere');
+    expect(deleteNote(t.rt.db, bob, session, note.id, 1)).toEqual({ outcome: 'not-found' });
+    expect(deleteNote(t.rt.db, alice, session, 'missing', 1)).toEqual({ outcome: 'not-found' });
+    expect(deleteNote(t.rt.db, alice, session, note.id, 2)).toEqual({ outcome: 'ok' });
+    expect(getNote(t.rt.db, alice, session, note.id)).toBeNull();
   });
 
   it('counts per session, only sessions with notes', () => {

@@ -16,7 +16,7 @@
 #      were, session-manager starts again on the current key, and the script exits non-zero.
 #
 # Keep master_key.old until session-manager works with the new key, then delete it together
-# with the pre-rotate backup (only the old key opens it; so do older backups, see the install
+# with the pre-rotate backup (only the old key opens its credentials; so do older backups, see the install
 # guide). The script refuses to run while master_key.new or master_key.old exists.
 #
 # Usage: deploy/scripts/rotate-master-key.sh [--yes]
@@ -88,7 +88,7 @@ run_rotate() {
 if [[ -e "$old_key" ]]; then
   die "$old_key exists: an earlier rotation kept the old key there.
   Once session-manager works with the current key, delete it (and that rotation's
-  $backup_dir/pre-rotate-*.db, which only the old key opens), then run this again."
+  $backup_dir/pre-rotate-*.db, whose credentials only the old key opens), then run this again."
 fi
 if [[ -e "$new_key" ]]; then
   die "$new_key exists: an earlier rotation did not finish. Find out which key the

@@ -5,22 +5,26 @@ import { useId, useRef, useState } from 'react';
 import { removeEndedSessions } from '../../lib/actions/sessions.ts';
 import { Button } from '../ui/button.tsx';
 import { Notice } from '../ui/notice.tsx';
+import { useWorkspace } from './workspace-context.tsx';
 
 /**
  * "Remove all ended…" (plan D-32) at the foot of the expanded Ended group: a quiet control that
  * opens a native modal dialog (End all's shape) stating how many ended sessions leave the list,
- * with their history, and the focus on Cancel. The list follows through `session.removed`.
+ * with their history and their notes, and the focus on Cancel. The list follows through `session.removed`.
  */
-export function RemoveEndedSessions({ count }: { count: number }) {
+export function RemoveEndedSessions({ count, noteCount }: { count: number; noteCount: number }) {
   const t = useTranslations('workspace.removeEnded');
   const tm = useTranslations('workspace.menu');
   const tn = useTranslations('workspace.notice');
+  const { notes } = useWorkspace();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const open = () => {
+    // The body counts the notes that go: other windows may have changed them.
+    void notes.refreshCounts();
     setError(null);
     dialogRef.current?.showModal();
     dialogRef.current?.querySelector<HTMLElement>('[data-cancel]')?.focus();
@@ -63,7 +67,9 @@ export function RemoveEndedSessions({ count }: { count: number }) {
             <h2 id={titleId} className="font-semibold text-ink text-md">
               {t('title')}
             </h2>
-            <p className="text-pretty text-base text-ink-muted">{t('body', { count })}</p>
+            <p className="text-pretty text-base text-ink-muted">
+              {noteCount > 0 ? t('bodyNotes', { count, notes: noteCount }) : t('body', { count })}
+            </p>
           </div>
           {error ? <Notice tone="danger">{error}</Notice> : null}
           <div className="flex flex-wrap items-center gap-2">

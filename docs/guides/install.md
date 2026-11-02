@@ -263,7 +263,7 @@ deploy/scripts/backup.sh                 # writes deploy/backups/termavox-<UTC t
 deploy/scripts/backup.sh /srv/backups    # or another directory
 ```
 
-The backup is safe while everything runs. Inside the session-manager container, SQLite's `VACUUM INTO` writes a consistent copy, and `PRAGMA integrity_check` verifies it. The script then streams the copy to the host (directory mode `0700`, file mode `0600`). The file contains password hashes and encrypted credentials, so store it like a secret, in a directory only you can write to. It never contains the master key: back up `deploy/secrets/master_key` separately.
+The backup is safe while everything runs. Inside the session-manager container, SQLite's `VACUUM INTO` writes a consistent copy, and `PRAGMA integrity_check` verifies it. The script then streams the copy to the host (directory mode `0700`, file mode `0600`). The file contains password hashes, encrypted credentials and session notes in clear, so store it like a secret, in a directory only you can write to. It never contains the master key: back up `deploy/secrets/master_key` separately.
 
 The script needs no TTY, so you can schedule it, for example with this crontab line (daily at 03:15):
 
@@ -306,7 +306,7 @@ If the rotation fails, the database and `master_key` stay as they were, session-
 Afterwards:
 
 - **Back up the new `master_key`** in place of your copy of the old one.
-- Check that sessions connect. Then delete `deploy/secrets/master_key.old` and the pre-rotate backup, both on the host and in the volume (the script prints the commands). Only the old key opens that backup.
+- Check that sessions connect. Then delete `deploy/secrets/master_key.old` and the pre-rotate backup, both on the host and in the volume (the script prints the commands). Only the old key opens the credentials in that backup; anything else in it, session notes included, needs no key.
 - Older database copies are still encrypted under the old key: the files `backup.sh` wrote and the `app.db.pre-restore-*` copies in the volume. If the old key may have leaked, delete them or keep them as safe as the old key.
 - Rotating the master key does not change the SSH secrets themselves. If a database copy may have leaked together with the old key, replace the credentials on the servers too (new keys, new passwords).
 - The script refuses to run again while `master_key.old` or `master_key.new` exists.

@@ -4,6 +4,8 @@ import type { Terminal } from '@xterm/xterm';
 import { createContext, type RefObject, useContext } from 'react';
 import type { PaneFilesStore } from '../../lib/files/pane-state.ts';
 import type { TransferQueue } from '../../lib/files/transfer-queue.ts';
+import type { PaneNotesStore } from '../../lib/notes/pane-view.ts';
+import type { NotesStore } from '../../lib/notes/store.ts';
 import type { TerminalPreferences } from '../../lib/preferences/terminal.ts';
 import type { SessionActionResult } from '../../lib/sessions/action-result.ts';
 import type { SessionLabel } from '../../lib/sessions/types.ts';
@@ -87,7 +89,11 @@ export interface WorkspaceContextValue {
   filePanes: PaneFilesStore;
   /** The tab's uploads and downloads (they outlive panels and panes). */
   transfers: TransferQueue;
-  /** Gives the keyboard to a pane's terminal (after its file panel closes). */
+  /** The notes of the sessions this tab shows, and their saves (plan D-58). */
+  notes: NotesStore;
+  /** Which of its session's notes each pane shows, in this tab's memory only. */
+  paneNotes: PaneNotesStore;
+  /** Gives the keyboard to a pane (its terminal, or the note over it). */
   focusPane(paneId: string): void;
 }
 

@@ -10,16 +10,21 @@ import { activeLeaf, findSession } from './tree.ts';
 
 /**
  * Where a session's bell lands in this browser's layout: the pane that shows the session, in any
- * tab (the active tab first, as `findSession` looks), and whether that pane is the active pane of
- * the active tab. Null when no tab shows the session: its bell does nothing here.
+ * tab (the active tab first, as `findSession` looks), and whether the user could be looking at it:
+ * it is the active pane of the active tab and no note covers its terminal (`covered`, plan D-58).
+ * Null when no tab shows the session: its bell does nothing here.
  */
 export function bellPane(
   layout: WorkspaceLayout,
   sessionId: string,
+  covered: (paneId: string, sessionId: string) => boolean = () => false,
 ): { paneId: string; active: boolean } | null {
   const found = findSession(layout, sessionId);
   if (!found) return null;
-  return { paneId: found.paneId, active: activeLeaf(layout)?.leaf.id === found.paneId };
+  return {
+    paneId: found.paneId,
+    active: activeLeaf(layout)?.leaf.id === found.paneId && !covered(found.paneId, sessionId),
+  };
 }
 
 /** At most one notification per session in a browser tab: a remote ringing on repeat never spams. */
@@ -38,7 +43,7 @@ export interface BellFacts {
   supported: boolean;
   /** `Notification.permission`, null without the API. */
   permission: NotificationPermission | null;
-  /** The pane that rang is the active pane of the tab in front. */
+  /** The pane that rang is the active pane of the tab in front, with its terminal on screen. */
   active: boolean;
   /** `document.hasFocus()`. */
   focused: boolean;

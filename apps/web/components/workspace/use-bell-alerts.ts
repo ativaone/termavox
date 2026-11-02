@@ -9,6 +9,8 @@ import type { PaneBell, PaneMeta } from './workspace-context.tsx';
 
 /**
  * The terminal bell, in one place (the workspace shell calls this once). Two signals reach it:
+ * A pane whose terminal is covered by a note (`covered`, plan D-58) counts as one the user is not
+ * looking at, even when it is the active one.
  * - `terminal.bell` from a mounted pane (`ringBell`): marks the pane (its tab shows the attention
  *   bell) unless the user is looking at it, and, on the desktop, a bell in the active pane while
  *   the window is unfocused or hidden counts as unseen until the window regains focus (the window
@@ -27,6 +29,7 @@ export function useBellAlerts({
   sessions,
   paneMeta,
   setPaneMeta,
+  covered,
   follow,
   lang,
   bellBody,
@@ -34,12 +37,17 @@ export function useBellAlerts({
   connection: TermavoxConnection;
   isDesktop: boolean;
   layout: WorkspaceLayout;
-  /** The session of the active pane of the tab in front (desktop), if any. */
+  /**
+   * The session on screen in the active pane of the tab in front (desktop), if any: none while a
+   * note covers that pane's terminal.
+   */
   activeSessionId: string | null;
   sessions: ReadonlyMap<string, SessionEntry>;
   paneMeta: Readonly<Record<string, PaneMeta>>;
   setPaneMeta(paneId: string, patch: Partial<PaneMeta>): void;
-  /** Brings a session to the front exactly as its row does (the shell's follow). */
+  /** A note covers this pane's terminal. */
+  covered(paneId: string, sessionId: string): boolean;
+  /** Brings a session's terminal to the front (a clicked notification is about that terminal). */
   follow(sessionId: string): void;
   lang: string;
   /** The notification's text when the pane has no terminal title (localized). */
@@ -47,9 +55,9 @@ export function useBellAlerts({
 }): { ringBell(bell: PaneBell): void; activeBellUnseen: boolean } {
   const [activeBellUnseen, setActiveBellUnseen] = useState(false);
   // Read when a bell rings or a notification is clicked, never in render.
-  const latest = useRef({ isDesktop, layout, sessions, paneMeta, follow, lang, bellBody });
+  const latest = useRef({ isDesktop, layout, sessions, paneMeta, covered, follow, lang, bellBody });
   useEffect(() => {
-    latest.current = { isDesktop, layout, sessions, paneMeta, follow, lang, bellBody };
+    latest.current = { isDesktop, layout, sessions, paneMeta, covered, follow, lang, bellBody };
   });
   const lastShown = useRef(new Map<string, number>());
   const open = useRef(new Map<string, Notification>());
@@ -63,9 +71,10 @@ export function useBellAlerts({
 
   // `terminal.bell` of a mounted pane: the tab mark and the window title's marker only.
   const ringBell = useCallback(
-    ({ paneId, active }: PaneBell) => {
+    ({ paneId, sessionId, active: frontmost }: PaneBell) => {
       const focused = document.hasFocus();
       const hidden = document.visibilityState === 'hidden';
+      const active = frontmost && !latest.current.covered(paneId, sessionId);
       if (!lookingAt({ active, focused, hidden })) setPaneMeta(paneId, { bell: true });
       if (latest.current.isDesktop && active && (!focused || hidden)) setActiveBellUnseen(true);
     },
@@ -76,9 +85,14 @@ export function useBellAlerts({
   useEffect(
     () =>
       connection.subscribeBells(({ sessionId, title: remoteTitle }) => {
-        const { isDesktop: desktop, layout: current, sessions: entries } = latest.current;
+        const {
+          isDesktop: desktop,
+          layout: current,
+          sessions: entries,
+          covered: isCovered,
+        } = latest.current;
         if (!desktop) return;
-        const pane = bellPane(current, sessionId);
+        const pane = bellPane(current, sessionId, isCovered);
         if (!pane) return;
         const focused = document.hasFocus();
         const hidden = document.visibilityState === 'hidden';

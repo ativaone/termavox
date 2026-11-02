@@ -306,6 +306,7 @@
       "open": "Remove all ended…",
       "title": "Remove all ended sessions?",
       "body": "{count, plural, one {# ended session leaves the list, with its history.} other {# ended sessions leave the list, with their history.}} This can't be undone.",
+      "bodyNotes": "{count, plural, one {# ended session leaves the list, with its history} other {# ended sessions leave the list, with their history}} and {notes, plural, one {# note} other {# notes}}. This can't be undone.",
       "confirm": "{count, plural, one {Remove # session} other {Remove # sessions}}"
     },
     "sidebar": {
@@ -417,6 +418,7 @@
       "terminate": "End…",
       "remove": "Remove from list…",
       "removeQuestion": "Remove {label} from the list? Its history goes with it. This can't be undone.",
+      "removeQuestionNotes": "Remove {label} from the list? Its history and {notes, plural, one {its note} other {its # notes}} go with it. This can't be undone.",
       "removeConfirm": "Remove session",
       "terminateQuestion": "End {label}? Its shell and every program running in it stop on the server. This can't be undone.",
       "terminateConfirm": "End session",
@@ -1628,5 +1630,63 @@
     "newTab": "(opens in a new tab)",
     "learnMore": "Learn more",
     "source": "Source code on GitHub"
+  },
+  "notes": {
+    "title": "Notes",
+    "toggle": "Notes",
+    "toggleLabel": "Notes of {label}, {count, plural, =0 {none yet} one {# note} other {# notes}}",
+    "tabsLabel": "Terminal and notes of {label}",
+    "terminalTab": "Terminal",
+    "defaultTitle": "Note {n}",
+    "add": "New note",
+    "delete": "Delete note",
+    "deleteLabel": "Delete {title}",
+    "deleteQuestion": "Delete \"{title}\"? This can't be undone.",
+    "deleteConfirm": "Delete",
+    "cancel": "Cancel",
+    "renameLabel": "New name for {title}",
+    "textLabel": "Text of {title}",
+    "placeholder": "Write here. It saves as you type. Don't put passwords or keys in notes.",
+    "loading": "Loading…",
+    "save": {
+      "saving": "Saving…",
+      "saved": "Saved {time}",
+      "retrying": "Not saved, trying again",
+      "notSaved": "Not saved"
+    },
+    "characters": "{count, plural, one {# character} other {# characters}}",
+    "limitUsed": "{percent}% of the limit",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyFailed": "The browser wouldn't let Termavox copy the note. Select the text and copy it from there.",
+    "conflict": {
+      "body": "This note changed in another window.",
+      "loadFailed": "This note changed in another window, and its other version couldn't be loaded. Check your connection and try again.",
+      "loadOther": "Load the other version",
+      "keepMine": "Keep mine"
+    },
+    "gone": {
+      "body": "This note is gone: it was deleted in another window, or its session was removed.",
+      "saveNew": "Save as a new note"
+    },
+    "tooLarge": "This note is over the {limit} limit, so it isn't being saved. Shorten it to save it; the text stays here.",
+    "signIn": "Your sign-in has expired, so this can't be saved. Copy the text before leaving this page.",
+    "limit": "A session holds up to {limit} notes. Delete one to add another.",
+    "titleInvalid": "A note's name can't be empty or longer than {max} characters.",
+    "createFailed": "The note couldn't be created. Check your connection and try again.",
+    "deleteFailed": "The note couldn't be deleted. Check your connection and try again.",
+    "loadFailed": "The note couldn't be loaded.",
+    "listFailed": "The notes couldn't be loaded.",
+    "tryAgain": "Try again",
+    "empty": {
+      "title": "No notes in this session",
+      "body": "Notes are for this session and stay with it: reopening it keeps them, and removing it from the list removes them.",
+      "warning": "Notes are stored unencrypted, so don't put passwords or keys in them.",
+      "create": "New note"
+    },
+    "has": "Has notes",
+    "phone": {
+      "back": "Terminal"
+    }
   }
 }

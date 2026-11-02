@@ -35,6 +35,14 @@ function withUser() {
   return db;
 }
 
+describe('openDb pragmas', () => {
+  it('overwrites deleted rows (secure_delete), so their text does not stay in free pages', () => {
+    const db = openDb(':memory:');
+    expect(db.$client.pragma('secure_delete', { simple: true })).toBe(1);
+    db.$client.close();
+  });
+});
+
 describe('db', () => {
   it('applies migrations and enforces foreign keys', () => {
     const db = migrated();

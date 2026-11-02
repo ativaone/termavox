@@ -150,7 +150,7 @@
         <li><strong>Encerrar…</strong> (menu da sessão) para o shell e todos os programas no servidor. Se o servidor estiver fora do ar, a sessão termina na hora e o tmux dela é encerrado na próxima conexão com aquele servidor.</li>
         <li><strong>Encerrar todas as sessões…</strong>, no pé da lista, faz o mesmo com todas as que estão rodando.</li>
         <li><strong>Reabrir</strong> volta uma sessão encerrada com um shell novo, mantendo o nome dela.</li>
-        <li><strong>Remover da lista…</strong> (só sessões encerradas) apaga a sessão e o histórico dela. <strong>Remover todas as encerradas…</strong> faz isso de uma vez.</li>
+        <li><strong>Remover da lista…</strong> (só sessões encerradas) apaga a sessão, o histórico e as notas dela. <strong>Remover todas as encerradas…</strong> faz isso de uma vez.</li>
       </ul>
       <aside class="note note-caution">
         <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#caution"/></svg>
@@ -185,6 +185,7 @@
             <tr><th scope="row"><span class="combo"><kbd>Ctrl</kbd>+<kbd>K</kbd> ou <kbd>⌘</kbd>+<kbd>K</kbd></span></th><td><span class="cell-label">Faz</span>Buscar uma sessão ou iniciar uma nova (com o foco fora do terminal).</td></tr>
             <tr><th scope="row"><span class="combo"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> ou <kbd>⌘</kbd>+<kbd>⇧</kbd>+<kbd>K</kbd></span></th><td><span class="cell-label">Faz</span>O mesmo, de dentro do terminal, onde <kbd>Ctrl</kbd>+<kbd>K</kbd> pertence ao shell.</td></tr>
             <tr><th scope="row"><span class="combo"><kbd>↑</kbd> <kbd>↓</kbd> <kbd>Enter</kbd> <kbd>Esc</kbd></span></th><td><span class="cell-label">Faz</span>Na busca: mover, abrir, fechar.</td></tr>
+            <tr><th scope="row"><span class="combo"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd> ou <kbd>⌘</kbd>+<kbd>⇧</kbd>+<kbd>L</kbd></span></th><td><span class="cell-label">Faz</span>Alternar o painel em foco entre o terminal e a última nota.</td></tr>
             <tr><th scope="row"><span class="combo"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>←</kbd> ou <kbd>→</kbd></span></th><td><span class="cell-label">Faz</span>Com uma aba em foco: mover a aba uma posição para a esquerda ou para a direita.</td></tr>
           </tbody>
         </table>
@@ -260,6 +261,22 @@
       <aside class="note note-info" id="files-sftp">
         <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#info"/></svg>
         <div class="note-body"><p class="note-title">O painel diz que o servidor não oferece SFTP?</p><p>Quem administra o servidor precisa habilitar <code>Subsystem sftp internal-sftp</code> no <code>sshd_config</code> e recarregar o sshd. Se o botão <strong>Arquivos</strong> não aparece em lugar nenhum, o administrador do Termavox desligou o painel.</p></div>
+      </aside>
+    </section>
+
+    <section class="sec" id="notes" data-group="No dia a dia">
+      <h2>Notas</h2>
+      <p>O botão <strong>Notas</strong> no painel de uma sessão guarda comentários sobre o trabalho nela, por exemplo o que você está pedindo a um programa como o Claude Code. Uma sessão pode ter até 50 notas de até 256 KiB cada. O texto é simples e é salvo sozinho logo depois que você para de digitar.</p>
+      <ul>
+        <li>A faixa do painel mostra <strong>Terminal</strong> como primeira aba, depois uma aba por nota. A nota cobre o terminal, que continua conectado e do mesmo tamanho, então alternar não faz o programa redesenhar a tela.</li>
+        <li><strong>+</strong> cria uma nota. Dê dois cliques no nome para renomear (no celular, toque na aba que já está aberta). <strong>×</strong> exclui a nota e pergunta antes quando ela tem texto.</li>
+        <li><kbd>Esc</kbd> em uma nota volta ao terminal, e <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd> alterna entre o terminal e a última nota. Enquanto uma nota cobre o terminal, o sino dele marca a aba <strong>Terminal</strong>.</li>
+        <li>As notas continuam disponíveis quando a sessão termina ou perde a conexão, e reabrir a sessão as mantém. Elas ficam no servidor, então acompanham você em qualquer navegador.</li>
+        <li>Se a nota mudar em outra janela, o Termavox pergunta qual versão manter em vez de sobrescrever.</li>
+      </ul>
+      <aside class="note note-caution">
+        <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#caution"/></svg>
+        <div class="note-body"><p class="note-title">As notas não são criptografadas e saem junto com a sessão</p><p>Elas ficam em texto puro no banco e nos backups dele, então não coloque senhas nem chaves nelas. <strong>Remover da lista…</strong> e <strong>Remover todas as encerradas…</strong> apagam as notas junto com a sessão, e a confirmação diz quantas são.</p></div>
       </aside>
     </section>
 

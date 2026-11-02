@@ -26,6 +26,13 @@ export function isPaletteShortcut(event: KeyboardEvent): boolean {
   );
 }
 
+/** Ctrl+Shift+L (⌘⇧L): terminal ⇄ notes on the focused pane, never sent to the program. */
+export function isNotesShortcut(event: KeyboardEvent): boolean {
+  return (
+    (event.ctrlKey || event.metaKey) && event.shiftKey && !event.altKey && event.code === 'KeyL'
+  );
+}
+
 /** Decodes an OSC 52 payload (`Pc ; base64`) to text; null for queries and malformed data. */
 function osc52Text(data: string): string | null {
   const separator = data.indexOf(';');
@@ -188,7 +195,7 @@ export function TerminalPane({
     terminal.options.cursorBlink = cursorBlink;
   }, [terminal, cursorStyle, cursorBlink]);
 
-  // Keyboard: the palette shortcut never reaches the shell, and the sticky modifiers from the
+  // Keyboard: the palette and notes shortcuts never reach the shell, and the sticky modifiers from the
   // phone key bar apply to the next key: Ctrl masks a printable key into its control byte, Alt
   // sends the key behind an ESC prefix (both: the masked byte behind ESC).
   const { ctrlArmed, consumeCtrl, altArmed, consumeAlt } = ws;
@@ -205,7 +212,7 @@ export function TerminalPane({
       if (altArmed.current) consumeAlt();
     };
     terminal.attachCustomKeyEventHandler((event) => {
-      if (isPaletteShortcut(event)) return false;
+      if (isPaletteShortcut(event) || isNotesShortcut(event)) return false;
       if (event.type === 'keydown' && !event.ctrlKey && !event.altKey && !event.metaKey) {
         const bytes = armed(event.key);
         if (bytes) {

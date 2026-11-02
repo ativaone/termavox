@@ -5,7 +5,15 @@ import { authGate } from './auth/gate.ts';
 import type { AuthRuntime } from './auth/runtime.ts';
 import { parseIfMatch } from './layout-api.ts';
 import { cleanNoteTitle, NOTE_BODY_MAX_BYTES, noteBodyBytes } from './notes/limits.ts';
-import { createNote, deleteNote, getNote, listNotes, updateNote } from './repo/notes.ts';
+import { readLimitedBody } from './read-limited-body.ts';
+import {
+  countNotesBySession,
+  createNote,
+  deleteNote,
+  getNote,
+  listNotes,
+  updateNote,
+} from './repo/notes.ts';
 
 type NotesDeps = Pick<AuthRuntime, 'auth' | 'db' | 'publicOrigin'>;
 
@@ -24,7 +32,8 @@ const PatchNoteRequest = z.object({ title: z.string().optional(), body: z.string
  * TERMAVOX_PUBLIC_URL's origin (CSRF, plan §10.2), and a GET refuses a foreign `Origin` or
  * `Sec-Fetch-Site`. A session or note that does not exist or is someone else's gets the same 404.
  * A PATCH carries `If-Match: <revision>`; a stale one is answered with 409 and the current
- * revision. Titles and bodies are never logged.
+ * revision. A DELETE may carry one too, with the same answer, and nothing is deleted then.
+ * Titles and bodies are never logged.
  */
 export async function getNotesResponse(
   deps: NotesDeps,
@@ -35,6 +44,13 @@ export async function getNotesResponse(
   if (gate instanceof Response) return gate;
   const notes = listNotes(deps.db, gate.userId, sessionId);
   return notes === null ? notFound() : reply(200, { notes });
+}
+
+/** `GET /api/sessions/note-counts`: how many notes each session of the user has. */
+export async function getNoteCountsResponse(deps: NotesDeps, request: Request): Promise<Response> {
+  const gate = await readGate(deps, request);
+  if (gate instanceof Response) return gate;
+  return reply(200, { counts: countNotesBySession(deps.db, gate.userId) });
 }
 
 export async function postNoteResponse(
@@ -103,14 +119,7 @@ export async function patchNoteResponse(
   }
   const result = updateNote(deps.db, gate.userId, sessionId, noteId, changes, expected);
   if (result.outcome === 'not-found') return notFound();
-  if (result.outcome === 'stale') {
-    return reply(409, {
-      code: ErrorCode.Conflict,
-      message: 'note changed',
-      reason: 'stale',
-      revision: result.revision,
-    });
-  }
+  if (result.outcome === 'stale') return stale(result.revision);
   return reply(200, { note: result.note });
 }
 
@@ -122,7 +131,15 @@ export async function deleteNoteResponse(
 ): Promise<Response> {
   const gate = await mutationGate(deps, request);
   if (gate instanceof Response) return gate;
-  if (!deleteNote(deps.db, gate.userId, sessionId, noteId)) return notFound();
+  const ifMatch = request.headers.get('if-match');
+  const expected = ifMatch === null ? undefined : parseIfMatch(ifMatch);
+  // A revision that cannot be read is not permission to delete whatever is there.
+  if (expected === null) {
+    return reply(428, { code: ErrorCode.BadRequest, message: 'If-Match: <revision> unreadable' });
+  }
+  const result = deleteNote(deps.db, gate.userId, sessionId, noteId, expected);
+  if (result.outcome === 'not-found') return notFound();
+  if (result.outcome === 'stale') return stale(result.revision);
   return new Response(null, { status: 204, headers: { 'cache-control': 'no-store' } });
 }
 
@@ -159,17 +176,24 @@ async function gateOrReply(
   return reply(401, { code: ErrorCode.Unauthenticated, message: 'authentication required' });
 }
 
-/** The request's JSON, or the 413 / 400 answer: the declared size first, then the real one. */
+/** The request's JSON, or the 413 / 400 answer. */
 async function readJson(request: Request, maxBytes: number): Promise<unknown> {
-  const declared = Number(request.headers.get('content-length') ?? '0');
-  if (declared > maxBytes) return tooLarge();
-  const text = await request.text();
-  if (new TextEncoder().encode(text).length > maxBytes) return tooLarge();
+  const text = await readLimitedBody(request, maxBytes);
+  if (text === null) return tooLarge();
   try {
     return JSON.parse(text);
   } catch {
     return invalid('malformed JSON');
   }
+}
+
+function stale(revision: number): Response {
+  return reply(409, {
+    code: ErrorCode.Conflict,
+    message: 'note changed',
+    reason: 'stale',
+    revision,
+  });
 }
 
 function originRefused(): Response {

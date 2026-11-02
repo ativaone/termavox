@@ -1,6 +1,11 @@
 import { EMPTY_LAYOUT, type WorkspaceLayout } from '@termavox/protocol';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { getLayoutResponse, parseIfMatch, putLayoutResponse } from '../lib/layout-api.ts';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  getLayoutResponse,
+  MAX_LAYOUT_BYTES,
+  parseIfMatch,
+  putLayoutResponse,
+} from '../lib/layout-api.ts';
 import { getLayout } from '../lib/repo/layouts.ts';
 import {
   createUser,
@@ -94,6 +99,36 @@ describe('GET/PUT /api/layout (plan §8.2)', () => {
     expect(await second.json()).toEqual({ version: 2 });
     const reread = await get(ann.jar, { 'sec-fetch-site': 'same-origin' });
     expect(await reread.json()).toEqual({ layout: EMPTY_LAYOUT, version: 2 });
+  });
+
+  it('answers 413 to a chunked body with no Content-Length, cancelling the stream', async () => {
+    const before = getLayout(t.rt.db, ann.id).version;
+    let pulled = 0;
+    const cancelled = vi.fn();
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulled += 64 * 1024;
+        controller.enqueue(new Uint8Array(64 * 1024));
+      },
+      cancel: cancelled,
+    });
+    const headers = ann.jar.headers();
+    headers.set('content-type', 'application/json');
+    headers.set('origin', PUBLIC_URL);
+    headers.set('if-match', `"${before}"`);
+    const res = await putLayoutResponse(
+      t.rt,
+      new Request(`${PUBLIC_URL}/api/layout`, {
+        method: 'PUT',
+        headers,
+        body,
+        duplex: 'half',
+      } as RequestInit),
+    );
+    expect(res.status).toBe(413);
+    expect(cancelled).toHaveBeenCalledOnce();
+    expect(pulled).toBeLessThan(MAX_LAYOUT_BYTES + 3 * 64 * 1024);
+    expect(getLayout(t.rt.db, ann.id).version).toBe(before);
   });
 
   it('validates the layout, the If-Match header and the body size', async () => {

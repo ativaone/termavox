@@ -25,6 +25,8 @@ import {
 import { createBrowserTransferQueue } from '../../lib/files/browser.ts';
 import { PaneFilesStore } from '../../lib/files/pane-state.ts';
 import { withReturnPath } from '../../lib/manage/return-to.ts';
+import { PaneNotesStore } from '../../lib/notes/pane-view.ts';
+import { sharedNotesStore } from '../../lib/notes/shared-store.ts';
 import type { TerminalPreferences } from '../../lib/preferences/terminal.ts';
 import { ROUTES } from '../../lib/routes.ts';
 import type { SessionActionResult } from '../../lib/sessions/action-result.ts';
@@ -53,6 +55,8 @@ import { FilePanel } from '../files/file-panel.tsx';
 import { FilesPhoneButton, filesAllowedFor } from '../files/files-toggle.tsx';
 import { useTransferLeaveGuard } from '../files/use-transfer-guard.ts';
 import { ChevronLeftIcon, RetryIcon } from '../icons/index.tsx';
+import { goToTerminal, NotesPhoneButton, togglePaneNotes } from '../notes/notes-toggle.tsx';
+import { NotesView } from '../notes/notes-view.tsx';
 import { SkipLink } from '../skip-link.tsx';
 import { Button } from '../ui/button.tsx';
 import { cx } from '../ui/cx.ts';
@@ -80,7 +84,7 @@ import { RenameDialog, type RenameTarget } from './rename-dialog.tsx';
 import { SESSION_LIST_ID, Sidebar, SidebarEdge } from './sidebar.tsx';
 import { useSidebarMode } from './sidebar-preference.ts';
 import { TabBar } from './tab-bar.tsx';
-import { isPaletteShortcut, TerminalPane } from './terminal-pane.tsx';
+import { isNotesShortcut, isPaletteShortcut, TerminalPane } from './terminal-pane.tsx';
 import { withViewTransition } from './transitions.ts';
 import { useBellAlerts, useWindowTitle } from './use-bell-alerts.ts';
 import { useSidebarWidth } from './view-preferences.ts';
@@ -93,6 +97,15 @@ import {
   WorkspaceProvider,
 } from './workspace-context.tsx';
 
+/** A note is on screen on the phone's pane. */
+function usePhoneNotes(paneNotes: PaneNotesStore, sessionId: string | null): boolean {
+  const read = useCallback(
+    () => (sessionId ? paneNotes.isOn(PHONE_PANE, sessionId) : false),
+    [paneNotes, sessionId],
+  );
+  return useSyncExternalStore(paneNotes.subscribe, read, read);
+}
+
 const stripHref = (id: string) => `/workspace?s=${encodeURIComponent(id)}`;
 const PHONE_PANE = 'phone';
 const NOTICE_MS = 8_000;
@@ -101,6 +114,8 @@ export interface WorkspaceShellProps {
   bay: BayData;
   serverCount: number;
   renderedAt: number;
+  /** Whose notes the tab's store holds (it outlives this shell, but never its user). */
+  userId: string;
   username: string;
   locale: Locale;
   /** The running Termavox version (lib/version.ts), for the account menu's foot. */
@@ -265,6 +280,7 @@ export function WorkspaceShell({
   bay: serverBay,
   serverCount,
   renderedAt,
+  userId,
   username,
   locale,
   version,
@@ -281,6 +297,7 @@ export function WorkspaceShell({
   const t = useTranslations('workspace');
   const tc = useTranslations('common');
   const tf = useTranslations('files');
+  const tn = useTranslations('notes');
   const isDesktop = useIsDesktop();
   const hydrated = useHydrated();
   const searchParams = useSearchParams();
@@ -306,6 +323,22 @@ export function WorkspaceShell({
   const [transfers] = useState(() => createBrowserTransferQueue(connection));
   useTransferLeaveGuard(transfers);
   useAuthSessionSlide(loginHref);
+
+  // ── notes (plan D-58): the store, and which of them each pane shows ──
+  const [notes] = useState(() => sharedNotesStore(userId, serverBay.noteCounts));
+  const [paneNotes] = useState(() => new PaneNotesStore());
+  // Only a changed count re-renders the shell: typing does not.
+  const noteCounts = useSyncExternalStore(notes.subscribe, notes.getCounts, notes.getCounts);
+  // Coming back to the window: other windows may have added or deleted notes.
+  useEffect(() => {
+    const onFocus = () => void notes.refreshCounts();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      // Off to a management page: what waited on the debounce goes now.
+      notes.flushAll();
+    };
+  }, [notes]);
 
   const [sync] = useState(
     () =>
@@ -333,9 +366,14 @@ export function WorkspaceShell({
     [connectionState.sessions],
   );
   const bay = useMemo(
-    () => (connectionState.sessionsLoaded ? toBayData(connectionState.sessions) : serverBay),
-    [connectionState.sessionsLoaded, connectionState.sessions, serverBay],
+    () =>
+      connectionState.sessionsLoaded ? toBayData(connectionState.sessions, noteCounts) : serverBay,
+    [connectionState.sessionsLoaded, connectionState.sessions, noteCounts, serverBay],
   );
+  // A session that left the live list (`session.removed`) takes its notes and their timers with it.
+  useEffect(() => {
+    if (connectionState.sessionsLoaded) notes.retainSessions(new Set(sessions.keys()));
+  }, [connectionState.sessionsLoaded, sessions, notes]);
   // Tabs and pane captions read the first paint's summaries until the live list arrives.
   const labels = useMemo(
     () => sessionLabels(sessions, connectionState.sessionsLoaded, serverBay.sessions),
@@ -371,16 +409,33 @@ export function WorkspaceShell({
 
   const current = activeLeaf(layout);
   const activePaneId = current?.leaf.id ?? null;
-  // Panes that left the layout forget their file panel.
+  // Panes that left the layout forget their file panel and which note they showed.
   useEffect(() => {
     const panes = new Set(layout.tabs.flatMap((tab) => leaves(tab.root).map((leaf) => leaf.id)));
     panes.add(PHONE_PANE);
     filePanes.retain(panes);
-  }, [layout, filePanes]);
-  // The bell is for panes you were not looking at.
+    paneNotes.retain(panes);
+  }, [layout, filePanes, paneNotes]);
+  // A note over the active pane's terminal: a bell there has not been seen (plan D-58).
+  const frontSessionId = current?.leaf.sessionId ?? null;
+  const readActiveCovered = useCallback(
+    () =>
+      activePaneId !== null &&
+      frontSessionId !== null &&
+      paneNotes.isOn(activePaneId, frontSessionId),
+    [paneNotes, activePaneId, frontSessionId],
+  );
+  const activeCovered = useSyncExternalStore(
+    paneNotes.subscribe,
+    readActiveCovered,
+    readActiveCovered,
+  );
+  // The bell is for panes you were not looking at; a covered one keeps it until its terminal shows.
   useEffect(() => {
-    if (activePaneId && paneMeta[activePaneId]?.bell) setPaneMeta(activePaneId, { bell: false });
-  }, [activePaneId, paneMeta, setPaneMeta]);
+    if (activePaneId && !activeCovered && paneMeta[activePaneId]?.bell) {
+      setPaneMeta(activePaneId, { bell: false });
+    }
+  }, [activePaneId, activeCovered, paneMeta, setPaneMeta]);
 
   // ── phone navigation (the URL's ?s= is the open session; history gives Back) ──
   const pushed = useRef(false);
@@ -429,15 +484,32 @@ export function WorkspaceShell({
 
   // ── the bell: tab marks, desktop notifications (per session), the window title ──
   const activeSessionId = isDesktop ? (current?.leaf.sessionId ?? null) : null;
+  const paneCovered = useCallback(
+    (paneId: string, sessionId: string) => desktopRef.current && paneNotes.isOn(paneId, sessionId),
+    [paneNotes],
+  );
+  // A clicked notification is about the terminal: a note covering it steps aside.
+  const followTerminal = useCallback(
+    (sessionId: string) => {
+      const pane = findSession(sync.getSnapshot(), sessionId);
+      if (pane) {
+        notes.flush(sessionId);
+        paneNotes.showTerminal(pane.paneId, sessionId);
+      }
+      follow(sessionId);
+    },
+    [sync, notes, paneNotes, follow],
+  );
   const { ringBell, activeBellUnseen } = useBellAlerts({
     connection,
     isDesktop,
     layout,
-    activeSessionId,
+    activeSessionId: activeCovered ? null : activeSessionId,
     sessions,
     paneMeta,
     setPaneMeta,
-    follow,
+    covered: paneCovered,
+    follow: followTerminal,
     lang: locale,
     bellBody: t('notify.bellBody'),
   });
@@ -571,6 +643,22 @@ export function WorkspaceShell({
   useEffect(() => {
     const onRequest = () => openPalette();
     const onKey = (event: KeyboardEvent) => {
+      if (isNotesShortcut(event)) {
+        event.preventDefault();
+        if (event.repeat) return;
+        const paneId = desktopRef.current ? activeLeaf(sync.getSnapshot())?.leaf.id : PHONE_PANE;
+        const sessionId = desktopRef.current
+          ? activeLeaf(sync.getSnapshot())?.leaf.sessionId
+          : urlSession;
+        if (paneId && sessionId) {
+          togglePaneNotes(
+            { notes, paneNotes, focusPane: requestFocus, isDesktop: desktopRef.current },
+            paneId,
+            sessionId,
+          );
+        }
+        return;
+      }
       if (!isPaletteShortcut(event)) return;
       event.preventDefault();
       openPalette();
@@ -581,7 +669,7 @@ export function WorkspaceShell({
       window.removeEventListener(NEW_SESSION_EVENT, onRequest);
       window.removeEventListener('keydown', onKey);
     };
-  }, [openPalette]);
+  }, [openPalette, notes, paneNotes, requestFocus, sync, urlSession]);
 
   const paneAreaRef = useRef<HTMLDivElement>(null);
   const createViewport = (target: PanePlace | null) => {
@@ -747,6 +835,8 @@ export function WorkspaceShell({
       filesEnabled,
       filePanes,
       transfers,
+      notes,
+      paneNotes,
       focusPane: requestFocus,
     }),
     [
@@ -772,6 +862,8 @@ export function WorkspaceShell({
       filesEnabled,
       filePanes,
       transfers,
+      notes,
+      paneNotes,
       requestFocus,
     ],
   );
@@ -809,15 +901,29 @@ export function WorkspaceShell({
   const closePhoneFiles = useCallback(() => {
     if (phoneSessionId) filePanes.update(PHONE_PANE, phoneSessionId, { open: false });
   }, [filePanes, phoneSessionId]);
-  // Leaving a session on the phone (Back, another session) leaves its files view too.
+  // The phone's notes view, the same way: its own header, full screen over the attached terminal.
+  const phoneNotesOn = usePhoneNotes(paneNotes, phoneSessionId);
+  const phoneNotes = !isDesktop && phoneSessionId !== null && !phoneFiles && phoneNotesOn;
+  const closePhoneNotes = useCallback(() => {
+    if (phoneSessionId) {
+      goToTerminal(
+        { notes, paneNotes, focusPane: requestFocus, isDesktop: false },
+        PHONE_PANE,
+        phoneSessionId,
+      );
+    }
+  }, [notes, paneNotes, requestFocus, phoneSessionId]);
+  // Leaving a session on the phone (Back, another session) leaves its files and notes views too.
   const shownPhoneSession = useRef(phoneSessionId);
   useEffect(() => {
     const previous = shownPhoneSession.current;
     shownPhoneSession.current = phoneSessionId;
     if (previous && previous !== phoneSessionId) {
       filePanes.update(PHONE_PANE, previous, { open: false });
+      notes.flush(previous);
+      paneNotes.showTerminal(PHONE_PANE, previous);
     }
-  }, [phoneSessionId, filePanes]);
+  }, [phoneSessionId, filePanes, notes, paneNotes]);
 
   let desktopPanes: ReactNode;
   if (tab) {
@@ -911,16 +1017,34 @@ export function WorkspaceShell({
               </div>
               <span className="shrink-0 text-ink-muted text-xs">{tf('title')}</span>
             </div>
+          ) : phoneSessionId && phoneNotes ? (
+            <div className="flex h-12 shrink-0 items-center gap-2 border-line border-b ps-1 pe-3 md:hidden">
+              <Button
+                variant="quiet"
+                size="sm"
+                icon={<ChevronLeftIcon size={18} />}
+                onClick={closePhoneNotes}
+              >
+                {tn('phone.back')}
+              </Button>
+              <div className="flex min-w-0 flex-1 items-center justify-center gap-2">
+                {phoneStatus ? <StateLamp status={phoneStatus} /> : null}
+                <span className="truncate font-semibold text-ink text-sm">{phoneLabel}</span>
+                {phoneStatus ? <span className="sr-only">{t(`status.${phoneStatus}`)}</span> : null}
+              </div>
+              <span className="shrink-0 text-ink-muted text-xs">{tn('title')}</span>
+            </div>
           ) : phoneSessionId ? (
             <div className="flex h-12 shrink-0 items-center gap-2 ps-1 pe-1 md:hidden">
               <Button
                 variant="quiet"
                 size="sm"
+                iconOnly
                 icon={<ChevronLeftIcon size={18} />}
+                aria-label={t('phone.back')}
+                title={t('phone.back')}
                 onClick={phoneBack}
-              >
-                {t('phone.back')}
-              </Button>
+              />
               <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
                 <span className="truncate font-semibold text-ink text-sm">{phoneLabel}</span>
                 {phoneSession ? (
@@ -933,10 +1057,15 @@ export function WorkspaceShell({
                   </span>
                 ) : null}
                 {phoneStatus ? (
-                  <StatusChip status={phoneStatus} label={t(`status.${phoneStatus}`)} />
+                  <StatusChip
+                    status={phoneStatus}
+                    label={t(`status.${phoneStatus}`)}
+                    className="shrink-0 whitespace-nowrap"
+                  />
                 ) : null}
               </div>
               <FilesPhoneButton paneId={PHONE_PANE} sessionId={phoneSessionId} />
+              <NotesPhoneButton paneId={PHONE_PANE} sessionId={phoneSessionId} label={phoneLabel} />
             </div>
           ) : null}
 
@@ -970,8 +1099,8 @@ export function WorkspaceShell({
               desktopPanes
             ) : phoneSessionId && hydrated ? (
               <div className="relative min-h-0 flex-1 bg-pane">
-                {/* Under the files view the terminal stays attached at its size, out of reach. */}
-                <div className="absolute inset-0" inert={phoneFiles}>
+                {/* Under the files and notes views the terminal stays attached at its size, out of reach. */}
+                <div className="absolute inset-0" inert={phoneFiles || phoneNotes}>
                   <TerminalPane
                     key={phoneSessionId}
                     place={{ tabId: null, paneId: PHONE_PANE }}
@@ -987,8 +1116,8 @@ export function WorkspaceShell({
           </div>
 
           {!isDesktop && phoneSessionId ? (
-            // Under the files view the key bar keeps its place (the session keeps its size).
-            <div inert={phoneFiles}>
+            // Under the files and notes views the key bar keeps its place (the session keeps its size).
+            <div inert={phoneFiles || phoneNotes}>
               {phoneNotice ? (
                 <div className="px-2 pt-2">
                   <Notice tone="warning">
@@ -1024,6 +1153,18 @@ export function WorkspaceShell({
                 sessionId={phoneSessionId}
                 variant="phone"
                 onClose={closePhoneFiles}
+              />
+            </div>
+          ) : null}
+          {phoneNotes && phoneSessionId ? (
+            // The phone's notes view: everything under the header, over the attached terminal.
+            <div className="absolute inset-x-0 top-12 bottom-0 z-30 md:hidden">
+              <NotesView
+                key={phoneSessionId}
+                place={{ tabId: null, paneId: PHONE_PANE }}
+                sessionId={phoneSessionId}
+                label={phoneLabel}
+                variant="phone"
               />
             </div>
           ) : null}

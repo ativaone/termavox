@@ -48,9 +48,9 @@ flowchart LR
 |---|---|---|
 | Browser | The auth-session cookie; the terminal view (xterm.js) | Untrusted. Never the source of truth for terminal state; it renders and sends input. |
 | Caddy | TLS keys and its local CA (`caddy-data` volume) | The only published service. Routes `/ws` and the file panel's `/transfer/*` to session-manager and everything else to web. Replaces any client `X-Forwarded-For` with the TCP peer address, or, behind a reverse proxy named in `TERMAVOX_REVERSE_PROXY`, with the address that proxy forwarded (read right to left). Not on the `internal` network, so it cannot reach the internal API. |
-| web | `auth_secret`, `ws_secret`, `internal_token` | Control plane: sign-in, users, servers, layout, audit view, WebSocket ticket issuer. Never holds the master key. A secret passes through web only when a user creates a credential, and web can never read one back. |
+| web | `auth_secret`, `ws_secret`, `internal_token` | Control plane: sign-in, users, servers, layout, session notes, audit view, WebSocket ticket issuer. Never holds the master key. A secret passes through web only when a user creates a credential, and web can never read one back. |
 | session-manager | `master_key`, `ws_secret`, `internal_token`; decrypted credentials, in memory, while the SSH connection that uses them is open | Data plane: SSH connections, server-side emulators, the WebSocket server, the internal API and the credential vault. Writes every credential and known-host-key row. |
-| SQLite (`termavox-data` volume) | Users and argon2id password hashes, TOTP secrets (encrypted by Better Auth), encrypted credentials, host keys, sessions, audit events | Shared by web and session-manager. Assume it can leak through backups: SSH secrets in it are ciphertext only. |
+| SQLite (`termavox-data` volume) | Users and argon2id password hashes, TOTP secrets (encrypted by Better Auth), encrypted credentials, host keys, sessions, session notes (plain text), audit events | Shared by web and session-manager. Assume it can leak through backups: SSH secrets in it are ciphertext only, while session notes are in clear, and the UI says not to put secrets in them. |
 | `deploy/secrets/` | The four secret files | Mounted read-only into the containers as Docker secrets. `master_key` is mounted into session-manager only. |
 | Remote hosts | The user's shell and a per-session tmux server | Reached over SSH with strict host-key verification. Termavox installs nothing on them. |
 
@@ -83,9 +83,14 @@ The summary table is in [plan §10.1](implementation-plan.md#101-threat-model-su
 - **A leaked database or backup.** SSH passwords, private keys and passphrases are stored with
   AES-256-GCM under a master key that lives outside the database. Account passwords are argon2id
   hashes, and Better Auth encrypts TOTP secrets with web's `auth_secret`. Usernames, host names,
-  fingerprints, session history and audit rows are not encrypted.
+  fingerprints, session history, audit rows and session notes are not encrypted: a note's title and
+  text can be read by anyone who holds a copy of the database, so the UI says not to put passwords
+  or keys in them. Deleting a note overwrites it in the database file (`secure_delete`), but copies
+  in earlier backups stay, and it can linger in the write-ahead log until that is overwritten too.
 - **Other Termavox users.** A user can only list, attach to, type into or manage their own
-  sessions, servers, credentials and host-key decisions, both in web and in the daemon.
+  sessions, servers, credentials and host-key decisions, both in web and in the daemon, and read or
+  change only the notes of their own sessions. An administrator has no way to read another user's
+  notes in the app, and none to delete them either: a disabled user's notes stay in the database.
 - **Forged or replayed WebSocket connections.** The upgrade must carry the instance's `Origin`,
   and the first frame must present a 30-second, single-use ticket signed by web and bound to the
   user and the auth session.
@@ -158,6 +163,9 @@ secrets, the volumes and the containers' memory.
 
 #### Other limits
 
+- Session notes have limits per session (50 notes of 256 KiB each) but no total per user, and
+  ended sessions stay until they are removed, so a signed-in user can fill the database's disk with
+  notes. Treat accounts as trusted to that extent, and watch the volume's free space.
 - TOTP codes can be replayed within their validity window (about 90 s); there is no used-code
   cache ([ADR-0004](adr/0004-auth-better-auth.md#other-findings)).
 - The sign-in lockout and the per-IP sign-in budget keep their state in web's memory: a web
@@ -567,8 +575,8 @@ Remote programs control what they print, so the browser treats terminal output a
   `localhost`, removes its `Server` header (from redirects and its own error responses too), and
   answers `400` to an upgrade request on any path but `/ws`, so no WebSocket ever reaches
   Next.js.
-- **CSRF.** Auth cookies are `SameSite=Strict`. Server Actions check the origin; the ticket and
-  layout route handlers compare `Origin` with `TERMAVOX_PUBLIC_URL`'s origin exactly; Better
+- **CSRF.** Auth cookies are `SameSite=Strict`. Server Actions check the origin; the ticket,
+  layout and notes route handlers compare `Origin` with `TERMAVOX_PUBLIC_URL`'s origin exactly; Better
   Auth trusts only that origin.
 
 ### Containers and resource limits
@@ -615,6 +623,8 @@ From [`deploy/compose.yaml`](../deploy/compose.yaml) and the Dockerfiles:
 
 - session-manager logs JSON (pino) to stdout at `TERMAVOX_LOG_LEVEL`. web logs plain lines to
   stdout.
+- **Session notes are never logged**, and editing them is not audited: titles and text appear in
+  no log line and no audit row.
 - **Terminal contents are never logged.** The code does not log terminal input or output bytes,
   keyboard-interactive answers, tickets or credential material.
 - **Host text is cut short.** Where a tmux reply, an exit reason or the control channel's stderr

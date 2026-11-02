@@ -22,6 +22,8 @@ export function openDb(file: string, opts: { busyTimeoutMs?: number } = {}): Ter
   sqlite.pragma(`busy_timeout = ${opts.busyTimeoutMs ?? 5000}`);
   sqlite.pragma('foreign_keys = ON');
   sqlite.pragma('synchronous = NORMAL');
+  // Deleted rows (notes, sessions) are overwritten, not left readable in free pages.
+  sqlite.pragma('secure_delete = ON');
   return drizzle(sqlite, { schema }) as TermavoxDb;
 }
 

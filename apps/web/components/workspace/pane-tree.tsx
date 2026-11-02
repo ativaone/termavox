@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import {
   Fragment,
   type KeyboardEvent,
+  type MouseEvent,
   type PointerEvent,
   type ReactNode,
   type RefObject,
@@ -24,6 +25,9 @@ import {
 import { FilesDock } from '../files/files-dock.tsx';
 import { FilesPaneButton } from '../files/files-toggle.tsx';
 import { CloseIcon, PlusIcon, TerminalIcon } from '../icons/index.tsx';
+import { NoteTabs } from '../notes/note-tabs.tsx';
+import { NotesPaneButton, useNoteCount, usePaneNotes } from '../notes/notes-toggle.tsx';
+import { NotesView } from '../notes/notes-view.tsx';
 import { Button } from '../ui/button.tsx';
 import { cx } from '../ui/cx.ts';
 import { Panel } from '../ui/panel.tsx';
@@ -193,9 +197,11 @@ function SplitView({ node, ...props }: TreeProps & { node: SplitNode }) {
 
 /**
  * A pane's strip: the session it shows (lamp, label, target, protection, state word), a middle
- * slot, and its tools. Container queries fold it as the pane narrows: below 32rem the target and
- * the state word go to screen readers, below 18rem the Files label folds to its glyph, below 14rem
- * the protection mark goes too; the label, which shrinks only as much as it must, is what remains.
+ * slot (the terminal's title, or the tabs when the session has notes), and its tools. Container
+ * queries fold it as the pane narrows: below 36rem the target and the state word go to screen
+ * readers (below 48rem with the tabs, which need the room), below 24rem the tools' labels fold to
+ * their glyphs, below 14rem the protection mark and the middle slot go too; the label, which
+ * shrinks only as much as it must, is what remains.
  */
 function PaneCaption({
   leaf,
@@ -211,7 +217,7 @@ function PaneCaption({
   meta: PaneMeta | undefined;
 }) {
   const t = useTranslations('workspace');
-  const { labels, sessions, closePane } = useWorkspace();
+  const { labels, sessions, closePane, focusPane, onPaneFocus } = useWorkspace();
   const session = leaf.sessionId ? labels.get(leaf.sessionId) : undefined;
   // Target and protection come with the live list; until then the label and state stand alone.
   const entry = leaf.sessionId ? sessions.get(leaf.sessionId) : undefined;
@@ -219,8 +225,23 @@ function PaneCaption({
   const lit = active || !multi;
   const protectionLabel = t(`protection.${entry?.protection ?? 'pending'}`);
   const target = entry ? sessionTarget(entry, t('localTarget')) : null;
+  const noteCount = useNoteCount(leaf.sessionId);
+  const notesOn = usePaneNotes(leaf.id, leaf.sessionId)?.on ?? false;
+  const tabs = leaf.sessionId !== null && (noteCount > 0 || notesOn);
+  const folded = tabs ? '@max-[48rem]:sr-only' : '@max-[36rem]:sr-only';
+  // A click on nothing would leave the keyboard nowhere: it goes back into the pane. Text being
+  // selected in the title and the controls keep theirs.
+  const onClick = (event: MouseEvent<HTMLDivElement>) => {
+    const inControl = (event.target as Element).closest('button, input, a');
+    if (inControl || !window.getSelection()?.isCollapsed) return;
+    onPaneFocus(place);
+    focusPane(leaf.id);
+  };
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: only the pointer can land on nothing; the keyboard never leaves
+    // biome-ignore lint/a11y/noStaticElementInteractions: see above
     <div
+      onClick={onClick}
       className={cx(
         '@container flex h-9 shrink-0 items-center gap-2 border-line border-b ps-2.5 pe-1',
         lit ? 'bg-surface' : 'bg-transparent',
@@ -240,7 +261,10 @@ function PaneCaption({
         // Gives way well before the label when a long hostname leaves no room.
         <span
           title={target}
-          className="min-w-0 shrink-[4] truncate font-data font-medium text-ink-muted text-xs @max-[32rem]:sr-only"
+          className={cx(
+            'min-w-0 shrink-[4] truncate font-data font-medium text-ink-muted text-xs',
+            folded,
+          )}
         >
           {target}
         </span>
@@ -255,21 +279,31 @@ function PaneCaption({
         </span>
       ) : null}
       {session ? (
-        <span className="shrink-0 whitespace-nowrap text-ink-muted text-xs @max-[32rem]:sr-only">
+        <span className={cx('shrink-0 whitespace-nowrap text-ink-muted text-xs', folded)}>
           {t(`status.${session.status}`)}
         </span>
       ) : null}
       {/* The middle slot: takes the free space and is the first to give it up. */}
-      <div className="flex min-w-0 flex-1 items-center">
-        {meta?.title ? (
+      <div className="flex min-w-0 flex-1 items-center overflow-hidden @max-[14rem]:hidden">
+        {tabs && leaf.sessionId ? (
+          <NoteTabs
+            place={place}
+            sessionId={leaf.sessionId}
+            label={label}
+            bell={meta?.bell ?? false}
+          />
+        ) : meta?.title ? (
           <span title={meta.title} className="min-w-0 truncate text-ink-muted text-xs">
             {meta.title}
           </span>
         ) : null}
       </div>
-      <div className="flex shrink-0 items-center gap-1">
+      <div className="ms-auto flex shrink-0 items-center gap-1">
         {leaf.sessionId ? (
-          <FilesPaneButton paneId={leaf.id} sessionId={leaf.sessionId} label={label} />
+          <>
+            <FilesPaneButton paneId={leaf.id} sessionId={leaf.sessionId} label={label} />
+            <NotesPaneButton paneId={leaf.id} sessionId={leaf.sessionId} label={label} />
+          </>
         ) : null}
         {multi ? (
           <button
@@ -375,8 +409,52 @@ function EmptyPane({ place, tab }: { place: PanePlace; tab: Tab }) {
   );
 }
 
+/**
+ * A bound pane's body: the terminal and its file dock, and over them the notes view when a note is
+ * on screen. They stay attached at their size under it, out of the keyboard's reach, so switching
+ * never resizes the session or makes a program redraw (plan D-58).
+ */
+function SessionPaneBody({
+  place,
+  sessionId,
+  active,
+  dim,
+  label,
+  onClose,
+}: {
+  place: PanePlace;
+  sessionId: string;
+  active: boolean;
+  dim: boolean;
+  label: string;
+  onClose(): void;
+}) {
+  const notesOn = usePaneNotes(place.paneId, sessionId)?.on ?? false;
+  return (
+    <>
+      <div className="absolute inset-0" inert={notesOn}>
+        <FilesDock paneId={place.paneId} sessionId={sessionId}>
+          <TerminalPane
+            key={place.paneId}
+            place={place}
+            sessionId={sessionId}
+            active={active}
+            dim={dim}
+            onClose={onClose}
+          />
+        </FilesDock>
+      </div>
+      {notesOn ? (
+        <div className="absolute inset-0 z-30">
+          <NotesView place={place} sessionId={sessionId} label={label} />
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 function LeafView({ node, tab, paneCount, paneMeta }: TreeProps & { node: LeafNode }) {
-  const { closePane } = useWorkspace();
+  const { closePane, labels } = useWorkspace();
   const place = { tabId: tab.id, paneId: node.id };
   const active = tab.activePaneId === node.id;
   const multi = paneCount > 1;
@@ -399,16 +477,14 @@ function LeafView({ node, tab, paneCount, paneMeta }: TreeProps & { node: LeafNo
       ) : null}
       <div className="relative min-h-0 flex-1">
         {node.sessionId ? (
-          <FilesDock paneId={node.id} sessionId={node.sessionId}>
-            <TerminalPane
-              key={node.id}
-              place={place}
-              sessionId={node.sessionId}
-              active={active}
-              dim={multi && !active}
-              onClose={() => closePane(place)}
-            />
-          </FilesDock>
+          <SessionPaneBody
+            place={place}
+            sessionId={node.sessionId}
+            active={active}
+            dim={multi && !active}
+            label={labels.get(node.sessionId)?.label ?? ''}
+            onClose={() => closePane(place)}
+          />
         ) : (
           <EmptyPane place={place} tab={tab} />
         )}

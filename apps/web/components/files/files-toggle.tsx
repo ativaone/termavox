@@ -63,7 +63,20 @@ function useToggle(paneId: string, sessionId: string) {
 const PRESSED =
   'aria-pressed:bg-accent-soft aria-pressed:text-ink aria-pressed:shadow-[inset_0_0_0_1px_var(--color-accent-ring)]';
 
-/** The Files toggle in a desktop pane's caption; its label folds to the glyph in a narrow pane. */
+/**
+ * A tool in a desktop pane's caption (Files, Notes): 28 px, on the raised fill, lit when pressed;
+ * its label folds to the glyph in a narrow pane.
+ */
+export const PANE_TOOL_CLASSES = cx(
+  'flex h-7 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-sm px-2 font-semibold text-sm',
+  'bg-surface-raised text-ink hover:bg-surface-pressed active:bg-surface-pressed',
+  'transition-colors duration-(--duration-step) ease-(--ease-out)',
+  'focus-visible:outline-2 focus-visible:outline-focus focus-visible:-outline-offset-2',
+  '@max-[24rem]:w-7 @max-[24rem]:px-0',
+  PRESSED,
+);
+
+/** The Files toggle in a desktop pane's caption. Over a note, it goes back to the terminal first. */
 export function FilesPaneButton({
   paneId,
   sessionId,
@@ -76,25 +89,27 @@ export function FilesPaneButton({
   const t = useTranslations('files');
   const { open, toggle } = useToggle(paneId, sessionId);
   const allowed = useFilesAllowed(sessionId);
+  const { notes, paneNotes, focusPane } = useWorkspace();
   if (!allowed) return null;
+  const onClick = () => {
+    if (paneNotes.isOn(paneId, sessionId)) {
+      notes.flush(sessionId);
+      paneNotes.showTerminal(paneId, sessionId);
+      focusPane(paneId);
+    }
+    toggle();
+  };
   return (
     <button
       type="button"
       aria-pressed={open}
-      onClick={toggle}
+      onClick={onClick}
       aria-label={t('toggleLabel', { label })}
       title={t('toggle')}
-      className={cx(
-        'flex h-7 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-sm px-2 font-semibold text-sm',
-        'bg-surface-raised text-ink hover:bg-surface-pressed active:bg-surface-pressed',
-        'transition-colors duration-(--duration-step) ease-(--ease-out)',
-        'focus-visible:outline-2 focus-visible:outline-focus focus-visible:-outline-offset-2',
-        '@max-[18rem]:w-7 @max-[18rem]:px-0',
-        PRESSED,
-      )}
+      className={PANE_TOOL_CLASSES}
     >
       <FolderIcon size={16} className={open ? 'text-accent' : undefined} />
-      <span className="@max-[18rem]:sr-only">{t('toggle')}</span>
+      <span className="@max-[24rem]:sr-only">{t('toggle')}</span>
     </button>
   );
 }

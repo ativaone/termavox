@@ -296,6 +296,18 @@ export function BellIcon(props: IconProps) {
   );
 }
 
+/** A session's notes: a sheet with a folded corner and two lines of text. */
+export function NoteIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4.5 5.5h15V15L15 19.5H4.5v-14Z" />
+      <path d="M19.5 15H15v4.5" />
+      <path d="M8 9.5h8" />
+      <path d="M8 13h3.5" />
+    </Icon>
+  );
+}
+
 /** Retry / reconnect now. */
 export function RetryIcon(props: IconProps) {
   return (

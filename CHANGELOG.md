@@ -41,6 +41,12 @@ upgraded: remove it together with its volumes and install fresh from a new clone
   a split each pane has its own; on a phone it takes the whole screen. When a server offers no
   SFTP the panel says what to enable there. Admin settings can turn file transfer off and record
   file operations in the audit log (off by default).
+- Notes per session: the Notes button on a session's pane keeps several named plain-text notes,
+  up to 50 of 256 KiB each, as tabs next to a Terminal tab. A note covers the terminal, which stays
+  connected at its size, so switching never makes a program redraw. They are saved by themselves,
+  ask before overwriting a change from another window, and stay with the session when it ends or
+  reopens; removing it from the list removes them, and the confirmation says how many. They are
+  not encrypted, in the database or in its backups, so don't put secrets in them.
 - `deploy/scripts/reset-password.sh <username>` sets a temporary password from the host when no
   admin can sign in, for example when the only admin forgot their password. The user must choose
   a new password at the next sign-in. `--reset-totp` also resets TOTP, for a lost authenticator
@@ -140,6 +146,9 @@ upgraded: remove it together with its volumes and install fresh from a new clone
 
 ### Changed
 
+- Every pane now has a strip with its session's name, server, protection and state, and that
+  session's tools. The Files button moved there from the tab row, away from the split controls,
+  and keeps its label unless the pane is narrow. The strip takes about two terminal rows.
 - The session list's groups share one accordion shape, a filled bar with its own icon over
   smaller-lamped rows, all open from the start. Ended is no longer collapsed by default. Connected and Ended are the everyday areas;
   the others, such as Reconnecting, appear above them only while a session is in that status.

@@ -150,7 +150,7 @@
         <li><strong>End…</strong> (the session's menu) stops the shell and every program on the server. If the server is down, the session ends at once and its tmux is ended by the next connection to that server.</li>
         <li><strong>End all sessions…</strong>, at the foot of the list, does the same for every running session.</li>
         <li><strong>Reopen</strong> brings an ended session back with a new shell, keeping its name.</li>
-        <li><strong>Remove from list…</strong> (ended sessions only) deletes the session and its history. <strong>Remove all ended…</strong> does that in one go.</li>
+        <li><strong>Remove from list…</strong> (ended sessions only) deletes the session, its history and its notes. <strong>Remove all ended…</strong> does that in one go.</li>
       </ul>
       <aside class="note note-caution">
         <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#caution"/></svg>
@@ -185,6 +185,7 @@
             <tr><th scope="row"><span class="combo"><kbd>Ctrl</kbd>+<kbd>K</kbd> or <kbd>⌘</kbd>+<kbd>K</kbd></span></th><td><span class="cell-label">Does</span>Find a session or start a new one (with the focus outside the terminal).</td></tr>
             <tr><th scope="row"><span class="combo"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> or <kbd>⌘</kbd>+<kbd>⇧</kbd>+<kbd>K</kbd></span></th><td><span class="cell-label">Does</span>The same, from inside a terminal, where <kbd>Ctrl</kbd>+<kbd>K</kbd> belongs to the shell.</td></tr>
             <tr><th scope="row"><span class="combo"><kbd>↑</kbd> <kbd>↓</kbd> <kbd>Enter</kbd> <kbd>Esc</kbd></span></th><td><span class="cell-label">Does</span>In the finder: move, open, close.</td></tr>
+            <tr><th scope="row"><span class="combo"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd> or <kbd>⌘</kbd>+<kbd>⇧</kbd>+<kbd>L</kbd></span></th><td><span class="cell-label">Does</span>Switch the focused pane between its terminal and its last note.</td></tr>
             <tr><th scope="row"><span class="combo"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>←</kbd> or <kbd>→</kbd></span></th><td><span class="cell-label">Does</span>With a tab focused: move it one place left or right.</td></tr>
           </tbody>
         </table>
@@ -260,6 +261,22 @@
       <aside class="note note-info" id="files-sftp">
         <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#info"/></svg>
         <div class="note-body"><p class="note-title">The panel says the server doesn't offer SFTP?</p><p>Whoever runs the server must enable <code>Subsystem sftp internal-sftp</code> in <code>sshd_config</code> and reload sshd. If the <strong>Files</strong> button doesn't show anywhere, the Termavox administrator turned the panel off.</p></div>
+      </aside>
+    </section>
+
+    <section class="sec" id="notes" data-group="Day to day">
+      <h2>Notes</h2>
+      <p>The <strong>Notes</strong> button on a session's pane keeps comments about the work in that session, for example what you are asking a program such as Claude Code to do. A session can hold up to 50 notes of up to 256 KiB each. The text is plain and is saved by itself a moment after you stop typing.</p>
+      <ul>
+        <li>The pane's caption shows <strong>Terminal</strong> as its first tab, then one tab per note. A note covers the terminal, which stays connected at the same size, so switching doesn't make the program redraw.</li>
+        <li><strong>+</strong> creates a note. Double-click a name to rename it (on a phone, tap the tab that is already open). <strong>×</strong> deletes a note, asking first when it has text.</li>
+        <li><kbd>Esc</kbd> in a note goes back to the terminal, and <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd> switches between the terminal and the last note. While a note covers the terminal, a bell from it marks the <strong>Terminal</strong> tab.</li>
+        <li>Notes stay available when a session ends or loses its connection, and reopening the session keeps them. They are saved on the server, so they follow you to any browser.</li>
+        <li>If a note changes in another window, Termavox asks which version to keep instead of overwriting it.</li>
+      </ul>
+      <aside class="note note-caution">
+        <svg class="icon" aria-hidden="true"><use href="{{root}}assets/icons.svg#caution"/></svg>
+        <div class="note-body"><p class="note-title">Notes aren't encrypted, and they go when the session goes</p><p>They are stored in clear in the database and in its backups, so don't put passwords or keys in them. <strong>Remove from list…</strong> and <strong>Remove all ended…</strong> delete a session's notes with it, and the confirmation says how many.</p></div>
       </aside>
     </section>
 

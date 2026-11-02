@@ -170,22 +170,34 @@ export function updateNote(
   return write.immediate();
 }
 
-/** False when the user has no such note. */
+export type DeleteNoteResult =
+  | { outcome: 'ok' }
+  | { outcome: 'not-found' }
+  | { outcome: 'stale'; revision: number };
+
+/**
+ * Deletes a note; with `expectedRevision`, only if it is still at that revision, checked by the
+ * delete statement itself so nothing written in between can be lost.
+ */
 export function deleteNote(
   db: TermavoxDb,
   userId: string,
   sessionId: string,
   noteId: string,
-): boolean {
+  expectedRevision?: number,
+): DeleteNoteResult {
+  const expected = expectedRevision ?? null;
   const { changes } = db.$client
     .prepare(
       `DELETE FROM session_notes
-       WHERE id = ? AND session_id = ?
+       WHERE id = ? AND session_id = ? AND (? IS NULL OR revision = ?)
          AND EXISTS (SELECT 1 FROM sessions s
                      WHERE s.id = session_notes.session_id AND s.user_id = ?)`,
     )
-    .run(noteId, sessionId, userId);
-  return changes > 0;
+    .run(noteId, sessionId, expected, expected, userId);
+  if (changes > 0) return { outcome: 'ok' };
+  const note = expected === null ? null : getMeta(db, userId, sessionId, noteId);
+  return note ? { outcome: 'stale', revision: note.revision } : { outcome: 'not-found' };
 }
 
 /** Session id → how many notes, for every session of the user that has any. */

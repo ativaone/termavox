@@ -17,7 +17,7 @@ import {
 import { DANGER_SLIP_CLASSES, Notice } from '../ui/notice.tsx';
 import { Spinner } from '../ui/spinner.tsx';
 import { useSetSessionNotify } from './hooks.ts';
-import type { SessionActionKind } from './workspace-context.tsx';
+import { type SessionActionKind, useWorkspace } from './workspace-context.tsx';
 
 /** What the browser allows: its notification permission, or no Notification API at all. */
 type Permission = NotificationPermission | 'unsupported';
@@ -89,6 +89,7 @@ export function SessionMenu({
   // On for the session, but this browser was never asked (they were turned on in another one).
   const [askHere, setAskHere] = useState(false);
   const setNotify = useSetSessionNotify();
+  const { notes } = useWorkspace();
   const ended = session.status === 'ended';
   const notifiable = desktop && !ended;
   const blockedText = (permission: Permission): string | null =>
@@ -144,13 +145,13 @@ export function SessionMenu({
 
   // The confirmation slip, an error and the blocked notice change the height: place the menu
   // again, and move the focus to the slip's cancel control.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: confirming, error, blocked and askHere change the height
+  // biome-ignore lint/correctness/useExhaustiveDependencies: confirming, error, blocked, askHere and the note count change the height
   useEffect(() => {
     relayout();
     if (confirming) {
       menu.popoverRef.current?.querySelector<HTMLElement>('[data-cancel]')?.focus();
     }
-  }, [confirming, error, blocked, askHere, relayout]);
+  }, [confirming, error, blocked, askHere, session.noteCount, relayout]);
 
   /**
    * The desktop notifications check box. Turning it on first asks the browser for permission when
@@ -223,8 +224,12 @@ export function SessionMenu({
         menu.hide();
         actions.rename?.();
         return;
-      case 'terminate':
       case 'remove':
+        // The question counts the notes that go: other windows may have changed them.
+        void notes.refreshCounts();
+        setConfirming(item.kind);
+        return;
+      case 'terminate':
         setConfirming(item.kind);
         return;
       default:
@@ -261,7 +266,9 @@ export function SessionMenu({
             <p id={`${menu.menuId}-question`} className="text-pretty">
               {confirming === 'terminate'
                 ? t('terminateQuestion', { label: session.label })
-                : t('removeQuestion', { label: session.label })}
+                : session.noteCount > 0
+                  ? t('removeQuestionNotes', { label: session.label, notes: session.noteCount })
+                  : t('removeQuestion', { label: session.label })}
             </p>
             {/* Ending is rarely what someone who only wants to leave needs. */}
             {confirming === 'terminate' ? (

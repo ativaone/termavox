@@ -116,6 +116,14 @@ describe('where a relayed bell lands (session.bell)', () => {
     expect(bellPane(front, 's3')).toEqual({ paneId: 'p3', active: false });
   });
 
+  it('a pane whose terminal a note covers is not one the user is looking at', () => {
+    const covered = (paneId: string, sessionId: string) => paneId === 'p3' && sessionId === 's3';
+    expect(bellPane(layout, 's3', covered)).toEqual({ paneId: 'p3', active: false });
+    expect(bellPane(layout, 's3', () => false)).toEqual({ paneId: 'p3', active: true });
+    const front = apply([{ type: 'activateTab', tabId: 't1' }], layout);
+    expect(bellPane(front, 's2', covered)).toEqual({ paneId: 'p2', active: true });
+  });
+
   it('is nowhere for a session no tab shows, or with no tab open', () => {
     expect(bellPane(layout, 'elsewhere')).toBeNull();
     expect(bellPane(EMPTY_LAYOUT, 's1')).toBeNull();

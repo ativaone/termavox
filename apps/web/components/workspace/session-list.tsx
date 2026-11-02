@@ -86,6 +86,7 @@ export function SessionList({
 }: SessionListProps) {
   const t = useTranslations('workspace');
   const td = useTranslations('workspace.duration');
+  const tn = useTranslations('notes');
   const locale = useLocale();
   const now = useNow(renderedAt);
   const groups = groupIntoLanes(useGroupTransitions(data.sessions));
@@ -112,7 +113,10 @@ export function SessionList({
             }
             footer={
               ended && menuActions && data.endedTotal > 0 ? (
-                <RemoveEndedSessions count={data.endedTotal} />
+                <RemoveEndedSessions
+                  count={data.endedTotal}
+                  noteCount={group.sessions.reduce((sum, s) => sum + s.noteCount, 0)}
+                />
               ) : undefined
             }
           >
@@ -131,6 +135,8 @@ export function SessionList({
                     // Desktop only, like the notifications; an ended session cannot ring.
                     notify={desktop && !ended && session.notify}
                     notifyLabel={t('notify.on')}
+                    hasNotes={session.noteCount > 0}
+                    notesLabel={tn('has')}
                     time={ended ? formatAgoShort(endedAt, now, td) : uptime}
                     timeLabel={
                       ended
