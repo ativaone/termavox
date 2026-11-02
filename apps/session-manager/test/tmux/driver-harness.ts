@@ -37,8 +37,12 @@ export const DIMS: Dimensions = { cols: 80, rows: 24 };
 export const SCROLLBACK = 5_000;
 /** Keeps the pane silent until Enter, so a pipe-pane reference can start before its first byte. */
 export const BLOCKED_STARTUP = 'read -r _; exec "$SHELL" -l';
-/** Waits while a test session comes up (tmux server, login shell, first prompt). */
-const SETUP_TIMEOUT_MS = 30_000;
+/**
+ * Waits while a test session comes up (tmux server, login shell, first prompt). A loaded CI runner
+ * timed this out at 10 s (2026-10-21) and again at 30 s (2026-11-02, the seq flood); the test's own
+ * timeout (120 s) still bounds it.
+ */
+const SETUP_TIMEOUT_MS = 60_000;
 const HIGH_WATER = 8 * 1024 * 1024;
 
 export const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
