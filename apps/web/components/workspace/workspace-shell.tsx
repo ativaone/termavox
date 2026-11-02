@@ -50,7 +50,7 @@ import {
   newId,
 } from '../../lib/workspace/tree.ts';
 import { FilePanel } from '../files/file-panel.tsx';
-import { FilesPhoneButton, FilesTabButton, filesAllowedFor } from '../files/files-toggle.tsx';
+import { FilesPhoneButton, filesAllowedFor } from '../files/files-toggle.tsx';
 import { useTransferLeaveGuard } from '../files/use-transfer-guard.ts';
 import { ChevronLeftIcon, RetryIcon } from '../icons/index.tsx';
 import { SkipLink } from '../skip-link.tsx';
@@ -795,13 +795,6 @@ export function WorkspaceShell({
   const tab = current?.tab ?? null;
   const paneCount = tab ? leaves(tab.root).length : 0;
 
-  // The tab row's Files toggle: a tab with one pane bound to a session (a split's panes carry
-  // their own in their captions).
-  const onlyLeaf = tab && paneCount === 1 ? leaves(tab.root)[0] : undefined;
-  const tabFiles = onlyLeaf?.sessionId ? (
-    <FilesTabButton paneId={onlyLeaf.id} sessionId={onlyLeaf.sessionId} />
-  ) : null;
-
   // The phone's files view: full screen over the session's pane, which stays attached.
   const readPhoneFiles = useCallback(
     () => (phoneSessionId ? filePanes.get(PHONE_PANE, phoneSessionId) : null),
@@ -959,7 +952,6 @@ export function WorkspaceShell({
               canSplit={current !== null}
               revealKey={focusRequest?.seq ?? 0}
               trailing={<ConnectionChip connection={connection} />}
-              files={tabFiles}
               onRenameError={setNotice}
             />
           </div>

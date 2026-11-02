@@ -1097,7 +1097,7 @@ async function filePanel(
 
   await page.click(
     `$$('button[aria-pressed]').find((b) => visible(b) && text(b) === ${js(FILES.toggle)})`,
-    `the "${FILES.toggle}" toggle on the session's tab`,
+    `the "${FILES.toggle}" toggle in the session's pane caption`,
   );
   const folder = await page.waitFor<string>(
     inPanel(

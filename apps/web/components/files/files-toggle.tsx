@@ -63,28 +63,8 @@ function useToggle(paneId: string, sessionId: string) {
 const PRESSED =
   'aria-pressed:bg-accent-soft aria-pressed:text-ink aria-pressed:shadow-[inset_0_0_0_1px_var(--color-accent-ring)]';
 
-/** The tab row's Files toggle, for a tab with one pane bound to a session. */
-export function FilesTabButton({ paneId, sessionId }: { paneId: string; sessionId: string }) {
-  const t = useTranslations('files');
-  const { open, toggle } = useToggle(paneId, sessionId);
-  const allowed = useFilesAllowed(sessionId);
-  if (!allowed) return null;
-  return (
-    <Button
-      variant="quiet"
-      size="sm"
-      aria-pressed={open}
-      onClick={toggle}
-      icon={<FolderIcon size={16} className={open ? 'text-accent' : undefined} />}
-      className={PRESSED}
-    >
-      {t('toggle')}
-    </Button>
-  );
-}
-
-/** The folder toggle in a split pane's caption (the tab row has none then). */
-export function FilesCaptionButton({
+/** The Files toggle in a desktop pane's caption; its label folds to the glyph in a narrow pane. */
+export function FilesPaneButton({
   paneId,
   sessionId,
   label,
@@ -105,13 +85,16 @@ export function FilesCaptionButton({
       aria-label={t('toggleLabel', { label })}
       title={t('toggle')}
       className={cx(
-        'flex size-6 shrink-0 items-center justify-center rounded-sm text-ink-muted',
-        'transition-colors duration-(--duration-step) ease-(--ease-out) hover:bg-surface-raised hover:text-ink',
+        'flex h-7 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-sm px-2 font-semibold text-sm',
+        'bg-surface-raised text-ink hover:bg-surface-pressed active:bg-surface-pressed',
+        'transition-colors duration-(--duration-step) ease-(--ease-out)',
         'focus-visible:outline-2 focus-visible:outline-focus focus-visible:-outline-offset-2',
+        '@max-[18rem]:w-7 @max-[18rem]:px-0',
         PRESSED,
       )}
     >
-      <FolderIcon size={14} className={open ? 'text-accent' : undefined} />
+      <FolderIcon size={16} className={open ? 'text-accent' : undefined} />
+      <span className="@max-[18rem]:sr-only">{t('toggle')}</span>
     </button>
   );
 }

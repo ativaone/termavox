@@ -22,11 +22,12 @@ import {
   type SplitNode,
 } from '../../lib/workspace/tree.ts';
 import { FilesDock } from '../files/files-dock.tsx';
-import { FilesCaptionButton } from '../files/files-toggle.tsx';
+import { FilesPaneButton } from '../files/files-toggle.tsx';
 import { CloseIcon, PlusIcon, TerminalIcon } from '../icons/index.tsx';
 import { Button } from '../ui/button.tsx';
 import { cx } from '../ui/cx.ts';
 import { Panel } from '../ui/panel.tsx';
+import { ProtectionMark } from '../ui/session-row.tsx';
 import { StateLamp, StatusChip } from '../ui/status-chip.tsx';
 import { EdgeHandle, type EdgeKey } from './edge-handle.tsx';
 import { TerminalPane } from './terminal-pane.tsx';
@@ -42,7 +43,7 @@ const KEY_STEP_LARGE = 10;
 
 interface TreeProps {
   tab: Tab;
-  /** Panes of this tab (more than one draws captions and dims the unfocused ones). */
+  /** Panes of this tab (more than one adds a close and a focus rule, and dims the unfocused). */
   paneCount: number;
   paneMeta: Readonly<Record<string, PaneMeta>>;
   dispatch(action: LayoutAction): void;
@@ -190,63 +191,102 @@ function SplitView({ node, ...props }: TreeProps & { node: SplitNode }) {
   );
 }
 
+/**
+ * A pane's strip: the session it shows (lamp, label, target, protection, state word), a middle
+ * slot, and its tools. Container queries fold it as the pane narrows: below 32rem the target and
+ * the state word go to screen readers, below 18rem the Files label folds to its glyph, below 14rem
+ * the protection mark goes too; the label, which shrinks only as much as it must, is what remains.
+ */
 function PaneCaption({
   leaf,
   place,
   active,
+  multi,
   meta,
 }: {
   leaf: LeafNode;
   place: PanePlace;
   active: boolean;
+  multi: boolean;
   meta: PaneMeta | undefined;
 }) {
   const t = useTranslations('workspace');
-  const { labels, closePane } = useWorkspace();
+  const { labels, sessions, closePane } = useWorkspace();
   const session = leaf.sessionId ? labels.get(leaf.sessionId) : undefined;
+  // Target and protection come with the live list; until then the label and state stand alone.
+  const entry = leaf.sessionId ? sessions.get(leaf.sessionId) : undefined;
   const label = session?.label ?? (leaf.sessionId ? t('pane.loading') : t('pane.emptyPane'));
+  const lit = active || !multi;
+  const protectionLabel = t(`protection.${entry?.protection ?? 'pending'}`);
+  const target = entry ? sessionTarget(entry, t('localTarget')) : null;
   return (
     <div
       className={cx(
-        'flex h-7 shrink-0 items-center gap-2 border-line border-b ps-2.5 pe-0.5',
-        active ? 'bg-surface' : 'bg-transparent',
+        '@container flex h-9 shrink-0 items-center gap-2 border-line border-b ps-2.5 pe-1',
+        lit ? 'bg-surface' : 'bg-transparent',
       )}
     >
       {session ? <StateLamp status={session.status} /> : null}
       <span
+        title={label}
         className={cx(
-          'min-w-0 shrink truncate font-semibold text-xs leading-4',
-          active ? 'text-ink' : 'text-ink-muted',
+          'min-w-0 truncate font-semibold text-sm leading-4',
+          lit ? 'text-ink' : 'text-ink-muted',
         )}
       >
         {label}
       </span>
+      {target ? (
+        // Gives way well before the label when a long hostname leaves no room.
+        <span
+          title={target}
+          className="min-w-0 shrink-[4] truncate font-data font-medium text-ink-muted text-xs @max-[32rem]:sr-only"
+        >
+          {target}
+        </span>
+      ) : null}
+      {entry ? (
+        <span
+          className="flex shrink-0 items-center text-ink @max-[14rem]:sr-only"
+          title={protectionLabel}
+        >
+          <ProtectionMark protection={entry.protection} />
+          <span className="sr-only">{protectionLabel}</span>
+        </span>
+      ) : null}
       {session ? (
-        <span className="shrink-0 text-ink-muted text-xs max-lg:sr-only">
+        <span className="shrink-0 whitespace-nowrap text-ink-muted text-xs @max-[32rem]:sr-only">
           {t(`status.${session.status}`)}
         </span>
       ) : null}
-      {meta?.title ? (
-        <span className="min-w-0 flex-1 truncate text-ink-muted text-xs">{meta.title}</span>
-      ) : (
-        <span className="flex-1" />
-      )}
-      {leaf.sessionId ? (
-        <FilesCaptionButton paneId={leaf.id} sessionId={leaf.sessionId} label={label} />
-      ) : null}
-      <button
-        type="button"
-        onClick={() => closePane(place)}
-        aria-label={t('pane.closeLabel', { label })}
-        title={t('pane.close')}
-        className={cx(
-          'flex size-6 shrink-0 items-center justify-center rounded-sm text-ink-muted',
-          'transition-colors duration-(--duration-step) ease-(--ease-out) hover:bg-surface-raised hover:text-ink',
-          'focus-visible:outline-2 focus-visible:outline-focus focus-visible:-outline-offset-2',
-        )}
-      >
-        <CloseIcon size={14} />
-      </button>
+      {/* The middle slot: takes the free space and is the first to give it up. */}
+      <div className="flex min-w-0 flex-1 items-center">
+        {meta?.title ? (
+          <span title={meta.title} className="min-w-0 truncate text-ink-muted text-xs">
+            {meta.title}
+          </span>
+        ) : null}
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
+        {leaf.sessionId ? (
+          <FilesPaneButton paneId={leaf.id} sessionId={leaf.sessionId} label={label} />
+        ) : null}
+        {multi ? (
+          <button
+            type="button"
+            onClick={() => closePane(place)}
+            aria-label={t('pane.closeLabel', { label })}
+            title={t('pane.close')}
+            className={cx(
+              'flex size-6 shrink-0 items-center justify-center rounded-sm text-ink-muted',
+              'transition-colors duration-(--duration-step) ease-(--ease-out) hover:bg-surface-raised hover:text-ink',
+              'focus-visible:outline-2 focus-visible:outline-focus focus-visible:-outline-offset-2',
+            )}
+          >
+            <CloseIcon size={14} />
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -348,8 +388,14 @@ function LeafView({ node, tab, paneCount, paneMeta }: TreeProps & { node: LeafNo
         multi && (active ? 'border-t-2 border-t-accent' : 'border-t-2'),
       )}
     >
-      {multi ? (
-        <PaneCaption leaf={node} place={place} active={active} meta={paneMeta[node.id]} />
+      {multi || node.sessionId ? (
+        <PaneCaption
+          leaf={node}
+          place={place}
+          active={active}
+          multi={multi}
+          meta={paneMeta[node.id]}
+        />
       ) : null}
       <div className="relative min-h-0 flex-1">
         {node.sessionId ? (
