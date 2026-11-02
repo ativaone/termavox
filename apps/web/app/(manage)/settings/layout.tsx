@@ -15,6 +15,8 @@ export default async function SettingsLayout({ children }: { children: ReactNode
             { href: '/settings/account', label: t('account.tab') },
             { href: '/settings/terminal', label: t('terminal.tab') },
             { href: '/settings/notes', label: t('notes.tab') },
+            { href: '/settings/language', label: t('language.tab') },
+            { href: '/settings/theme', label: t('theme.tab') },
           ]}
         />
       </div>

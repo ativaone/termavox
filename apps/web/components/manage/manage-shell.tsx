@@ -1,6 +1,5 @@
-import { getLocale, getTranslations } from 'next-intl/server';
+import { getTranslations } from 'next-intl/server';
 import type { ReactNode } from 'react';
-import { isLocale } from '../../i18n/locales.ts';
 import { ROUTES } from '../../lib/routes.ts';
 import { VERSION } from '../../lib/version.ts';
 import { HelpButton } from '../help-links.tsx';
@@ -35,8 +34,6 @@ export async function ManageShell({
 }) {
   const t = await getTranslations('nav');
   const tc = await getTranslations('common');
-  const locale = await getLocale();
-  const current = isLocale(locale) ? locale : 'en';
   const items: NavItem[] = [
     { href: '/workspace', label: t('workspace'), icon: <TerminalIcon size={16} /> },
     { href: ROUTES.servers, label: t('servers'), icon: <ServerIcon size={16} /> },
@@ -70,7 +67,6 @@ export async function ManageShell({
             <AccountMenu
               username={username}
               isAdmin={isAdmin}
-              locale={current}
               version={VERSION}
               compact
               placement="below"
@@ -85,12 +81,7 @@ export async function ManageShell({
           <span className="flex-1" />
           <div className="flex items-center gap-1 border-line border-t pt-2">
             <div className="min-w-0 flex-1">
-              <AccountMenu
-                username={username}
-                isAdmin={isAdmin}
-                locale={current}
-                version={VERSION}
-              />
+              <AccountMenu username={username} isAdmin={isAdmin} version={VERSION} />
             </div>
             <HelpButton />
           </div>

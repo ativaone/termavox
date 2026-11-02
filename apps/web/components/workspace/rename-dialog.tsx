@@ -13,9 +13,9 @@ export interface RenameTarget {
 
 /**
  * The session rename dialog (plan D-28), opened from a row's, a tile's or the phone list's menu:
- * a native modal dialog in the style of the language dialog, the current name prefilled and
- * selected, Enter saves, Escape cancels, and the daemon's refusal (a name of only spaces) shows
- * inline. One instance lives in the shell; `target` names the session being renamed.
+ * a small native modal dialog, the current name prefilled and selected, Enter saves, Escape
+ * cancels, and the daemon's refusal (a name of only spaces) shows inline. One instance lives in
+ * the shell; `target` names the session being renamed.
  */
 export function RenameDialog({
   target,

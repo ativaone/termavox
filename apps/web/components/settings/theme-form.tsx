@@ -8,7 +8,10 @@ import { ThemeChoices } from '../theme-choices.tsx';
 import { SubmitButton } from '../ui/submit-button.tsx';
 import { useKeepChoicesOnReset } from '../ui/use-keep-choices.ts';
 
-/** The theme on the account settings page (plan D-55): the dialog's choices, applied in place. */
+/**
+ * The theme on Settings → Theme (plan D-55, D-60): System, Light and Dark as choice cards with
+ * their miniatures, and Apply, which re-renders the page in the chosen theme.
+ */
 export function ThemeForm({ theme }: { theme: Theme }) {
   const t = useTranslations('common.theme');
   // Null until the user picks, so the page shows the theme in force after every re-render.
@@ -23,7 +26,7 @@ export function ThemeForm({ theme }: { theme: Theme }) {
   };
 
   return (
-    <form ref={formRef} action={apply} className="flex flex-col gap-4">
+    <form ref={formRef} action={apply} className="flex max-w-[26rem] flex-col gap-4">
       <ThemeChoices chosen={shown} onChange={setChosen} />
       <div>
         <SubmitButton disabled={shown === theme}>{t('apply')}</SubmitButton>

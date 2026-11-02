@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import type { ReactNode } from 'react';
+import { type ReactNode, useLayoutEffect, useRef } from 'react';
 import { cx } from '../ui/cx.ts';
 import { NavRow } from '../ui/nav-row.tsx';
 
@@ -73,14 +73,28 @@ export function ManageNavRow({ items, label }: { items: NavItem[]; label: string
 }
 
 /**
- * Section tabs inside a page (Settings: Account / Terminal; Admin: Users / Settings / Audit),
- * drawn under the page heading: the current one carries the cyan underline.
+ * Section tabs inside a page (Settings: Account / Terminal / Notes / Language / Theme; Admin:
+ * Users / Settings / Audit), drawn under the page heading: the current one carries the cyan
+ * underline. Where they do not fit (a phone) they scroll sideways, and the current one is
+ * brought into view.
  */
 export function SubNav({ items, label }: { items: NavItem[]; label: string }) {
   const pathname = usePathname();
+  const listRef = useRef<HTMLUListElement>(null);
+  // Only the strip scrolls, never the page (`scrollIntoView` would move the page too).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs again when the route changes.
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    const current = list?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!list || !current) return;
+    const strip = list.getBoundingClientRect();
+    const tab = current.getBoundingClientRect();
+    if (tab.left < strip.left) list.scrollLeft -= strip.left - tab.left;
+    else if (tab.right > strip.right) list.scrollLeft += tab.right - strip.right;
+  }, [pathname]);
   return (
     <nav aria-label={label} className="border-line border-b">
-      <ul className="-mb-px flex gap-1 overflow-x-auto">
+      <ul ref={listRef} className="-mb-px flex gap-1 overflow-x-auto">
         {items.map((item) => {
           const current = isCurrent(pathname, item);
           return (

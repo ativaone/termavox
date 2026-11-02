@@ -148,6 +148,9 @@ upgraded: remove it together with its volumes and install fresh from a new clone
 
 ### Changed
 
+- Settings are in one place: the account menu has a single Settings entry, and the Settings
+  screen has the tabs Account, Terminal, Notes, Language and Theme. Language and Theme moved out
+  of the menu's dialogs and the Account tab into tabs of their own.
 - Every pane now has a strip with its session's name, server, protection and state, and that
   session's tools. The Files button moved there from the tab row, away from the split controls,
   and keeps its label unless the pane is narrow. The strip takes about two terminal rows.

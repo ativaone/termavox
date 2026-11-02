@@ -2,7 +2,6 @@
 
 import { useTranslations } from 'next-intl';
 import { type ReactNode, useRef } from 'react';
-import type { Locale } from '../../i18n/locales.ts';
 import { ROUTES } from '../../lib/routes.ts';
 import type { BayData, BaySession } from '../../lib/sessions/types.ts';
 import { HelpButton } from '../help-links.tsx';
@@ -35,7 +34,6 @@ const EDGE_STEP_LARGE_PX = 64;
 export interface SidebarProps {
   username: string;
   isAdmin: boolean;
-  locale: Locale;
   /** The running Termavox version, for the account menu's foot. */
   version: string;
   serverCount: number;
@@ -94,7 +92,6 @@ function ToggleButton({
 export function Sidebar({
   username,
   isAdmin,
-  locale,
   version,
   serverCount,
   data,
@@ -185,13 +182,7 @@ export function Sidebar({
             <NavIcon key={item.href} href={item.href} icon={item.icon} label={item.label} />
           ))}
           <HelpButton />
-          <AccountMenu
-            username={username}
-            isAdmin={isAdmin}
-            locale={locale}
-            version={version}
-            compact
-          />
+          <AccountMenu username={username} isAdmin={isAdmin} version={version} compact />
         </div>
       </aside>
     );
@@ -216,7 +207,6 @@ export function Sidebar({
             <AccountMenu
               username={username}
               isAdmin={isAdmin}
-              locale={locale}
               version={version}
               compact
               placement="below"
@@ -259,7 +249,7 @@ export function Sidebar({
         </nav>
         <div className="flex items-center gap-1 max-md:hidden">
           <div className="min-w-0 flex-1">
-            <AccountMenu username={username} isAdmin={isAdmin} locale={locale} version={version} />
+            <AccountMenu username={username} isAdmin={isAdmin} version={version} />
           </div>
           <HelpButton />
         </div>

@@ -2,7 +2,7 @@
  * The interface theme (plan D-55): the app's chrome only. Terminals keep their own colour scheme
  * (lib/preferences/terminal.ts), whatever the theme. Stored per user in `user_preferences.theme`
  * and mirrored in a cookie so pages without a session (sign-in, setup) open in the same theme.
- * Browser-safe: the theme dialog reads the same values.
+ * Browser-safe: the theme choices' miniatures read the same values.
  */
 
 export const THEMES = ['system', 'light', 'dark'] as const;

@@ -247,16 +247,6 @@ export function GlobeIcon(props: IconProps) {
   );
 }
 
-/** The interface theme (plan D-55): a disc half lit, half dark. */
-export function ThemeIcon(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <circle cx="12" cy="12" r="8.75" />
-      <path d="M12 3.25a8.75 8.75 0 0 1 0 17.5Z" fill="currentColor" stroke="none" />
-    </Icon>
-  );
-}
-
 /** Split the pane side by side (a new pane on the right). */
 export function SplitRightIcon(props: IconProps) {
   return (
@@ -451,16 +441,6 @@ export function UsersIcon(props: IconProps) {
       <circle cx="9.5" cy="8.5" r="3.25" />
       <path d="M3.75 19.5a5.75 5.75 0 0 1 11.5 0" />
       <path d="M16 5.6a3.25 3.25 0 0 1 0 5.8M17.5 14.2a5.75 5.75 0 0 1 2.75 5.3" />
-    </Icon>
-  );
-}
-
-/** Account (a person). */
-export function UserIcon(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <circle cx="12" cy="8.5" r="3.5" />
-      <path d="M5.5 19.75a6.5 6.5 0 0 1 13 0" />
     </Icon>
   );
 }

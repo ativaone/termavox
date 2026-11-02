@@ -2,20 +2,14 @@
 
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { useRef } from 'react';
-import type { Locale } from '../../i18n/locales.ts';
 import { signOut } from '../../lib/actions/auth.ts';
 import { REPOSITORY_URL } from '../../lib/links.ts';
 import { leaveNotesOnSignOut } from '../../lib/notes/shared-store.ts';
 import {
   ExternalLinkIcon,
   GitHubIcon,
-  GlobeIcon,
   SettingsIcon,
   SignOutIcon,
-  TerminalIcon,
-  ThemeIcon,
-  UserIcon,
   UsersIcon,
 } from '../icons/index.tsx';
 import { Avatar } from '../ui/avatar.tsx';
@@ -23,32 +17,26 @@ import { cx } from '../ui/cx.ts';
 import {
   MENU_ITEM_CLASSES,
   MENU_ITEM_QUIET_CLASSES,
-  MenuItem,
-  MenuLabel,
   MenuLink,
   MenuPopover,
   MenuSeparator,
   usePopoverMenu,
 } from '../ui/menu.tsx';
-import { LanguageDialog } from './language-dialog.tsx';
-import { ThemeDialog } from './theme-dialog.tsx';
 
 const MENU_WIDTH = 248;
 
 /**
- * The account menu (plan D-28): the user's name with a gear opens settings (account, terminal,
- * "Language…" and "Theme…", which open their dialogs, plan D-55), Admin for administrators, and
- * Sign out, then a smaller, quieter row to the source code on GitHub in a new tab (plan D-40)
- * and, under it, the running version as plain text (not a menu item). A native popover, placed
- * above or below its
- * control; sign-out stays a form post. `compact` shows the avatar alone (the rail, the phone
- * header). `version` comes from a server component that required a session (lib/version.ts), so
- * it never reaches a signed-out visitor.
+ * The account menu (plan D-28): the user's name with a gear opens one Settings item (plan D-60:
+ * the Settings screen, whose tabs hold the account, terminal, notes, language and theme), Admin
+ * for administrators, and Sign out, then a smaller, quieter row to the source code on GitHub in
+ * a new tab (plan D-40) and, under it, the running version as plain text (not a menu item). A
+ * native popover, placed above or below its control; sign-out stays a form post. `compact` shows
+ * the avatar alone (the rail, the phone header). `version` comes from a server component that
+ * required a session (lib/version.ts), so it never reaches a signed-out visitor.
  */
 export function AccountMenu({
   username,
   isAdmin,
-  locale,
   version,
   compact = false,
   placement = 'above',
@@ -56,7 +44,6 @@ export function AccountMenu({
 }: {
   username: string;
   isAdmin: boolean;
-  locale: Locale;
   /** The running Termavox version, shown at the menu's foot. */
   version: string;
   compact?: boolean;
@@ -69,15 +56,6 @@ export function AccountMenu({
   const tc = useTranslations('common');
   const th = useTranslations('help');
   const menu = usePopoverMenu({ width: MENU_WIDTH, align: compact ? 'start' : 'end' });
-  const languageRef = useRef<HTMLDialogElement>(null);
-  const themeRef = useRef<HTMLDialogElement>(null);
-
-  const openDialog = (dialog: HTMLDialogElement | null) => {
-    menu.hide();
-    // The anchor takes the focus first, so closing the dialog gives it back there.
-    menu.anchorRef.current?.focus();
-    dialog?.showModal();
-  };
 
   return (
     <>
@@ -122,23 +100,25 @@ export function AccountMenu({
             <span className="min-w-0 truncate font-semibold text-ink text-sm">{username}</span>
           </div>
           <MenuSeparator />
-          <MenuLabel>{tn('settings')}</MenuLabel>
-          <MenuLink Component={Link} href="/settings/account" icon={<UserIcon size={16} />}>
-            {t('accountSettings')}
+          {/* A link leaves the popover open (it is no outside click); the manage shell outlives the
+              navigation, so the menu closes itself. */}
+          <MenuLink
+            Component={Link}
+            href="/settings/account"
+            icon={<SettingsIcon size={16} />}
+            onClick={menu.hide}
+          >
+            {tn('settings')}
           </MenuLink>
-          <MenuLink Component={Link} href="/settings/terminal" icon={<TerminalIcon size={16} />}>
-            {t('terminalSettings')}
-          </MenuLink>
-          <MenuItem icon={<GlobeIcon size={16} />} onClick={() => openDialog(languageRef.current)}>
-            {t('language')}
-          </MenuItem>
-          <MenuItem icon={<ThemeIcon size={16} />} onClick={() => openDialog(themeRef.current)}>
-            {t('theme')}
-          </MenuItem>
           {isAdmin ? (
             <>
               <MenuSeparator />
-              <MenuLink Component={Link} href="/admin/users" icon={<UsersIcon size={16} />}>
+              <MenuLink
+                Component={Link}
+                href="/admin/users"
+                icon={<UsersIcon size={16} />}
+                onClick={menu.hide}
+              >
                 {tn('admin')}
               </MenuLink>
             </>
@@ -180,8 +160,6 @@ export function AccountMenu({
           </p>
         </div>
       </MenuPopover>
-      <LanguageDialog dialogRef={languageRef} locale={locale} />
-      <ThemeDialog dialogRef={themeRef} />
     </>
   );
 }

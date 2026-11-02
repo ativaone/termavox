@@ -49,6 +49,8 @@
     "settingsAccount": "Configurações da conta",
     "settingsTerminal": "Configurações do terminal",
     "settingsNotes": "Configurações das notas",
+    "settingsLanguage": "Configurações de idioma",
+    "settingsTheme": "Configurações de tema",
     "adminUsers": "Usuários",
     "adminUser": "Usuário",
     "adminSettings": "Configurações da instância",
@@ -284,11 +286,6 @@
       "label": "Conta",
       "signedInAs": "Conectado como {username}",
       "menu": "Menu da conta",
-      "accountSettings": "Configurações da conta",
-      "terminalSettings": "Configurações do terminal",
-      "language": "Idioma…",
-      "theme": "Tema…",
-      "cancel": "Cancelar",
       "version": "Termavox <data>{version}</data>"
     },
     "rename": {
@@ -1114,14 +1111,6 @@
           "required": "A verificação em duas etapas é obrigatória para a sua conta.",
           "generic": "Não foi possível desativar a verificação em duas etapas. Tente de novo."
         }
-      },
-      "language": {
-        "title": "Idioma",
-        "intro": "Usado na interface e nos avisos escritos nos seus terminais."
-      },
-      "theme": {
-        "title": "Tema",
-        "intro": "A aparência do Termavox em todos os navegadores em que você entrar. Os terminais mantêm o esquema de cores das Configurações do terminal."
       }
     },
     "terminal": {
@@ -1212,6 +1201,16 @@
         "fontSize": "Use um tamanho de fonte de {min} a {max}.",
         "generic": "Não foi possível salvar as configurações. Confira os campos e tente de novo."
       }
+    },
+    "language": {
+      "tab": "Idioma",
+      "title": "Idioma",
+      "intro": "O idioma da interface em qualquer navegador em que você entrar."
+    },
+    "theme": {
+      "tab": "Tema",
+      "title": "Tema",
+      "intro": "Claro, escuro ou seguindo o seu dispositivo. Os terminais mantêm o esquema de cores deles, na aba Terminal."
     }
   },
   "admin": {

@@ -977,7 +977,6 @@ export function WorkspaceShell({
         <Sidebar
           username={username}
           isAdmin={isAdmin}
-          locale={locale}
           version={version}
           serverCount={serverCount}
           data={bay}

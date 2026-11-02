@@ -8,10 +8,10 @@ import { isTheme, THEME_COOKIE, THEME_COOKIE_MAX_AGE_S } from '../preferences/th
 import { saveTheme } from '../repo/preferences.ts';
 
 /**
- * The theme choice (plan D-55), from the account menu's dialog or the account settings page:
- * writes this browser's cookie and, when signed in (including a user held on a forced password
- * change or enrollment), the account's `user_preferences.theme`. Setting a cookie in a Server
- * Action re-renders the route, root layout included, in the new theme.
+ * The theme choice (plan D-55), from Settings → Theme (plan D-60): writes this browser's cookie
+ * and, when signed in (including a user held on a forced password change or enrollment), the
+ * account's `user_preferences.theme`. Setting a cookie in a Server Action re-renders the route,
+ * root layout included, in the new theme.
  */
 export async function setTheme(formData: FormData): Promise<void> {
   const theme = formData.get('theme');

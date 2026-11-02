@@ -283,15 +283,6 @@ export function MenuLink({
   );
 }
 
-/** A group heading inside a menu (not focusable). */
-export function MenuLabel({ children }: { children: ReactNode }) {
-  return (
-    <p className="px-2.5 pt-2 pb-1 font-semibold text-ink-muted text-xs" role="presentation">
-      {children}
-    </p>
-  );
-}
-
 export function MenuSeparator({ spaced = false }: { spaced?: boolean }) {
   return <hr className={cx('mx-1 border-line border-t', spaced ? 'my-2' : 'my-1')} />;
 }

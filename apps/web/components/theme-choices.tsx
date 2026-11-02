@@ -7,8 +7,8 @@ import { choiceCardClasses, radioClasses } from './ui/radio.ts';
 
 /**
  * The three theme choices (plan D-55) as choice cards, each with a miniature of the interface in
- * that theme (System shows both, split on the diagonal). Shared by the theme dialog and the
- * account settings page; the form around it owns Apply.
+ * that theme (System shows both, split on the diagonal), for Settings → Theme (plan D-60); the
+ * form around it owns Apply.
  */
 export function ThemeChoices({
   chosen,

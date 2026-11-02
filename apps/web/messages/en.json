@@ -49,6 +49,8 @@
     "settingsAccount": "Account settings",
     "settingsTerminal": "Terminal settings",
     "settingsNotes": "Notes settings",
+    "settingsLanguage": "Language settings",
+    "settingsTheme": "Theme settings",
     "adminUsers": "Users",
     "adminUser": "User",
     "adminSettings": "Instance settings",
@@ -284,11 +286,6 @@
       "label": "Account",
       "signedInAs": "Signed in as {username}",
       "menu": "Account menu",
-      "accountSettings": "Account settings",
-      "terminalSettings": "Terminal settings",
-      "language": "Language…",
-      "theme": "Theme…",
-      "cancel": "Cancel",
       "version": "Termavox <data>{version}</data>"
     },
     "rename": {
@@ -1114,14 +1111,6 @@
           "required": "Two-step verification is required for your account.",
           "generic": "Two-step verification could not be turned off. Try again."
         }
-      },
-      "language": {
-        "title": "Language",
-        "intro": "Used for the interface and for notices written into your terminals."
-      },
-      "theme": {
-        "title": "Theme",
-        "intro": "How Termavox looks in every browser you sign in to. Terminals keep the colour scheme set in Terminal settings."
       }
     },
     "terminal": {
@@ -1212,6 +1201,16 @@
         "fontSize": "Use a font size from {min} to {max}.",
         "generic": "The settings could not be saved. Check the fields and try again."
       }
+    },
+    "language": {
+      "tab": "Language",
+      "title": "Language",
+      "intro": "The language of the interface, in any browser where you sign in."
+    },
+    "theme": {
+      "tab": "Theme",
+      "title": "Theme",
+      "intro": "Light, dark, or following your device. Terminals keep their own color scheme, under Terminal."
     }
   },
   "admin": {

@@ -16,7 +16,7 @@ export default async function AuthLayout({ children }: { children: ReactNode }) 
     <div className="ground-glow relative flex min-h-dvh flex-col">
       <SkipLink label={t('skipToContent')} />
       <div className="absolute top-3 end-3 sm:top-4 sm:end-4">
-        <LocaleSwitcher locale={isLocale(locale) ? locale : 'en'} discreet />
+        <LocaleSwitcher locale={isLocale(locale) ? locale : 'en'} />
       </div>
       <header className="flex justify-center px-4 pt-14 sm:pt-16">
         <Wordmark />

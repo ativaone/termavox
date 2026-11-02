@@ -8,9 +8,10 @@ import { SESSION_COOKIE } from '../auth-cookies.ts';
 import { setUserLocale } from '../repo/users.ts';
 
 /**
- * The locale switcher: always writes the `NEXT_LOCALE` cookie and, when signed in (including a
- * user held on a forced password change or enrollment), the account's `user.locale`. Setting a
- * cookie in a Server Action re-renders the current route in the new language.
+ * The language choice, from Settings → Language (plan D-60) or the auth pages' corner control:
+ * always writes the `NEXT_LOCALE` cookie and, when signed in (including a user held on a forced
+ * password change or enrollment), the account's `user.locale`. Setting a cookie in a Server
+ * Action re-renders the current route in the new language.
  */
 export async function setLocale(formData: FormData): Promise<void> {
   const locale = formData.get('locale');
