@@ -6,13 +6,14 @@ import type { BayData, BaySession, SessionLabel } from './types.ts';
  * The bay from the live `sessions.list` (every session the user ever had, newest first): the
  * same shape and order as the server-rendered bay (lib/repo/sessions.ts), so switching from the
  * first paint to live data moves nothing: non-ended sessions oldest first, then the latest
- * ENDED_SHOWN ended ones, newest first.
+ * ENDED_SHOWN ended ones plus any older ended one that has notes, newest first. The note counts
+ * come from the caller: the live list does not carry them.
  */
 
 /** A live entry may carry the progress of a retry round (plan D-31, `session.status`). */
 type LiveSummary = SessionSummary & { attempt?: number | null; retryUntil?: number | null };
 
-export function toBaySession(summary: LiveSummary): BaySession {
+export function toBaySession(summary: LiveSummary, noteCount = 0): BaySession {
   // Between the attempts of a retry round the row stays in Reconnecting instead of jumping to
   // Connecting and back at every attempt.
   const retrying = (summary.attempt ?? null) !== null || (summary.retryUntil ?? null) !== null;
@@ -30,22 +31,28 @@ export function toBaySession(summary: LiveSummary): BaySession {
     serverDeleted: summary.serverId === null,
     createdAt: summary.createdAt,
     endedAt: summary.endedAt,
+    noteCount,
   };
 }
 
 const byId = (a: SessionSummary, b: SessionSummary): number =>
   a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 
-export function toBayData(summaries: readonly LiveSummary[]): BayData {
+export function toBayData(
+  summaries: readonly LiveSummary[],
+  noteCounts: Record<string, number> = {},
+): BayData {
   const live = summaries
     .filter((s) => s.status !== 'ended')
     .sort((a, b) => a.createdAt - b.createdAt || byId(a, b));
   const ended = summaries
     .filter((s) => s.status === 'ended')
     .sort((a, b) => (b.endedAt ?? b.createdAt) - (a.endedAt ?? a.createdAt) || byId(a, b));
+  const shownEnded = ended.filter((s, i) => i < ENDED_SHOWN || (noteCounts[s.id] ?? 0) > 0);
   return {
-    sessions: [...live, ...ended.slice(0, ENDED_SHOWN)].map(toBaySession),
+    sessions: [...live, ...shownEnded].map((s) => toBaySession(s, noteCounts[s.id] ?? 0)),
     endedTotal: ended.length,
+    noteCounts,
   };
 }
 

@@ -188,6 +188,26 @@ export const sessionEvents = sqliteTable(
   ],
 );
 
+/**
+ * The named plain-text notes of a session (plan D-58), written by web. They go with the session:
+ * removing it removes them. `revision` is the compare-and-swap counter of the notes API.
+ */
+export const sessionNotes = sqliteTable(
+  'session_notes',
+  {
+    id: text('id').primaryKey(),
+    sessionId: text('session_id')
+      .notNull()
+      .references(() => sessions.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    body: text('body').notNull().default(''),
+    revision: integer('revision').notNull().default(1),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index('session_notes_session_idx').on(t.sessionId)],
+);
+
 export const auditEvents = sqliteTable(
   'audit_events',
   {

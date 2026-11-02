@@ -19,14 +19,21 @@ export interface BaySession {
   serverDeleted: boolean;
   createdAt: number;
   endedAt: number | null;
+  /** How many notes it has (plan D-58). */
+  noteCount: number;
 }
 
 /** What a tab or a pane caption shows of a session: its label and its state edge. */
 export type SessionLabel = Pick<BaySession, 'label' | 'status'>;
 
 export interface BayData {
-  /** Every non-ended session plus the latest ended ones (see ENDED_SHOWN). */
+  /**
+   * Every non-ended session, the latest ENDED_SHOWN ended ones and any older ended one that has
+   * notes, so a note never becomes unreachable.
+   */
   sessions: BaySession[];
-  /** How many ended sessions exist in total (the bay lists at most ENDED_SHOWN). */
+  /** How many ended sessions exist in total, listed or not. */
   endedTotal: number;
+  /** Session id → how many notes: every session of the user that has any. */
+  noteCounts: Record<string, number>;
 }

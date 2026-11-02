@@ -15,6 +15,7 @@ const bay = (id: string, label: string, status: BaySession['status']): BaySessio
   serverDeleted: false,
   createdAt: 1,
   endedAt: null,
+  noteCount: 0,
 });
 
 describe('tab and pane labels', () => {

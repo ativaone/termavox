@@ -1,7 +1,7 @@
 import type { SessionStatus } from '@termavox/protocol/client';
 import type { BaySession } from './types.ts';
 
-/** The bay lists at most this many ended sessions (plan §11.1). */
+/** The bay lists this many ended sessions, plus older ones that have notes (plan §11.1, D-58). */
 export const ENDED_SHOWN = 20;
 
 /**

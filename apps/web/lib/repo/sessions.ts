@@ -3,6 +3,7 @@ import type { TermavoxDb } from '@termavox/db';
 import { Protection, SessionStatus } from '@termavox/protocol';
 import { ENDED_SHOWN } from '../sessions/lanes.ts';
 import type { BayData, BaySession } from '../sessions/types.ts';
+import { countNotesBySession } from './notes.ts';
 
 /**
  * User-scoped reads for the workspace bay (plan §10.2 isolation). Every statement filters on
@@ -33,7 +34,7 @@ const SELECT = `
          s.server_id IS NULL AS server_deleted, s.created_at, s.ended_at
   FROM sessions s`;
 
-function toBaySession(row: SessionRow): BaySession {
+function toBaySession(row: SessionRow, noteCount: number): BaySession {
   const status = SessionStatus.safeParse(row.status);
   const protection = Protection.safeParse(row.protection);
   return {
@@ -50,10 +51,14 @@ function toBaySession(row: SessionRow): BaySession {
     serverDeleted: row.server_deleted !== 0,
     createdAt: row.created_at,
     endedAt: row.ended_at,
+    noteCount,
   };
 }
 
-/** The signed-in user's bay: all non-ended sessions (oldest first) and the latest ended ones. */
+/**
+ * The signed-in user's bay: all non-ended sessions (oldest first), then the latest ENDED_SHOWN
+ * ended ones plus any older ended one that has notes (newest first).
+ */
 export function listBaySessions(db: TermavoxDb, userId: string): BayData {
   const sqlite = db.$client;
   const live = sqlite
@@ -62,11 +67,19 @@ export function listBaySessions(db: TermavoxDb, userId: string): BayData {
   const ended = sqlite
     .prepare(
       `${SELECT} WHERE s.user_id = ? AND s.status = 'ended'
-       ORDER BY COALESCE(s.ended_at, s.created_at) DESC, s.id LIMIT ?`,
+         AND (s.id IN (SELECT id FROM sessions WHERE user_id = ? AND status = 'ended'
+                       ORDER BY COALESCE(ended_at, created_at) DESC, id LIMIT ?)
+              OR EXISTS (SELECT 1 FROM session_notes n WHERE n.session_id = s.id))
+       ORDER BY COALESCE(s.ended_at, s.created_at) DESC, s.id`,
     )
-    .all(userId, ENDED_SHOWN) as SessionRow[];
+    .all(userId, userId, ENDED_SHOWN) as SessionRow[];
   const { total } = sqlite
     .prepare(`SELECT COUNT(*) AS total FROM sessions WHERE user_id = ? AND status = 'ended'`)
     .get(userId) as { total: number };
-  return { sessions: [...live, ...ended].map(toBaySession), endedTotal: total };
+  const noteCounts = countNotesBySession(db, userId);
+  return {
+    sessions: [...live, ...ended].map((row) => toBaySession(row, noteCounts[row.id] ?? 0)),
+    endedTotal: total,
+    noteCounts,
+  };
 }

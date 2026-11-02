@@ -135,6 +135,30 @@ describe('live bay', () => {
     ]);
   });
 
+  it('also lists older ended sessions that have notes, like the server bay', () => {
+    const list = [
+      summary('new', 'connected', 30),
+      ...Array.from({ length: 25 }, (_, i) => summary(`e${i}`, 'ended', 1, 100 + i)),
+    ];
+    const noteCounts = { e0: 2, e3: 1, e24: 1, new: 4 };
+    const bay = toBayData(list, noteCounts);
+    expect(bay.endedTotal).toBe(25);
+    expect(bay.noteCounts).toEqual(noteCounts);
+    const newest = Array.from({ length: 20 }, (_, i) => `e${24 - i}`);
+    expect(bay.sessions.map((s) => s.id)).toEqual(['new', ...newest, 'e3', 'e0']);
+    const count = (id: string) => bay.sessions.find((s) => s.id === id)?.noteCount;
+    expect(count('new')).toBe(4);
+    expect(count('e0')).toBe(2);
+    expect(count('e24')).toBe(1);
+    expect(count('e23')).toBe(0);
+
+    // Without counts: the plain window.
+    const plain = toBayData(list);
+    expect(plain.noteCounts).toEqual({});
+    expect(plain.sessions.map((s) => s.id)).toEqual(['new', ...newest]);
+    expect(plain.sessions.every((s) => s.noteCount === 0)).toBe(true);
+  });
+
   it('takes the kind from the summary and marks a session whose server was deleted', () => {
     const local = {
       ...summary('here', 'connected', 5),

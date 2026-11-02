@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
+import { createNote } from '../lib/repo/notes.ts';
 import { countServers } from '../lib/repo/servers.ts';
 import { listBaySessions } from '../lib/repo/sessions.ts';
 import { setUserLocale } from '../lib/repo/users.ts';
@@ -136,6 +137,55 @@ describe('bay repository (user-scoped)', () => {
     }
   });
 
+  it('also lists older ended sessions that have notes, in order and without duplicates', () => {
+    const t = makeRuntime();
+    try {
+      const sqlite = t.rt.db.$client;
+      const user = addUser(sqlite, 'dana');
+      const other = addUser(sqlite, 'erin');
+      const ids: string[] = [];
+      for (let i = 0; i < ENDED_SHOWN + 5; i += 1) {
+        ids.push(
+          addSession(sqlite, user, null, `e-${i}`, 'ended', { created: i, ended: 1000 + i }),
+        );
+      }
+      const live = addSession(sqlite, user, null, 'live', 'connected');
+      const note = (sessionId: string) => {
+        expect(createNote(t.rt.db, user, sessionId, 'n').outcome).toBe('ok');
+      };
+      note(ids[0]!); // the oldest: past the window
+      note(ids[0]!);
+      note(ids[2]!); // past the window
+      note(ids[ENDED_SHOWN + 4]!); // the newest: already in the window
+      note(live);
+      addSession(sqlite, other, null, 'theirs', 'ended', { created: 1, ended: 1 });
+
+      const bay = listBaySessions(t.rt.db, user);
+      const ended = bay.sessions.filter((s) => s.status === 'ended').map((s) => s.label);
+      const newest = Array.from({ length: ENDED_SHOWN }, (_, i) => `e-${ENDED_SHOWN + 4 - i}`);
+      expect(ended).toEqual([...newest, 'e-2', 'e-0']);
+      expect(bay.sessions[0]?.label).toBe('live');
+      expect(bay.endedTotal).toBe(ENDED_SHOWN + 5);
+      expect(bay.noteCounts).toEqual({
+        [ids[0]!]: 2,
+        [ids[2]!]: 1,
+        [ids[ENDED_SHOWN + 4]!]: 1,
+        [live]: 1,
+      });
+      const count = (label: string) => bay.sessions.find((s) => s.label === label)?.noteCount;
+      expect(count('e-0')).toBe(2);
+      expect(count(`e-${ENDED_SHOWN + 4}`)).toBe(1);
+      expect(count(`e-${ENDED_SHOWN + 3}`)).toBe(0);
+      expect(count('live')).toBe(1);
+
+      // Another user's bay sees neither these sessions nor their counts.
+      expect(listBaySessions(t.rt.db, other).noteCounts).toEqual({});
+      expect(listBaySessions(t.rt.db, other).sessions.map((s) => s.label)).toEqual(['theirs']);
+    } finally {
+      t.cleanup();
+    }
+  });
+
   it('writes the locale only for the given user', () => {
     const t = makeRuntime();
     try {
@@ -169,6 +219,7 @@ describe('lanes', () => {
     serverDeleted: false,
     createdAt: 0,
     endedAt: null,
+    noteCount: 0,
   });
 
   it('orders non-empty lanes by urgency and keeps order inside a lane', () => {

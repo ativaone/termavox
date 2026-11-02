@@ -29,6 +29,13 @@
       "when": 1792595330026,
       "tag": "0003_session_notify",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1793584021430,
+      "tag": "0004_session_notes",
+      "breakpoints": true
     }
   ]
 }
