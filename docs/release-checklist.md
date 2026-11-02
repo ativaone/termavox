@@ -55,8 +55,8 @@ on a throwaway install, or upgrade the trial install to it. Then:
    paste), rotate the screen, lock the phone for a minute and come back: the session is still
    there. Open the Files panel, upload a photo and download it back. Optional (D-50): the
    owner's go-ahead after using the candidate in a desktop browser is enough for a release.
-7. **Both locales.** Switch en ↔ pt-BR (the corner control on the sign-in page; account menu →
-   Language… once signed in); walk sign-in, the workspace, servers and admin pages in each; no
+7. **Both locales.** Switch en ↔ pt-BR (the corner control on the sign-in page; Settings →
+   Language once signed in); walk sign-in, the workspace, servers and admin pages in each; no
    untranslated or truncated text; the choice persists after signing out and in. The account
    menu shows the candidate's version.
 8. **Host-key mismatch.** Change the host key of a trusted test server (or point a server at
