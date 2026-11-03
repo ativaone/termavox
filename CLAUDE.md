@@ -19,8 +19,8 @@
   against the UI's catalogs and the built site's links.
 - Each verified functional block is committed and pushed to `origin develop` (owner decisions
   D-20 and D-47, plan §16.2.1): the block's files by explicit path; subagents never commit.
-  `main` holds the final releases: it moves only by the fast-forward in
-  `docs/release-checklist.md`, never by a commit of its own. Verification is lean (D-21, plan
+  `main` holds the latest release, candidates included (D-61): it moves only by the fast-forward
+  in `docs/release-checklist.md`, never by a commit of its own. Verification is lean (D-21, plan
   §15): `pnpm check` always; when an area changed, its integration tests:
   `pnpm test:area <terminal|ssh|tmux>`, and for the `*.int.test.ts` files outside those areas
   (daemon, web terminal) `pnpm exec vitest run --project t1 <path>`. They need the test sshd
